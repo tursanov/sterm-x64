@@ -1,0 +1,282 @@
+diff -Nrup /tmp/ppp-2.4.4/chat/chat.c ppp-2.4.4/chat/chat.c
+--- /tmp/ppp-2.4.4/chat/chat.c	2004-02-02 06:36:46.000000000 +0300
++++ ppp-2.4.4/chat/chat.c	2008-10-10 18:09:46.000000000 +0400
+@@ -14,6 +14,10 @@
+  *	This software is in the public domain.
+  *
+  * -----------------
++ *	15-Oct-2003 added Unix message queues support.
++ *	Rearrange #include's in BSD style.
++ *	Sergey Tursanov <gsr@smtp.ru>.
++ *
+  *	22-May-99 added environment substitutuion, enabled with -E switch.
+  *	Andreas Arens <andras@cityweb.de>.
+  *
+@@ -90,18 +94,20 @@
+ static const char rcsid[] = "$Id: chat.c,v 1.30 2004/01/17 05:47:55 carlsonj Exp $";
+ #endif
+ 
+-#include <stdio.h>
++#include <sys/ipc.h>
++#include <sys/msg.h>
++#include <sys/stat.h>
++#include <sys/types.h>
+ #include <ctype.h>
+-#include <time.h>
++#include <errno.h>
+ #include <fcntl.h>
+ #include <signal.h>
+-#include <errno.h>
+-#include <string.h>
++#include <stdio.h>
+ #include <stdlib.h>
+-#include <unistd.h>
+-#include <sys/types.h>
+-#include <sys/stat.h>
++#include <string.h>
+ #include <syslog.h>
++#include <time.h>
++#include <unistd.h>
+ 
+ #ifndef TERMIO
+ #undef	TERMIOS
+@@ -179,6 +185,7 @@ char *report_file = (char *) 0;
+ char *chat_file   = (char *) 0;
+ char *phone_num   = (char *) 0;
+ char *phone_num2  = (char *) 0;
++key_t ipc_key     = -1;
+ int timeout       = DEFAULT_CHAT_TIMEOUT;
+ 
+ int have_tty_parameters = 0;
+@@ -364,6 +371,13 @@ main(argc, argv)
+ 		usage();
+ 	    break;
+ 
++	case 'm':
++		if ((arg = OPTARG(argc, argv)) != NULL)
++			ipc_key = ftok(arg, 0);
++		else
++			usage();
++		break;
++
+ 	default:
+ 	    usage();
+ 	    break;
+@@ -486,7 +500,8 @@ void usage()
+ {
+     fprintf(stderr, "\
+ Usage: %s [-e] [-E] [-v] [-V] [-t timeout] [-r report-file]\n\
+-     [-T phone-number] [-U phone-number2] {-f chat-file | chat-script}\n", program_name);
++     [-T phone-number] [-U phone-number2] {-f chat-file | chat-script}\n\
++     -m msq-file\n", program_name);
+     exit(1);
+ }
+ 
+@@ -1031,6 +1046,28 @@ int c;
+     return (string);
+ }
+ 
++/* Send IPC msg using ipc_key */
++#define PPP_MSG_TYPE	1000
++#define IPC_MSG_SIZE	256
++void chat_send_ipc(char *s)
++{
++	char buf[IPC_MSG_SIZE + sizeof(long)];
++	struct msgbuf *mb = (struct msgbuf *)buf;
++	int qid, l;
++	if ((s == NULL) || (ipc_key == -1))
++		return;
++	qid = msgget(ipc_key, S_IWRITE);
++	if (qid == -1)
++		return;
++	mb->mtype = PPP_MSG_TYPE;
++	l = strlen(s);
++	if (l >= IPC_MSG_SIZE)
++		l = IPC_MSG_SIZE - 1;
++	strncpy(mb->mtext, s, l);
++	mb->mtext[l] = 0;
++	msgsnd(qid, mb, l + 1, IPC_NOWAIT);
++}
++
+ /*
+  *  process the reply string
+  */
+@@ -1042,6 +1079,8 @@ register char *s;
+     if (say_next) {
+ 	say_next = 0;
+ 	s = clean(s, 1);
++	if (ipc_key != -1)
++		chat_send_ipc(s);
+ 	write(2, s, strlen(s));
+         free(s);
+ 	return;
+@@ -1303,7 +1342,7 @@ register char *s;
+ 
+     if (verbose) {
+ 	if (quiet)
+-	    msgf("send (??????)");
++	    msgf("send ( ?????? )");
+ 	else
+ 	    msgf("send (%v)", s);
+     }
+diff -Nrup /tmp/ppp-2.4.4/chat/Makefile.linux ppp-2.4.4/chat/Makefile.linux
+--- /tmp/ppp-2.4.4/chat/Makefile.linux	2006-06-04 09:07:46.000000000 +0400
++++ ppp-2.4.4/chat/Makefile.linux	2008-10-10 18:09:46.000000000 +0400
+@@ -8,7 +8,8 @@ CDEF1=	-DTERMIOS			# Use the termios str
+ CDEF2=	-DSIGTYPE=void			# Standard definition
+ CDEF3=	-UNO_SLEEP			# Use the usleep function
+ CDEF4=	-DFNDELAY=O_NDELAY		# Old name value
+-CDEFS=	$(CDEF1) $(CDEF2) $(CDEF3) $(CDEF4)
++CDEF5=  -D_GNU_SOURCE			# Use GNU extensions
++CDEFS=	$(CDEF1) $(CDEF2) $(CDEF3) $(CDEF4) $(CDEF5)
+ 
+ COPTS=	-O2 -g -pipe
+ CFLAGS=	$(COPTS) $(CDEFS)
+@@ -18,7 +19,7 @@ INSTALL= install
+ all:	chat
+ 
+ chat:	chat.o
+-	$(CC) -o chat chat.o
++	$(CC) -o chat chat.o -static
+ 
+ chat.o:	chat.c
+ 	$(CC) -c $(CFLAGS) -o chat.o chat.c
+diff -Nrup /tmp/ppp-2.4.4/pppd/ipcp.c ppp-2.4.4/pppd/ipcp.c
+--- /tmp/ppp-2.4.4/pppd/ipcp.c	2005-08-26 03:59:34.000000000 +0400
++++ ppp-2.4.4/pppd/ipcp.c	2012-07-10 20:09:55.000000000 +0400
+@@ -46,15 +46,18 @@
+  * TODO:
+  */
+ 
+-#include <stdio.h>
+-#include <string.h>
+-#include <stdlib.h>
+-#include <netdb.h>
++#include <arpa/inet.h>
++#include <sys/ipc.h>
++#include <sys/msg.h>
+ #include <sys/param.h>
+-#include <sys/types.h>
+ #include <sys/socket.h>
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <netdb.h>
+ #include <netinet/in.h>
+-#include <arpa/inet.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
+ 
+ #include "pppd.h"
+ #include "fsm.h"
+@@ -86,6 +89,9 @@ void (*ip_choose_hook) __P((u_int32_t *)
+ struct notifier *ip_up_notifier = NULL;
+ struct notifier *ip_down_notifier = NULL;
+ 
++/* pathname for ftok to obtain IPC key */
++char *ipc_pathname = NULL;
++
+ /* local vars */
+ static int default_route_set[NUM_PPP];	/* Have set up a default route */
+ static int proxy_arp_set[NUM_PPP];	/* Have created proxy arp entry */
+@@ -1968,6 +1974,30 @@ ipcp_script_done(arg)
+ 
+ 
+ /*
++ * ipcp_ipc - send IPC message instead of running ip-up/ip-down.
++ */
++#define IPCP_MSG_TYPE	1001
++#define IPC_MSG_SIZE	256
++static void ipcp_ipc(char *script)
++{
++	char buf[IPC_MSG_SIZE + sizeof(long)];
++	struct msgbuf *mb = (struct msgbuf *)buf;
++	int qid, l;
++	if ((script == NULL) || (ipc_pathname == NULL))
++		return;
++	qid = msgget(ftok(ipc_pathname, 0), S_IWUSR);
++	if (qid == -1)
++		return;
++	mb->mtype = IPCP_MSG_TYPE;
++	l = strlen(script);
++	if (l >= IPC_MSG_SIZE)
++		l = IPC_MSG_SIZE - 1;
++	strncpy(mb->mtext, script, l);
++	mb->mtext[l] = 0;
++	msgsnd(qid, mb, l + 1, IPC_NOWAIT);
++}
++
++/*
+  * ipcp_script - Execute a script with arguments
+  * interface-name tty-name speed local-IP remote-IP.
+  */
+@@ -1979,6 +2009,10 @@ ipcp_script(script, wait)
+     char strspeed[32], strlocal[32], strremote[32];
+     char *argv[8];
+ 
++    if (ipc_pathname != NULL){
++	    ipcp_ipc(script);
++	    return;
++    }
+     slprintf(strspeed, sizeof(strspeed), "%d", baud_rate);
+     slprintf(strlocal, sizeof(strlocal), "%I", ipcp_gotoptions[0].ouraddr);
+     slprintf(strremote, sizeof(strremote), "%I", ipcp_hisoptions[0].hisaddr);
+diff -Nrup /tmp/ppp-2.4.4/pppd/Makefile.linux ppp-2.4.4/pppd/Makefile.linux
+--- /tmp/ppp-2.4.4/pppd/Makefile.linux	2006-06-04 09:07:46.000000000 +0400
++++ ppp-2.4.4/pppd/Makefile.linux	2008-10-10 18:09:46.000000000 +0400
+@@ -34,6 +34,7 @@ endif
+ #
+ COPTS = -O2 -pipe -Wall -g
+ LIBS =
++LDFLAGS = -static
+ 
+ # Uncomment the next 2 lines to include support for Microsoft's
+ # MS-CHAP authentication protocol.  Also, edit plugins/radius/Makefile.linux.
+@@ -53,14 +54,14 @@ FILTER=y
+ # Uncomment the next line to enable multilink PPP (enabled by default)
+ # Linux distributions: Please leave multilink ENABLED in your builds
+ # of pppd!
+-HAVE_MULTILINK=y
++#HAVE_MULTILINK=y
+ 
+ # Uncomment the next line to enable the TDB database (enabled by default.)
+ # If you enable multilink, then TDB is automatically enabled also.
+ # Linux distributions: Please leave TDB ENABLED in your builds.
+-USE_TDB=y
++#USE_TDB=y
+ 
+-HAS_SHADOW=y
++#HAS_SHADOW=y
+ #USE_PAM=y
+ #HAVE_INET6=y
+ 
+@@ -77,7 +78,7 @@ MAXOCTETS=y
+ 
+ INCLUDE_DIRS= -I../include
+ 
+-COMPILE_FLAGS= -DHAVE_PATHS_H -DIPX_CHANGE -DHAVE_MMAP
++COMPILE_FLAGS= -DHAVE_PATHS_H -DIPX_CHANGE -DHAVE_MMAP -D_GNU_SOURCE
+ 
+ CFLAGS= $(COPTS) $(COMPILE_FLAGS) $(INCLUDE_DIRS) '-DDESTDIR="@DESTDIR@"'
+ 
+diff -Nrup /tmp/ppp-2.4.4/pppd/options.c ppp-2.4.4/pppd/options.c
+--- /tmp/ppp-2.4.4/pppd/options.c	2006-06-18 15:26:00.000000000 +0400
++++ ppp-2.4.4/pppd/options.c	2008-10-10 18:09:46.000000000 +0400
+@@ -144,6 +144,8 @@ bool devnam_fixed;		/* can no longer cha
+ static int logfile_fd = -1;	/* fd opened for log file */
+ static char logfile_name[MAXPATHLEN];	/* name of log file */
+ 
++extern char *ipc_pathname;
++
+ /*
+  * Prototypes
+  */
+@@ -320,6 +322,8 @@ option_t general_options[] = {
+     { "mo-timeout", o_int, &maxoctets_timeout,
+       "Check for traffic limit every N seconds", OPT_PRIO | OPT_LLIMIT | 1 },
+ #endif
++    { "use-ipc", o_string, &ipc_pathname,
++      "Use IPC instead of ip-up/ip-down scripts" },
+ 
+     { NULL }
+ };

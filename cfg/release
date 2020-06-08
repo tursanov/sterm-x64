@@ -1,0 +1,80 @@
+# Файл конфигурации терминала "Экспресс-2АК". (c) gsr 2001-2020
+
+# Версия терминала
+VERSION_BRANCH	6
+VERSION_RELEASE 0
+VERSION_PATCH	0
+
+# При работе терминала используются ключи DALLAS DS1990A.
+option		__REAL_KEYS__
+
+# При получении нового ответа ОЗУ ответа полностью очищается.
+option		__CLEAR_PREV_RESP__
+
+# Опции для специальных версий терминала
+
+# Периодическая проверка наличия подсистемы "Экспресс" на хост-ЭВМ.
+#option		__WATCH_EXPRESS__
+
+# Переключение на /dev/tty2 по Ctrl+S для поддержки ККМ
+#option		__CONSOLE_SWITCHING__
+
+# Использование специального файла запросов
+#option		__USE_REQ_LIST__
+
+# Подключение корневой файловой системы по NFS
+# Может также использоваться для запрета изменения настроек eth0 терминалом
+#option		__USE_NFSROOT__
+
+# Различные отладочные средства
+
+# Печать в stdout, а не на принтер
+#option		__DEBUG_PRINT__
+
+# Запись сообщений о работе с КЛ в специальный файл
+#option		__LOGDBG__
+
+# При установке в настройках "Наличие принтера" "нет" -- фиктивная печать
+#option		__FAKE_PRINT__
+
+# Запись обмена с ППУ в специальный файл
+#option		__LOG_LPRN__
+
+# При нажатии Pause в немодальном состоянии в ОЗУ ответа помещается текст
+# из файла, указанного в параметре --resp-file при запуске терминала.
+#option		__FAKE_RESP__
+
+# Фиктивное перемонтирование /home в remount_home
+#option		__FAKE_REMOUNT__
+
+# Печать отладочных сообщений при работе с ИПТ
+#option		__POS_DEBUG__
+
+# Использование внешнего POS-терминала
+#option		__EXT_POS__
+
+# Использование при работе терминала модуля безопасности.
+# ВНИМАНИЕ: этот параметр следует комментировать только в отладочных целях.
+option		__USE_USB_KEY__
+
+# Проверка правильности вводимых ip-адресов хост-ЭВМ на основании данных
+# из ipliradr.do$
+#option		__CHECK_HOST_IP__
+
+# Проверка признака удаления лицензий ИПТ/ППУ
+option		__CHECK_LIC_SIGNATURE__
+
+# Синхронизировать дату/время в ККТ при получении ответа на инициализацию
+option		__SYNC_KKT_RTC__
+
+# Каталог, в котором находятся файлы терминала. / в конце не обязателен
+STERM_HOME	/home/sterm
+
+# Каталог исходных текстов ядра Linux
+KDIR		/usr/src/linux-2.6.26-sterm
+
+# Используется для статической компиляции некоторых утилит
+#option		__DO_STATIC__
+
+CFLAGS		-std=gnu99 -Wall -Wextra -Wno-sign-compare -Wno-switch -fno-strict-aliasing -pipe -pthread -O3 -DNDEBUG -I$(INCLUDE) -D_GNU_SOURCE
+CXXFLAGS	-std=gnu++0x -Wall -Wextra -Wno-sign-compare -Wno-switch -fno-strict-aliasing -pipe -pthread -O3 -DNDEBUG -I$(INCLUDE) -D_GNU_SOURCE

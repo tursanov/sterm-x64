@@ -1,0 +1,135 @@
+/* Параметры графических элементов. (c) gsr, А.Попов 2001 */
+
+#ifndef GUI_METRICS_H
+#define GUI_METRICS_H
+
+/* screen metrics */
+
+#define DISCX			800	/* screen width in pixels */
+#define DISCY			600	/* screen height in pixels */
+#define BYTESPERPIXEL		2	/* color depth */
+#define BYTELINE		1600	/* DISCX*BYTESPERPIXEL */	
+
+/* status line generic metrics */
+#define STATUS_TOP		488
+#define STATUS_HEIGHT		30
+#define STATUS_TXT_HEIGHT	22
+#define STATUS_BEVEL_HEIGHT	(STATUS_HEIGHT-STATUS_TXT_HEIGHT)/2
+#define STATUS_TXT_COLOR	clBlack
+#define STATUS_BG_COLOR		clBtnFace
+
+/* lstatus metrics */
+#define LSTATUS_LEFT		6
+#define LSTATUS_TOP		STATUS_TOP
+#define LSTATUS_WIDTH		160
+#define LSTATUS_HEIGHT		STATUS_HEIGHT
+#define LSTATUS_TXT_HEIGHT	STATUS_TXT_HEIGHT
+#define LSTATUS_BEVEL_HEIGHT	STATUS_BEVEL_HEIGHT
+#define LSTATUS_TXT_COLOR	STATUS_TXT_COLOR
+#define LSTATUS_BG_COLOR	STATUS_BG_COLOR
+
+/* H-byte led metrics */
+#define HBYTE_LEFT		170
+#define HBYTE_TOP		STATUS_TOP
+#define HBYTE_WIDTH		24
+#define HBYTE_HEIGHT		STATUS_HEIGHT
+#define HBYTE_TXT_HEIGHT	STATUS_TXT_HEIGHT
+#define HBYTE_BEVEL_HEIGHT	STATUS_BEVEL_HEIGHT
+#define HBYTE_TXT_COLOR		clRed
+#define HBYTE_BG_COLOR		STATUS_BG_COLOR
+
+/* key led metrics */
+#define KT_LEFT			198
+#define KT_TOP			STATUS_TOP
+#define KT_WIDTH		24
+#define KT_HEIGHT		STATUS_HEIGHT
+#define KT_TXT_HEIGHT		STATUS_TXT_HEIGHT
+#define KT_BEVEL_HEIGHT		STATUS_BEVEL_HEIGHT
+#define KT_TXT_COLOR		STATUS_TXT_COLOR
+#define KT_BG_COLOR		STATUS_BG_COLOR
+
+/* rstatus metrics */
+#define RSTATUS_LEFT		226
+#define RSTATUS_TOP		STATUS_TOP
+#define RSTATUS_WIDTH		259
+#define RSTATUS_WIDTH1		225
+#define RSTATUS_HEIGHT		STATUS_HEIGHT
+#define RSTATUS_TXT_HEIGHT	STATUS_TXT_HEIGHT
+#define RSTATUS_BEVEL_HEIGHT	STATUS_BEVEL_HEIGHT
+#define RSTATUS_TXT_COLOR	STATUS_TXT_COLOR
+#define RSTATUS_BG_COLOR	STATUS_BG_COLOR
+#define RSTATUS_BG_COLOR_A	RGB(0xe0, 0xff, 0xff)
+/* Используется для вывода сообщений об ошибках ППУ */
+#define RSTATUS_TXT_COLOR_ALRM	clYellow
+#define RSTATUS_BG_COLOR_ALRM	clRed
+
+/* rollers metrics (classic rollers) */
+#define ROLLERS_LEFT		456
+#define ROLLERS_TOP		STATUS_TOP
+#define ROLLERS_WIDTH		30
+#define ROLLERS_HEIGHT		STATUS_HEIGHT
+#define ROLLERS_TXT_HEIGHT	STATUS_TXT_HEIGHT
+#define ROLLERS_BEVEL_HEIGHT	STATUS_BEVEL_HEIGHT
+#define ROLLERS_TXT_COLOR	clNavy
+#define ROLLERS_BG_COLOR	STATUS_BG_COLOR
+
+/* cyclic log led */
+#define LOG_LEFT		490
+#define LOG_TOP		STATUS_TOP
+#define LOG_WIDTH		30
+#define LOG_HEIGHT		STATUS_HEIGHT
+#define LOG_TXT_HEIGHT		STATUS_TXT_HEIGHT
+#define LOG_BEVEL_HEIGHT	STATUS_BEVEL_HEIGHT
+#define LOG_TXT_COLOR		clWhite
+#define LOG_BG_COLOR		STATUS_BG_COLOR
+#define LOG_BG_COLOR_A		clNavy
+
+/* page number led */
+#define PGNUM_LEFT		525
+#define PGNUM_TOP		STATUS_TOP
+#define PGNUM_WIDTH		60
+#define PGNUM_HEIGHT		STATUS_HEIGHT
+#define PGNUM_TXT_HEIGHT	STATUS_TXT_HEIGHT
+#define PGNUM_BEVEL_HEIGHT	STATUS_BEVEL_HEIGHT
+#define PGNUM_TXT_COLOR		STATUS_TXT_COLOR
+#define PGNUM_BG_COLOR		STATUS_BG_COLOR
+
+/* mode led metrics */
+#define MODE_LEFT		589
+#define MODE_TOP		STATUS_TOP
+#define MODE_WIDTH		30
+#define MODE_HEIGHT		STATUS_HEIGHT
+#define MODE_TXT_HEIGHT		STATUS_TXT_HEIGHT
+#define MODE_BEVEL_HEIGHT	STATUS_BEVEL_HEIGHT
+#define MODE_TXT_COLOR		STATUS_TXT_COLOR
+#define MODE_BG_COLOR		STATUS_BG_COLOR
+
+/* language led metrics */
+#define LNG_LEFT		623
+#define LNG_TOP			STATUS_TOP
+#define LNG_WIDTH		30
+#define LNG_HEIGHT		STATUS_HEIGHT
+#define LNG_TXT_HEIGHT		STATUS_TXT_HEIGHT
+#define LNG_BEVEL_HEIGHT	STATUS_BEVEL_HEIGHT
+#define LNG_TXT_COLOR		clWhite
+#define LNG_BG_COLOR		STATUS_BG_COLOR
+#define LNG_BG_COLOR_A		clNavy
+
+/* clock metrics */
+#define CLOCK_LEFT		657
+#define CLOCK_TOP		STATUS_TOP
+#define CLOCK_WIDTH		138
+#define CLOCK_HEIGHT		STATUS_HEIGHT
+#define CLOCK_TXT_HEIGHT	STATUS_TXT_HEIGHT
+#define CLOCK_BEVEL_HEIGHT	STATUS_BEVEL_HEIGHT
+#define CLOCK_SEP		CLOCK_WIDTH/2
+#define CLOCK_TXT_COLOR		STATUS_TXT_COLOR
+#define CLOCK_BG_COLOR		STATUS_BG_COLOR
+
+/* hint bar metrics */
+#define HINTS_LEFT		0
+#define HINTS_TOP		524
+#define HINTS_WIDTH		DISCX
+#define HINTS_HEIGHT		(DISCY-HINTS_TOP)
+
+#endif		/* METRICS_H */

@@ -1,0 +1,7 @@
+#!/bin/sh
+
+## Создание файлов устройств для работы терминала. (c) gsr 2008
+
+mknod /dev/chipset	c 200 0
+mknod /dev/xprn		c 202 0
+mknod /dev/dallas	c 203 0

@@ -1,0 +1,19 @@
+# implicit rules
+
+CC_NAME  = \033[0;1;33mCC\033[0m
+CXX_NAME = \033[0;1;33mC++\033[0m
+LD_NAME  = \033[0;1;36mLD\033[0m
+
+%.o:		%.c
+		@echo "\t$(CC_NAME)   $(DIR)$<"
+		@$(CC) $(CFLAGS) -c -o $@ $<
+
+%.o:		%.cpp
+		@echo "\t$(CXX_NAME)  $(DIR)$<"
+		@$(CC) $(CXXFLAGS) -c -o $@ $<
+
+ifdef __DO_STATIC__
+LINKAGE = -static
+else
+LINKAGE =
+endif
