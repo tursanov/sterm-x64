@@ -38,8 +38,6 @@ extern struct term_key_info tki;
 extern struct md5_hash usb_bind;
 /* Считанный файл привязки ключевых баз */
 extern struct md5_hash iplir_bind;
-/* Вычисленная контрольная сумма ключевой базы VipNet */
-extern struct md5_hash iplir_check_sum;
 /* Считанный файл банковской лицензии */
 extern struct md5_hash bank_license;
 
@@ -58,16 +56,14 @@ static inline uint8_t swap_nibbles(uint8_t b)
 extern void encrypt_data(uint8_t *p, int l);
 extern void decrypt_data(uint8_t *p, int l);
 
-extern bool read_tki(const char *name, bool create);
-extern bool write_tki(const char *name);
-extern bool read_bind_file(const char *name, struct md5_hash *md5);
+extern bool read_tki(const char *path, bool create);
+extern bool write_tki(const char *path);
+extern bool read_bind_file(const char *path, struct md5_hash *md5);
 extern void check_tki(void);
-extern void make_iplir_check_sum(void);
 extern void check_usb_bind(void);
 extern void check_iplir_bind(void);
 extern void check_bank_license(void);
-extern void get_tki_field(const struct term_key_info *info, int name, uint8_t *val);
-extern void set_tki_field(struct term_key_info *info, int name, uint8_t *val);
-extern void init_tki(struct term_key_info *p);
+extern bool get_tki_field(const struct term_key_info *info, int name, uint8_t *val);
+extern bool set_tki_field(struct term_key_info *info, int name, const uint8_t *val);
 
 #endif		/* TKI_H */

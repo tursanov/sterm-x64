@@ -32,9 +32,6 @@ struct md5_hash usb_bind = ZERO_MD5_HASH;
 /* Считанный файл привязки ключевых баз */
 struct md5_hash iplir_bind = ZERO_MD5_HASH;
 
-/* Вычисленная контрольная сумма ключевой базы VipNet */
-struct md5_hash iplir_check_sum = ZERO_MD5_HASH;
-
 /* Считанный файл банковской лицензии */
 struct md5_hash bank_license;
 
@@ -66,74 +63,107 @@ void decrypt_data(uint8_t *p, int l)
 		p[i % l] ^= p[i - 1];
 }
 
-/* Чтение файла ключевой информации */
-bool read_tki(const char *name, bool create)
+/* Инициализация структуры tki */
+static void init_tki(struct term_key_info *p)
 {
+/*
+ * Если из-за выравнивания полей структуры между ними возникнут промежутки,
+ * то, благодаря memset, они будут заполнены нулями.
+ */
+	memset(p, 0, sizeof(*p));
+	memset(p->srv_keys, 0, sizeof(p->srv_keys));
+	memset(p->dbg_keys, 0, sizeof(p->dbg_keys));
+	memset(p->tn, 0x30, sizeof(p->tn));
+	get_md5((uint8_t *)p->srv_keys, xsizefrom(*p, srv_keys), &p->check_sum);
+	encrypt_data((uint8_t *)p, sizeof(*p));
+}
+
+/* Чтение файла ключевой информации */
+bool read_tki(const char *path, bool create)
+{
+	bool ret = false;
 	struct stat st;
-	int fd, l;
-	if (stat(name, &st) == -1){
+	if (stat(path, &st) == -1){
 		if (create){
 			init_tki(&tki);
-			return true;
-		}else{
-			printf("файл ключевой информации не найден\n");
-			return false;
+			ret = true;
+		}else
+			fprintf(stderr, "Файл ключевой информации не найден.\n");
+	}else{
+		if (st.st_size != sizeof(tki))
+			fprintf(stderr, "Файл ключевой информации имеет неверный размер.\n");
+		else{
+			int fd = open(path, O_RDONLY);
+			if (fd == -1)
+				fprintf(stderr, "Ошибка открытия файла ключевой информации "
+					"для чтения: %m.\n");
+			else{
+				memset(&tki, 0, sizeof(tki));
+				ssize_t l = read(fd, &tki, sizeof(tki));
+				if (l == sizeof(tki))
+					ret = true;
+				else if (l == -1)
+					fprintf(stderr, "Ошибка чтения файла ключевой "
+						"информации: %m.\n");
+				else
+					fprintf(stderr, "Из файла ключевой информации "
+						"прочитано %zd байт вместо %zd.\n", l, sizeof(tki));
+				close(fd);
+			}
 		}
 	}
-	if (st.st_size != sizeof(tki)){
-		printf("файл ключевой информации имеет неверный размер\n");
-		return false;
-	}
-	fd = open(name, O_RDONLY);
-	if (fd == -1){
-		printf("ошибка открытия файла ключевой информации для чтения\n");
-		return false;
-	}
-	memset(&tki, 0, sizeof(tki));
-	l = read(fd, &tki, sizeof(tki));
-	close(fd);
-	if (l != sizeof(tki)){
-		printf("ошибка чтения файла ключевой информации\n");
-		return false;
-	}
-	return true;
+	return ret;
 }
 
 /* Запись файла ключевой информации */
-bool write_tki(const char *name)
+bool write_tki(const char *path)
 {
-	int fd, l;
-	fd = creat(name, 0600);
-	if (fd == -1){
-		printf("ошибка создания файла ключевой информации\n");
-		return false;
+	bool ret = false;
+	int fd = creat(path, 0600);
+	if (fd == -1)
+		fprintf(stderr, "Ошибка создания файла ключевой информации: %m.\n");
+	else{
+		ssize_t l = write(fd, &tki, sizeof(tki));
+		if (l == sizeof(tki))
+			ret = true;
+		else if (l == -1)
+			fprintf(stderr, "Ошибка записи файла ключевой информации: %m.\n");
+		else
+			fprintf(stderr, "В файл ключевой информации записано "
+				"%zd байт вместо %zd.\n", l, sizeof(tki));
+		close(fd);
 	}
-	l = write(fd, &tki, sizeof(tki));
-	close(fd);
-	if (l != sizeof(tki)){
-		printf("ошибка записи файла ключевой информации\n");
-		return false;
-	}
-	return true;
+	return ret;
 }
 
 /* Чтение файла привязки */
-bool read_bind_file(const char *name, struct md5_hash *md5)
+bool read_bind_file(const char *path, struct md5_hash *md5)
 {
+	bool ret = false;
+	if ((path == NULL) || (md5 == NULL))
+		return ret;
 	struct stat st;
-	int fd, l;
-	if ((name == NULL) || (md5 == NULL))
-		return false;
-	if (stat(name, &st) == -1)
-		return false;
-	if (st.st_size != sizeof(*md5))
-		return false;
-	fd = open(name, O_RDONLY);
-	if (fd == -1)
-		return false;
-	l = read(fd, md5, sizeof(*md5));
-	close(fd);
-	return l == sizeof(*md5);
+	if (stat(path, &st) == -1)
+		fprintf(stderr, "Ошибка получения информации о файле %s: %m.\n", path);
+	else if (st.st_size != sizeof(*md5))
+		fprintf(stderr, "Файл %s имеет неверный размер.\n", path);
+	else{
+		int fd = open(path, O_RDONLY);
+		if (fd == -1)
+			fprintf(stderr, "Ошибка открытия файла %s: %m.\n", path);
+		else{
+			ssize_t l = read(fd, md5, sizeof(*md5));
+			if (l == sizeof(*md5))
+				ret = true;
+			else if (l == -1)
+				fprintf(stderr, "Ошибка чтения из файла %s: %m.\n", path);
+			else
+				fprintf(stderr, "Из файла %s считано %zd байт вместо %zd.\n",
+					path, l, sizeof(*md5));
+			close(fd);
+		}
+	}
+	return ret;
 }
 
 /* Поверка файла ключевой информации */
@@ -147,12 +177,6 @@ void check_tki(void)
 	encrypt_data((uint8_t *)&__tki, sizeof(__tki));
 	get_tki_field(&__tki, TKI_CHECK_SUM, (uint8_t *)&check_sum);
 	tki_ok = cmp_md5(&md5, &check_sum);
-}
-
-/* Вычисление контрольной суммы ключевой базы VipNet */
-void make_iplir_check_sum(void)
-{
-	get_md5_file(IPLIR_DST, &iplir_check_sum);
 }
 
 /* Проверка файла привязки USB-диска */
@@ -201,8 +225,9 @@ void check_bank_license(void)
 }
 
 /* Чтение заданного поля из структуры tki */
-void get_tki_field(const struct term_key_info *info, int name, uint8_t *val)
+bool get_tki_field(const struct term_key_info *info, int name, uint8_t *val)
 {
+	bool ret = true;
 	decrypt_data((uint8_t *)info, sizeof(*info));
 	switch (name){
 		case TKI_CHECK_SUM:
@@ -217,13 +242,17 @@ void get_tki_field(const struct term_key_info *info, int name, uint8_t *val)
 		case TKI_NUMBER:
 			memcpy(val, info->tn, sizeof(info->tn));
 			break;
+		default:
+			ret = false
 	}
 	encrypt_data((uint8_t *)info, sizeof(*info));
+	return ret;
 }
 
 /* Установка значения заданного поля структуры tki */
-void set_tki_field(struct term_key_info *info, int name, uint8_t *val)
+void set_tki_field(struct term_key_info *info, int name, const uint8_t *val)
 {
+	bool ret = true;
 	decrypt_data((uint8_t *)info, sizeof(*info));
 	switch (name){
 		case TKI_CHECK_SUM:
@@ -238,23 +267,11 @@ void set_tki_field(struct term_key_info *info, int name, uint8_t *val)
 		case TKI_NUMBER:
 			memcpy(info->tn, val, sizeof(info->tn));
 			break;
+		default:
+			ret = false;
 	}
 	get_md5((uint8_t *)info->srv_keys, xsizefrom(*info, srv_keys),
 			&info->check_sum);
 	encrypt_data((uint8_t *)info, sizeof(*info));
-}
-
-/* Инициализация структуры tki */
-void init_tki(struct term_key_info *p)
-{
-/*
- * Если из-за выравнивания полей структуры между ними возникнут промежутки,
- * то, благодаря memset, они будут заполнены нулями.
- */
-	memset(p, 0, sizeof(*p));
-	memset(p->srv_keys, 0, sizeof(p->srv_keys));
-	memset(p->dbg_keys, 0, sizeof(p->dbg_keys));
-	memset(p->tn, 0x30, sizeof(p->tn));
-	get_md5((uint8_t *)p->srv_keys, xsizefrom(*p, srv_keys), &p->check_sum);
-	encrypt_data((uint8_t *)p, sizeof(*p));
+	return ret;
 }

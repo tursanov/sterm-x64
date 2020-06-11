@@ -1457,7 +1457,6 @@ static bool create_term(void)
 		fprintf(stderr, "Ошибка создания ДЗУ.\n");
 		return false;
 	}
-	make_iplir_check_sum();
 	check_tki();
 	if (!init_ppp_ipc()){
 		fprintf(stderr, "Ошибка инициализации PPP.\n");
@@ -1839,9 +1838,7 @@ static int handle_kbd(struct kbd_event *e, bool check_scr, bool busy)
 				!(e->shift_state & SHIFT_LCTRL) &&
 				(e->shift_state & SHIFT_LSHIFT) &&
 				!(e->shift_state & SHIFT_RSHIFT)){
-			if (e->key == KEY_E)
-				return cmd_edit_iplir;
-			else if (e->key == KEY_S)
+			if (e->key == KEY_S)
 				return cmd_shell;
 		}
 		if (e->shift_state & SHIFT_CTRL){
@@ -3879,11 +3876,6 @@ static void on_response(void)
 	into_on_response = false;
 }
 
-static void on_edit_iplir(void)
-{
-	ret_val = RET_EDIT_IPLIR;
-}
-
 static void on_shell(void)
 {
 	ret_val = RET_SHELL;
@@ -4206,8 +4198,7 @@ static bool process_term(void)
 		{cmd_cheque_fa,		show_cheque_fa,		true},
 		{cmd_view_error,	show_error,		true},
 
-		{cmd_edit_iplir, on_edit_iplir, false},
-		{cmd_shell, on_shell, false},
+		{cmd_shell,		on_shell,		false},
 #if defined __WATCH_EXPRESS__
 		{cmd_watch_req,		send_watch_request,	true},
 #endif

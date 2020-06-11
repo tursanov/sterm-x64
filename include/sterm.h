@@ -1,4 +1,4 @@
-/* Основные определения терминала "Экспресс-2А-К". (c) gsr 2000-2019 */
+/* Основные определения терминала "Экспресс-2А-К". (c) gsr 2000-2020 */
 
 #if !defined STERM_H
 #define STERM_H
@@ -98,7 +98,6 @@ enum {
 	cmd_ping,
 	cmd_pgup,
 	cmd_pgdn,
-	cmd_edit_iplir,
 	cmd_shell,
 #if defined __WATCH_EXPRESS__
 	cmd_watch_req,
@@ -203,7 +202,6 @@ extern bool	reset_term(bool force);
 extern void	hangup_ppp(void);
 
 #define RET_NORMAL		0
-#define RET_EDIT_IPLIR		10
 #define RET_SHELL		20
 #define RET_VERSION		30
 #define RET_SIGTERM		40
