@@ -7,6 +7,8 @@
 #include "gd.h"
 #include "md5.h"
 
+/* Имя файла заводского номера терминала */
+#define TERM_NR_FILE		"/sdata/term-number.txt"
 /* Имя файла привязки USB-диска */
 #define USB_BIND_FILE		"/sdata/disk.dat"
 /* Имя файла ключевого дистрибутива VipNet */
@@ -56,14 +58,15 @@ static inline uint8_t swap_nibbles(uint8_t b)
 extern void encrypt_data(uint8_t *p, int l);
 extern void decrypt_data(uint8_t *p, int l);
 
+extern bool read_term_nr(term_number tn);
 extern bool read_tki(const char *path, bool create);
 extern bool write_tki(const char *path);
-extern bool read_bind_file(const char *path, struct md5_hash *md5);
+extern bool get_tki_field(const struct term_key_info *info, int name, uint8_t *val);
+extern bool set_tki_field(struct term_key_info *info, int name, const uint8_t *val);
 extern void check_tki(void);
+extern bool read_bind_file(const char *path, struct md5_hash *md5);
 extern void check_usb_bind(void);
 extern void check_iplir_bind(void);
 extern void check_bank_license(void);
-extern bool get_tki_field(const struct term_key_info *info, int name, uint8_t *val);
-extern bool set_tki_field(struct term_key_info *info, int name, const uint8_t *val);
 
 #endif		/* TKI_H */

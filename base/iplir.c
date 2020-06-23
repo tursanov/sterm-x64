@@ -15,6 +15,7 @@
 #include "base64.h"
 #include "cfg.h"
 #include "iplir.h"
+#include "paths.h"
 #include "tki.h"
 
 bool iplir_disabled = false;		/* работа с VipNet невозможна */
@@ -50,4 +51,10 @@ bool is_iplir_loaded(void)
 /*	return	is_module_loaded(IPLIR_MOD_NAME) &&
 		is_module_loaded(IPLIR_MOD1_NAME);*/
 	return true;
+}
+
+bool test_vipnet(void)
+{
+	bool ret = false;
+	return ret;
 }

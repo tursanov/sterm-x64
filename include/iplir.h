@@ -15,4 +15,6 @@ extern bool start_iplir(void);
 extern bool stop_iplir(void);
 extern bool is_iplir_loaded(void);
 
+extern bool test_vipnet(void);
+
 #endif		/* IPLIR_H */

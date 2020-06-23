@@ -32,15 +32,4 @@
 /* Имя файла признака работы в пригородном режиме */
 #define LOCAL_FLAG_NAME		_(".wm_local")
 
-/* Точка монтирования USB-диска */
-#define USB_MNT			"/mnt/usb"
-#define usb_mnt(s)		USB_MNT "/" s
-/* Номер терминала */
-#define TERM_NR_FILE		usb_mnt("term-number.txt")
-/* Каталог с ключевым дистрибутивом */
-#define VPN_DST_DIR		usb_mnt("ViPNet")
-#define usb_mnt_vpn(s)		VPN_DST_DIR "/" (s)
-/* Файл с зашифрованным паролем ключевого дистрибутива */
-#define VPN_PSW_FILE		usb_mnt_vpn("iplir.txt")
-
 #endif		/* PATHS_H */

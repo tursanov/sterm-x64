@@ -67,4 +67,11 @@ static inline uint32_t u_times(void)
 #define unlikely(x)	__builtin_expect(!!(x), 0)
 #endif
 
+/* В gcc 7.x и выше введён атрибут fallthrough */
+#if defined __GNUC__ && (__GNUC__ > 6)
+#define __fallthrough__	__attribute__((__fallthrough__))
+#else
+#define __fallthrough__	((void)0)
+#endif
+
 #endif		/* SYSDEFS_H */

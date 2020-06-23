@@ -1,7 +1,8 @@
-/* Чтение/запись ключевой информации о терминале. (c) gsr 2004, 2005 */
+/* Чтение/запись ключевой информации о терминале. (c) gsr 2004, 2005, 2020 */
 
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -31,7 +32,6 @@ struct term_key_info tki;
 struct md5_hash usb_bind = ZERO_MD5_HASH;
 /* Считанный файл привязки ключевых баз */
 struct md5_hash iplir_bind = ZERO_MD5_HASH;
-
 /* Считанный файл банковской лицензии */
 struct md5_hash bank_license;
 
@@ -136,6 +136,72 @@ bool write_tki(const char *path)
 	return ret;
 }
 
+
+/* Чтение заданного поля из структуры tki */
+bool get_tki_field(const struct term_key_info *info, int name, uint8_t *val)
+{
+	bool ret = true;
+	decrypt_data((uint8_t *)info, sizeof(*info));
+	switch (name){
+		case TKI_CHECK_SUM:
+			memcpy(val, &info->check_sum, sizeof(info->check_sum));
+			break;
+		case TKI_SRV_KEYS:
+			memcpy(val, info->srv_keys, sizeof(info->srv_keys));
+			break;
+		case TKI_DBG_KEYS:
+			memcpy(val, info->dbg_keys, sizeof(info->dbg_keys));
+			break;
+		case TKI_NUMBER:
+			memcpy(val, info->tn, sizeof(info->tn));
+			break;
+		default:
+			ret = false;
+	}
+	encrypt_data((uint8_t *)info, sizeof(*info));
+	return ret;
+}
+
+/* Установка значения заданного поля структуры tki */
+bool set_tki_field(struct term_key_info *info, int name, const uint8_t *val)
+{
+	bool ret = true;
+	decrypt_data((uint8_t *)info, sizeof(*info));
+	switch (name){
+		case TKI_CHECK_SUM:
+			memcpy(&info->check_sum, val, sizeof(info->check_sum));
+			break;
+		case TKI_SRV_KEYS:
+			memcpy(info->srv_keys, val, sizeof(info->srv_keys));
+			break;
+		case TKI_DBG_KEYS:
+			memcpy(info->dbg_keys, val, sizeof(info->dbg_keys));
+			break;
+		case TKI_NUMBER:
+			memcpy(info->tn, val, sizeof(info->tn));
+			break;
+		default:
+			ret = false;
+	}
+	get_md5((uint8_t *)info->srv_keys, xsizefrom(*info, srv_keys),
+			&info->check_sum);
+	encrypt_data((uint8_t *)info, sizeof(*info));
+	return ret;
+}
+
+/* Поверка файла ключевой информации */
+void check_tki(void)
+{
+	struct md5_hash md5, check_sum;
+	struct term_key_info __tki = tki;
+	tki_ok = false;
+	decrypt_data((uint8_t *)&__tki, sizeof(__tki));
+	get_md5((uint8_t *)__tki.srv_keys, xsizefrom(__tki, srv_keys), &md5);
+	encrypt_data((uint8_t *)&__tki, sizeof(__tki));
+	get_tki_field(&__tki, TKI_CHECK_SUM, (uint8_t *)&check_sum);
+	tki_ok = cmp_md5(&md5, &check_sum);
+}
+
 /* Чтение файла привязки */
 bool read_bind_file(const char *path, struct md5_hash *md5)
 {
@@ -166,17 +232,40 @@ bool read_bind_file(const char *path, struct md5_hash *md5)
 	return ret;
 }
 
-/* Поверка файла ключевой информации */
-void check_tki(void)
+/* Чтение заводского номера с модуля безопасности */
+bool read_term_nr(term_number tn)
 {
-	struct md5_hash md5, check_sum;
-	struct term_key_info __tki = tki;
-	tki_ok = false;
-	decrypt_data((uint8_t *)&__tki, sizeof(__tki));
-	get_md5((uint8_t *)__tki.srv_keys, xsizefrom(__tki, srv_keys), &md5);
-	encrypt_data((uint8_t *)&__tki, sizeof(__tki));
-	get_tki_field(&__tki, TKI_CHECK_SUM, (uint8_t *)&check_sum);
-	tki_ok = cmp_md5(&md5, &check_sum);
+	bool ret = false;
+	FILE *f = fopen(TERM_NR_FILE, "r");
+	if (f == NULL)
+		fprintf(stderr, "Ошибка открытия " TERM_NR_FILE " для чтения: %m.\n");
+	else{
+		char nr[TERM_NUMBER_LEN + 2];	/* \n + 0 */
+		if (fgets(nr, sizeof(nr), f) == NULL)
+			fprintf(stderr, "Ошибка чтения из " TERM_NR_FILE ": %m.\n");
+		else{
+			size_t len = strlen(nr);
+			printf("nr = %s (len = %zu).\n", nr, len);
+			ret = (len == (TERM_NUMBER_LEN + 1)) &&
+				(strncmp(nr, "F00137001", 9) == 0) &&
+				((nr[len - 1] == '\n') || (nr[len - 1] == '\r'));
+			if (ret){
+				for (int i = 9; i < 13; i++){
+					if (!isdigit(nr[i])){
+						ret = false;
+						break;
+					}
+				}
+			}
+			if (ret)
+				memcpy(tn, nr, TERM_NUMBER_LEN);
+			else
+				fprintf(stderr, "Неверный формат заводского номера терминала.\n");
+		}
+		if (fclose(f) == EOF)
+			fprintf(stderr, "Ошибка закрытия " TERM_NR_FILE ": %m.\n");
+	}
+	return ret;
 }
 
 /* Проверка файла привязки USB-диска */
@@ -197,7 +286,7 @@ void check_usb_bind(void)
 void check_iplir_bind(void)
 {
 	struct md5_hash md5, buf[2];
-	buf[0] = iplir_check_sum;
+//	buf[0] = iplir_check_sum;
 	buf[1] = usb_bind;
 	get_md5((uint8_t *)buf, sizeof(buf), &md5);
 	iplir_ok = cmp_md5(&md5, &iplir_bind);
@@ -224,54 +313,3 @@ void check_bank_license(void)
 	bank_ok = cmp_md5(&md5, &bank_license);
 }
 
-/* Чтение заданного поля из структуры tki */
-bool get_tki_field(const struct term_key_info *info, int name, uint8_t *val)
-{
-	bool ret = true;
-	decrypt_data((uint8_t *)info, sizeof(*info));
-	switch (name){
-		case TKI_CHECK_SUM:
-			memcpy(val, &info->check_sum, sizeof(info->check_sum));
-			break;
-		case TKI_SRV_KEYS:
-			memcpy(val, info->srv_keys, sizeof(info->srv_keys));
-			break;
-		case TKI_DBG_KEYS:
-			memcpy(val, info->dbg_keys, sizeof(info->dbg_keys));
-			break;
-		case TKI_NUMBER:
-			memcpy(val, info->tn, sizeof(info->tn));
-			break;
-		default:
-			ret = false
-	}
-	encrypt_data((uint8_t *)info, sizeof(*info));
-	return ret;
-}
-
-/* Установка значения заданного поля структуры tki */
-void set_tki_field(struct term_key_info *info, int name, const uint8_t *val)
-{
-	bool ret = true;
-	decrypt_data((uint8_t *)info, sizeof(*info));
-	switch (name){
-		case TKI_CHECK_SUM:
-			memcpy(&info->check_sum, val, sizeof(info->check_sum));
-			break;
-		case TKI_SRV_KEYS:
-			memcpy(info->srv_keys, val, sizeof(info->srv_keys));
-			break;
-		case TKI_DBG_KEYS:
-			memcpy(info->dbg_keys, val, sizeof(info->dbg_keys));
-			break;
-		case TKI_NUMBER:
-			memcpy(info->tn, val, sizeof(info->tn));
-			break;
-		default:
-			ret = false;
-	}
-	get_md5((uint8_t *)info->srv_keys, xsizefrom(*info, srv_keys),
-			&info->check_sum);
-	encrypt_data((uint8_t *)info, sizeof(*info));
-	return ret;
-}

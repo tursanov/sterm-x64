@@ -1396,7 +1396,8 @@ int make_resp_map(void)
 						break;
 					case X_PARA_END_N:
 						pi->jump_next = true;
-						first_print = false;	/* pass through */
+						first_print = false;
+						__fallthrough__;
 					case X_PARA_END:
 					case X_REQ:
 						next_para = true;
@@ -2161,13 +2162,14 @@ bool execute_resp(void)
 					execute_kkt(p, l);
 					struct AD_state ads;
 					if (AD_get_state(&ads))
-						xlog_set_rec_flags(hxlog, log_number, n_para,
-							XLOG_REC_CPC);
-				}				/* pass through */
+						xlog_set_rec_flags(hxlog, log_number, n_para, XLOG_REC_CPC);
+					__fallthrough__;
+				}
 				case dst_bank:
 					if (p->dst == dst_bank)
 						has_bank_data = true;
-					n_para++;		/* pass through */
+					n_para++;
+					__fallthrough__;
 				default:
 					p->handled = true;
 					n--;

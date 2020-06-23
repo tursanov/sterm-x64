@@ -341,6 +341,7 @@ static bool parse_cmd_line(int argc, char **argv)
 			case ':':
 			case '?':
 				ret_flag = false;
+				__fallthrough__;
 			case EOF:
 				loop_flag = false;
 				break;
@@ -1430,6 +1431,7 @@ static bool create_term(void)
 	load_term_props();
 	clear_bank_info(&bi, true);
 	clear_bank_info(&bi_pos, true);
+	test_vipnet();
 #if defined __USE_USB_KEY__
 	read_usbkey();
 #endif
@@ -2905,7 +2907,7 @@ static const char *fdo_iface_str(uint8_t fdo_iface)
 			ret = "GPRS";
 			break;
 		default:
-			snprintf(txt, sizeof(txt), "%.2hhXh", fdo_iface);
+			snprintf(txt, sizeof(txt), "%.2hhX", fdo_iface);
 			ret = txt;
 	}
 	return ret;
@@ -3010,7 +3012,7 @@ static const char *fs_alert_str(uint8_t alert)
 			ret = "Критическая ошибка ФН";
 			break;
 		default:
-			snprintf(txt, sizeof(txt), "%.2hhXh", alert);
+			snprintf(txt, sizeof(txt), "%.2hhX", alert);
 			ret = txt;
 	}
 	return ret;
@@ -3057,7 +3059,7 @@ static const char *fs_type_str(uint8_t type)
 			ret = "СерийныйЫЙ";
 			break;
 		default:
-			snprintf(txt, sizeof(txt), "%.2hhXh", type);
+			snprintf(txt, sizeof(txt), "%.2hhX", type);
 			ret = txt;
 	}
 	return ret;

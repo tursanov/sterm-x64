@@ -595,7 +595,7 @@ struct dev_lst *poll_devices(void)
 	}
 	struct dev_lst *devs = NULL;
 	for (int i = 0; i < n; i++){
-		static char path[128];
+		static char path[512];
 		snprintf(path, sizeof(path), DEV_DIR "/%s", names[i]->d_name);
 		struct dev_lst *lst = poll_vcom(path);
 		if (lst != NULL){
