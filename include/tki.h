@@ -58,7 +58,6 @@ static inline uint8_t swap_nibbles(uint8_t b)
 extern void encrypt_data(uint8_t *p, int l);
 extern void decrypt_data(uint8_t *p, int l);
 
-extern bool read_term_nr(term_number tn);
 extern bool read_tki(const char *path, bool create);
 extern bool write_tki(const char *path);
 extern bool get_tki_field(const struct term_key_info *info, int name, uint8_t *val);

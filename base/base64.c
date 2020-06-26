@@ -1,4 +1,4 @@
-/* Преобразование данных по алгоритму base64. (c) gsr 2004 */
+/* Преобразование данных по алгоритму base64. (c) gsr 2004, 2020 */
 
 #include <stdio.h>
 #include "base64.h"
@@ -27,21 +27,23 @@ static int int_from_base64(int c)
 }
 
 /* Определение длины закодированного сообщения */
-int base64_get_encoded_len(int l)
+size_t base64_get_encoded_len(size_t l)
 {
 	return ((l - 1) / 3 + 1) * 4;
 }	
 
 /* Кодирование base64 */
-int base64_encode(const uint8_t *src, int l, uint8_t *dst)
+ssize_t base64_encode(const uint8_t *src, size_t l, uint8_t *dst)
 {
-	int i, j, k, m;
-	uint8_t b[3];
-	if (l <= 0)
+	if ((src == NULL) || (dst == NULL))
+		return -1;
+	else if (l == 0)
 		return 0;
-	for (i = m = 0; i <= (l - 1) / 3; i++, m += 4){
-		for (j = 0; j < 3; j++){
-			k = 3 * i + j;
+	size_t m = 0;
+	uint8_t b[3];
+	for (size_t i = m = 0; i <= (l - 1) / 3; i++, m += 4){
+		for (size_t j = 0; j < 3; j++){
+			size_t k = 3 * i + j;
 			b[j] = (k < l) ? src[k] : 0;
 		}
 		dst[m] = tbl_base64[b[0] >> 2];
@@ -59,13 +61,14 @@ int base64_encode(const uint8_t *src, int l, uint8_t *dst)
 }
 
 /* Раскодирование base64 */
-int base64_decode(const uint8_t *src, int l, uint8_t *dst)
+ssize_t base64_decode(const uint8_t *src, size_t l, uint8_t *dst)
 {
-	int i, j, k, b[4];
+	int b[4];
 	if ((src == NULL) || (dst == NULL) || (l % 4))
 		return -1;
-	for (i = j = 0; i < l; i += 4){
-		for (k = 0; k < 4; k++){
+	ssize_t j = 0;
+	for (size_t i = j = 0; i < l; i += 4){
+		for (size_t k = 0; k < 4; k++){
 			b[k] = int_from_base64(src[i + k]);
 			if (b[k] == -1)
 				return -1;

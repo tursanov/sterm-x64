@@ -233,7 +233,7 @@ bool read_bind_file(const char *path, struct md5_hash *md5)
 }
 
 /* Чтение заводского номера с модуля безопасности */
-bool read_term_nr(term_number tn)
+static bool read_term_nr(term_number tn)
 {
 	bool ret = false;
 	FILE *f = fopen(TERM_NR_FILE, "r");
@@ -245,7 +245,6 @@ bool read_term_nr(term_number tn)
 			fprintf(stderr, "Ошибка чтения из " TERM_NR_FILE ": %m.\n");
 		else{
 			size_t len = strlen(nr);
-			printf("nr = %s (len = %zu).\n", nr, len);
 			ret = (len == (TERM_NUMBER_LEN + 1)) &&
 				(strncmp(nr, "F00137001", 9) == 0) &&
 				((nr[len - 1] == '\n') || (nr[len - 1] == '\r'));
@@ -271,15 +270,10 @@ bool read_term_nr(term_number tn)
 /* Проверка файла привязки USB-диска */
 void check_usb_bind(void)
 {
-	term_number tn;
-	uint8_t buf[32];
-	int l;
-	struct md5_hash md5;
-	get_tki_field(&tki, TKI_NUMBER, (uint8_t *)tn);
-	l = base64_encode((uint8_t *)tn, sizeof(tn), buf);
-	encrypt_data(buf, l);
-	get_md5(buf, l, &md5);
-	usb_ok = cmp_md5(&md5, &usb_bind);
+	usb_ok = false;
+	term_number tn1, tn2;
+	if (read_term_nr(tn1) && get_tki_field(&tki, TKI_NUMBER, (uint8_t *)tn2))
+		usb_ok = memcmp(tn1, tn2, TERM_NUMBER_LEN) == 0;
 }
 
 /* Проверка файла привязки ключевых баз */
