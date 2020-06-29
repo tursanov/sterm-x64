@@ -36,8 +36,6 @@ enum {
 
 /* Буфер ключевой информации (хранится в зашифрованном виде) */
 extern struct term_key_info tki;
-/* Считанный файл привязки USB-диска */
-extern struct md5_hash usb_bind;
 /* Считанный файл привязки ключевых баз */
 extern struct md5_hash iplir_bind;
 /* Считанный файл банковской лицензии */
@@ -63,7 +61,6 @@ extern bool write_tki(const char *path);
 extern bool get_tki_field(const struct term_key_info *info, int name, uint8_t *val);
 extern bool set_tki_field(struct term_key_info *info, int name, const uint8_t *val);
 extern void check_tki(void);
-extern bool read_bind_file(const char *path, struct md5_hash *md5);
 extern void check_usb_bind(void);
 extern void check_iplir_bind(void);
 extern void check_bank_license(void);

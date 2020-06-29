@@ -1445,16 +1445,16 @@ static bool create_term(void)
 		fprintf(stderr, "Ошибка инициализации ИПТ.\n");
 		return false;
 	}
-	read_bind_file(USB_BIND_FILE, &usb_bind);
+//	read_bind_file(USB_BIND_FILE, &usb_bind);
 	init_keys();
 	rom = create_hash(ROM_BUF_LEN);
-	read_bind_file(IPLIR_BIND_FILE, &iplir_bind);
+//	read_bind_file(IPLIR_BIND_FILE, &iplir_bind);
 	if (rom == NULL){
 		fprintf(stderr, "Ошибка создания ОЗУ констант.\n");
 		return false;
 	}
 	prom = create_hash(PROM_BUF_LEN);
-	read_bind_file(BANK_LICENSE, &bank_license);
+//	read_bind_file(BANK_LICENSE, &bank_license);
 	if (prom == NULL){
 		fprintf(stderr, "Ошибка создания ДЗУ.\n");
 		return false;

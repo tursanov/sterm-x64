@@ -8,10 +8,6 @@
 #include <unistd.h>
 #include "md5.h"
 
-/*
- * В RFC эти функции сделаны в виде макросов для ускорения работы алгоритма,
- * но из-за этого возможны side effects и неправильное приведение типов.
- */
 static uint32_t T[64] = {
 	0xd76aa478,	/* 1  */
 	0xe8c7b756,	/* 2  */
@@ -82,19 +78,19 @@ static uint32_t T[64] = {
 /* Исходный блок данных */
 static const uint8_t *data;
 /* Длина в байтах исходного блока */
-static uint32_t n_bytes;
+static size_t n_bytes;
 /* Индекс для работы конечного автомата MD5 */
 static uint32_t md5_index;
 /* Длина в битах исходного блока */
-static uint32_t n_bits[2];
+static size_t n_bits[2];
 /* Длина в байтах дополненного блока */
-static uint32_t n_bytes_ex;
+static size_t n_bytes_ex;
 /* Дескриптор файла для подсчета MD5 */
 static int md5_fd = -1;
 /* Буфер для работы с файлом */
 static uint8_t file_data[4096];
 /* Текущая длина данных в буфере */
-static uint32_t file_data_len;
+static size_t file_data_len;
 
 /* Состояния конечного автомата входного потока */
 enum {
@@ -108,7 +104,7 @@ enum {
 
 static int md5_st = md5_data;
 
-static void set_md5_len(uint32_t l)
+static void set_md5_len(size_t l)
 {
 	n_bytes = l;
 	n_bits[0] = n_bytes << 3;
@@ -122,7 +118,7 @@ static void set_md5_len(uint32_t l)
 }
 
 /* Инициализация конечного автомата подсчета MD5 буфера памяти */
-static bool init_md5(const uint8_t *p, uint32_t l)
+static bool init_md5(const uint8_t *p, size_t l)
 {
 	if (p == NULL)
 		return false;
@@ -145,22 +141,23 @@ static void release_md5_file(void)
 /* Чтение очередного блока данных из файла */
 static bool read_file_block(void)
 {
-	int l = read(md5_fd, file_data, sizeof(file_data));
+	bool ret = true;
 	md5_index = 0;
-	if (l > 0){
-		file_data_len = l;
-		return true;
-	}else{
+	ssize_t rc = read(md5_fd, file_data, sizeof(file_data));
+	if (rc > 0)
+		file_data_len = rc;
+	else{
 		file_data_len = 0;
-		return false;
+		ret = false;
 	}
+	return ret;
 }
 
 /* Инициализация конечного автомата подсчета MD5 файла */
 static bool init_md5_file(const char *name)
 {
-	struct stat st;
 	release_md5_file();
+	struct stat st;
 	if (stat(name, &st) == -1)
 		return false;
 	md5_fd = open(name, O_RDONLY);
@@ -239,15 +236,15 @@ static uint32_t next_dword(void)
 static bool do_md5(struct md5_hash *md5)
 {
 	struct md5_hash tmp;
-	uint32_t X[16], i, j;
+	uint32_t X[16];
 	if (md5 == NULL) 
 		return false;
 	md5->a = 0x67452301;
 	md5->b = 0xefcdab89;
 	md5->c = 0x98badcfe;
 	md5->d = 0x10325476;
-	for (i = 0; i < n_bytes_ex / 64; i++){
-		for (j = 0; j < 16; j++)
+	for (size_t i = 0; i < n_bytes_ex / 64; i++){
+		for (size_t j = 0; j < 16; j++)
 			X[j] = next_dword();
 		memcpy(&tmp, md5, sizeof(tmp));
 /* Round 1, 1-я строка */
@@ -343,7 +340,7 @@ static bool do_md5(struct md5_hash *md5)
 }
 
 /* Вычисление MD5 для блока памяти */
-bool get_md5(const uint8_t *p, int l, struct md5_hash *md5)
+bool get_md5(const uint8_t *p, size_t l, struct md5_hash *md5)
 {
 	return init_md5(p, l) && do_md5(md5);
 }
@@ -368,22 +365,23 @@ static void print_dword(uint32_t dw)
 /* Вывод контрольной суммы MD5 в стандартной форме */
 void print_md5(const struct md5_hash *md5)
 {
-	if (md5 == NULL)
-		return;
-	printf("0x");
-	print_dword(md5->a);
-	print_dword(md5->b);
-	print_dword(md5->c);
-	print_dword(md5->d);
+	if (md5 != NULL){
+		printf("0x");
+		print_dword(md5->a);
+		print_dword(md5->b);
+		print_dword(md5->c);
+		print_dword(md5->d);
+	}
 }
 
 /* Сравнение двух значений MD5 */
 bool cmp_md5(const struct md5_hash *v1, const struct md5_hash *v2)
 {
-	if ((v1 == NULL) || (v2 == NULL))
-		return false;
-	return	(v1->a == v2->a) && (v1->b == v2->b) &&
-		(v1->c == v2->c) &&(v1->d == v2->d);
+	bool ret = false;
+	if ((v1 != NULL) && (v2 != NULL))
+		ret =	(v1->a == v2->a) && (v1->b == v2->b) &&
+			(v1->c == v2->c) &&(v1->d == v2->d);
+	return ret;
 }
 
 #if 0

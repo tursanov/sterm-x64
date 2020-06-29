@@ -12,6 +12,10 @@ struct md5_hash {
 	uint32_t d;
 };
 
+/*
+ * В RFC эти функции сделаны в виде макросов для ускорения работы алгоритма,
+ * но из-за этого возможны side effects и неправильное приведение типов.
+ */
 static inline uint32_t __rol(uint32_t v, uint32_t n)
 {
 	return (v << n) | (v >> (32 - n));
@@ -57,7 +61,7 @@ static inline uint32_t II(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32
 	return b + __rol(a + I(b, c, d) + x + ac, s);
 }
 
-extern bool get_md5(const uint8_t *p, int l, struct md5_hash *md5);
+extern bool get_md5(const uint8_t *p, size_t l, struct md5_hash *md5);
 extern bool get_md5_file(const char *name, struct md5_hash *md5);
 extern void print_md5(const struct md5_hash *md5);
 extern bool cmp_md5(const struct md5_hash *v1, const struct md5_hash *v2);

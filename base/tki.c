@@ -14,6 +14,7 @@
 #include "license.h"
 #include "licsig.h"
 #include "md5.h"
+#include "paths.h"
 #include "tki.h"
 
 /* Флаги проверки */
@@ -28,10 +29,6 @@ bool bank_ok = false;
 
 /* Буфер ключевой информации (хранится в зашифрованном виде) */
 struct term_key_info tki;
-/* Считанный файл привязки USB-диска */
-struct md5_hash usb_bind = ZERO_MD5_HASH;
-/* Считанный файл привязки ключевых баз */
-struct md5_hash iplir_bind = ZERO_MD5_HASH;
 /* Считанный файл банковской лицензии */
 struct md5_hash bank_license;
 
@@ -203,7 +200,7 @@ void check_tki(void)
 }
 
 /* Чтение файла привязки */
-bool read_bind_file(const char *path, struct md5_hash *md5)
+static bool read_bind_file(const char *path, struct md5_hash *md5)
 {
 	bool ret = false;
 	if ((path == NULL) || (md5 == NULL))
@@ -279,31 +276,40 @@ void check_usb_bind(void)
 /* Проверка файла привязки ключевых баз */
 void check_iplir_bind(void)
 {
-	struct md5_hash md5, buf[2];
-//	buf[0] = iplir_check_sum;
-	buf[1] = usb_bind;
-	get_md5((uint8_t *)buf, sizeof(buf), &md5);
-	iplir_ok = cmp_md5(&md5, &iplir_bind);
+	iplir_ok = false;
+	struct md5_hash iplir_bind;
+	if (read_bind_file(IPLIR_BIND_FILE, &iplir_bind)){
+		struct md5_hash buf[2];
+		get_md5_file(IPLIR_DST, buf);
+		term_number tn;
+		if (get_tki_field(&tki, TKI_NUMBER, (uint8_t *)tn)){
+			get_md5((uint8_t *)tn, sizeof(tn), buf + 1);
+			struct md5_hash md5;
+			get_md5((uint8_t *)buf, sizeof(buf), &md5);
+			iplir_ok = cmp_md5(&md5, &iplir_bind);
+		}
+	}
 }
 
 /* Проверка лицензии ИПТ */
 void check_bank_license(void)
 {
-	uint8_t buf[2 * TERM_NUMBER_LEN];
-	uint8_t v1[64], v2[64];
-	struct md5_hash md5;
-	int i;
 	bank_ok = false;
 #if defined __CHECK_LIC_SIGNATURE__
 	if (check_lic_signature(BANK_LIC_SIGNATURE_OFFSET, BANK_LIC_SIGNATURE))
 		return;		/* лицензия была удалена */
 #endif
-	get_tki_field(&tki, TKI_NUMBER, buf);
-	for (i = 0; i < TERM_NUMBER_LEN; i++)
-		buf[sizeof(buf) - i - 1] = ~buf[i];
-	i = base64_encode(buf, sizeof(buf), v1);
-	i = base64_encode(v1, i, v2);
-	get_md5((uint8_t *)v2, i, &md5);
-	bank_ok = cmp_md5(&md5, &bank_license);
+	struct md5_hash bnk_lic;
+	if (read_bind_file(BANK_LICENSE, &bnk_lic)){
+		uint8_t buf[2 * TERM_NUMBER_LEN];
+		get_tki_field(&tki, TKI_NUMBER, buf);
+		for (int i = 0; i < TERM_NUMBER_LEN; i++)
+			buf[sizeof(buf) - i - 1] = ~buf[i];
+		uint8_t v1[64], v2[64];
+		size_t len = base64_encode(buf, sizeof(buf), v1);
+		len = base64_encode(v1, len, v2);
+		struct md5_hash md5;
+		get_md5((uint8_t *)v2, len, &md5);
+		bank_ok = cmp_md5(&md5, &bank_license);
+	}
 }
-

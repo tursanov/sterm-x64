@@ -148,7 +148,9 @@ all:	inc_build $(SUBDIRS) sterm mk_env
 #all:	$(SUBDIRS) sterm
 
 inc_build:
+ifdef STERM_BUILD_INCREMENT
 	@./helpers/setbuild.pl
+endif
 
 
 $(SUBDIRS):
