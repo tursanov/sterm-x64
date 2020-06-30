@@ -230,7 +230,7 @@ void destroy_agent_info_list(char **l) {
 	free(l);
 }
 
-void* create_new_article(data_source_t *ds) {
+void* create_new_article(data_source_t *ds __attribute__((unused))) {
 	article_t *a = NULL;
 	form_t *form = NULL;
 	char **agent_info_list = create_agent_info_list();
@@ -263,7 +263,7 @@ void* create_new_article(data_source_t *ds) {
 	return a;
 }
 
-int edit_article(data_source_t *ds, void *obj) {
+int edit_article(data_source_t *ds __attribute__((unused)), void *obj) {
 	int ret = -1;
 	article_t *a = (article_t *)obj;
 	form_t *form = NULL;
@@ -310,7 +310,7 @@ int edit_article(data_source_t *ds, void *obj) {
 
 extern void on_newcheque_article_removed(article_t *a);
 
-int remove_article(data_source_t *ds, void *obj) {
+int remove_article(data_source_t *ds __attribute__((unused)), void *obj) {
 	on_newcheque_article_removed((article_t *)obj);
 	return 0;
 }

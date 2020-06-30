@@ -76,7 +76,7 @@ KDIR		/usr/src/linux
 # Используется для статической компиляции некоторых утилит
 #option		__DO_STATIC__
 
-CFLAGS		-std=gnu99 -Wall -Wextra -Wno-sign-compare -Wno-switch -fno-strict-aliasing -Wno-unused-parameter -g -pipe -pthread -I$(INCLUDE) -D_GNU_SOURCE
-#CFLAGS		-std=gnu99 -g -Wall -Wextra -Wno-sign-compare -Wno-switch -fno-strict-aliasing -pipe -pthread -O3 -DNDEBUG -I$(INCLUDE) -D_GNU_SOURCE
-CXXFLAGS	-std=gnu++0x -Wall -Wextra -Wno-sign-compare -Wno-switch -fno-strict-aliasing -g -pipe -pthread -I$(INCLUDE) -D_GNU_SOURCE
+CFLAGS		-std=gnu11 -Wall -Wextra -Wno-sign-compare -Wno-switch -g -pipe -pthread -I$(INCLUDE) -D_GNU_SOURCE
+#CFLAGS		-std=gnu11 -g -Wall -Wextra -Wno-sign-compare -Wno-switch -fno-strict-aliasing -pipe -pthread -O3 -DNDEBUG -I$(INCLUDE) -D_GNU_SOURCE
+CXXFLAGS	-std=gnu++0x -Wall -Wextra -Wno-sign-compare -Wno-switch -g -pipe -pthread -I$(INCLUDE) -D_GNU_SOURCE
 #CXXFLAGS	-std=gnu++0x -Wall -Wextra -Wno-sign-compare -Wno-switch -fno-strict-aliasing -pipe -pthread -O3 -DNDEBUG -I$(INCLUDE) -D_GNU_SOURCE

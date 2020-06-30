@@ -155,7 +155,7 @@ void listview_destroy(listview_t *listview) {
 	free(listview);
 }
 
-void listview_set_parent(listview_t *listview) {
+void listview_set_parent(listview_t *listview __attribute__((unused))) {
 //	if (listview->control.parent.parent && listview->selected_index >= 0)
 //		listview_selected_index_changed(listview);
 }
@@ -339,7 +339,8 @@ bool listview_get_data(listview_t *listview, int what, data_t *data) {
 	return false;
 }
 
-bool listview_set_data(listview_t *listview, int what, const void *data, size_t data_len) {
+bool listview_set_data(listview_t *listview, int what, const void *data,
+		size_t data_len __attribute__((unused))) {
 	switch (what) {
 	case 0:
 		listview->selected_index = (int32_t)(intptr_t)data;

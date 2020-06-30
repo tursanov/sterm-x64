@@ -626,7 +626,7 @@ static void update_form(void *form) {
 		form_draw((form_t *)form);
 }
 
-static void update_cheque(void *arg) {
+static void update_cheque(void *arg __attribute__((unused))) {
 	kbd_flush_queue();
 	cheque_draw();
 }

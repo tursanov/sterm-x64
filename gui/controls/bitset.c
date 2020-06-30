@@ -242,7 +242,8 @@ bool bitset_get_data(bitset_t *bitset, int what, data_t *data) {
 	return false;
 }
 
-bool bitset_set_data(bitset_t *bitset, int what, const void *data, size_t data_len) {
+bool bitset_set_data(bitset_t *bitset, int what, const void *data,
+		size_t data_len __attribute__((unused))) {
 	switch (what) {
 	case 0:
 		bitset->value = (intptr_t)data;

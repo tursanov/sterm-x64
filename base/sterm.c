@@ -201,7 +201,7 @@ bool apc = false;
  * необходимо перемонтировать /home в режиме rw, записать данные и снова
  * смонтировать /home в режиме ro.
  */
-static bool remount_home(bool rw __attribute__((__unused__)))
+static bool remount_home(bool rw __attribute__((unused)))
 {
 #if defined __FAKE_REMOUNT__
 	return true;

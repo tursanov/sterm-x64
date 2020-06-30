@@ -257,7 +257,8 @@ bool listbox_get_data(listbox_t *listbox, int what, data_t *data) {
 	return false;
 }
 
-bool listbox_set_data(listbox_t *listbox, int what, const void *data, size_t data_len) {
+bool listbox_set_data(listbox_t *listbox, int what, const void *data,
+		size_t data_len __attribute__((unused))) {
 	switch (what) {
 	case 0:
 		listbox_set_selected_index(listbox, (int32_t)(intptr_t)data, false);

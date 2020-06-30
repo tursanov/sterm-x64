@@ -293,7 +293,7 @@ static void newcheque_update_sum(window_t *w, bool redraw) {
 	window_set_label_text(w, 1, text, redraw);
 }
 
-static void article_selected_changed(control_t *c, int index, void *item) {
+static void article_selected_changed(control_t *c, int index __attribute__((unused)), void *item) {
 	if (item) {
 		window_t *win = (window_t *)c->parent.parent;
 		char text[64] = "";

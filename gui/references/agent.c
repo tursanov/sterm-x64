@@ -204,7 +204,7 @@ static bool process_agent_edit(form_t *form, agent_t *a) {
 	return ok;
 }
 
-void* create_new_agent(data_source_t *ds) {
+void* create_new_agent(data_source_t *ds __attribute__((unused))) {
 	agent_t *a = NULL;
 	form_t *form = NULL;
 	BEGIN_FORM(form, "Новый поставщик")
@@ -240,7 +240,7 @@ void* create_new_agent(data_source_t *ds) {
 	return a;
 }
 
-int edit_agent(data_source_t *ds, void *obj) {
+int edit_agent(data_source_t *ds __attribute__((unused)), void *obj) {
 	int ret = -1;
 	agent_t *a = (agent_t *)obj;
 	form_t *form = NULL;
@@ -272,7 +272,7 @@ int edit_agent(data_source_t *ds, void *obj) {
 	return ret;
 }
 
-int remove_agent(data_source_t *ds, void *obj) {
+int remove_agent(data_source_t *ds __attribute__((unused)), void *obj) {
 	agent_t *agent = (agent_t *)obj;
 	for (list_item_t *li = articles.head; li; li = li->next) {
 		article_t *a = LIST_ITEM(li, article_t);

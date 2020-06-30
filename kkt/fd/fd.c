@@ -97,7 +97,7 @@ LOut:
 	return pattern;
 }
 
-static void set_fn_error(char *s, uint8_t *err_info, size_t err_info_len)
+static void set_fn_error(char *s, uint8_t *err_info, size_t err_info_len __attribute__((unused)))
 {
 	s += sprintf(s, "\nкоманда ФН: %.2x, код ошибки: %.2x\n", err_info[0], err_info[1]);
     switch (err_info[1]) {
@@ -206,7 +206,8 @@ static void set_fn_error(char *s, uint8_t *err_info, size_t err_info_len)
     }
 }
 
-static void set_tag_error(uint8_t doc_type, char *s, uint8_t *err_info, size_t err_info_len) {
+static void set_tag_error(uint8_t doc_type, char *s, uint8_t *err_info,
+		size_t err_info_len __attribute__((unused))) {
 	uint16_t tag = *(uint16_t *)err_info;
 	if ((doc_type == 31 || doc_type == 41) && tag == 1102 && err_info[2] == 0x0c) {
 		s += sprintf(s, "\nДля данного документа необходимо заполнить хотя бы одно из значений НДС");
