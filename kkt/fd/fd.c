@@ -541,7 +541,7 @@ void fd_set_error(uint8_t doc_type, uint8_t status, uint8_t *err_info, size_t er
 int fd_create_doc(uint8_t doc_type, const uint8_t *pattern_footer, size_t pattern_footer_size)
 {
 	uint8_t ret;
-	uint8_t err_info[32];
+	_Alignas(_Alignof(uint16_t)) uint8_t err_info[32];
 	size_t err_info_len;
 	uint8_t *pattern;
 	size_t pattern_size;
@@ -583,7 +583,14 @@ int fd_create_doc(uint8_t doc_type, const uint8_t *pattern_footer, size_t patter
 
 					if (ret == 0x80 || ret == 0x8c) {
 						if (err_info_len > 0) {
+#if defined __GNUC__ && (__GNUC__ < 8)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
 							uint16_t tag = *(uint16_t *)err_info;
+#if defined __GNUC__ && (__GNUC__ < 8)
+#pragma GCC diagnostic pop
+#endif
 							uint8_t ex_err = err_info[2];
 
 							printf("error in tag %.4d -> %.2x\n", tag, ex_err);
@@ -639,7 +646,14 @@ int fd_create_doc(uint8_t doc_type, const uint8_t *pattern_footer, size_t patter
 
 		if (ret == 0x80 || ret == 0x8c) {
 			if (err_info_len > 0) {
+#if defined __GNUC__ && (__GNUC__ < 8)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
 				uint16_t tag = *(uint16_t *)err_info;
+#if defined __GNUC__ && (__GNUC__ < 8)
+#pragma GCC diagnostic pop
+#endif
 				uint8_t ex_err = err_info[2];
 
 				printf("error in tag %.4d -> %.2x\n", tag, ex_err);
@@ -663,7 +677,7 @@ int fd_get_last_error(const char **error) {
 
 int fd_print_last_doc(uint8_t doc_type) {
 	uint8_t ret;
-	uint8_t err_info[32];
+	_Alignas(_Alignof(uint16_t)) uint8_t err_info[32];
 	size_t err_info_len;
 	uint8_t *pattern;
 	size_t pattern_size;
@@ -687,7 +701,14 @@ int fd_print_last_doc(uint8_t doc_type) {
 
 		if (ret == 0x80 || ret == 0x8c) {
 			if (err_info_len > 0) {
+#if defined __GNUC__ && (__GNUC__ < 8)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
 				uint16_t tag = *(uint16_t *)err_info;
+#if defined __GNUC__ && (__GNUC__ < 8)
+#pragma GCC diagnostic pop
+#endif
 				uint8_t ex_err = err_info[2];
 
 				printf("error in tag %.4d -> %.2x\n", tag, ex_err);
@@ -708,7 +729,7 @@ LOut:
 // печать фискального документа по номеру
 int fd_print_doc(uint8_t doc_type, uint32_t doc_no) {
 	uint8_t ret;
-	uint8_t err_info[32];
+	_Alignas(_Alignof(uint16_t)) uint8_t err_info[32];
 	size_t err_info_len;
 	uint8_t *pattern;
 	size_t pattern_size;
@@ -730,7 +751,14 @@ int fd_print_doc(uint8_t doc_type, uint32_t doc_no) {
 
 		if (ret == 0x80 || ret == 0x8c) {
 			if (err_info_len > 0) {
+#if defined __GNUC__ && (__GNUC__ < 8)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
 				uint16_t tag = *(uint16_t *)err_info;
+#if defined __GNUC__ && (__GNUC__ < 8)
+#pragma GCC diagnostic pop
+#endif
 				uint8_t ex_err = err_info[2];
 
 				printf("error in tag %.4d -> %.2x\n", tag, ex_err);

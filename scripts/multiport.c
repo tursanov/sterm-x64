@@ -114,7 +114,7 @@ bool find_multiport(struct multiport_desc *desc)
 	}
 	for (cur_dir = 0; !flag && (desc->irq == 0) && (cur_dir < n); cur_dir++){
 		char name[128];
-		uint8_t buf[256];
+		_Alignas(_Alignof(uint16_t)) uint8_t buf[256];
 		uint16_t cls;
 		snprintf(name, sizeof(name), PCI_BUS_DIR "%s",
 			dirs[cur_dir]->d_name);
@@ -143,8 +143,15 @@ bool find_multiport(struct multiport_desc *desc)
 			if ((cls == PCI_CLASS_COMMUNICATION_SERIAL) ||
 					(cls == PCI_CLASS_COMMUNICATION_MULTISERIAL) ||
 					(cls == PCI_CLASS_COMMUNICATION_OTHER)){
+#if defined __GNUC__ && (__GNUC__ < 8)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
 				flag = look_dev_info(*(uint16_t *)(buf + PCI_VENDOR_ID),
 					*(uint16_t *)(buf + PCI_DEVICE_ID), desc);
+#if defined __GNUC__ && (__GNUC__ < 8)
+#pragma GCC diagnostic pop
+#endif
 			}
 			close(fd);
 		}

@@ -77,6 +77,4 @@ KDIR		/usr/src/linux
 #option		__DO_STATIC__
 
 CFLAGS		-std=gnu11 -Wall -Wextra -Wno-sign-compare -Wno-switch -g -pipe -pthread -I$(INCLUDE) -D_GNU_SOURCE
-#CFLAGS		-std=gnu11 -g -Wall -Wextra -Wno-sign-compare -Wno-switch -fno-strict-aliasing -pipe -pthread -O3 -DNDEBUG -I$(INCLUDE) -D_GNU_SOURCE
 CXXFLAGS	-std=gnu++0x -Wall -Wextra -Wno-sign-compare -Wno-switch -g -pipe -pthread -I$(INCLUDE) -D_GNU_SOURCE
-#CXXFLAGS	-std=gnu++0x -Wall -Wextra -Wno-sign-compare -Wno-switch -fno-strict-aliasing -pipe -pthread -O3 -DNDEBUG -I$(INCLUDE) -D_GNU_SOURCE

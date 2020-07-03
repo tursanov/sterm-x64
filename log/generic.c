@@ -213,8 +213,7 @@ uint32_t log_find_rec_by_date(struct log_handle *hlog, struct date_time *dt)
 		return -1U;
 	uint32_t d = -1U, index = -1U;
 	for (uint32_t i = 0; i < hlog->hdr->n_recs; i++){
-		uint32_t dd = *(uint32_t *)&hlog->map[(hlog->map_head + i) % hlog->map_size].dt -
-			*(uint32_t *)dt;
+		uint32_t dd = hlog->map[(hlog->map_head + i) % hlog->map_size].dt.dt - dt->dt;
 		if (dd & 0x80000000)
 			dd = ~dd + 1;	/* NB: LONG_MIN не изменится */
 		if (dd < d){

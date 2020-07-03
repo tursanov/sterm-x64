@@ -1204,7 +1204,8 @@ static bool show_usb_msg(void)
 }
 
 /* Установка интерпретации времени в BIOS как московского */
-#if __GNUC__ > 3
+#if defined __GNUC__ && (__GNUC__ > 3)
+#pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wnonnull"
 #endif
 static void set_timezone(void)
@@ -1226,8 +1227,8 @@ static void set_timezone(void)
 			tm->tm_mday, tm->tm_mon + 1, tm->tm_year % 100,
 			tm->tm_hour, tm->tm_min, tm->tm_sec);
 }
-#if __GNUC__ > 3
-#pragma GCC diagnostic warning "-Wnonnull"
+#if defined __GNUC__ && (__GNUC__ > 3)
+#pragma GCC diagnostic pop
 #endif
 
 #if defined __USE_USB_KEY__

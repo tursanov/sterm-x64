@@ -23,12 +23,17 @@ extern "C" {
  * Диапазон значений: 01.01.2000 00:00:00 -- 31.12.2063 23:59:59.
  */
 struct date_time {
-	uint32_t sec:6;
-	uint32_t min:6;
-	uint32_t hour:5;
-	uint32_t day:5;
-	uint32_t mon:4;
-	uint32_t year:6;
+	union {
+		struct {
+			uint32_t sec:6;
+			uint32_t min:6;
+			uint32_t hour:5;
+			uint32_t day:5;
+			uint32_t mon:4;
+			uint32_t year:6;
+		} __attribute__((__packed__));
+		uint32_t dt;
+	} __attribute__((__packed__));
 } __attribute__((__packed__));
 
 extern struct date_time *time_t_to_date_time(time_t t, struct date_time *dt);
