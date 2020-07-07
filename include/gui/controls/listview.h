@@ -9,7 +9,7 @@ typedef struct listview_column_t {
 	int width;
 } listview_column_t;
 
-typedef void (*listview_get_item_text_func_t)(void *item, int index, char text[], size_t text_size);
+typedef int (*listview_get_item_text_func_t)(void *item, int index, char text[], size_t text_size);
 typedef void (*listview_selected_changed_t)(control_t *lv, int index, void *item);
 
 control_t* listview_create(int id, GCPtr gc, int x, int y, int width, int height,

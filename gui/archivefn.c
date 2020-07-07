@@ -42,7 +42,7 @@ static void archivefn_show_error_ex(const char *where) {
 	char error_text[512];
 	const char *error;
 	fd_get_last_error(&error);
-	snprintf(error_text, sizeof(error_text) - 1, "%s:\n%s", where, error_text);
+	snprintf(error_text, sizeof(error_text), "%s:\n%s", where, error);
 	message_box("Žè¨¡ª ", error_text, dlg_yes, 0, al_center);
 }
 

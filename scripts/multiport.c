@@ -74,7 +74,7 @@ bool find_multiport(struct multiport_desc *desc)
 {
 	int is_dir(const struct dirent *entry)
 	{
-		char name[128];
+		char name[512];
 		struct stat st;
 		snprintf(name, sizeof(name), PCI_BUS_DIR "%s", entry->d_name);
 		if (stat(name, &st) == -1)
@@ -88,7 +88,7 @@ bool find_multiport(struct multiport_desc *desc)
 	int i, n, m, cur_dir, fd;
 	int is_reg(const struct dirent *entry)
 	{
-		char name[128];
+		char name[1024];
 		struct stat st;
 		snprintf(name, sizeof(name), PCI_BUS_DIR "%s/%s",
 				dirs[cur_dir]->d_name, entry->d_name);
@@ -113,11 +113,10 @@ bool find_multiport(struct multiport_desc *desc)
 		return false;
 	}
 	for (cur_dir = 0; !flag && (desc->irq == 0) && (cur_dir < n); cur_dir++){
-		char name[128];
+		char name[1024];
 		_Alignas(_Alignof(uint16_t)) uint8_t buf[256];
 		uint16_t cls;
-		snprintf(name, sizeof(name), PCI_BUS_DIR "%s",
-			dirs[cur_dir]->d_name);
+		snprintf(name, sizeof(name), PCI_BUS_DIR "%s", dirs[cur_dir]->d_name);
 		m = scandir(name, &files, is_reg, alphasort);
 		if (m == -1){
 			fprintf(stderr, "Ошибка сканирования %s: %s.\n",

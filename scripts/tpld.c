@@ -549,6 +549,7 @@ static bool parse_cmd_line(int argc, char **argv)
 			case ':':
 			case '?':
 				ret_flag = false;
+			__fallthrough__;
 			case EOF:
 				loop_flag = false;
 				break;

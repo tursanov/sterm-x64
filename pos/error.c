@@ -75,7 +75,7 @@ bool pos_req_save_error_stream(struct pos_data_buf *buf, pos_error_t *err)
 	int l;
 	if (!pos_req_stream_begin(buf, POS_STREAM_ERROR))
 		return false;
-	strncpy(s, err->message, sizeof(err->message));
+	strcpy(s, err->message);
 	s[sizeof(err->message)] = 0;
 	l = strlen(s);
 	recode_str(s, l);

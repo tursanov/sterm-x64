@@ -2591,6 +2591,7 @@ int set_scr_text(uint8_t *s, int l, int t, bool need_redraw)
 						break;
 					case LPRN_INTERLINE:
 						s += 2;
+						__fallthrough__;
 					default:
 						s++;
 				}
@@ -2629,6 +2630,7 @@ int set_scr_text(uint8_t *s, int l, int t, bool need_redraw)
 							s += 3;
 						else
 							break;
+						__fallthrough__;
 					case APRN_BCODE:
 						if (((s - ss) + 3) <= l){
 							int v = (s[1] - 0x30) * 10 + (s[2] - 0x30);

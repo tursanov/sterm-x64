@@ -370,15 +370,15 @@ static bool add_ping_line(char *format, ...)
 	va_end(p);
 	for (text = s; *text; text++){
 		switch (*text){
-			int m = 0;
-			case '\t':
-				m = (n / TAB_SPACES + 1) * TAB_SPACES - n;
+			case '\t':{
+				int m = (n / TAB_SPACES + 1) * TAB_SPACES - n;
 				for (int i = 0; i < m; i++) {
 					ping_lines[cur_ping_line][n++] = ' ';
 					if (n == MAX_STR_LEN)
 						new_line();
 				}
 				break;
+			}
 			case '\n':
 				new_line();
 				break;

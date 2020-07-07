@@ -744,6 +744,7 @@ static void process_pos_edit(pos_edit_t *edit,
 				break;
 			}
 		}
+		__fallthrough__;
 	case KEY_HOME:
 		if (edit->pos > 0)
 		{

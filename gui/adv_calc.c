@@ -403,6 +403,7 @@ bool adv_process_calc_key(int index, struct kbd_event *e)
 		act=adv_get_action(index);
 		if (cur_operand == 0)
 			action=act;
+		__fallthrough__;
 	case CB_EQUAL:
 		if (!adv_calculate())
 			adv_calc_error();

@@ -144,7 +144,8 @@ static uint64_t cheque_article_vln_sum(cheque_article_t *ca) {
 	return sum;
 }
 
-static int cheque_article_save(int fd, cheque_article_t *a) {
+static int cheque_article_save(void *arg, cheque_article_t *a) {
+	int fd = (int)(intptr_t)arg;
 	int i = 0;
 	for (list_item_t *li = articles.head; li; li = li->next, i++) {
 		if (li->obj == a->article)
@@ -439,7 +440,7 @@ static void show_error_ex(window_t *parent, const char *where) {
 	char error_text[512];
 	const char *error;
 	fd_get_last_error(&error);
-	snprintf(error_text, sizeof(error_text) - 1, "%s:\n%s", where, error_text);
+	snprintf(error_text, sizeof(error_text), "%s:\n%s", where, error);
 
 	window_show_error(parent, 9998, error_text);
 }

@@ -293,6 +293,7 @@ bool process_calc(struct kbd_event *e)
 			act=get_action(e->key);
 			if (cur_operand == 0)
 				action=act;
+			__fallthrough__;
 		case KEY_NUMENTER:
 			if (!calculate())
 				calc_error();

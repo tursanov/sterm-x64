@@ -377,6 +377,7 @@ static void process_tcpip(void)
 				slayer_error(TCPERR_RCVTIMEOUT);
 				break;
 			}
+			__fallthrough__;
 		case cs_sent:
 			if (FD_ISSET(term_socket, &rfd)){
 				if (c_state == cs_sent){

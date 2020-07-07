@@ -417,10 +417,12 @@ bool edit_handle(edit_t *edit, const struct kbd_event *e) {
 				break;
 			}
 		}
+		__fallthrough__;
 		case EDIT_INPUT_TYPE_NUMBER:
 		case EDIT_INPUT_TYPE_DATE:
 			if (!isdigit(e->ch))
 				return true;
+			__fallthrough__;
 		case EDIT_INPUT_TYPE_DOUBLE:
 			if (!isdigit(e->ch)) {
 				if (e->ch == '.') {

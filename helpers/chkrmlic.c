@@ -147,6 +147,7 @@ static bool read_line(FILE *f, char *number, char *code)
 							st = st_err;
 						break;
 					}
+					__fallthrough__;
 				case st_number:
 					if (is_number_char(c)){
 						if (i >= TERM_NUMBER_LEN)
@@ -170,6 +171,7 @@ static bool read_line(FILE *f, char *number, char *code)
 							st = st_err;
 						break;
 					}
+					__fallthrough__;
 				case st_code:
 					if (is_code_char(c)){
 						if (i >= LIC_CODE_LEN)

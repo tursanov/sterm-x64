@@ -200,7 +200,7 @@ static const char *optn_bool3[] = {"Выкл.", "Вкл."};
 		.v		= {.i = 0}, \
 		.vv		= {.i = 0}, \
 		.d		= lst, \
-		.n		= lst == NULL ? 0 : ASIZE(lst), \
+		.n		= ASIZE(lst), \
 		.enabled	= true, \
 		.at		= atype, \
 		.offset		= offsetof(struct term_cfg, fld), \
@@ -419,6 +419,10 @@ static struct optn_item bank_optn_items[] = {
 };
 
 /* ККТ */
+#if defined __GNUC__ && (__GNUC__ > 6)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsizeof-pointer-div"
+#endif
 static struct optn_item kkt_optn_items[] = {
 	OPTN_BOOL2("Наличие ККТ", "Наличие ККТ в составе терминала",
 		has_kkt, on_kkt_change),
@@ -456,6 +460,9 @@ static struct optn_item kkt_optn_items[] = {
 	OPTN_BOOL1("Автопечать чеков", "Автоматическая печать чеков на ККТ",
 		kkt_apc, NULL),
 };
+#if defined __GNUC__ && (__GNUC__ > 6)
+#pragma GCC diagnostic pop
+#endif
 
 /* Экран */
 static struct optn_item scr_optn_items[] = {

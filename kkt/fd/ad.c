@@ -193,7 +193,8 @@ void L_destroy(L *l) {
     free(l);
 }
 
-int L_save(int fd, L *l) {
+int L_save(void *arg, L *l) {
+	int fd = (int)(intptr_t)arg;
     if (save_string(fd, l->s) < 0 ||
         SAVE_INT(fd, l->p) < 0 ||
         SAVE_INT(fd, l->r) < 0 ||
@@ -359,7 +360,8 @@ int64_t K_get_sum(K *k) {
 	return sum;
 }
 
-int K_save(int fd, K *k) {
+int K_save(void *arg, K *k) {
+	int fd = (int)(intptr_t)arg;
     if (save_list(fd, &k->llist, (list_item_func_t)L_save) < 0 ||
         SAVE_INT(fd, k->o) < 0 ||
 		SAVE_INT(fd, k->a) < 0 ||
@@ -451,7 +453,8 @@ bool C_addK(C *c, K *k) {
 	return false;
 }
 
-int C_save(int fd, C *c) {
+int C_save(void *arg, C *c) {
+	int fd = (int)(intptr_t)arg;
     if (save_list(fd, &c->klist, (list_item_func_t)K_save) < 0 ||
             SAVE_INT(fd, c->p) < 0 ||
             save_string(fd, c->h) < 0 ||

@@ -210,6 +210,7 @@ L1:
 			control_refresh_parent(&bitset->control);
 			return true;
 		}
+		__fallthrough__;
 	case KEY_TAB:
 		return bitset->expanded;
 	case KEY_DOWN:

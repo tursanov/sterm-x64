@@ -76,7 +76,7 @@ static bool check_name(char *dir, char *name)
 pid_t get_process_id(char *name)
 {
 	pid_t pid = -1;
-	char s[128];
+	char s[512];
 	struct dirent *p;
 	DIR *dir = opendir("/proc");
 	if (dir == NULL)

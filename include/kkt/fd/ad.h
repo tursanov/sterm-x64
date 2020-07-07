@@ -25,7 +25,7 @@ extern L *L_create(void);
 // удаление составляющей
 extern void L_destroy(L *l);
 // запись составляющей в файл
-extern int L_save(int fd, L *l);
+extern int L_save(void *arg, L *l);
 // загрузка составляющей из файла
 extern L *L_load(int fd);
 
@@ -104,7 +104,7 @@ extern bool K_equalByL(K *k1, K *k2);
 extern int64_t K_get_sum(K *k);
 
 // запись документа в файл
-extern int K_save(int fd, K *k);
+extern int K_save(void *arg, K *k);
 // загрузка документа из файла
 extern K *K_load(int fd);
 
@@ -132,7 +132,7 @@ extern C* C_create(void);
 extern void C_destroy(C *c);
 extern bool C_addK(C *c, K *k);
 
-extern int C_save(int fd, C *c);
+extern int C_save(void *arg, C *c);
 extern C* C_load(int fd);
 void C_calc_sum(C *c);
 

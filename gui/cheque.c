@@ -116,7 +116,7 @@ static int email_or_phone_draw(C *c, int start_y) {
 
 static int doc_view_collapsed_draw(C *c, int start_y) {
 	int y = start_y;
-	char text[128];
+	char text[256];
 	char docs[128];
 	int n = 0;
 	char *p = docs;
@@ -127,7 +127,7 @@ static int doc_view_collapsed_draw(C *c, int start_y) {
 			(n < 3 ? (li1->next ? ", " : "") : (li1->next ? "..." : "")));
 	}
 
-	sprintf(text, "Просмотр документов чека (%zu) [%s]", c->klist.count, docs);
+	snprintf(text, sizeof(text), "Просмотр документов чека (%zu) [%s]", c->klist.count, docs);
 	int tw = TextWidth(fnt, text);
 	Color selectedColor = (active_item && LIST_ITEM(active_item, C) == c &&
 			active_item_child == 1) ? clRopnetDarkBrown : clSilver;

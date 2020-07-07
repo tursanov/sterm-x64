@@ -394,9 +394,10 @@ void fd_set_error(uint8_t doc_type, uint8_t status, uint8_t *err_info, size_t er
 			break;		
 		case 0x41: // STATUS_PAPER_END
 			sprintf(s, "%s", "Конец бумаги");
-		case 0x42: // STATUS_COVER_OPEN
 			break;
+		case 0x42: // STATUS_COVER_OPEN
 			sprintf(s, "%s", "Крышка открыта");
+			break;
 		case 0x43: // STATUS_PAPER_LOCK
 			sprintf(s, "%s", "Бумага застряла на выходе");
 			break;
@@ -406,7 +407,7 @@ void fd_set_error(uint8_t doc_type, uint8_t status, uint8_t *err_info, size_t er
 		case 0x45: // STATUS_FS_ERR
 			s += sprintf(s, "%s", "Общая аппаратная ошибка ФН");
 			if (err_info_len > 0)
-                set_fn_error(s, err_info, err_info_len);
+				set_fn_error(s, err_info, err_info_len);
 			break;
 		case 0x46: // STATUS_LAST_UNPRINTED
 			sprintf(s, "%s", "Последний сформированный документ не отпечатан");

@@ -108,7 +108,8 @@ static void article_free(article_t *a) {
 	free(a);
 }
 
-int article_save(int fd, article_t *a) {
+int article_save(void *arg, article_t *a) {
+	int fd = (int)(intptr_t)arg;
 	uint8_t tax_system = 1;
 	if (SAVE_INT(fd, a->n) < 0 ||
 		save_string(fd, a->name) < 0 ||

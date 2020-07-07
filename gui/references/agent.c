@@ -57,7 +57,8 @@ static void agent_free(agent_t *a) {
 	free(a);
 }
 
-int agent_save(int fd, agent_t *a) {
+int agent_save(void *arg, agent_t *a) {
+	int fd = (int)(intptr_t)arg;
 	if (SAVE_INT(fd, a->n) < 0 ||
 		save_string(fd, a->name) < 0 ||
 		save_string(fd, a->inn) < 0 ||
