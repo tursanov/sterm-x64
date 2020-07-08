@@ -58,7 +58,7 @@ static bool check_name(char *dir, char *name)
 {
 	struct stat buf;
 	int l;
-	char lnk[128], exe[128];
+	char lnk[1024], exe[128];
 	snprintf(lnk, sizeof(lnk), "%s/exe", dir);
 	if (lstat(lnk, &buf) == -1)
 		return false;

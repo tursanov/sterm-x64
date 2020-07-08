@@ -204,6 +204,10 @@ static bool write_port(uint16_t port, bool quot)
 	return ret;
 }
 
+#if defined __GNUC__ && (__GNUC__ > 6)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
 static bool write_str(const char *str, bool quot)
 {
 	size_t slen = (str == NULL) ? 0 : strlen(str), len = slen;
@@ -221,6 +225,9 @@ static bool write_str(const char *str, bool quot)
 		write_quot();
 	return true;
 }
+#if defined __GNUC__ && (__GNUC__ > 6)
+#pragma GCC diagnostic pop
+#endif
 
 static bool prepare_cmd(uint8_t prefix, uint8_t cmd)
 {

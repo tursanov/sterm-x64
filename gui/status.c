@@ -102,12 +102,12 @@ bool scr_show_log(bool show __attribute__((unused)))
 bool scr_show_pgnum(bool show)
 {
 	if (scr_visible){
-		char s[9];
+		char s[16];
 	
 		if (show)
-			sprintf(s,"стр %.3d",page+1);
+			snprintf(s, sizeof(s), "стр %.3d", page + 1);
 		else
-			sprintf(s,"        ");
+			strcpy(s,"        ");
 		return scr_draw_bevel(PGNUM_LEFT,PGNUM_TOP,
 			PGNUM_WIDTH,PGNUM_HEIGHT,PGNUM_TXT_HEIGHT,
 			s,

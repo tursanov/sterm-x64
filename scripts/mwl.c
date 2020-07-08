@@ -133,7 +133,7 @@ static bool read_hash(const char *name, struct md5_hash *hash)
 static bool read_term_number(char *bind_file)
 {
 	struct md5_hash hash, md5;
-	char number[14] = "?00137001", prefix[] = "ADEF", buf[32];
+	char number[16] = "?00137001", prefix[] = "ADEF", buf[32];
 	int i, j, l;
 	if (!read_usbkey_bind() || !read_hash(bind_file, &hash))
 		return false;
@@ -141,8 +141,8 @@ static bool read_term_number(char *bind_file)
 #define MAX_NUMBER	9999
 	for (i = 0; i < (sizeof(prefix) - 1); i++){
 		number[0] = prefix[i];
-		for (j = 0; j < 10000; j++){
-			snprintf(number + 9, 5, "%.4d", j);
+		for (j = 0; j <= MAX_NUMBER; j++){
+			snprintf(number + 9, 6 /* for gcc-8.3.0 */, "%.4d", j);
 			l = base64_encode((uint8_t *)number, 13, (uint8_t *)buf);
 			encrypt_data((uint8_t *)buf, l);
 			get_md5((uint8_t *)buf, l, &md5);

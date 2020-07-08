@@ -269,7 +269,7 @@ int edit_article(data_source_t *ds __attribute__((unused)), void *obj) {
 	article_t *a = (article_t *)obj;
 	form_t *form = NULL;
 //	int tax_system = get_bit(a->tax_system);
-	char price_per_unit[17];
+	char price_per_unit[32];
 	char **agent_info_list = create_agent_info_list();
 	int pay_agent_index = 0;
 
