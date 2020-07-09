@@ -7,7 +7,6 @@ BINARIES =		\
 	bnklic		\
 	dsd		\
 	lprnlic		\
-	multiport	\
 	mwl		\
 	rmbnklic	\
 	rmbnklicx	\
@@ -17,9 +16,7 @@ BINARIES =		\
 	tstbeep		\
 	tstcom		\
 	unlkbnk		\
-	unlklprn	\
-	usbcheck	\
-	usbread
+	unlklprn
 
 BASE_OBJS =		\
 	base64		\
@@ -42,7 +39,6 @@ SCRIPTS_OBJS =		\
 	bnklic		\
 	dsd		\
 	lprnlic		\
-	multiport	\
 	mwl		\
 	rmlic		\
 	rmbnklic	\
@@ -54,9 +50,7 @@ SCRIPTS_OBJS =		\
 	tstcom		\
 	unlkbnk		\
 	unlklprn	\
-	unlock		\
-	usbcheck	\
-	usbread
+	unlock
 
 USB_OBJ =		\
 	core		\
@@ -123,10 +117,6 @@ LPRNLIC_OBJS =		\
 	$(addsuffix .o, $(LPRNLIC_SCRIPTS_OBJS))
 
 lprnlic:	$(LPRNLIC_OBJS)
-		@echo "\t$(LD_NAME)   $@"
-		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
-
-multiport:	multiport.o
 		@echo "\t$(LD_NAME)   $@"
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
@@ -308,36 +298,6 @@ UNLKLPRN_OBJS =		\
 	$(addsuffix .o, $(UNLKLPRN_SCRIPTS_OBJS))
 
 unlklprn:	$(UNLKLPRN_OBJS)
-		@echo "\t$(LD_NAME)   $@"
-		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
-
-## usbcheck
-USBCHECK_USB_OBJS =	\
-	core
-
-USBCHECK_SCRIPTS_OBJS =	\
-	usbcheck
-
-USBCHECK_OBJS =		\
-	$(addprefix $(DIR_USB), $(addsuffix .o, $(USBCHECK_USB_OBJS))) \
-	$(addsuffix .o, $(USBCHECK_SCRIPTS_OBJS))
-
-usbcheck:	$(USBCHECK_OBJS)
-		@echo "\t$(LD_NAME)   $@"
-		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
-
-## usbread
-USBREAD_USB_OBJS =	\
-	core
-
-USBREAD_SCRIPTS_OBJS =	\
-	usbread
-
-USBREAD_OBJS =		\
-	$(addprefix $(DIR_USB), $(addsuffix .o, $(USBREAD_USB_OBJS))) \
-	$(addsuffix .o, $(USBREAD_SCRIPTS_OBJS))
-
-usbread:	$(USBREAD_OBJS)
 		@echo "\t$(LD_NAME)   $@"
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 

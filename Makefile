@@ -158,7 +158,7 @@ $(SUBDIRS):
 
 sterm:	$(OBJS)
 	@echo "\t$(LD_NAME)   $@"
-	@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE) -lstdc++
+	@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE) -L /usr/lib/vipnet -lstdc++ -lvpn_api
 
 mk_env:
 	@if [ ! -f $(STERM_HOME)/sterm.dat ]; then\

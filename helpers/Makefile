@@ -6,14 +6,12 @@ DIR = helpers/
 INCLUDE = ../include
 
 BINARIES =		\
-	chipid		\
 	chkrmlic	\
 	mkbind		\
 	mkbnklic	\
 	mklprnlic	\
 	mklog		\
-	mw		\
-	usbload
+	mw
 
 BASE_OBJS =		\
 	base64		\
@@ -24,7 +22,6 @@ BASE_OBJS =		\
 	tki
 
 HELPERS_OBJS =		\
-	chipid		\
 	chkrmlic	\
 	licsig		\
 	mkbind		\
@@ -32,8 +29,7 @@ HELPERS_OBJS =		\
 	mklic		\
 	mklog		\
 	mklprnlic	\
-	mw		\
-	usbload
+	mw
 
 USB_OBJS =		\
 	core
@@ -52,10 +48,6 @@ all:		depend $(BINARIES)
 
 depend:
 		@$(CC) $(CFLAGS) -MM $(OBJS:.o=.c) > .depend
-
-chipid:		chipid.o
-		@echo "\t$(LD_NAME)   $@"
-		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 ## chkrmlic
 CHKRMLIC_BASE_OBJS =	\
@@ -166,25 +158,6 @@ MW_OBJS =		\
 mw:		$(MW_OBJS)
 		@echo "\t$(LD_NAME)   $@"
 		@$(CC) $(CFLAGS) -o $@ $^ -static
-
-## usbload
-USBLOAD_BASE_OBJS =	\
-	md5
-
-USBLOAD_USB_OBJS =	\
-	core
-
-USBLOAD_HELPERS_OBJS =	\
-	usbload
-
-USBLOAD_OBJS =		\
-	$(addprefix $(DIR_BASE), $(addsuffix .o, $(USBLOAD_BASE_OBJS))) \
-	$(addprefix $(DIR_USB), $(addsuffix .o, $(USBLOAD_USB_OBJS))) \
-	$(addsuffix .o, $(USBLOAD_HELPERS_OBJS))
-
-usbload:	$(USBLOAD_OBJS)
-		@echo "\t$(LD_NAME)   $@"
-		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 clean:
 		@rm -f $(BIN_GARBAGE)
