@@ -89,10 +89,10 @@ bool set_ppp_cfg(void)
 	int sock;
 	struct ifreq if_cfg;
 	if (cfg.use_iplir){
-		stop_iplir();
+		iplir_stop();
 /*		check_iplir();
 		cfg_iplir();*/
-		start_iplir();
+		iplir_start();
 	}
 	if ((sock = socket(PF_INET,SOCK_STREAM,IPPROTO_TCP)) == -1)
 		return false;

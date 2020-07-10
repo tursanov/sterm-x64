@@ -1101,7 +1101,7 @@ static void init_term(bool need_init)
 	can_reject = false;
 	err_ptr = NULL;
 	set_term_state(st_stop_iplir);
-	stop_iplir();
+	iplir_stop();
 	set_term_state(st_none);
 	if (!bank_ok)
 		cfg.bank_system = false;
@@ -1160,7 +1160,7 @@ static void init_term(bool need_init)
 	apc = false;
 	init_devices();
 	if (cfg.use_iplir)
-		start_iplir();
+		iplir_start();
 }
 
 /* Сброс терминала в начальное состояние */

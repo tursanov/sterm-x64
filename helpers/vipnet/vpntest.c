@@ -15,9 +15,16 @@ static bool test_vpn(void)
 		if (rc.code == 0){
 			printf("isKeysInstalled = %d; isVpnEnabled = %d.\n",
 				stat.isKeysInstalled, stat.isVpnEnabled);
-			ret = true;
+			VpnNodeInfo *ni = NULL;
+			rc = api->getOwnNodeInfo(&ni);
+			if (rc.code == 0){
+				printf("name = %s; id = 0x%.8x; ip = 0x%.8x; tasksMask = 0x%.8x.\n",
+					ni->name, ni->id, ni->ip, ni->tasksMask);
+				ret = true;
+			}else
+				fprintf(stderr, "getOwnNodeInfo %u (%s).\n", rc.code, rc.message);
 		}else
-			fprintf(stderr, "GetVpnStatusError %u (%s).\n", rc.code, rc.message);
+			fprintf(stderr, "getVpnStatusError %u (%s).\n", rc.code, rc.message);
 	}
 	return ret;
 }
