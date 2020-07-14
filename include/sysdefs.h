@@ -9,6 +9,7 @@
 #include <linux/types.h>
 #else
 #include <sys/times.h>
+#include <stdbool.h>
 #include <stdint.h>
 #endif
 #include <stddef.h>	/* offsetof */
@@ -22,12 +23,6 @@
 #define xoffsetof(s, f) offsetof(typeof(s), f)
 /* Определение размера структуры, начиная с заданного поля */
 #define xsizefrom(s, f) (sizeof(s) - offsetof(typeof(s), f))
-
-#if !defined __cplusplus && !defined __KERNEL__
-typedef int bool;
-#endif
-#define false 0
-#define true 1
 
 #define ON	1
 #define OFF	0

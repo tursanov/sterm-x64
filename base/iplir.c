@@ -20,7 +20,6 @@
 #include "tki.h"
 
 bool iplir_disabled = false;		/* работа с VipNet невозможна */
-bool has_iplir = false;			/* ключевой дистрибутив распакован нормально */
 
 static ItcsVpnApi *api = NULL;
 
@@ -32,13 +31,20 @@ bool iplir_init(void)
 
 void iplir_release(void)
 {
-	iplir_stop();
-	api = NULL;
+	if (api != NULL){
+		iplir_stop();
+		api = NULL;
+	}
 }
 
-static inline bool iplir_ok(const VpnApiReturnCode *rc)
+static inline bool vpn_ok(const VpnApiReturnCode *rc)
 {
-	return (rc != NULL) && (rc.code == 0);
+	return (rc != NULL) && (rc->code == 0);
+}
+
+static inline bool vpn_almost_ok(const VpnApiReturnCode *rc)
+{
+	return (rc != NULL) && ((rc->code == 0) || ((rc->code & 0x60000) == 0x60000));
 }
 
 static void __iplir_show_uninit(const char *fn)
@@ -50,34 +56,11 @@ static void __iplir_show_uninit(const char *fn)
 
 static void __iplir_show_err(const char *fn, const char *vpn_fn, const VpnApiReturnCode *rc)
 {
-	if ((rc != NULL) && (rc.code != 0) && (rc.message != NULL))
-		fprintf(stderr, "%s: %s: %s\n", fn, vpn_fn, rc.message);
+	if ((rc != NULL) && (rc->code != 0) && (rc->message != NULL))
+		fprintf(stderr, "%s: %s: 0x%x (%s).\n", fn, vpn_fn, rc->code, rc->message);
 }
 
 #define iplir_show_err(vpn_fn, rc) __iplir_show_err(__func__, vpn_fn, &rc)
-
-bool iplir_install_keys(void)
-{
-	bool ret = false;
-	if (api != NULL){
-		VpnApiReturnCode rc = api->deleteKeys();
-		if (iplir_ok(&rc)){
-			const char *psw = iplir_get_psw();
-			if (psw != NULL){
-				rc = api->installKeys(IPLIR_DST, psw);
-				if (iplir_ok(&rc))
-					ret = true;
-				else
-					iplir_show_err("installKeys", rc);
-			}else
-				fprintf(stderr, "%s: ошибка получения пароля "
-					"ключевого дистрибутива.\n", __func__);
-		}else
-			iplir_show_err("deleteKeys", rc);
-	}else
-		iplir_show_uninit();
-	return ret;
-}
 
 static const char *iplir_get_psw(void)
 {
@@ -100,21 +83,72 @@ static const char *iplir_get_psw(void)
 	return ret;
 }
 
-/* Запуск iplir */
-bool iplir_start(void)
+bool iplir_install_keys(void)
 {
 	bool ret = false;
 	if (api != NULL){
 		const char *psw = iplir_get_psw();
 		if (psw != NULL){
-			VpnApiReturnCode rc = api->startVpn(psw);
-			if (rc.code == 0)
+			VpnApiReturnCode rc = api->installKeys(IPLIR_DST, psw);
+			if (vpn_almost_ok(&rc))
 				ret = true;
 			else
-				iplir_show_err("startVpn", rc);
+				iplir_show_err("installKeys", rc);
 		}else
 			fprintf(stderr, "%s: ошибка получения пароля ключевого дистрибутива.\n",
 				__func__);
+	}else
+		iplir_show_uninit();
+	return ret;
+}
+
+bool iplir_delete_keys(void)
+{
+	bool ret = false;
+	if (api != NULL){
+		VpnStatus stat;
+		VpnApiReturnCode rc = api->getVpnStatus(&stat);
+		if (vpn_ok(&rc)){
+			if (stat.isKeysInstalled){
+				rc = api->deleteKeys();
+				if (vpn_ok(&rc))
+					ret = true;
+				else
+					iplir_show_err("deleteKeys", rc);
+			}else
+				ret = true;
+		}else
+			iplir_show_err("getVpnStatus", rc);
+	}else
+		iplir_show_uninit();
+	return ret;
+}
+
+
+/* Запуск iplir */
+bool iplir_start(void)
+{
+	bool ret = false;
+	if (api != NULL){
+		VpnStatus stat;
+		VpnApiReturnCode rc = api->getVpnStatus(&stat);
+		if (vpn_ok(&rc)){
+			if (stat.isVpnEnabled)
+				ret = true;
+			else{
+				const char *psw = iplir_get_psw();
+				if (psw != NULL){
+					VpnApiReturnCode rc = api->startVpn(psw);
+					if (vpn_almost_ok(&rc))
+						ret = true;
+					else
+						iplir_show_err("startVpn", rc);
+				}else
+					fprintf(stderr, "%s: ошибка получения пароля "
+						"ключевого дистрибутива.\n", __func__);
+			}
+		}else
+			iplir_show_err("getVpnStatus", rc);
 	}else
 		iplir_show_uninit();
 	return ret;
@@ -125,11 +159,19 @@ bool iplir_stop(void)
 {
 	bool ret = false;
 	if (api != NULL){
-		VpnApiReturnCode rc = api->stopVpn();
-		if (rc.code == 0)
-			ret = true;
-		else
-			iplir_show_err("stopVpn", rc);
+		VpnStatus stat;
+		VpnApiReturnCode rc = api->getVpnStatus(&stat);
+		if (vpn_ok(&rc)){
+			if (stat.isVpnEnabled){
+				VpnApiReturnCode rc = api->stopVpn();
+				if (vpn_ok(&rc))
+					ret = true;
+				else
+					iplir_show_err("stopVpn", rc);
+			}else
+				ret = true;
+		}else
+			iplir_show_err("getVpnStatus", rc);
 	}else
 		iplir_show_uninit();
 	return ret;
@@ -142,7 +184,7 @@ bool iplir_is_active(void)
 	if (api != NULL){
 		VpnStatus st;
 		VpnApiReturnCode rc = api->getVpnStatus(&st);
-		if (rc.code == 0)
+		if (vpn_ok(&rc))
 			ret = st.isKeysInstalled && st.isVpnEnabled;
 		else
 			iplir_show_err("getVpnStatus", rc);
@@ -151,8 +193,11 @@ bool iplir_is_active(void)
 	return ret;
 }
 
-bool test_vipnet(void)
+bool iplir_test(void)
 {
-	const char *psw = iplir_get_psw();
-	return psw != NULL;
+	return	iplir_stop() &&
+		iplir_delete_keys() &&
+		iplir_install_keys() &&
+		iplir_start() &&
+		iplir_is_active();
 }

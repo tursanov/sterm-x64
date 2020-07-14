@@ -1231,133 +1231,6 @@ static void set_timezone(void)
 #pragma GCC diagnostic pop
 #endif
 
-#if defined __USE_USB_KEY__
-/* Чтение уникальной сигнатуры дополнительных данных с диска */
-static bool read_aux_data_sig(struct md5_hash *sig)
-{
-	bool ret = false;
-	int fd = open(SIG_FILE_NAME, O_RDONLY);
-	if (fd != -1){
-		ret = (read(fd, sig, sizeof(*sig)) == sizeof(*sig));
-		close(fd);
-	}
-	return ret;
-}
-
-/* Запись уникальной сигнатуры дополнительных данных на диск */
-static bool write_aux_data_sig(struct md5_hash *sig)
-{
-	bool ret = false;
-	int fd;
-/*	if (remount_home(true)){*/
-		fd = open(SIG_FILE_NAME, O_WRONLY | O_CREAT | O_TRUNC | O_SYNC,
-			S_IRUSR | S_IWUSR);
-		if (fd != -1){
-			ret = (write(fd, sig, sizeof(*sig)) == sizeof(*sig));
-			fsync(fd);
-			close(fd);
-			flush_home();
-		}
-/*	}
-	remount_home(false);*/
-	return ret;
-}
-/* Сохранение дополнительных данных модуля безопасности */
-static bool accept_aux_data(struct key_aux_data *aux_data)
-{
-	cfg.gaddr = aux_data->gaddr;
-	cfg.iaddr = aux_data->iaddr;
-	cfg.x3_p_ip = aux_data->host_ip;
-	cfg.bank_proc_ip = aux_data->bank_ip;
-	return write_cfg() && write_aux_data_sig(&aux_data->sig);
-}
-
-/* Ожидание нажатия Enter или извлечения модуля безопасности */
-static bool wait_response(void)
-{
-	struct termios tio;
-	int c, flags, val = 0;
-	bool ret = false;
-	if (usbkey_dev == -1)
-		return false;
-	else if (tcgetattr(STDIN_FILENO, &tio) == -1)
-		return false;
-	tio.c_lflag &= ~ECHO;
-	if (tcsetattr(STDIN_FILENO, TCSANOW, &tio) == -1)
-		return false;
-	flags = fcntl(STDIN_FILENO, F_GETFL);
-	if (flags == -1)
-		goto wait_response_exit;
-	else if (fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK) == -1)
-		goto wait_response_exit;
-	do {
-		c = getchar();
-		ret = (c == '\n');
-		if (!ret)
-			val = ioctl(usbkey_dev, USBKEY_IO_HASKEY);
-		usleep(1000);
-	} while (!ret && (val > 0));
-	while (getchar() != EOF);
-wait_response_exit:
-	if (flags != -1)
-		fcntl(STDIN_FILENO, F_SETFL, flags);
-	tio.c_lflag |= ECHO;
-	tcsetattr(STDIN_FILENO, TCSANOW, &tio);
-	return ret;
-}
-
-/*
- * Вывод запроса на изменение конфигурации в соответствие
- * с дополнительными данными.
- */
-#include "colortty.h"
-static bool ask_confirm_aux_data(struct key_aux_data *aux_data)
-{
-	bool ret;
-	printf(CLR_SCR
-		"\n\n\n\n\n\n"
-		tYLW "На базе модуля безопасности обнаружены новые значения "
-		"параметров терминала:\n\n"
-		tCYA "%30s: " tGRN "%.2hhX:%.2hhX\n"
-		tCYA "%30s: " tGRN "%s\n",
-			"Адрес терминала",
-			aux_data->gaddr, aux_data->iaddr,
-			"ХОСТ-ЭВМ",
-			inet_ntoa(dw2ip(aux_data->host_ip)));
-	printf(	tCYA "%30s: " tGRN "%s\n\n"
-		tYLW
-"                Текущие значения будут заменены на новые.\n"
-"                     Для подтверждения нажмите " tWHT "ENTER" tYLW "\n"
-"        В случае отказа от новых значений извлеките модуль безопасности."
-		ANSI_DEFAULT,
-			"Процессинговый центр",
-			inet_ntoa(dw2ip(aux_data->bank_ip)));
-	ret = wait_response();
-	printf(CLR_SCR);
-	if (ret)
-		printf(tGRN "Настройки терминала будут изменены" ANSI_DEFAULT "\n");
-	else
-		printf(tRED "Терминал не может быть запущен" ANSI_DEFAULT "\n");
-	return ret;
-}
-
-/* Проверка дополнительных данных модуля безопасности */
-static bool check_aux_data(struct key_aux_data *aux_data)
-{
-	struct md5_hash sig;
-	if (aux_data == NULL)
-		return true;
-	else if (read_aux_data_sig(&sig))
-		return cmp_md5(&sig, &aux_data->sig);
-	else
-		return false;
-/*		return	(aux_data->gaddr == cfg.gaddr) &&
-			(aux_data->iaddr == cfg.iaddr) &&
-			(aux_data->host_ip == get_x3_ip) &&
-			(!cfg.bank_system || (aux_data->bank_ip == cfg.bank_proc_ip));*/
-}
-#endif		/* __USE_USB_KEY__ */
-
 /* Проверка возможности автоматического перехода в пригородный режим */
 static bool can_set_local_wm(void)
 {
@@ -1432,10 +1305,6 @@ static bool create_term(void)
 	load_term_props();
 	clear_bank_info(&bi, true);
 	clear_bank_info(&bi_pos, true);
-	test_vipnet();
-#if defined __USE_USB_KEY__
-	read_usbkey();
-#endif
 #if defined __REAL_KEYS__
 	if (!ds_init()){
 		fprintf(stderr, "Ошибка инициализации жетонов DS1990A.\n");
@@ -1446,16 +1315,13 @@ static bool create_term(void)
 		fprintf(stderr, "Ошибка инициализации ИПТ.\n");
 		return false;
 	}
-//	read_bind_file(USB_BIND_FILE, &usb_bind);
 	init_keys();
 	rom = create_hash(ROM_BUF_LEN);
-//	read_bind_file(IPLIR_BIND_FILE, &iplir_bind);
 	if (rom == NULL){
 		fprintf(stderr, "Ошибка создания ОЗУ констант.\n");
 		return false;
 	}
 	prom = create_hash(PROM_BUF_LEN);
-//	read_bind_file(BANK_LICENSE, &bank_license);
 	if (prom == NULL){
 		fprintf(stderr, "Ошибка создания ДЗУ.\n");
 		return false;
@@ -1471,18 +1337,6 @@ static bool create_term(void)
 		fprintf(stderr, "Файл ключевой информации терминала поврежден.\n");
 		return false;
 	}
-#if defined __USE_USB_KEY__
-	usbkey_dev = open(USBKEY_BASE_NAME "0", O_RDONLY);
-	if (!usb_ok || (usbkey_dev == -1))
-		return false;
-	if (usb_ok && read_usbkey_aux(&aux_data) &&
-			!check_aux_data(&aux_data)){
-		if (ask_confirm_aux_data(&aux_data))
-			accept_aux_data(&aux_data);
-		else
-			return false;
-	}
-#endif
 	iplir_disabled = !(usb_ok && iplir_ok);
 	get_dallas_keys();
 	kt = get_key_type();
@@ -1560,6 +1414,7 @@ static void release_term(void)
 	agents_destroy();
 	articles_destroy();
 	newcheque_destroy();
+	iplir_release();
 }
 
 /* Проверка нажатия комбинации клавиш для разрыва модемного соединения */

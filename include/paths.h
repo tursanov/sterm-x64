@@ -27,8 +27,6 @@
 #define STERM_CFG_NAME		_("sterm.conf")
 /* Имя файла запросов */
 #define STERM_REQ_LIST		_("sterm.req")
-/* Имя файла сигнатуры дополнительных данных */
-#define SIG_FILE_NAME		_("auxdata.sig")
 /* Имя файла признака работы в пригородном режиме */
 #define LOCAL_FLAG_NAME		_(".wm_local")
 

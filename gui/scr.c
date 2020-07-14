@@ -960,7 +960,7 @@ bool show_hints(void)
 			DeleteBitmap(logo);
 		}	
 /* Логотип "Инфотекса" */
-		if (cfg.use_iplir && is_iplir_loaded())
+		if (cfg.use_iplir && iplir_is_active())
 			logo = CreateBitmap(_("pict/iplir.bmp"));
 		else
 			logo = CreateBitmap(_("pict/iplird.bmp"));

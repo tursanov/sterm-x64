@@ -9,15 +9,15 @@
 #define IPLIR_CTL	"/usr/bin/vipnetclient"
 
 extern bool iplir_init(void);
-extern void iplir_relase(void);
+extern void iplir_release(void);
 extern bool iplir_install_keys(void);
+extern bool iplir_delete_keys(void);
 extern bool iplir_start(void);
 extern bool iplir_stop(void);
 extern bool iplir_is_active(void);
 
 extern bool iplir_disabled;
-extern bool has_iplir;
 
-extern bool test_vipnet(void);
+extern bool iplir_test(void);
 
 #endif		/* IPLIR_H */
