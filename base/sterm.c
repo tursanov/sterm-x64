@@ -1295,26 +1295,27 @@ static inline bool open_logs(void)
 
 static bool create_term(void)
 {
-#if defined __USE_USB_KEY__
-	struct key_aux_data aux_data;
-#endif
-	set_timezone();
-	set_sigterm_handler();
 	if (!read_tki(STERM_TKI_NAME, false))
 		return false;
+	set_timezone();
+	set_sigterm_handler();
 	load_term_props();
-	clear_bank_info(&bi, true);
-	clear_bank_info(&bi_pos, true);
 #if defined __REAL_KEYS__
 	if (!ds_init()){
 		fprintf(stderr, "Ошибка инициализации жетонов DS1990A.\n");
 		return false;
 	}
 #endif
+	if (!init_ppp_ipc()){
+		fprintf(stderr, "Ошибка инициализации PPP.\n");
+		return false;
+	}
 	if (!pos_create()){
 		fprintf(stderr, "Ошибка инициализации ИПТ.\n");
 		return false;
 	}
+	clear_bank_info(&bi, true);
+	clear_bank_info(&bi_pos, true);
 	init_keys();
 	rom = create_hash(ROM_BUF_LEN);
 	if (rom == NULL){
@@ -1327,10 +1328,6 @@ static bool create_term(void)
 		return false;
 	}
 	check_tki();
-	if (!init_ppp_ipc()){
-		fprintf(stderr, "Ошибка инициализации PPP.\n");
-		return false;
-	}
 	check_usb_bind();
 	check_iplir_bind();
 	if (!tki_ok){
@@ -1338,6 +1335,15 @@ static bool create_term(void)
 		return false;
 	}
 	iplir_disabled = !(usb_ok && iplir_ok);
+	if (!iplir_disabled)
+		iplir_disabled = !(
+			iplir_init() &&
+			iplir_stop() &&
+			iplir_delete_keys() &&
+			iplir_install_keys() &&
+			iplir_start() &&
+			iplir_is_active()
+		);
 	get_dallas_keys();
 	kt = get_key_type();
 /* FIXME: закомментировать в release */

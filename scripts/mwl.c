@@ -1,4 +1,4 @@
-/* Программа работы с файлом ключевой информации терминала. (c) gsr 2004,2008.
+/* Программа работы с файлом ключевой информации терминала. (c) gsr 2004, 2008, 2020.
  * Параметры командной строки:
  * --tki=<file>		-- файл ключевой информации для записи;
  * --number		-- чтение заводского номера терминала из модуля
@@ -20,7 +20,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "usb/key.h"
 #include "base64.h"
 #include "ds1990a.h"
 #include "genfunc.h"
@@ -42,7 +41,7 @@ static void usage(void)
 {
 	printf(
 "Программа работы с файлом ключевой информации терминала.\n"
-"(c) АО НПЦ \"Спектр\" 2001 -- 2008.\n"
+"(c) АО НПЦ \"Спектр\" 2001 -- 2020.\n"
 "Использование: mwl [options]:\n"
 "  --tki=<file>\t\t-- файл ключевой информации для записи;\n"
 "  --number\t\t-- чтение заводского номера терминала из модуля\n"
@@ -100,60 +99,46 @@ static bool write_dallas(struct md5_hash *keys, int n_keys, bool can_repeat)
 	return true;
 }
 
-/* Чтение файла привязки модуля безопасности к заводскому номеру */
-static bool read_hash(const char *name, struct md5_hash *hash)
-{
-	bool ret = false;
-	struct stat st;
-	int fd = -1;
-	if (stat(name, &st) == -1)
-		fprintf(stderr, "Ошибка получения данных о файле %s: %s.\n",
-			name, strerror(errno));
-	else if (!S_ISREG(st.st_mode))
-		fprintf(stderr, "%s не является обычным файлом.\n", name);
-	else if (st.st_size != sizeof(*hash))
-		fprintf(stderr, "Файл %s имеет неверный размер.\n", name);
-	else if ((fd = open(name, O_RDONLY)) == -1)
-		fprintf(stderr, "Ошибка открытия %s для чтения: %s.\n",
-			name, strerror(errno));
-	else if (read(fd, hash, sizeof(*hash)) != sizeof(*hash))
-		fprintf(stderr, "Ошибка чтения из %s: %s.\n",
-			name, strerror(errno));
-	else
-		ret = true;
-	if (fd != -1)
-		close(fd);
-	return ret;
-}
-
 /*
  * Чтение заводского номера терминала из модуля безопасности и запись его
  * в структуру tki.
  */
-static bool read_term_number(char *bind_file)
+static bool read_term_number(void)
 {
-	struct md5_hash hash, md5;
-	char number[16] = "?00137001", prefix[] = "ADEF", buf[32];
-	int i, j, l;
-	if (!read_usbkey_bind() || !read_hash(bind_file, &hash))
+	if (system("mount-usb.sh") != 0)
 		return false;
-/* Пытаемся "угадать" заводской номер терминала по его хешу */
-#define MAX_NUMBER	9999
-	for (i = 0; i < (sizeof(prefix) - 1); i++){
-		number[0] = prefix[i];
-		for (j = 0; j <= MAX_NUMBER; j++){
-			snprintf(number + 9, 6 /* for gcc-8.3.0 */, "%.4d", j);
-			l = base64_encode((uint8_t *)number, 13, (uint8_t *)buf);
-			encrypt_data((uint8_t *)buf, l);
-			get_md5((uint8_t *)buf, l, &md5);
-			if (cmp_md5(&hash, &md5)){
-				set_tki_field(&tki, TKI_NUMBER, (uint8_t *)number);
-				return true;
+	bool ret = false;
+	FILE *f = fopen(TERM_NR_FILE_USB, "r");
+	if (f == NULL)
+		fprintf(stderr, "Ошибка открытия " TERM_NR_FILE_USB " для чтения: %m.\n");
+	else{
+		char nr[TERM_NUMBER_LEN + 2];	/* \n + 0 */
+		if (fgets(nr, sizeof(nr), f) == NULL)
+			fprintf(stderr, "Ошибка чтения из " TERM_NR_FILE_USB ": %m.\n");
+		else{
+			size_t len = strlen(nr);
+			ret = (len == (TERM_NUMBER_LEN + 1)) &&
+				(strncmp(nr, "F00137001", 9) == 0) &&
+				((nr[len - 1] == '\n') || (nr[len - 1] == '\r'));
+			if (ret){
+				for (int i = 9; i < 13; i++){
+					if (!isdigit(nr[i])){
+						ret = false;
+						break;
+					}
+				}
 			}
+			if (ret)
+				ret = set_tki_field(&tki, TKI_NUMBER, (uint8_t *)nr);
+			else
+				fprintf(stderr, "Заводской номер терминала имеет неверный формат "
+					"(не F00137001xxxx).\n");
 		}
+		if (fclose(f) == EOF)
+			fprintf(stderr, "Ошибка закрытия " TERM_NR_FILE_USB ": %m.\n");
 	}
-	fprintf(stderr, "Заводской номер терминала имеет неверный формат (не F00137001xxxx).\n");
-	return false;
+	system("umount /mnt/usb");
+	return ret;
 }
 
 /* Семантическая проверка командной строки */
@@ -244,7 +229,7 @@ int main(int argc, char **argv)
 		else{
 			switch (subj){
 				case subj_number:
-					if (read_term_number(USB_BIND_FILE))
+					if (read_term_number())
 						ret = 0;
 					break;
 				case subj_keys:

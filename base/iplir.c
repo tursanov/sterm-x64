@@ -65,7 +65,7 @@ static void __iplir_show_err(const char *fn, const char *vpn_fn, const VpnApiRet
 static const char *iplir_get_psw(void)
 {
 	const char *ret = NULL;
-	uint8_t buf[256];	/* пароль до 144 символов */
+	static uint8_t buf[256];	/* пароль до 144 символов */
 	struct stat st;
 	if ((stat(IPLIR_PSW_DATA, &st) == 0) && (st.st_size <= sizeof(buf))){
 		int fd = open(IPLIR_PSW_DATA, O_RDONLY);
@@ -195,9 +195,13 @@ bool iplir_is_active(void)
 
 bool iplir_test(void)
 {
-	return	iplir_stop() &&
+	bool ret =
+		iplir_init() &&
+		iplir_stop() &&
 		iplir_delete_keys() &&
 		iplir_install_keys() &&
 		iplir_start() &&
 		iplir_is_active();
+	iplir_release();
+	return ret;
 }

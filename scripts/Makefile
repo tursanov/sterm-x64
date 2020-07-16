@@ -58,7 +58,6 @@ USB_OBJ =		\
 
 DIR_BASE = ../base/
 DIR_LOG = ../log/
-DIR_USB = ../usb/
 
 OBJS =			\
 	$(addprefix $(DIR_BASE), $(addsuffix .o, $(BASE_OBJS))) \
@@ -131,14 +130,9 @@ MWL_BASE_OBJS =		\
 MWL_SCRIPTS_OBJS =	\
 	mwl
 
-MWL_USB_OBJS =		\
-	core		\
-	key
-
 MWL_OBJS =		\
 	$(addprefix $(DIR_BASE), $(addsuffix .o, $(MWL_BASE_OBJS))) \
-	$(addsuffix .o, $(MWL_SCRIPTS_OBJS)) \
-	$(addprefix $(DIR_USB), $(addsuffix .o, $(MWL_USB_OBJS)))
+	$(addsuffix .o, $(MWL_SCRIPTS_OBJS))
 
 mwl:		$(MWL_OBJS)
 		@echo "\t$(LD_NAME)   $@"

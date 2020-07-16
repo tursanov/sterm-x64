@@ -9,6 +9,8 @@
 
 /* Имя файла заводского номера терминала */
 #define TERM_NR_FILE		"/sdata/term-number.txt"
+/* Имя файла заводского номера терминала на USB-диске */
+#define TERM_NR_FILE_USB	"/mnt/usb/ViPNet/term-number.txt"
 /* Имя файла привязки USB-диска */
 #define USB_BIND_FILE		"/sdata/disk.dat"
 /* Имя файла ключевого дистрибутива VipNet */
