@@ -114,14 +114,7 @@ enum {
 	cmd_find_plog_date,
 	cmd_find_plog_number,
 	cmd_pos,
-#if defined __CONSOLE_SWITCHING__
-	cmd_switch_vt,
-#else
 	cmd_switch_wm,
-#endif
-#if defined __USE_REQ_LIST__
-	cmd_next_req,
-#endif
 	cmd_term_info,
 	cmd_iplir_version,
 	cmd_kkt_info,

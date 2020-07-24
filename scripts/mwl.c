@@ -128,9 +128,12 @@ static bool read_term_number(void)
 					}
 				}
 			}
-			if (ret)
+			if (ret){
 				ret = set_tki_field(&tki, TKI_NUMBER, (uint8_t *)nr);
-			else
+				if (ret)
+					printf("Терминалу присвоен заводской номер %.*s.\n",
+						TERM_NUMBER_LEN, nr);
+			}else
 				fprintf(stderr, "Заводской номер терминала имеет неверный формат "
 					"(не F00137001xxxx).\n");
 		}

@@ -1442,8 +1442,7 @@ void mark_all(void)
 static void mark_prn(void)
 {
 #if !defined __DEBUG_PRINT__
-	int i;
-	for (i=0; i < n_paras; i++)
+	for (int i = 0; i < n_paras; i++)
 		if ((map[i].dst == dst_xprn) || (map[i].dst == dst_aprn) ||
 				(map[i].dst == dst_lprn))
 			map[i].can_print = false;

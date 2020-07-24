@@ -282,25 +282,6 @@ bool kbd_exact_shift_state(struct kbd_event *e, int state)
 	return (e->shift_state & state) && !(e->shift_state & ~state);
 }
 
-/*
- * Удаляет из очереди нажатых клавиш клавишу Ctrl. Это необходимо для 
- * переключения консолей (__CONSOLE_SWITCHING__)
- */
-#if defined __CONSOLE_SWITCHING__
-int strip_ctrl(void)
-{
-	int *p = pressed_keys, ret = 0;
-	for (int i = 0; i < ASIZE(pressed_keys); i++, p++){
-		if ((*p == KEY_LCTRL) || (*p == KEY_RCTRL)){
-			*p = 0;
-			ret++;
-		}
-	}
-	kbd_shift_state &= ~SHIFT_CTRL;
-	return ret;
-}
-#endif
-
 #define TIMER_FREQ_MHZ	1.19318
 
 static bool sound_on = false;
@@ -422,10 +403,6 @@ bool init_kbd(void)
 		new.c_iflag = 0;
 		new.c_lflag &= ~(ICANON | ECHO | ISIG);
 		new.c_cc[VTIME] = 1;
-#if defined __CONSOLE_SWITCHING__
-		new.c_cc[VINTR] = 0;
-		new.c_cc[VQUIT] = 0;
-#endif
 		tcsetattr(kbd, TCSAFLUSH, &new);
 		ioctl(kbd, KDSKBMODE, K_MEDIUMRAW);
 		open_sound_com();

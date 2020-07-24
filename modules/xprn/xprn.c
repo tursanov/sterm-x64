@@ -1,4 +1,4 @@
-/* Работа с принтером "Экспресс" через LPT. (c) gsr 2004 */
+/* Работа с принтером "Экспресс" через LPT. (c) gsr 2004, 2020 */
 
 #include <linux/delay.h>
 #include <linux/fs.h>
@@ -16,36 +16,20 @@ MODULE_DESCRIPTION("eXpress printer over LPT");
 MODULE_SUPPORTED_DEVICE("generic eXpress printers");
 MODULE_LICENSE("GPL");
 #define DEVICE_NAME	"xprn"
+#define XPRN_CLASS	"x3prn"
+
+static struct class *xprn_class = NULL;
 
 static int open_count = 0;
 
-static bool waiting_nack;
+static bool waiting_nack = false;
 
 #define N_ACK_HITS	10
 #define PRN_WAIT_DELAY	10000	/* 0.1 с */
 
 /* Работа с интерфейсом parport */
-static struct parport *port;
-static struct pardevice *dev;
-
-static int xprn_preempt(void *handle)
-{
-	return open_count == 0;
-}
-
-static void xprn_attach(struct parport *pp)
-{
-	if (pp->number == 0){
-		port = pp;
-		dev = parport_register_device(port, DEVICE_NAME,
-			xprn_preempt, NULL, NULL, 0, NULL);
-	}else
-		printk("ignoring parport %d\n", pp->number);
-}
-
-static void xprn_detach(struct parport *pp)
-{
-}
+static struct parport *port = NULL;
+static struct pardevice *dev = NULL;
 
 /* Управление различными линиями принтера */
 /* RPR */
@@ -160,56 +144,65 @@ static int print_char(char c)
 }
 
 /* IOCTL */
-static int xprn_io_reset(int param)
+static long xprn_io_reset(unsigned long param)
 {
-	int retval = parport_claim(dev);
-	if (retval == 0){
+	int ret = parport_claim(dev);
+	if (ret == 0){
 		reset_prn();
 		parport_release(dev);
-	}
-	return retval;
-}
-
-static int xprn_io_outchar(int param)
-{
-	int retval = parport_claim(dev);
-	if (retval == 0){
-		retval = print_char((char)(param & 0x7f));
-		parport_release(dev);
-		return retval;
 	}else
-		return prn_dead;
+		ret = prn_dead;
+	return ret;
 }
 
-static int xprn_ioctl(struct inode *inode, struct file *file,
-		unsigned int ioctl_num, unsigned long param)
+static long xprn_io_outchar(unsigned long param)
+{
+	int ret = parport_claim(dev);
+	if (ret == 0){
+		ret = print_char((char)(param & 0x7f));
+		parport_release(dev);
+	}else
+		ret = prn_dead;
+	return ret;
+}
+
+static long xprn_ioctl(struct file *file, unsigned int ioctl_num, unsigned long param)
 {
 	static struct ioctl_proc{
-		int ioctl_num;
-		int (*ioctl_fn)(int);
-	} ioctls[] = {			/* reaction table */
+		unsigned int ioctl_num;
+		long (*ioctl_fn)(unsigned long);
+	} ioctls[] = {
 		{XPRN_IO_RESET, xprn_io_reset},
 		{XPRN_IO_OUTCHAR, xprn_io_outchar},
 	};
+	long ret = -ENOSYS;
 	int i;
-	for (i = 0; i < ASIZE(ioctls); i++)
-		if (ioctls[i].ioctl_num == ioctl_num)
-			return ioctls[i].ioctl_fn(param);
-	return -ENOSYS;
+	printk("%s: file = 0x%p; ioctl_num = 0x%x; param = 0x%lx.\n",
+		__func__, file, ioctl_num, param);
+	for (i = 0; i < ASIZE(ioctls); i++){
+		typeof(*ioctls) *p = ioctls + i;
+		if (p->ioctl_num == ioctl_num){
+			ret = p->ioctl_fn(param);
+			break;
+		}
+	}
+	return ret;
 }
 
 static int xprn_open(struct inode *inode, struct file *file)
 {
-	if (open_count > 0)
-		return -EBUSY;
-	else{
+	int ret = -EBUSY;
+	printk("%s: inode = 0x%p; file = 0x%p.\n", __func__, inode, file);
+	if (open_count == 0){
 		open_count++;
-		return 0;
+		ret = 0;
 	}
+	return ret;
 }
 
 static int xprn_close(struct inode *inode, struct file *file)
 {
+	printk("%s: inode = 0x%p; file = 0x%p.\n", __func__, inode, file);
 	if (open_count > 0)
 		open_count--;
 	return 0;
@@ -217,10 +210,31 @@ static int xprn_close(struct inode *inode, struct file *file)
 
 static struct file_operations xprn_fops = {
 	.owner			= THIS_MODULE,
-	.ioctl			= xprn_ioctl,
+	.unlocked_ioctl		= xprn_ioctl,
 	.open			= xprn_open,
 	.release		= xprn_close,
 };
+
+static int xprn_preempt(void *handle)
+{
+	return open_count == 0;
+}
+
+static void xprn_attach(struct parport *pp)
+{
+	printk("%s: pp->number = %d.\n", __func__, pp->number);
+	if (pp->number == 0){
+		port = pp;
+		dev = parport_register_device(port, DEVICE_NAME,
+			xprn_preempt, NULL, NULL, 0, NULL);
+		device_create(xprn_class, port->dev, MKDEV(XPRN_MAJOR, 0), NULL, DEVICE_NAME);
+	}else
+		printk("ignoring parport %d\n", pp->number);
+}
+
+static void xprn_detach(struct parport *pp)
+{
+}
 
 static struct parport_driver xprn_driver = {
 	.name			= DEVICE_NAME,
@@ -230,25 +244,39 @@ static struct parport_driver xprn_driver = {
 
 int init_module(void)
 {
-	int retval;
-	retval = parport_register_driver(&xprn_driver);
-	if (retval != 0){
-		printk("parport_register_driver failed with code %d\n", retval);
-		return retval;
+	int ret = register_chrdev(XPRN_MAJOR, DEVICE_NAME, &xprn_fops);
+	if (ret != 0){
+		printk("register_chrdev failed with code %d\n", ret);
+		return ret;
 	}
-	retval = register_chrdev(XPRN_MAJOR, DEVICE_NAME, &xprn_fops);
-	if (retval != 0){
-		printk("register_chrdev failed with code %d\n", retval);
-		return retval;
-	}else{
-		reset_prn();
-		return 0;
+	xprn_class = class_create(THIS_MODULE, XPRN_CLASS);
+	if (IS_ERR(xprn_class)){
+		ret = PTR_ERR(xprn_class);
+		printk("class_create failed with code %d\n", ret);
+		goto out_reg;
 	}
+	ret = parport_register_driver(&xprn_driver);
+	if (ret != 0){
+		printk("parport_register_driver failed with code %d\n", ret);
+		goto out_class;
+	}
+	reset_prn();
+	return ret;
+out_class:
+	class_destroy(xprn_class);
+out_reg:
+	unregister_chrdev(XPRN_MAJOR, DEVICE_NAME);
+	return ret;
 }
 
 void cleanup_module(void)
 {
 	parport_unregister_driver(&xprn_driver);
-	parport_unregister_device(dev);
 	unregister_chrdev(XPRN_MAJOR, DEVICE_NAME);
+	if (dev != NULL)
+		parport_unregister_device(dev);
+	if (xprn_class != NULL){
+		device_destroy(xprn_class, MKDEV(XPRN_MAJOR, 0));
+		class_destroy(xprn_class);
+	}
 }

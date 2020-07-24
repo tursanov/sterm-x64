@@ -52,18 +52,13 @@ SCRIPTS_OBJS =		\
 	unlklprn	\
 	unlock
 
-USB_OBJ =		\
-	core		\
-	key
-
 DIR_BASE = ../base/
 DIR_LOG = ../log/
 
 OBJS =			\
 	$(addprefix $(DIR_BASE), $(addsuffix .o, $(BASE_OBJS))) \
 	$(addprefix $(DIR_LOG), $(addsuffix .o, $(LOG_OBJS))) \
-	$(addsuffix .o, $(SCRIPTS_OBJS)) \
-	$(addprefix $(DIR_USB), $(addsuffix .o, $(USB_OBJS)))
+	$(addsuffix .o, $(SCRIPTS_OBJS))
 
 BIN_GARBAGE += $(BINARIES)
 

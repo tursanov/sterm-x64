@@ -78,8 +78,6 @@ struct dev_lst *devices = NULL;
 char main_title[80];		/* заголовок главного окна терминала */
 
 char *term_string = "Экспресс-2А-К";
-/* Устройство для проверки присутствия модуля безопасности */
-static int usbkey_dev = -1;
 
 static int ret_val = RET_NORMAL;
 
@@ -92,11 +90,6 @@ static BitmapPtr bmp_down;
  * Время отсчитывается по Гринвичу.
  */
 time_t time_delta = 0;	/* Tхост - Tтерм. */
-
-/* Имя файла фиктивного ответа */
-#if defined __FAKE_RESP__
-char *resp_file_name = NULL;
-#endif
 
 #if defined __WATCH_EXPRESS__
 static bool watch_transaction;
@@ -252,53 +245,6 @@ static uint16_t make_check_sum(char *fname)
 	return (uint16_t)s;
 }
 
-/* Автоматическая генерация запросов с помощью файла списка */
-#if defined __USE_REQ_LIST__
-/* Файл списка запросов */
-static FILE *req_list;
-
-static void close_req_list(void)
-{
-	if (req_list != NULL){
-		fclose(req_list);
-		req_list = NULL;
-	}
-}
-
-static void reset_req_list(void)
-{
-	close_req_list();
-	req_list = fopen(STERM_REQ_LIST, "r");
-}
-
-static bool read_next_req(void)
-{
-	static uint8_t req[REQ_BUF_LEN];
-	int i, ch, loop_flag = true;
-	if (req_list == NULL)
-		return false;
-	for (i = 0; loop_flag && (i < sizeof(req));){
-		ch = fgetc(req_list);
-		switch (ch){
-			case EOF:
-				loop_flag = false;
-				break;
-			case '\n':
-			case '\r':
-				loop_flag = i == 0;
-				break;
-			default:
-				req[i++] = ch & 0x7f;
-		}
-	}
-	if (i > 0){
-		set_scr_text(req, i, txt_plain, true);
-		return true;
-	}else
-		return false;
-}
-#endif		/* __USE_REQ_LIST__ */
-
 bool is_escape(uint8_t c)
 {
 	return (c == BSC_DLE) || (c == X_DLE);
@@ -309,15 +255,9 @@ static bool parse_cmd_line(int argc, char **argv)
 {
 	extern char *optarg;
 	char *shortopts =
-#if defined __FAKE_RESP__
-		"r:"
-#endif
 		"v"
 		"k";
 	const struct option longopts[] = {
-#if defined __FAKE_RESP__
-		{"resp-file",	required_argument,	NULL,	'r'},
-#endif
 		{"version",	no_argument,		NULL,	'v'},
 		{"testkkt",	no_argument,		NULL,	'k'},
 		{NULL,		0,			NULL,	0},
@@ -325,11 +265,6 @@ static bool parse_cmd_line(int argc, char **argv)
 	bool loop_flag = true, ret_flag = true;
 	while (loop_flag){
 		switch (getopt_long_only(argc, argv, shortopts, longopts, NULL)){
-#if defined __FAKE_RESP__
-			case 'r':
-				resp_file_name = optarg;
-				break;
-#endif
 			case 'v':
 				dump_config();
 				loop_flag = false;
@@ -1113,9 +1048,6 @@ static void init_term(bool need_init)
 #if defined __WATCH_EXPRESS__
 	watch_transaction = false;
 #endif
-#if defined __USE_REQ_LIST__
-	reset_req_list();
-#endif
 	online = true;
 	set_term_busy(false);
 	release_garbage();
@@ -1387,40 +1319,57 @@ static bool create_term(void)
 	return true;
 }
 
+#include "log/logdbg.h"
 static void release_term(void)
 {
+	logdbg("%s\n", __func__);
 	restore_sigterm_handler();
+	logdbg("restore_sigterm_handler();\n");
 	fdo_release();
+	logdbg("fdo_release();\n");
 	if (devices != NULL){
+		logdbg("devices != NULL\n");
 		free_dev_lst(devices);
+		logdbg("free_dev_lst(devices);\n");
 		devices = NULL;
 	}
-#if defined __USE_REQ_LIST__
-	close_req_list();
-#endif
-	if (usbkey_dev != -1){
-		close(usbkey_dev);
-		usbkey_dev = -1;
-	}
 	pos_release();
+	logdbg("pos_release();\n");
 	release_ppp_ipc();
+	logdbg("release_ppp_ipc();\n");
 	log_close(hxlog);
+	logdbg("log_close(hxlog);\n");
 	log_close(hplog);
+	logdbg("log_close(hplog);\n");
 	log_close(hllog);
+	logdbg("log_close(hllog);\n");
 	log_close(hklog);
+	logdbg("log_close(hklog);\n");
 	release_keys();
+	logdbg("release_keys();\n");
 	release_kbd();
+	logdbg("release_kbd();\n");
 	xprn_release();
+	logdbg("xprn_release();\n");
 	release_scr();
+	logdbg("release_scr();\n");
 	release_gd();
+	logdbg("release_gd();\n");
 	release_hash(prom);
+	logdbg("release_hash(prom);\n");
 	release_hash(rom);
+	logdbg("release_hash(rom);\n");
 
 	AD_destroy();
+	logdbg("AD_destroy();\n");
 	agents_destroy();
+	logdbg("agents_destroy();\n");
 	articles_destroy();
+	logdbg("articles_destroy();\n");
 	newcheque_destroy();
+	logdbg("newcheque_destroy();\n");
 	iplir_release();
+	logdbg("iplir_release();\n");
 }
 
 /* Проверка нажатия комбинации клавиш для разрыва модемного соединения */
@@ -1480,32 +1429,6 @@ static bool process_dallas(void)
 	}
 	return ret;
 }
-
-/* Проверка наличия модуля безопасности */
-#if defined __USE_USB_KEY__
-static bool check_usbkey(void)
-{
-#define USBKEY_CHECK_INTERVAL	10	/* в сотых долях секунды */
-	static uint32_t t0 = 0;
-	uint32_t t = u_times();
-	static bool has_usbkey = false;
-	int ret;
-	if (!usb_ok)
-		return true;
-	else if ((t - t0) >= USBKEY_CHECK_INTERVAL){
-		t0 = t;
-		if (usbkey_dev != -1){
-			ret = ioctl(usbkey_dev, USBKEY_IO_HASKEY);
-			if (ret != -1)
-				has_usbkey = ret;
-			else if (errno != EWOULDBLOCK)
-				has_usbkey = false;
-		}else
-			has_usbkey = false;
-	}
-	return has_usbkey;
-}
-#endif		/* __USE_USB_KEY__ */
 
 static void handle_channel(void)
 {
@@ -1580,9 +1503,6 @@ static bool bad_repeat(struct kbd_event *e)
 		KEY_X,		/* Ctrl+X -- БКЛ */
 		KEY_Z,		/* Ctrl+Z -- получение номера БСО */
 		KEY_COMMA,	/* Ctrl+Б -- вызов банковского приложения */
-#if defined __USE_REQ_LIST__
-		KEY_F7,		/* Ctrl+F7 -- следующий запрос из файла */
-#endif
 	};
 	uint16_t *pp = single_keys;
 	int l = ASIZE(single_keys), i;
@@ -1599,41 +1519,6 @@ static bool bad_repeat(struct kbd_event *e)
 }
 
 static void show_raw_resp(void);
-
-/* Создание фиктивного ответа для его последующей обработки */
-#if defined __FAKE_RESP__
-static bool make_fake_resp(void)
-{
-	struct stat st;
-	int fd;
-	bool ret;
-	if (stat(resp_file_name, &st) == -1){
-		printf("не могу получить информацию о файле %s\n",
-				resp_file_name);
-		return false;
-	}
-	if (st.st_size > RESP_BUF_LEN - 1){
-		printf("размер файла %s (%lu байт) больше допустимого (%d байт)\n",
-				resp_file_name, st.st_size, RESP_BUF_LEN);
-		return false;
-	}
-	fd = open(resp_file_name, O_RDONLY);
-	if (fd == -1){
-		printf("не могу открыть %s для чтения\n", resp_file_name);
-		return false;
-	}
-	memset(resp_buf, 0, RESP_BUF_LEN);
-	ret = read(fd, resp_buf, st.st_size) == st.st_size;
-	if (ret){
-		resp_buf[st.st_size] = BSC_ETX;
-		show_raw_resp();
-		scr_text_modified = true;
-	}else
-		printf("ошибка чтения из %s\n", resp_file_name);
-	close(fd);
-	return ret;
-}
-#endif		/* __FAKE_RESP__ */
 
 /* Основной обработчик клавиатуры */
 static int handle_kbd(struct kbd_event *e, bool check_scr, bool busy)
@@ -1654,19 +1539,12 @@ static int handle_kbd(struct kbd_event *e, bool check_scr, bool busy)
 		{KEY_P, cmd_ping},		/* ping */
 		{KEY_Q,	cmd_ppp_hangup},	/* разрыв соединения PPP */
 		{KEY_R, cmd_view_keys},		/* ключи */
-#if defined __CONSOLE_SWITCHING__
-		{KEY_S, cmd_switch_vt},		/* переключение на /dev/tty2 */
-#else
 		{KEY_S, cmd_switch_wm},		/* переключение режимов работы терминала */
-#endif
 		{KEY_T, cmd_view_error},	/* ошибка в тексте ответа */
 		{KEY_U, cmd_lprn_menu},		/* меню работы с образами бланков в ППУ */
 		{KEY_X, cmd_view_plog},		/* просмотр БКЛ */
 		{KEY_Z,	cmd_ticket_number},	/* чтение номера БСО в пригородном режиме */
 		{KEY_COMMA, cmd_pos},		/* вызов POS-терминала */
-#if defined __USE_REQ_LIST__
-		{KEY_F7, cmd_next_req},		/* следующий запрос */
-#endif
 		{KEY_F10, cmd_exit},		/* выход */
 	},
 	keys[] = {
@@ -1727,13 +1605,8 @@ static int handle_kbd(struct kbd_event *e, bool check_scr, bool busy)
 			if (e->key == KEY_ENTER){
 				if (scr_is_req() || resp_executing)
 					return cmd_enter;
-				else{
-#if defined __FAKE_RESP__
-					if ((cur_buf == resp_buf) && make_fake_resp())
-						return cmd_view_resp;
-#endif
+				else
 					return cmd_view_req;
-				}
 			}
 		}
 	}
@@ -2169,10 +2042,6 @@ int get_cmd(bool check_scr, bool busy)
 		ret_val = RET_SIGTERM;
 		return cmd_exit;
 	}
-#if defined __USE_USB_KEY__
-	if (!check_usbkey())
-		return cmd_exit;
-#endif
 	process_scr();
 	if (!process_dallas())
 		return cmd_none;
@@ -3745,17 +3614,6 @@ static void on_shell(void)
 	ret_val = RET_SHELL;
 }
 
-#if defined __CONSOLE_SWITCHING__
-#include <linux/vt.h>
-/* Переключение на /dev/tty2 */
-static void switch_vt(void)
-{
-	strip_ctrl();
-	scr_show_mode(true);
-	ioctl(kbd, VT_ACTIVATE, 2);
-//	ioctl(kbd, VT_WAITACTIVE, 2);
-}
-#else
 /* Смена режима работы терминала */
 static void switch_wm(void)
 {
@@ -3766,15 +3624,6 @@ static void switch_wm(void)
 	send_request();
 #endif
 }
-#endif
-
-#if defined __USE_REQ_LIST__
-static void do_next_req(void)
-{
-	if (!read_next_req())
-		err_beep();
-}
-#endif
 
 /* Формирование номера бланка с контрольной суммой */
 static uint8_t *make_ticket_number(const uint8_t *src)
@@ -4075,14 +3924,7 @@ static bool process_term(void)
 		{cmd_find_plog_date,	find_plog_date,		true},
 		{cmd_find_plog_number,	find_plog_number,	true},
 		{cmd_pos,		show_pos,		true},
-#if defined __CONSOLE_SWITCHING__
-		{cmd_switch_vt,		switch_vt,		true},
-#else
 		{cmd_switch_wm,		switch_wm,		true},
-#endif
-#if defined __USE_REQ_LIST__
-		{cmd_next_req,		do_next_req,		true},
-#endif
 		{cmd_term_info,		show_term_info,		true},
 		{cmd_iplir_version,	show_iplir_version,	true},
 		{cmd_kkt_info,		show_kkt_info,		true},
@@ -4107,18 +3949,20 @@ static bool process_term(void)
 		{cmd_find_klog_date,	find_klog_date,		true},
 		{cmd_find_klog_number,	find_klog_number,	true},
 	};
-	int i, cm;
 	if (need_lock_term){
 		need_lock_term = false;
 		if ((wm == wm_local) && (kt == key_reg))
 			term_delay(-1);
 	}else{
-		cm = get_cmd(true, false);
-		for (i = 0; i < ASIZE(handlers); i++){
-			if (cm == handlers[i].cm){
-				if (handlers[i].fn != NULL)
-					handlers[i].fn();
-				return handlers[i].ret_val;
+		int cm = get_cmd(true, false);
+		for (int i = 0; i < ASIZE(handlers); i++){
+			typeof(*handlers) *p = handlers + i;
+			if (cm == p->cm){
+				if (!p->ret_val)
+					printf("%s: cmd_exit received.\n", __func__);
+				if (p->fn != NULL)
+					p->fn();
+				return p->ret_val;
 			}
 		}
 		if (need_handle_resp())

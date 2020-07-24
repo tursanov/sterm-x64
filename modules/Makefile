@@ -1,14 +1,9 @@
 include Makefile.conf
 
-MODULES_ROOT = $(PWD)/modules
+MODULES_DIR = $(PWD)/modules
 
-MODULES_DIR = $(MODULES_ROOT)/x86
 SUBDIRS =		\
 	xprn
-##	chipset		\
-	dallas		\
-	oldxprn		\
-	usbkey		\
 
 .PHONY:	$(SUBDIRS)
 

@@ -161,10 +161,6 @@ extern bool kbd_wait_event(struct kbd_event *e);
 extern void kbd_flush_queue(void);
 extern bool kbd_exact_shift_state(struct kbd_event *e, int state);
 
-#if defined __CONSOLE_SWITCHING__
-extern int strip_ctrl(void);
-#endif
-
 /* Управление звуком */
 
 extern void sound(uint32_t freq);

@@ -1194,9 +1194,6 @@ void init_options(void)
 	int i;
 	optn_active = true;
 	set_term_busy(true);
-#if defined __CHECK_HOST_IP__
-	load_valid_host_ips();
-#endif
 	scr_visible = false;
 	set_scr_mode(m80x20, true, false);
 	optn_cm = cmd_none;
@@ -2091,12 +2088,6 @@ static bool on_exit_check_ip(const struct optn_group *group)
 		if (itm->enabled && (itm->ot == optn_ip_edit)){
 			if (!check_ip_addr(itm->vv.ip))
 				valid = false;
-#if defined __CHECK_HOST_IP__
-			else if (((itm->offset == xoffsetof(cfg, x3_p_ip)) ||
-					(itm->offset == xoffsetof(cfg, x3_s_ip))) &&
-					!check_host_ip(ntohl(inet_addr(itm->vv.ip))))
-				host_ok = false;
-#endif
 		}
 	}
 	if (!valid)

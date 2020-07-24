@@ -111,10 +111,6 @@ PRN_OBJS =		\
 	generic		\
 	local
 
-USB_OBJS =		\
-	core		\
-	key
-
 OBJS =			\
 	$(addprefix base/,	$(addsuffix .o, $(BASE_OBJS)))		\
 	$(addprefix kkt/,	$(addsuffix .o, $(KKT_OBJS)))		\
@@ -126,8 +122,7 @@ OBJS =			\
 	$(addprefix gui/controls/,	$(addsuffix .o, $(GUI_CONTROLS_OBJS)))	\
 	$(addprefix pos/,	$(addsuffix .o, $(POS_OBJS)))		\
 	$(addprefix ppp/,	$(addsuffix .o, $(PPP_OBJS)))		\
-	$(addprefix prn/,	$(addsuffix .o, $(PRN_OBJS)))		\
-	$(addprefix usb/,	$(addsuffix .o, $(USB_OBJS)))
+	$(addprefix prn/,	$(addsuffix .o, $(PRN_OBJS)))
 
 SUBDIRS =		\
 	base		\
@@ -137,15 +132,13 @@ SUBDIRS =		\
 	pos		\
 	ppp		\
 	prn		\
-	usb		\
 	helpers		\
-	scripts		#\
+	scripts		\
 	modules
 
 .PHONY:	$(SUBDIRS)
 
 all:	inc_build $(SUBDIRS) sterm mk_env
-#all:	$(SUBDIRS) sterm
 
 inc_build:
 ifdef STERM_BUILD_INCREMENT

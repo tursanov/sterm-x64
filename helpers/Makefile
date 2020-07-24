@@ -31,16 +31,11 @@ HELPERS_OBJS =		\
 	mklprnlic	\
 	mw
 
-USB_OBJS =		\
-	core
-
 DIR_BASE = ../base/
-DIR_USB = ../usb/
 
 OBJS =			\
 	$(addprefix $(DIR_BASE), $(addsuffix .o, $(BASE_OBJS))) \
-	$(addsuffix .o, $(HELPERS_OBJS)) \
-	$(addprefix $(DIR_USB), $(addsuffix .o, $(USB_OBJS)))
+	$(addsuffix .o, $(HELPERS_OBJS))
 
 BIN_GARBAGE += $(BINARIES)
 
