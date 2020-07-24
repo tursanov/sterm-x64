@@ -265,13 +265,6 @@ static bool read_ds_number_com(uint8_t *buf)
 	return is_ds_present() && read_ds_bytes(buf, 0x33 /* sic */);
 }
 
-/* Чтение номера ключа с помощью /dev/dallas */
-static bool read_ds_number_ioctl(uint8_t *buf)
-{
-	memset(buf, 0, 8);
-	return ioctl(ds_dev, DALLAS_IO_READ, buf) == 0;
-}
-
 static bool (*read_ds_number)(uint8_t *) = read_ds_number_com;
 
 /* Подсчет контрольной суммы DALLAS */
@@ -412,14 +405,8 @@ int main()
 	int n_faults = 0;
 	uint8_t number[8];
 	if (!scan_ports(number)){
-		ds_dev = open(DALLAS_DEV_NAME, O_RDONLY);
-		if (ds_dev == -1){
-			printf(tRED "не найден   " ANSI_DEFAULT "\n");
-			return 1;
-		}else{
-			printf(tGRN "адаптер BSC " ANSI_DEFAULT "\n");
-			read_ds_number = read_ds_number_ioctl;
-		}
+		printf(tRED "не найден   " ANSI_DEFAULT "\n");
+		return 1;
 	}
 	if (init_dsd()){
 		daemon(0, 0);

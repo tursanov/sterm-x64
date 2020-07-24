@@ -47,7 +47,6 @@
 #include "prn/aux.h"
 #include "prn/express.h"
 #include "prn/local.h"
-#include "usb/key.h"
 #include "bscsym.h"
 #include "devinfo.h"
 #include "gd.h"

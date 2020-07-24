@@ -6,7 +6,6 @@
  * --dbg-keys[=<file>] -- отладочные ключи DS1990A;
  * --repeated -- возможность ввода повторяющихся ключей DS1990A;
  * --number -- заводской номер терминала;
- * --chipset=<cave | ppio | xilinx | pci | cardless> -- тип заводского номера;
  * --decrypt -- вывод в stdout расшифрованного файла ключевой информации;
  * --all -- вывод содержимого файла ключевой информации;
  * --verify -- проверка файла tki на корректность значений (не реализовано);
@@ -25,7 +24,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "sys/chipset.h"
 #include "ds1990a.h"
 #include "genfunc.h"
 #include "tki.h"
@@ -34,9 +32,6 @@ static char *tki_name;		/* имя файла ключевой информации */
 static char *key_file;		/* имя файла ключей DALLAS */
 static bool tki_read = true;	/* флаг чтения/записи файла tki */
 static bool can_repeat_keys = false;	/* флаг возможности ввода дублирующихся ключей */
-
-/* Тип чипсета */
-static int chipset = chipsetUNKNOWN;
 
 /* Об'ект действия */
 enum {
@@ -62,7 +57,6 @@ static void usage(void)
 		"--dbg-keys[=<file>] -- отладочные ключи DS1990A;",
 		"--repeated -- возможность ввода повторяющихся ключей DS1990A;",
 		"--number -- заводской номер терминала;",
-		"--chipset=<cave | ppio | xilinx | pci | cardless> -- тип заводского номера;",
 		"--decrypt -- вывод в stdout расшифрованного файла ключевой информации;",
 		"--all -- вывод содержимого файла ключевой информации;",
 		"--help -- вывод справочной информации.",
@@ -244,35 +238,13 @@ static void flush_stdin(void)
 }
 
 /* Ввод пользователем заводского номера терминала */
-static bool ask_number(int chipset)
+static bool ask_number(void)
 {
-	char *get_chipset_prefix(int chipset)
-	{
-		static struct {
-			int chipset;
-			char *prefix;
-		} prefixes[] = {
-			{chipsetCAVE,		"A00137001"},
-			{chipsetPPIO,		"A00137001"},
-			{chipsetXILINX,		"D00137001"},
-			{chipsetPCI,		"E00137001"},
-			{chipsetCARDLESS,	"F00137001"},
-		};
-		int i;
-		for (i = 0; i < ASIZE(prefixes); i++)
-			if (chipset == prefixes[i].chipset)
-				return prefixes[i].prefix;
-		return NULL;
-	}
-	char *prefix, *p;
+	const char *prefix = "F00137001";
+	char *p;
 	char suffix[6];
 	term_number tn;
 	bool loop_flag = true;
-	if (chipset == chipsetUNKNOWN)
-		return false;
-	prefix = get_chipset_prefix(chipset);
-	if (prefix == NULL)
-		return false;
 	while (loop_flag){
 		printf("Введите заводской номер терминала: %s", prefix);
 		if (fgets(suffix, sizeof(suffix), stdin) == NULL)
@@ -298,27 +270,6 @@ static bool ask_number(int chipset)
 	return true;
 }
 
-/* Определение типа чипсета */
-static int get_chipset_type(char *s)
-{
-	static struct {
-		char *s;
-		int chipset;
-	} chipsets[] = {
-		{"cave",	chipsetCAVE},
-		{"ppio",	chipsetPPIO},
-		{"xilinx",	chipsetXILINX},
-		{"pci",		chipsetPCI},
-		{"cardless",	chipsetCARDLESS},
-	};
-	int i;
-	if (s == NULL)
-		return chipsetUNKNOWN;
-	for (i = 0; i < ASIZE(chipsets); i++)
-		if (!strcmp(s, chipsets[i].s))
-			return chipsets[i].chipset;
-	return chipsetUNKNOWN;
-}
 
 /* Вывод в stdout расшифрованного файла ключевой информации */
 static void dump_tki(void)
@@ -354,18 +305,6 @@ static bool check_semantic(void)
 				fprintf(stderr, "--repeated не имеет смысла без --write-tki.\n");
 		}else
 			fprintf(stderr, "--repeated имеет смысл только в сочетании с --xxx-keys.\n");
-	}
-/* Заводской номер */
-	if ((subj == subj_number) && !tki_read && (chipset == chipsetUNKNOWN)){
-		fprintf(stderr, "Не указан тип номера (--chipset).\n");
-		return false;
-	}
-	if (chipset != chipsetUNKNOWN){
-		if (subj == subj_number){
-			if (tki_read)
-				fprintf(stderr, "--chipset не имеет смысла без --write-tki.\n");
-		}else
-			fprintf(stderr, "--chipset имеет смысл только в сочетании с --number.\n");
 	}
 /* Расшифровка файла */
 	if ((subj == subj_decrypt) && !tki_read){
@@ -411,13 +350,12 @@ static bool parse_cmd_line(int argc, char **argv)
 		{"dbg-keys",	optional_argument,	NULL, 'g'},
 		{"repeated",	no_argument,		NULL, 's'},
 		{"number",	no_argument,		NULL, 'n'},
-		{"chipset",	required_argument,	NULL, 'p'},
 		{"decrypt",	no_argument,		NULL, 'd'},
 		{"all",		no_argument,		NULL, 'a'},
 		{"help",	no_argument,		NULL, 'h'},
 		{NULL,		0,			NULL, 0},
 	};
-	char *shortopts = "r:w:vgsnpdah";
+	char *shortopts = "r:w:vgsndah";
 	bool loop_flag = true, ret_val = true;
 	bool access_specified = false;
 	while (loop_flag && ret_val){
@@ -457,19 +395,6 @@ static bool parse_cmd_line(int argc, char **argv)
 				break;
 			case 'n':		/* --number */
 				ret_val = set_subj(subj_number);
-				break;
-			case 'p':		/* --chipset */
-				if (chipset != chipsetUNKNOWN){
-					fprintf(stderr, "Повторное указание типа заводского номера.\n");
-					ret_val = false;
-				}else{
-					chipset = get_chipset_type(optarg);
-					if (chipset == chipsetUNKNOWN){
-						fprintf(stderr, "Неизвестный тип номера: '%s'.\n",
-							optarg);
-						ret_val = false;
-					}
-				}
 				break;
 			case 'd':
 				ret_val = set_subj(subj_decrypt);
@@ -542,7 +467,7 @@ int main(int argc, char **argv)
 							(uint8_t *)dbg_keys);
 				break;
 			case subj_number:
-				if (!ask_number(chipset)){
+				if (!ask_number()){
 					fprintf(stderr, "\nзаводской номер не записан.\n");
 					return 1;
 				}
