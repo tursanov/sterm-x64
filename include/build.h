@@ -1,8 +1,8 @@
-/* Номер сборки терминала Экспресс-2А-К (24.07.2020 20:24:21). */
+/* Номер сборки терминала Экспресс-2А-К (29.07.2020 19:21:59). */
 
 #if !defined BUILD_H
 #define BUILD_H
 
-#define STERM_VERSION_BUILD	123
+#define STERM_VERSION_BUILD	129
 
 #endif		/* BUILD_H */

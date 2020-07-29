@@ -129,13 +129,17 @@ static int print_char(char c)
 	if (wait_ready()){
 		if (!waiting_nack){
 			port->ops->write_data(port, c);
-			if (!wait_ack())
+			if (!wait_ack()){
+//				printk("%s: prn_pout#1\n", __func__);
 				return prn_pout;
+			}
 			spr_on();
 			waiting_nack = true;
 		}
-		if (!wait_nak())
+		if (!wait_nak()){
+//			printk("%s: prn_pout#2\n", __func__);
 			return prn_pout;
+		}
 		spr_off();
 		waiting_nack = false;
 		return prn_ready;
@@ -177,8 +181,6 @@ static long xprn_ioctl(struct file *file, unsigned int ioctl_num, unsigned long 
 	};
 	long ret = -ENOSYS;
 	int i;
-	printk("%s: file = 0x%p; ioctl_num = 0x%x; param = 0x%lx.\n",
-		__func__, file, ioctl_num, param);
 	for (i = 0; i < ASIZE(ioctls); i++){
 		typeof(*ioctls) *p = ioctls + i;
 		if (p->ioctl_num == ioctl_num){
@@ -192,7 +194,6 @@ static long xprn_ioctl(struct file *file, unsigned int ioctl_num, unsigned long 
 static int xprn_open(struct inode *inode, struct file *file)
 {
 	int ret = -EBUSY;
-	printk("%s: inode = 0x%p; file = 0x%p.\n", __func__, inode, file);
 	if (open_count == 0){
 		open_count++;
 		ret = 0;
@@ -202,7 +203,6 @@ static int xprn_open(struct inode *inode, struct file *file)
 
 static int xprn_close(struct inode *inode, struct file *file)
 {
-	printk("%s: inode = 0x%p; file = 0x%p.\n", __func__, inode, file);
 	if (open_count > 0)
 		open_count--;
 	return 0;
@@ -229,11 +229,13 @@ static void xprn_attach(struct parport *pp)
 			xprn_preempt, NULL, NULL, 0, NULL);
 		device_create(xprn_class, port->dev, MKDEV(XPRN_MAJOR, 0), NULL, DEVICE_NAME);
 	}else
-		printk("ignoring parport %d\n", pp->number);
+		printk("%s: ignoring parport %d\n", __func__, pp->number);
 }
 
 static void xprn_detach(struct parport *pp)
 {
+	printk("%s: pp->number = %d.\n", __func__, pp->number);
+	device_destroy(xprn_class, MKDEV(XPRN_MAJOR, 0));
 }
 
 static struct parport_driver xprn_driver = {
@@ -275,8 +277,6 @@ void cleanup_module(void)
 	unregister_chrdev(XPRN_MAJOR, DEVICE_NAME);
 	if (dev != NULL)
 		parport_unregister_device(dev);
-	if (xprn_class != NULL){
-		device_destroy(xprn_class, MKDEV(XPRN_MAJOR, 0));
+	if (xprn_class != NULL)
 		class_destroy(xprn_class);
-	}
 }

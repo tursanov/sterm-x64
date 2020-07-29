@@ -94,18 +94,6 @@ pid_t get_process_id(char *name)
 
 #define get_pppd_id() get_process_id(PPP_DAEMON)
 
-/* Проверка присутствия в системе процесса с заданным идентификатором */
-bool pid_in_sys(pid_t pid)
-{
-	char lnk[128];
-	struct stat buf;
-	sprintf(lnk, "/proc/%d/exe", pid);
-	if (stat(lnk, &buf) == 0)
-		return S_ISLNK(buf.st_mode);
-	else
-		return false;
-}
-
 /* Проверка присутствия в системе процесса с заданным именем */
 bool app_in_sys(char *name)
 {

@@ -62,8 +62,6 @@
 #include "tki.h"
 #include "transport.h"
 
-bool kkt_test = false;
-
 /* Режим работы терминала */
 int wm = wm_main;
 /* Необходима блокировка терминала (ошибка работы с ППУ) */
@@ -253,12 +251,9 @@ bool is_escape(uint8_t c)
 static bool parse_cmd_line(int argc, char **argv)
 {
 	extern char *optarg;
-	char *shortopts =
-		"v"
-		"k";
+	char *shortopts = "v";
 	const struct option longopts[] = {
 		{"version",	no_argument,		NULL,	'v'},
-		{"testkkt",	no_argument,		NULL,	'k'},
 		{NULL,		0,			NULL,	0},
 	};
 	bool loop_flag = true, ret_flag = true;
@@ -268,9 +263,6 @@ static bool parse_cmd_line(int argc, char **argv)
 				dump_config();
 				loop_flag = false;
 				ret_val = RET_VERSION;
-				break;
-			case 'k':
-				kkt_test = true;
 				break;
 			case ':':
 			case '?':
@@ -1013,6 +1005,7 @@ static void init_devices(void)
 	fdo_suspend();
 	release_devices();
 	devices = poll_devices();
+	nosound();
 	if (devices != NULL){
 		kkt = get_dev_info(devices, DEV_KKT);
 		if (kkt != NULL){
@@ -1022,10 +1015,6 @@ static void init_devices(void)
 		}
 	}
 	fdo_resume();
-	
-	if (kkt_test && kkt == NULL) {
-		kkt = (struct dev_info *)malloc(sizeof(struct dev_info));
-	}
 }
 
 /* Инициализация терминала */
@@ -1064,8 +1053,10 @@ static void init_term(bool need_init)
 /*	ppp_hangup();
 	ifdown("ppp0");*/
 #if !defined __USE_NFSROOT__
-	if (!cfg.use_ppp)
+	if (!cfg.use_ppp){
 		ifup("eth0");
+		sleep(3);
+	}
 #endif
 	kbd_set_rate(cfg.kbd_rate, cfg.kbd_delay);
 	set_scr_mode(cfg.scr_mode, false, true);
@@ -1318,57 +1309,33 @@ static bool create_term(void)
 	return true;
 }
 
-#include "log/logdbg.h"
 static void release_term(void)
 {
-	logdbg("%s\n", __func__);
 	restore_sigterm_handler();
-	logdbg("restore_sigterm_handler();\n");
 	fdo_release();
-	logdbg("fdo_release();\n");
 	if (devices != NULL){
-		logdbg("devices != NULL\n");
 		free_dev_lst(devices);
-		logdbg("free_dev_lst(devices);\n");
 		devices = NULL;
 	}
 	pos_release();
-	logdbg("pos_release();\n");
 	release_ppp_ipc();
-	logdbg("release_ppp_ipc();\n");
 	log_close(hxlog);
-	logdbg("log_close(hxlog);\n");
 	log_close(hplog);
-	logdbg("log_close(hplog);\n");
 	log_close(hllog);
-	logdbg("log_close(hllog);\n");
 	log_close(hklog);
-	logdbg("log_close(hklog);\n");
 	release_keys();
-	logdbg("release_keys();\n");
 	release_kbd();
-	logdbg("release_kbd();\n");
 	xprn_release();
-	logdbg("xprn_release();\n");
 	release_scr();
-	logdbg("release_scr();\n");
 	release_gd();
-	logdbg("release_gd();\n");
 	release_hash(prom);
-	logdbg("release_hash(prom);\n");
 	release_hash(rom);
-	logdbg("release_hash(rom);\n");
 
 	AD_destroy();
-	logdbg("AD_destroy();\n");
 	agents_destroy();
-	logdbg("agents_destroy();\n");
 	articles_destroy();
-	logdbg("articles_destroy();\n");
 	newcheque_destroy();
-	logdbg("newcheque_destroy();\n");
 	iplir_release();
-	logdbg("iplir_release();\n");
 }
 
 /* Проверка нажатия комбинации клавиш для разрыва модемного соединения */

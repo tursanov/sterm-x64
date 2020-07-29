@@ -105,8 +105,8 @@ static bool write_dallas(struct md5_hash *keys, int n_keys, bool can_repeat)
  */
 static bool read_term_number(void)
 {
-	if (system("mount-usb.sh") != 0)
-		return false;
+/*	if (system("mount-usb.sh") != 0)
+		return false;*/
 	bool ret = false;
 	FILE *f = fopen(TERM_NR_FILE_USB, "r");
 	if (f == NULL)
@@ -140,7 +140,7 @@ static bool read_term_number(void)
 		if (fclose(f) == EOF)
 			fprintf(stderr, "Ошибка закрытия " TERM_NR_FILE_USB ": %m.\n");
 	}
-	system("umount /mnt/usb");
+/*	system("umount /mnt/usb");*/
 	return ret;
 }
 

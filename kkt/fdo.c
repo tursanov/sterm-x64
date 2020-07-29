@@ -1,7 +1,6 @@
 /* Обмен данными с ОФД. (c) gsr 2018-2020 */
 
 #include <arpa/inet.h>
-#include <log/logdbg.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/timeb.h>
@@ -150,20 +149,15 @@ static bool fdo_set_thread_state(int state)
 	bool ret = false;
 	if ((state != fdo_thread_state) && fdo_lock()){
 		dbg("%d --> %d", fdo_thread_state, state);
-		logdbg("%s: %d --> %d.\n", __func__, fdo_thread_state, state);
 		fdo_thread_state = state;
 		if (state == fdo_thread_active)
 			fdo_reset_rx();
-		logdbg("%s: calling fdo_unlock().\n", __func__);
 		fdo_unlock();
 /*		int rc = pthread_kill(fdo_thread, SIG_THREAD_STATE_CHANGED);
 		if (rc == 0){*/
-			logdbg("%s: calling pthread_mutex_lock(susp_mtx).\n", __func__);
 			pthread_mutex_lock(&susp_mtx);
-			logdbg("%s: calling pthread_mutex_unlock(susp_mtx).\n", __func__);
 			pthread_mutex_unlock(&susp_mtx);
 			ret = true;
-			logdbg("%s: state changed.\n", __func__);
 /*		}else
 			dbg("ошибка pthread_kill(): %s.", strerror(errno));*/
 	}
@@ -182,11 +176,8 @@ bool fdo_resume(void)
 
 static void fdo_stop_thread(void)
 {
-	logdbg("%s.\n", __func__);
 	fdo_set_thread_state(fdo_thread_stopped);
-	logdbg("%s: calling pthread_join; fdo_thread_state = %d.\n", __func__, fdo_thread_state);
 	pthread_join(fdo_thread, NULL);
-	logdbg("%s thread terminated.\n", __func__);
 }
 
 static bool fdo_sleep(uint32_t ms)
@@ -557,7 +548,6 @@ static void fdo_poll_kkt(void)
 static void *fdo_thread_proc(void *arg __attribute__((unused)))
 {
 	while (fdo_thread_state != fdo_thread_stopped){
-//		logdbg("%s: %d.\n", __func__, fdo_thread_state);
 		if (fdo_thread_state == fdo_thread_suspended)
 /*			pause();*/
 			pthread_yield();
@@ -569,7 +559,6 @@ static void *fdo_thread_proc(void *arg __attribute__((unused)))
 		}else
 			pthread_yield();
 	}
-	logdbg("%s: terminated.\n", __func__);
 	return NULL;
 }
 

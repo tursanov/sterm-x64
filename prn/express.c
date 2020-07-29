@@ -294,8 +294,8 @@ bool xprn_print(const char *txt, int l)
 		}
 	}
 	prn_buf_len = 0;
-	if (ret)
-		usleep(500000);
+/*	if (ret)
+		usleep(500000);*/
 	xprn_printing = false;
 	return ret;
 }

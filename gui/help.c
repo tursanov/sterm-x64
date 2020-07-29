@@ -238,14 +238,12 @@ bool draw_help(void)
 
 void print_help(void)
 {
-	int i;
 	char buf[128];
 	help_printing=true;
 	draw_hlp_hints();
-	for (i=0; i < n_hlp_lines; i++){
-		strcpy(buf,get_hlp_line(i));
-		strcat(buf,"\n\r");
-		if (!xprn_print(recode_str(buf,-1),strlen(buf)))
+	for (int i = 0; i < n_hlp_lines; i++){
+		snprintf(buf, sizeof(buf), "%s\n\r", get_hlp_line(i));
+		if (!xprn_print(recode_str(buf, -1), strlen(buf)))
 			break;
 	}
 	help_printing=false;
