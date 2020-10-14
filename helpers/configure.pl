@@ -28,10 +28,10 @@ while (<>){
 }
 
 ## Проверка параметров
-if (!exists($mk_options{VERSION_BRANCH}) ||
-		!exists($mk_options{VERSION_RELEASE}) ||
-		!exists($mk_options{VERSION_PATCH})){
-	die "Вы должны указать версию терминала (BRANCH.RELEASE.PATCH).\n";
+if (!exists($mk_options{VERSION_MAJOR}) ||
+		!exists($mk_options{VERSION_MINOR}) ||
+		!exists($mk_options{VERSION_RELEASE})){
+	die "Вы должны указать версию терминала (MAJOR.MINOR.RELEASE).\n";
 }
 
 if (!exists($mk_options{STERM_HOME})){
@@ -42,9 +42,9 @@ if (!exists($mk_options{STERM_HOME})){
 }
 
 $VERSION = sprintf("0x%.8x",
-	(($mk_options{VERSION_BRANCH} & 0xff) << 16) |
-	(($mk_options{VERSION_RELEASE} & 0xff) << 8) |
-	(($mk_options{VERSION_PATCH} & 0xff)));
+	(($mk_options{VERSION_MAJOR} & 0xff) << 16) |
+	(($mk_options{VERSION_MINOR} & 0xff) << 8) |
+	(($mk_options{VERSION_RELEASE} & 0xff)));
 
 # Создаем config.h
 print HFILE <<EOF;
@@ -60,13 +60,13 @@ print HFILE <<EOF;
 
 /* Версия терминала */
 #define STERM_VERSION\t\t$VERSION
-#define STERM_VERSION_BRANCH\t$mk_options{VERSION_BRANCH}
+#define STERM_VERSION_MAJOR\t$mk_options{VERSION_MAJOR}
+#define STERM_VERSION_MINOR\t$mk_options{VERSION_MINOR}
 #define STERM_VERSION_RELEASE\t$mk_options{VERSION_RELEASE}
-#define STERM_VERSION_PATCH\t$mk_options{VERSION_PATCH}
 
-#define VERSION_BRANCH(v) (((v) >> 16) & 0xff)
-#define VERSION_RELEASE(v) (((v) >> 8) & 0xff)
-#define VERSION_PATCH(v) ((v) & 0xff)
+#define VERSION_MAJOR(v) (((v) >> 16) & 0xff)
+#define VERSION_MINOR(v) (((v) >> 8) & 0xff)
+#define VERSION_RELEASE(v) ((v) & 0xff)
 
 /* Размещение файлов терминала */
 #define STERM_HOME\t\t"$mk_options{STERM_HOME}"
@@ -97,7 +97,6 @@ print SFILE <<EOF
  */
 
 #include <stdio.h>
-#include "build.h"
 #include "sysdefs.h"
 
 static const char *options[] = {
@@ -116,8 +115,8 @@ extern uint16_t term_check_sum;
 void dump_config()
 {
 	int i;
-	printf("$PROJ_NAME $mk_options{VERSION_BRANCH}.$mk_options{VERSION_RELEASE}.$mk_options{VERSION_PATCH}.%u (%.4hx)\\n"
-		"Опции компиляции:\\n", STERM_VERSION_BUILD, term_check_sum);
+	printf("$PROJ_NAME $mk_options{VERSION_MAJOR}.$mk_options{VERSION_MINOR}.$mk_options{VERSION_RELEASE} (%.4hx)\\n"
+		"Опции компиляции:\\n", term_check_sum);
 	for (i = 0; i < ASIZE(options); i++)
 		printf("\\t%s\\n", options[i]);
 }

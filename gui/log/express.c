@@ -250,9 +250,9 @@ static const char *xlog_get_head_line1(char *buf)
 	else
 		sprintf(buf, "%.2hhx%.2hhx (%u.%u.%u %.4hX %.*s) éèì=%.*s Ñèì=%.*s",
 			xlog_rec_hdr.addr.gaddr, xlog_rec_hdr.addr.iaddr,
-			VERSION_BRANCH(xlog_rec_hdr.term_version),
+			VERSION_MAJOR(xlog_rec_hdr.term_version),
+			VERSION_MINOR(xlog_rec_hdr.term_version),
 			VERSION_RELEASE(xlog_rec_hdr.term_version),
-			VERSION_PATCH(xlog_rec_hdr.term_version),
 			xlog_rec_hdr.term_check_sum,
 			isizeof(xlog_rec_hdr.tn), xlog_rec_hdr.tn,
 			isizeof(xlog_rec_hdr.xprn_number), xlog_rec_hdr.xprn_number,

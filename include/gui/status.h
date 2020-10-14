@@ -38,7 +38,6 @@ enum {
 	st_ppp_dialing,
 	st_ppp_login,
 	st_ppp_ipcp,
-	st_ppp_ready,
 /* Работа с VipNet */
 	st_stop_iplir,
 };

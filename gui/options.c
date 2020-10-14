@@ -1,4 +1,4 @@
-/* Настройка параметров терминала. (c) gsr & alex 2000-2004, 2018-2019. */
+/* Настройка параметров терминала. (c) gsr & alex 2000-2004, 2018-2020. */
 
 #include <sys/socket.h>
 #include <sys/times.h>
@@ -449,7 +449,7 @@ static struct optn_item kkt_optn_items[] = {
 		optn_kkt_log_level, ini_int, kkt_log_level, NULL),
 	OPTN_STR_ENUM("Поток в КЛ3", "Поток, для которого отображаются данные\r\n"
 		"в КЛ работы с ККТ", optn_kkt_log_stream, ini_uint32, kkt_log_stream, NULL),
-	OPTN_INT_ENUM("Часовой пояс", "Смещение в часах местного времени\r\n"
+	OPTN_INT_ENUM("Смещение времени", "Смещение в часах местного времени\r\n"
 		"относительно московского", optn_tz_offs, ini_int, tz_offs, NULL),
 	OPTN_ENUM("Опорный таймаут, мс", "Все таймауты работы с ККТ вычисляются\r\n"
 		"на основании опорного", optn_int_enum, optn_kkt_base_timeout,
@@ -1550,7 +1550,6 @@ static bool draw_optn_buttons(void)
 	return true;
 }
 
-#include "build.h"
 /* Рисование области подсказки */
 static bool draw_optn_help(void)
 {
@@ -1578,10 +1577,9 @@ static bool draw_optn_help(void)
 	SetTextColor(pMemGC, clGreen);
 	
 	sprintf(buf, "Терминал %s "
-			_s(STERM_VERSION_BRANCH) "."
-			_s(STERM_VERSION_RELEASE) "."
-			_s(STERM_VERSION_PATCH) "."
-			_s(STERM_VERSION_BUILD),
+			_s(STERM_VERSION_MAJOR) "."
+			_s(STERM_VERSION_MINOR) "."
+			_s(STERM_VERSION_RELEASE),
 			term_string);
 	TextOut(pMemGC, 20, 20 + i * (pFont->max_height + 4), buf);
 	i++;

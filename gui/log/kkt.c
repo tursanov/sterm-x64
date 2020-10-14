@@ -100,9 +100,9 @@ static const char *klog_get_head_line1(char *buf)
 		sprintf(buf, "%.2hhX%.2hhX (\"ùäëèêÖëë-2Ä-ä\" "
 			"%hhu.%hhu.%hhu %.4hX %.*s) ääí=%.*s",
 			klog_rec_hdr.addr.gaddr, klog_rec_hdr.addr.iaddr,
-			VERSION_BRANCH(klog_rec_hdr.term_version),
+			VERSION_MAJOR(klog_rec_hdr.term_version),
+			VERSION_MINOR(klog_rec_hdr.term_version),
 			VERSION_RELEASE(klog_rec_hdr.term_version),
-			VERSION_PATCH(klog_rec_hdr.term_version),
 			klog_rec_hdr.term_check_sum,
 			isizeof(klog_rec_hdr.tn), klog_rec_hdr.tn,
 			isizeof(klog_rec_hdr.kkt_nr), klog_rec_hdr.kkt_nr);

@@ -138,12 +138,7 @@ SUBDIRS =		\
 
 .PHONY:	$(SUBDIRS)
 
-all:	inc_build $(SUBDIRS) sterm mk_env
-
-inc_build:
-ifdef STERM_BUILD_INCREMENT
-	@./helpers/setbuild.pl
-endif
+all:	$(SUBDIRS) sterm mk_env
 
 
 $(SUBDIRS):
@@ -175,11 +170,12 @@ more_clean:
 dist_clean:	clean more_clean
 
 CFG_DIR = "cfg"
+BUILD_INFO = $(CFG_DIR)/build
 RELEASE_CONFIG = $(CFG_DIR)/release
 DEBUG_CONFIG = $(CFG_DIR)/debug
 
 release-config:
-	@helpers/configure.pl $(RELEASE_CONFIG)
+	@helpers/configure.pl $(BUILD_INFO) $(RELEASE_CONFIG)
 
 debug-config:
-	@helpers/configure.pl $(DEBUG_CONFIG)
+	@helpers/configure.pl $(BUILD_INFO) $(DEBUG_CONFIG)

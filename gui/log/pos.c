@@ -128,9 +128,9 @@ static const char *plog_get_head_line1(char *buf)
 	else
 		sprintf(buf, "%.2hhx%.2hhx (%u.%u.%u %.4hX %.*s) éèì=%.*s èèì=%.*s",
 			plog_rec_hdr.addr.gaddr, plog_rec_hdr.addr.iaddr,
-			VERSION_BRANCH(plog_rec_hdr.term_version),
+			VERSION_MAJOR(plog_rec_hdr.term_version),
+			VERSION_MINOR(plog_rec_hdr.term_version),
 			VERSION_RELEASE(plog_rec_hdr.term_version),
-			VERSION_PATCH(plog_rec_hdr.term_version),
 			plog_rec_hdr.term_check_sum,
 			isizeof(plog_rec_hdr.tn), plog_rec_hdr.tn,
 			isizeof(plog_rec_hdr.xprn_number), plog_rec_hdr.xprn_number,

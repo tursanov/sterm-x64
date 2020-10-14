@@ -544,9 +544,9 @@ bool llog_print_header(bool full, uint32_t nr_rd_err)
 				"%.4hX %.3u.%.3u.%.3u %.*s)",
 			llog_rec_hdr.addr.gaddr, llog_rec_hdr.addr.iaddr,
 			llog_rec_hdr.term_check_sum,
-			VERSION_BRANCH(llog_rec_hdr.term_version),
+			VERSION_MAJOR(llog_rec_hdr.term_version),
+			VERSION_MINOR(llog_rec_hdr.term_version),
 			VERSION_RELEASE(llog_rec_hdr.term_version),
-			VERSION_PATCH(llog_rec_hdr.term_version),
 			isizeof(llog_rec_hdr.tn), llog_rec_hdr.tn);
 		try_fn(prn_write_str(s));
 		try_fn(prn_write_eol());

@@ -352,9 +352,9 @@ static const char *llog_get_head_line1(char *buf)
 		sprintf(buf, "%.2hhx%.2hhx (%u.%u.%u %.4hX %.*s) "
 			"éèì=%.*s Ñèì=%.*s èèì=%.*s",
 			llog_rec_hdr.addr.gaddr, llog_rec_hdr.addr.iaddr,
-			VERSION_BRANCH(llog_rec_hdr.term_version),
+			VERSION_MAJOR(llog_rec_hdr.term_version),
+			VERSION_MINOR(llog_rec_hdr.term_version),
 			VERSION_RELEASE(llog_rec_hdr.term_version),
-			VERSION_PATCH(llog_rec_hdr.term_version),
 			llog_rec_hdr.term_check_sum,
 			isizeof(llog_rec_hdr.tn), llog_rec_hdr.tn,
 			isizeof(llog_rec_hdr.xprn_number), llog_rec_hdr.xprn_number,

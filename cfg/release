@@ -1,10 +1,5 @@
 # Файл конфигурации терминала "Экспресс-2АК". (c) gsr 2001-2020
 
-# Версия терминала
-VERSION_BRANCH	6
-VERSION_RELEASE 0
-VERSION_PATCH	0
-
 # При работе терминала используются ключи DALLAS DS1990A.
 option		__REAL_KEYS__
 

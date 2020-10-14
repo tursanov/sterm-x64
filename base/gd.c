@@ -243,8 +243,7 @@ static void write_version_info(void)
 	write_hex_word(req_buf + req_len, term_check_sum);
 	req_len += 4;
 	sprintf((char *)(req_buf + req_len), "%.3d.%.3d.%.3d",
-		STERM_VERSION_BRANCH, STERM_VERSION_RELEASE,
-		STERM_VERSION_PATCH);
+		STERM_VERSION_MAJOR, STERM_VERSION_MINOR, STERM_VERSION_RELEASE);
 	req_len += 11;
 }
 
