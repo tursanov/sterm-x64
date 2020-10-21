@@ -38,10 +38,6 @@ enum {
 
 /* Буфер ключевой информации (хранится в зашифрованном виде) */
 extern struct term_key_info tki;
-/* Считанный файл привязки ключевых баз */
-extern struct md5_hash iplir_bind;
-/* Считанный файл банковской лицензии */
-extern struct md5_hash bank_license;
 
 /* Флаги проверки */
 extern bool tki_ok;	/* файл .tki считан и проверен */

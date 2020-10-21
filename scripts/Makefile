@@ -69,8 +69,10 @@ depend:
 
 ## bnklic
 BNKLIC_BASE_OBJS =	\
+	base64		\
 	licsig		\
-	md5
+	md5		\
+	tki
 
 BNKLIC_SCRIPTS_OBJS =	\
 	bnklic

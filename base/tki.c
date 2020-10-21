@@ -29,8 +29,6 @@ bool bank_ok = false;
 
 /* Буфер ключевой информации (хранится в зашифрованном виде) */
 struct term_key_info tki;
-/* Считанный файл банковской лицензии */
-struct md5_hash bank_license;
 
 /* Шифрование данных */
 void encrypt_data(uint8_t *p, int l)
@@ -310,6 +308,6 @@ void check_bank_license(void)
 		len = base64_encode(v1, len, v2);
 		struct md5_hash md5;
 		get_md5((uint8_t *)v2, len, &md5);
-		bank_ok = cmp_md5(&md5, &bank_license);
+		bank_ok = cmp_md5(&md5, &bnk_lic);
 	}
 }
