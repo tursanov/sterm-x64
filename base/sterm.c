@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/times.h>
 #include <sys/types.h>
+#include <vipnet/vpn_api.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -2549,38 +2550,207 @@ static void show_term_info(void)
 	redraw_term(true, main_title);
 }
 
+static const char *vpn_priv_to_str(enum VpnPrivilege priv)
+{
+	static const struct {
+		enum VpnPrivilege priv;
+		const char *name;
+	} map[] = {
+		{VpnPrivilegeUnknown,	"неизвестно"},
+		{VpnPrivilegeMin,	"минимальный"},
+		{VpnPrivilegeMiddle,	"средний"},
+		{VpnPrivilegeMax,	"максимальный"},
+		{VpnPrivilegeSpecial,	"специальный"},
+	};
+	const char *ret = NULL;
+	for (int i = 0; i < ASIZE(map); i++){
+		if (priv == map[i].priv){
+			ret = map[i].name;
+			break;
+		}
+	}
+	if (ret == NULL){
+		static char txt[10];
+		snprintf(txt, sizeof(txt), "%d", priv);
+		ret = txt;
+	}
+	return ret;
+}
+
+static const char *vpn_encryption_name(const char *raw_name)
+{
+	const char *ret = NULL;
+	static const struct {
+		const char *raw_name;
+		const char *name;
+	} map[] = {
+		{"gost",	"ГОСТ 28147-89"},
+		{"hybrid",	"Гибрид"},
+	};
+	for (int i = 0; i < ASIZE(map); i++){
+		if (strcasecmp(raw_name, map[i].raw_name) == 0){
+			ret = map[i].name;
+			break;
+		}
+	}
+	if (ret == NULL)
+		ret = raw_name;
+	return ret;
+}
+
 /* Вывод на экран информации о версии VipNet-клиента */
-#define VERSION_BUF_LEN		512
-#define MAX_VERSION_LINES	10
 static void show_iplir_version(void)
 {
-/*	static char version[VERSION_BUF_LEN];
-	int len, i, n, fd = open(IPLIR_VERSION, O_RDONLY);
-	if (fd != -1){
-		len = read(fd, version, sizeof(version) - 1);
-		close(fd);
-		if (len > 0){
-			for (i = 0, n = 1; i < len; i++){
-				if ((version[i] == '\n') &&
-						(++n >= MAX_VERSION_LINES))
-					break;
-			}
-			version[i] = 0;
-			online = false;
-			guess_term_state();
-			push_term_info();
-			hide_cursor();
-			scr_visible = false;
-			set_term_busy(true);
-			ClearScreen(clBlack);
-			message_box("Информация о ПО VipNet", version,
-				dlg_none, 0, al_center);
-			online = true;
-			pop_term_info();
-			ClearScreen(clBtnFace);
-			redraw_term(true, main_title);
-		}
-	}*/
+	bool ok = false;
+	static char txt[1024];
+	size_t offs = 0;
+	int l = 0;
+	static char ver[128];
+	size_t ver_sz = sizeof(ver);
+	const int name_len = 30;
+	txt[0] = 0;
+	ItcsVpnApi *vpn_api = GetVpnApi();
+	VpnApiReturnCode rc = vpn_api->getClientVersion(ver, &ver_sz);
+	if (rc.code == 0){
+		l = snprintf(txt + offs, sizeof(txt) - offs, "%*s : %s\n", name_len,
+			"Версия ПО ViPNet", ver);
+		if (l > 0)
+			offs += l;
+		if ((l <= 0) || ((offs + 1) > sizeof(txt)))
+			goto end;
+	}else
+		fprintf(stderr, "getClientVersion: %x (%s).\n", rc.code, rc.message);
+	VpnStatus vpn_st;
+	rc = vpn_api->getVpnStatus(&vpn_st);
+	if (rc.code == 0){
+		l = snprintf(txt + offs, sizeof(txt) - offs, "%*s : %s\n%*s : %s\n",
+			name_len, "Ключи шифрования",
+			vpn_st.isKeysInstalled ? "установлены" : "не установлены",
+			name_len, "Шифрование ViPNet",
+			vpn_st.isVpnEnabled ? "включено" : "выключено");
+		if (l > 0)
+			offs += l;
+		if ((l <= 0) || ((offs + 1) > sizeof(txt)))
+			goto end;
+	}else
+		fprintf(stderr, "getVpnStatus: %x (%s).\n", rc.code, rc.message);
+	char *data = NULL;
+	uint32_t data_len = 0;
+	rc = vpn_api->getClientParam(paramSecurityEncryptionMode,
+		strlen(paramSecurityEncryptionMode), &data, &data_len);
+	if ((rc.code == 0) && (data != NULL)){
+		l = snprintf(txt + offs, sizeof(txt) - offs, "%*s : %s\n",
+			name_len, "Режим шифрования", vpn_encryption_name(data));
+		vpn_api->releaseClientParamData(data);
+		if (l > 0)
+			offs += l;
+		if ((l <= 0) || ((offs + 1) > sizeof(txt)))
+			goto end;
+	}else
+		fprintf(stderr, "getClientParam: %x (%s).\n", rc.code, rc.message);
+	enum VpnPrivilege priv = VpnPrivilegeUnknown;
+	rc = vpn_api->getOwnPrivilegeLevel(&priv);
+	if (rc.code == 0){
+		l = snprintf(txt + offs, sizeof(txt) - offs, "%*s : %s\n",
+			name_len, "Уровень привилегий", vpn_priv_to_str(priv));
+		if (l > 0)
+			offs += l;
+		if ((l <= 0) || ((offs + 1) > sizeof(txt)))
+			goto end;
+	}else
+		fprintf(stderr, "getOwnPrivilegeLevel: %x (%s).\n", rc.code, rc.message);
+	VpnNodeInfo *node = NULL;
+	rc = vpn_api->getOwnNodeInfo(&node);
+	if ((rc.code == 0) && (node != NULL)){
+		l = snprintf(txt + offs, sizeof(txt) - offs,
+				"%*s : %s\n%*s : %.8X\n%*s : %s\n%*s : %.8X\n",
+			name_len, "Имя узла", node->name,
+			name_len, "ID узла", node->id,
+			name_len, "IP узла", inet_ntoa(dw2ip(htonl(node->ip))),
+			name_len, "Задачи узла", node->tasksMask);
+		vpn_api->releaseVpnNodeInfo(node, 1);
+		if (l > 0)
+			offs += l;
+		if ((l <= 0) || ((offs + 1) > sizeof(txt)))
+			goto end;
+	}else
+		fprintf(stderr, "getOwnNodeInfo: %x (%s).\n", rc.code, rc.message);
+	rc = vpn_api->getClientParam(paramKeyNetworkNumber,
+		strlen(paramKeyNetworkNumber), &data, &data_len);
+	if ((rc.code == 0) && (data != NULL)){
+		l = snprintf(txt + offs, sizeof(txt) - offs, "%*s : %s\n",
+			name_len, "Идентификатор сети ViPNet", data);
+		vpn_api->releaseClientParamData(data);
+		if (l > 0)
+			offs += l;
+		if ((l <= 0) || ((offs + 1) > sizeof(txt)))
+			goto end;
+	}else
+		fprintf(stderr, "getClientParam: %x (%s).\n", rc.code, rc.message);
+	uint32_t id = 0;
+	rc = vpn_api->getActiveCoordinator(&id);
+	if (rc.code == 0){
+		node = NULL;
+		rc = vpn_api->getNodeInfo(id, &node);
+		if ((rc.code == 0) && (node != NULL)){
+			l = snprintf(txt + offs, sizeof(txt) - offs, "%*s : %.8X, %s, %s, %.8X\n",
+				name_len, "Активный координатор",
+				node->id, node->name, inet_ntoa(dw2ip(htonl(node->ip))),
+				node->tasksMask);
+			vpn_api->releaseVpnNodeInfo(node, 1);
+			if (l > 0)
+				offs += l;
+			if ((l <= 0) || ((offs + 1) > sizeof(txt)))
+				goto end;
+		}else
+			fprintf(stderr, "getNodeInfo: %x (%s).\n", rc.code, rc.message);
+	}else
+		fprintf(stderr, "getActiveCoordinator: %x (%s).\n", rc.code, rc.message);
+	time_t t = 0;
+	rc = vpn_api->getLicenseExpiration(&t);
+	if (rc.code == 0){
+		struct tm *tm = gmtime(&t);
+		if (tm != NULL){
+			l = snprintf(txt + offs, sizeof(txt) - offs,
+					"%*s : %.2d.%.2d.%.4d %.2d:%.2d:%.2d\n",
+				name_len, "Лицензия действительна до",
+				tm->tm_mday, tm->tm_mon + 1, tm->tm_year + 1900,
+				tm->tm_hour, tm->tm_min, tm->tm_sec);
+			if (l > 0)
+				offs += l;
+			if ((l <= 0) || ((offs + 1) > sizeof(txt)))
+				goto end;
+		}else
+			fprintf(stderr, "gmtime: %m.\n");
+	}else
+		fprintf(stderr, "getLicenseExpiration: %x (%s).\n", rc.code, rc.message);
+	int32_t log_lvl = 0;
+	rc = vpn_api->getLogLevel(&log_lvl);
+	if (rc.code == 0){
+		l = snprintf(txt + offs, sizeof(txt) - offs, "%*s : %d\n",
+			name_len, "Уровень протоколирования", log_lvl);
+		if (l > 0)
+			offs += l;
+		if ((l <= 0) || ((offs + 1) > sizeof(txt)))
+			goto end;
+		ok = true;
+	}else
+		fprintf(stderr, "getLogLevel: %x (%s).\n", rc.code, rc.message);
+	if (ok){
+		online = false;
+		guess_term_state();
+		push_term_info();
+		hide_cursor();
+		scr_visible = false;
+		set_term_busy(true);
+		ClearScreen(clBlack);
+		message_box("Информация о ПО VipNet", txt, dlg_none, 0, al_left);
+		online = true;
+		pop_term_info();
+		ClearScreen(clBtnFace);
+		redraw_term(true, main_title);
+	}
+end:;	/* без ; выдаётся сообщение об ошибке компилятора "label at end of compound statement" */
 }
 
 static const char *fdo_iface_str(uint8_t fdo_iface)
