@@ -115,7 +115,7 @@ static char com2_name[32];
 #define NR_COM		4
 
 /* Параметры COM-портов */
-#define COM_BAUD	B19200
+#define COM_BAUD	B115200
 #define COM_CSIZE	CS8
 
 /* Размер блока данных для тестирования */
@@ -205,9 +205,10 @@ static void do_back(int n)
 }
 
 /* Обработка транзакции */
-static int process_transaction(int in_fd, int out_fd)
+static bool process_transaction(int in_fd, int out_fd)
 {
-	int l, flag = false;
+	ssize_t l = 0;
+	bool flag = false;
 	if (sent_len < DATA_LEN){
 		if (check_timer(snd_timer)){
 			printf("\n\033[1;31mтаймаут передачи\033[0m\n");
@@ -217,9 +218,8 @@ static int process_transaction(int in_fd, int out_fd)
 		if (l > 0){
 			sent_len += l;
 			flag = true;
-		}else if ((l < 0) && (errno != EAGAIN)){
-			printf("\n\033[1;31mошибка передачи: %s\033[0m\n",
-					strerror(errno));
+		}else if ((l < 0) && (errno != EWOULDBLOCK)){
+			printf("\n\033[1;31mошибка передачи: %m\033[0m\n");
 			return false;
 		}
 	}
@@ -232,9 +232,8 @@ static int process_transaction(int in_fd, int out_fd)
 		if (l > 0){
 			rcv_len += l;
 			flag = true;
-		}else if ((l < 0) && (errno != EAGAIN)){
-			printf("\n\033[1;31mошибка приема: %s\033[0m\n",
-					strerror(errno));
+		}else if ((l < 0) && (errno != EWOULDBLOCK)){
+			printf("\n\033[1;31mошибка приема: %m\033[0m\n");
 			return false;
 		}
 	}
@@ -271,21 +270,15 @@ static void write_to_file(uint8_t *data, int len, char *name)
 
 /* Транзакция для заданной последовательности данных */
 static int do_transaction(int in_fd, int out_fd, void (*gen_data)(void),
-		char *fname)
+	const char *fname __attribute__((unused)))
 {
-#define USB_PREFIX	"/mnt/usb/"
-	char name[64];
-	snprintf(name, sizeof(name), USB_PREFIX "%s1.bin", fname);
 	gen_data();
-/*	write_to_file(out_data, sizeof(out_data), name);*/
 	begin_transmit();
 	while ((rcv_len != DATA_LEN) || (sent_len != DATA_LEN)){
 		process_timers();
 		if (!process_transaction(in_fd, out_fd))
 			return false;
 	}
-	snprintf(name, sizeof(name), USB_PREFIX "%s2.bin", fname);
-/*	write_to_file(in_data, sizeof(in_data), name);*/
 	if (memcmp(in_data, out_data, DATA_LEN) != 0){
 		printf("\n\033[1;31mошибка сравнения данных\033[0m\n");
 		show_diff(in_data, out_data, DATA_LEN);
@@ -407,7 +400,7 @@ int main(int argc, char **argv)
 		.csize		= COM_CSIZE,
 		.parity		= SERIAL_PARITY_NONE,
 		.stop_bits	= SERIAL_STOPB_1,
-		.control	= SERIAL_FLOW_RTSCTS,
+		.control	= SERIAL_FLOW_NONE,
 		.baud		= COM_BAUD
 	};
 	int com1, com2, i, j;
@@ -435,6 +428,11 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Ошибка проверки управляющих линий.\n");
 		serial_close(com1);
 		serial_close(com2);
+		return 1;
+	}
+	ss.control = SERIAL_FLOW_RTSCTS;
+	if (!serial_configure(com1, &ss) || !serial_configure(com2, &ss)){
+		printf("\n\033[1;31mошибка конфигурации COM-портов\033[0m\n");
 		return 1;
 	}
 	for (i = 0; i < ASIZE(tests); i++){

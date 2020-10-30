@@ -5,6 +5,7 @@ INCLUDE = ../include
 
 BINARIES =		\
 	bnklic		\
+	dircmp		\
 	dsd		\
 	lprnlic		\
 	mwl		\
@@ -37,6 +38,7 @@ LOG_OBJS =		\
 
 SCRIPTS_OBJS =		\
 	bnklic		\
+	dircmp		\
 	dsd		\
 	lprnlic		\
 	mwl		\
@@ -82,6 +84,18 @@ BNKLIC_OBJS =		\
 	$(addsuffix .o, $(BNKLIC_SCRIPTS_OBJS))
 
 bnklic:		$(BNKLIC_OBJS)
+		@echo "\t$(LD_NAME)   $@"
+		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
+
+## dircmp
+
+DIRCMP_SCRIPTS_OBJS =	\
+	dircmp
+
+DIRCMP_OBJS =		\
+	$(addsuffix .o, $(DIRCMP_SCRIPTS_OBJS))
+
+dircmp:		$(DIRCMP_OBJS)
 		@echo "\t$(LD_NAME)   $@"
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 

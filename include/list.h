@@ -1,7 +1,7 @@
 #ifndef list_h
 #define list_h
 
-#include <stddef.h>
+#include "sysdefs.h"
 
 typedef struct list_item_t {
     struct list_item_t *next;

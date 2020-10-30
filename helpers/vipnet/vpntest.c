@@ -158,6 +158,12 @@ static bool vpn_show_info(void)
 			goto ret;
 	}else
 		fprintf(stderr, "getClientVersion: %x (%s).\n", rc.code, rc.message);
+	l = snprintf(txt + offs, sizeof(txt) - offs, "%-*s%d\n", name_len, "VPN API version",
+		GetVpnApiVersion());
+	if (l > 0)
+		offs += l;
+	if ((l <= 0) || ((offs + 1) > sizeof(txt)))
+		goto ret;
 	l = snprintf(txt + offs, sizeof(txt) - offs, "%-*s%d\n", name_len, "Cipher API version",
 		GetCipherApiVersion());
 	if (l > 0)
@@ -266,11 +272,29 @@ static bool vpn_show_info(void)
 			goto ret;
 	}else
 		fprintf(stderr, "getClientParam: %x (%s).\n", rc.code, rc.message);
+	size_t nr = 0;
+	node = NULL;
+	rc = vpn_api->getNodesInfo(&node, &nr);
+	if ((rc.code == 0) && (node != NULL)){
+		for (size_t i = 0; i < nr; i++){
+			l = snprintf(txt + offs, sizeof(txt) - offs,
+				"%-*s%.8X %s %s (%.8X)\n",
+			name_len, "Host", node[i].id, node[i].name,
+			inet_ntoa(dw2ip(htonl(node[i].ip))), node[i].tasksMask);
+			if (l > 0)
+				offs += l;
+			else
+				break;
+		}
+		vpn_api->releaseVpnNodeInfo(node, nr);
+		if ((l <= 0) || ((offs + 1) > sizeof(txt)))
+			goto ret;
+	}else
+		fprintf(stderr, "getNodesInfo: %x (%s).\n", rc.code, rc.message);
 	VpnUserInfo *users = NULL;
-	size_t nr_users = 0;
-	rc = vpn_api->getUsersInfo(&users, &nr_users);
+	rc = vpn_api->getUsersInfo(&users, &nr);
 	if ((rc.code == 0) && (users != NULL)){
-		for (size_t i = 0; i < nr_users; i++){
+		for (size_t i = 0; i < nr; i++){
 			l = snprintf(txt + offs, sizeof(txt) - offs, "%-*s%.8X (%s)\n",
 				name_len, "User", users[i].id, users[i].name);
 			if (l > 0)
@@ -278,7 +302,7 @@ static bool vpn_show_info(void)
 			else
 				break;
 		}
-		vpn_api->releaseVpnUserInfo(users, nr_users);
+		vpn_api->releaseVpnUserInfo(users, nr);
 		if ((l <= 0) || ((offs + 1) > sizeof(txt)))
 			goto ret;
 	}else

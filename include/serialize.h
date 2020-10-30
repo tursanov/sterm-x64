@@ -2,6 +2,7 @@
 #define SERIALIZE_H
 
 #include "list.h"
+#include "sysdefs.h"
 
 int s_open(const char *file_name, int open_for_write);
 int s_close(int fd);
