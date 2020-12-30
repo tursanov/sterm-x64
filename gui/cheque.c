@@ -23,6 +23,8 @@ static int active_item_n = 0;
 static int active_item_child = 0;
 static int64_t sumN = 0;
 static int64_t sumE = 0;
+static bool has_cashless_payments = false;
+static bool has_cash_payments = false;
 static list_item_t *first = NULL;
 static int first_n = 0;
 static bool main_view = true;
@@ -32,6 +34,62 @@ static int draw_flags = 0;
 
 #define BUTTON_WIDTH	100
 #define BUTTON_HEIGHT	30
+
+static void calc_sum()
+{
+	sumN = 0;
+	sumE = 0;
+	has_cashless_payments = false;
+	has_cash_payments = false;
+
+	for (list_item_t *li1 = _ad->clist.head; li1 != NULL; li1 = li1->next) {
+		C *c = LIST_ITEM(li1, C);
+
+		int64_t n = 0;
+		int64_t e = 0;
+
+		for (list_item_t *li2 = c->klist.head; li2 != NULL; li2 = li2->next) {
+			K *k = LIST_ITEM(li2, K);
+			if (!doc_no_is_empty(&k->u))
+				continue;
+
+			for (list_item_t *li3 = k->llist.head; li3 != NULL; li3 = li3->next) {
+				L *l = LIST_ITEM(li3, L);
+				switch (k->m) {
+				case 1:
+					if (l->t > 0)
+						has_cash_payments = true;
+					n += l->t;
+					break;
+				case 2:
+					if (l->t > 0)
+						has_cashless_payments = true;
+					e += l->t;
+					break;
+				}
+			}
+
+			if (k->a > 0) {
+				switch (k->m) {
+				case 1:
+					n -= k->a;
+					break;
+				case 2:
+					e -= k->a;
+					break;
+				}
+			}
+		}
+
+		if (c->t1054 == 1 || c->t1054 == 4) {
+			sumN += n;
+			sumE += e;
+		} else {
+			sumN -= n;
+			sumE -= e;
+		}
+	}
+}
 
 int cheque_init(void) {
 	if (fnt == NULL)
@@ -51,22 +109,11 @@ int cheque_init(void) {
 	else
 		active_button = 0;
 
-	sumN = 0;
-	sumE = 0;
 	first = _ad->clist.head;
 	first_n = 0;
 	main_view = true;
 
-	for (list_item_t *li1 = _ad->clist.head; li1 != NULL; li1 = li1->next) {
-		C *c = LIST_ITEM(li1, C);
-		if (c->t1054 == 1 || c->t1054 == 4) {
-			sumN += c->sum.n;
-			sumE += c->sum.e;
-		} else {
-			sumN -= c->sum.n;
-			sumE -= c->sum.e;
-		}
-	}
+	calc_sum();
 
 	cheque_draw();
 	current_c = NULL;
@@ -92,6 +139,19 @@ void cheque_release(void) {
 #define GAP 10
 
 #define IR_COLOR	clGray
+
+static char *get_str_pay_method(K *k) {
+	switch (k->m) {
+		case 1:
+			return "НАЛ";
+		case 2:
+			return "БЕЗНАЛ";
+		case 3:
+			return "Д/ПР";
+		default:
+			return "???";
+	}
+}
 
 static int email_or_phone_draw(C *c, int start_y) {
 	int y = start_y + fnt->max_height*5 + GAP + 4;
@@ -170,8 +230,11 @@ static int doc_view_expanded_draw(C *c, int start_y) {
 		} else
 			scroll_enabled = false;
 
-		sprintf(text, "Документ N%s (СУММА: %.1llu.%.2llu)", k->d.s ? k->d.s : "",
-			sum / 100, sum % 100);
+		sprintf(text, "Документ N%s (СУММА: %.1lld.%.2lld %s)%s",
+			k->d.s ? k->d.s : "",
+			sum / 100, sum % 100,
+			get_str_pay_method(k),
+			doc_no_is_empty(&k->u) ? "" : " (НЕЗАВЕРШЕННОЕ ПЕРЕОФОРМЛЕНИЕ)");
 		TextOut(screen, GAP*2, y, text);
 		y += fnt->max_height;
 
@@ -291,7 +354,7 @@ static int cheque_draw_sum(int start_y) {
 
 	//printf("sumN: %lld, sumE: %lld\n", sumN, sumE);
 
-	if (sumN == 0 && sumE == 0) {
+	if (sumN == 0 && !has_cashless_payments) {
 		sprintf(title[count], "Получение или выдача денежных средств не требуется");
 		count++;
 	} else {
@@ -301,10 +364,9 @@ static int cheque_draw_sum(int start_y) {
 			vln_printf(value[count], labs(sumN));
 			count++;
 		}
-		if (sumE != 0) {
-			sprintf(title[count], "Сумма безналичными к %s:", sumE > 0 ? "получению от пассажира" : 
-				"выдаче пассажиру");
-			vln_printf(value[count], labs(sumE));
+		if (has_cashless_payments) {
+			sprintf(title[count], "Расчет безналичными согласно данным чека(ов)");
+			value[count][0] = 0;
 			count++;
 		}
 	}
@@ -317,7 +379,7 @@ static int cheque_draw_sum(int start_y) {
 	SetTextColor(screen, clBlack);
 	TextOut(screen, x, y + GAP/2, cheque_title);
 	y += GAP;*/
-	
+
 	y += 4;
 
 	w = 0;
@@ -349,7 +411,7 @@ static int cheque_draw_sum(int start_y) {
 static int cheque_draw_cashier(int start_y) {
 	char text[512];
 	char *p = text;
-	
+
 	p += sprintf(text, "Кассир: %s", cashier_get_name());
 	
 	if (cashier_get_post()[0])

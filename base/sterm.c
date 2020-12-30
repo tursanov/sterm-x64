@@ -1866,57 +1866,55 @@ static void on_end_pos(void)
 	pos_active = false;
 	online = true;
 	pop_term_info();
-	if (pos_err_xdesc == NULL){
-		if (apc){
-			hide_cursor();
-			static struct custom_btn btns[] = {
-				{
-					.text	= "Успешная оплата",
-					.cmd	= DLG_BTN_YES,
-				},
-				{
-					.text	= "Повтор оплаты",
-					.cmd	= DLG_BTN_RETRY,
-				},
-				{
-					.text	= "Отказ от оплаты",
-					.cmd	= DLG_BTN_CANCEL,
-				},
-				{
-					.text	= NULL,
-					.cmd	= 0,
-				},
-			};
-			int rc = message_box("АВТОМАТИЧЕСКАЯ ПЕЧАТЬ ЧЕКА",
-				"Выберите дальнейшее действие", (intptr_t)btns, 0, al_center);
-			show_cursor();
-			switch (rc){
-				case DLG_BTN_YES:
-					show_cheque_fa();
-					apc = fa_active;
-					break;
-				case DLG_BTN_RETRY:
-					rollback_bank_info();
-					reset_bi = false;
+	if (apc){
+		static struct custom_btn _btns[] = {
+			{
+				.text	= "Успешный расчет",
+				.cmd	= DLG_BTN_YES,
+			},
+			{
+				.text	= "Повтор рачета",
+				.cmd	= DLG_BTN_RETRY,
+			},
+			{
+				.text	= "Отказ от расчета",
+				.cmd	= DLG_BTN_CANCEL,
+			},
+			{
+				.text	= NULL,
+				.cmd	= 0,
+			},
+		};
+		struct custom_btn *btns = (pos_err_xdesc == NULL) ? _btns : _btns + 1;
+		hide_cursor();
+		int rc = message_box("АВТОМАТИЧЕСКАЯ ПЕЧАТЬ ЧЕКА",
+			"Выберите дальнейшее действие", (int)btns, 0, al_center);
+		show_cursor();
+		switch (rc){
+			case DLG_BTN_YES:
+				show_cheque_fa();
+				apc = fa_active;
+				break;
+			case DLG_BTN_RETRY:
+				rollback_bank_info();
+				reset_bi = false;
 /* FIXME: в этом случае по окончании работы с ИПТ мы не посылаем INIT CHECK (pos_new) */
-					if (pos_get_state() == pos_finish)
-						pos_set_state(pos_idle);
-					show_pos();
-					apc = pos_active;
-					break;
-				default:
-					apc = false;
-			}
+				if (pos_get_state() == pos_finish)
+					pos_set_state(pos_idle);
+				show_pos();
+				apc = pos_active;
+				break;
+			default:
+				apc = false;
 		}
-	}else{
-		apc = false;
-		set_term_astate(ast_pos_error);
+
 	}
+	if (!apc && (pos_err_xdesc != NULL))
+		set_term_astate(ast_pos_error);
 	if (reset_bi)
 		reset_bank_info();
 	if (!apc)
 		redraw_term(true, main_title);
-
 }
 
 /* Обработчик окна POS-терминала */
@@ -2989,15 +2987,18 @@ static void show_kkt_info(void)
 
 			"%29s:  %u.%u.%u.%u\n"	/* IP-адрес ККТ */
 			"%29s:  %u.%u.%u.%u\n"	/* Маска подсети */
-			"%29s:  %u.%u.%u.%u\n\n"/* IP-адрес шлюза */
+			"%29s:  %u.%u.%u.%u\n"/* IP-адрес шлюза */
 
 			"%29s:  %s\n"		/* Точка доступа GPRS */
 			"%29s:  %s\n"		/* Пользователь GPRS */
-			"%29s:  %s\n\n"		/* Пароль GPRS */
+			"%29s:  %s\n"		/* Пароль GPRS */
 
 			"%29s:  %s\n"		/* Интерфейс с ОФД */
-			"%29s:  %u.%u.%u.%u\n"	/* IP-адрес ОФД */
-			"%29s:  %hu",		/* TCP-порт ОФД */
+			"%29s:  %u.%u.%u.%u\n",	/* IP-адрес ОФД */
+			"%29s:  %hu\n",		/* TCP-порт ОФД */
+
+			"%29s:  %s\n",		/* SUPPORT_1222_1224_1225 */
+			"%29s:  %s"		/* COMP1057WO1171 */
 		"ККТ", kkt->name,
 		"Заводской номер ККТ", (kkt_nr == NULL) ? "НЕ УСТАНОВЛЕН" : kkt_nr,
 		"Версия ПО", (kkt_ver == NULL) ? "НЕИЗВЕСТНО" : kkt_ver,
@@ -3032,7 +3033,9 @@ static void show_kkt_info(void)
 		"Интерфейс с ОФД", fdo_iface_str(cfg.fdo_iface),
 		"IP-адрес ОФД", cfg.fdo_ip & 0xff, (cfg.fdo_ip >> 8) & 0xff,
 		(cfg.fdo_ip >> 16) & 0xff, cfg.fdo_ip >> 24,
-		"TCP-порт ОФД", cfg.fdo_port
+		"TCP-порт ОФД", cfg.fdo_port,
+		"Теги ФФД 1222 и 1224", kkt_has_param("SUPPORT_1222_1224_1225") ? "да" : "нет",
+		"Теги ФФД 1057 без 1171", kkt_has_param("COMP1057WO1171") ? "да" : "нет"
 	);
 	online = false;
 	guess_term_state();
@@ -3618,25 +3621,46 @@ static bool need_apc(void)
 	return ret;
 }
 
-static bool need_pos(void)
+static int need_pos(void)
 {
-	bool ret = false;
+	int ret = 0;
 	if (cfg.bank_system &&
 #if defined __EXT_POS__
 			!cfg.ext_pos &&
 #endif
-			cfg.kkt_apc && has_bank_data){
+			cfg.kkt_apc){
 		struct AD_state ads;
 		AD_get_state(&ads);
-		if (ads.has_cashless_payments){
-			int64_t s = ads.cashless_total_sum;
-			if (s < 0)
-				s *= -1;
-			bi.amount1 = s / 100;
-			bi.amount2 = ((s % 100) + 5) / 10;
-			clear_bank_info(&bi_pos, true);
-			ret = true;
-		}
+		if (ads.cashless_cheque_count > 0 && (has_bank_data || ads.order_id > 0)) {
+			if (ads.cashless_cheque_count > 1) {
+				message_box(
+					"ВНИМАНИЕ!",
+					"Процесс автоматической печати не может быть продолжен.\n"
+					"Для выполнения расчета по банковской карте необходимо\n"
+					"войти в фискальное приложение, запомнить или записать суммы\n"
+					"по каждому чеку, содержащему оплату по безналичному расчету,\n"
+					"а также проанализировать вид операции (оплата, возврат или отмена).\n"
+					"Далее необходимо войти в банковское приложение и совершить\n"
+					"соответствующие операции по банковской карте для каждого чека отдельно.\n"
+					"После успешного расчета по банковской карте для печати\n"
+					"кассовых чеков необходимо использовать Фискальное приложение.\n"
+					"ВАЖНО: для каждого кассового чека с суммой оплаты по безналичному\n"
+					"расчету должна быть оформлена операция по банковской карте на ту же сумму.",
+					dlg_yes, DLG_BTN_YES, al_center);
+				ClearScreen(clBtnFace);
+				redraw_term(true, main_title);
+				ret = -1;
+			}else{
+				int64_t s = ads.cashless_total_sum;
+				if (s < 0)
+					s *= -1;
+				bi.amount1 = s / 100;
+				bi.amount2 = ((s % 100) + 5) / 10;
+				if (ads.order_id > 0)
+					bi.id = ads.order_id;
+				clear_bank_info(&bi_pos, true);
+				ret = 1;
+			}
 	}
 	return ret;
 }
@@ -3676,13 +3700,15 @@ static void on_response(void)
 			if ((c_state != cs_hasreq) && need_apc()){
 				show_req();
 				apc = true;
-				if (need_pos()){
+				int np = need_pos();
+				if (np == 1){
 					show_pos();
 					apc = pos_active;
-				}else{
+				}else if (np == 0){
 					show_cheque_fa();
 					apc = fa_active;
-				}
+				}else
+					apc = false;
 			}
 			if (!apc)
 				set_term_busy(false);

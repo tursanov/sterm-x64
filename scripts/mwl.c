@@ -60,6 +60,11 @@ static bool ds_zero_id(ds_number dsn)
 	return i == DS_NUMBER_LEN;
 }
 
+static void wait_kbd(void)
+{
+	for (int c = getchar(); (c != '\n') && (c != EOF); c = getchar());
+}
+
 /* Запись номеров ключей */
 static bool write_dallas(struct md5_hash *keys, int n_keys, bool can_repeat)
 {
@@ -76,7 +81,7 @@ static bool write_dallas(struct md5_hash *keys, int n_keys, bool can_repeat)
 	}
 	for (i = 0; i < n_keys; i++){
 		printf("ключ #%d: ", i + 1);
-		getchar();
+		wait_kbd();
 		do
 			ds_read(dsn);
 		while (ds_zero_id(dsn));

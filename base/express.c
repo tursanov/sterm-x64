@@ -2058,6 +2058,21 @@ static void execute_kkt(struct para_info *pi __attribute__((unused)), int len)
 
 extern void show_llog(void);
 
+/* Получение информации банковского абзаца во время обработки ответа */
+const struct bank_info *get_bi(void)
+{
+	const struct bank_info *ret = NULL;
+	if (resp_executing){
+		for (int i = 0; i < n_paras; i++){
+			if (map[i].dst == dst_bank){
+				ret = &bi;
+				break;
+			}
+		}
+	}
+	return ret;
+}
+
 /* Обработка текста ответа. Возвращает false, если надо перейти к ОЗУ заказа */
 bool execute_resp(void)
 {

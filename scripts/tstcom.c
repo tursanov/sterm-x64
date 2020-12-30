@@ -107,8 +107,10 @@ static void usage(void)
 
 /* Первый COM-порт */
 static char com1_name[32];
+static int com1_nr = -1;
 /* Второй COM-порт */
 static char com2_name[32];
+static int com2_nr = -1;
 /* Префикс имени файла устройства COM-порта */
 #define COM_PREFIX	"/dev/ttyS"
 /* Максимальное количество COM-портов */
@@ -126,8 +128,7 @@ static char com2_name[32];
 #define RCV_TIMEOUT	6000
 
 /* Число проходов для каждого теста */
-#define N_PASSES	3
-#define N_XPASSES	10
+#define N_PASSES	1
 
 /* Буфер для передачи данных */
 static uint8_t out_data[DATA_LEN];
@@ -305,27 +306,22 @@ static int parse_com_name(char *s)
 /* Разбор командной строки */
 static bool parse_cmd_line(int argc, char **argv)
 {
-	int n1, n2;
 	if (argc != 3){
 		usage();
 		return false;
 	}
-	n1 = parse_com_name(argv[1]);
-	if (n1 == -1){
+	com1_nr = parse_com_name(argv[1]);
+	if (com1_nr == -1){
 		fprintf(stderr, "неверный параметр: %s\n", argv[1]);
 		return false;
 	}
-	n2 = parse_com_name(argv[2]);
-	if (n2 == -1){
+	com2_nr = parse_com_name(argv[2]);
+	if (com2_nr == -1){
 		fprintf(stderr, "неверный параметр: %s\n", argv[2]);
 		return false;
 	}
-/*	if (n1 == n2){
-		fprintf(stderr, "укажите разные COM-порты\n");
-		return false;
-	}*/
-	snprintf(com1_name, sizeof(com1_name), COM_PREFIX "%d", n1);
-	snprintf(com2_name, sizeof(com2_name), COM_PREFIX "%d", n2);
+	snprintf(com1_name, sizeof(com1_name), COM_PREFIX "%d", com1_nr);
+	snprintf(com2_name, sizeof(com2_name), COM_PREFIX "%d", com2_nr);
 	return true;
 }
 
@@ -391,10 +387,10 @@ int main(int argc, char **argv)
 	} tests[] = {
 		{"все нули",		all_zeroes,	"zeroes",	N_PASSES},
 		{"все единицы",		all_ones,	"ones",		N_PASSES},
-		{"бегущий ноль",	running_zero,	"rzero",	N_XPASSES},
-		{"бегущая единица",	running_one,	"rone",		N_XPASSES},
-		{"адрес-байт",		address_byte,	"addr",		N_XPASSES},
-		{"случайные числа",	all_random,	"rnd",		N_XPASSES},
+		{"бегущий ноль",	running_zero,	"rzero",	N_PASSES},
+		{"бегущая единица",	running_one,	"rone",		N_PASSES},
+		{"адрес-байт",		address_byte,	"addr",		N_PASSES},
+		{"случайные числа",	all_random,	"rnd",		N_PASSES},
 	};
 	struct serial_settings ss = {
 		.csize		= COM_CSIZE,
@@ -406,10 +402,12 @@ int main(int argc, char **argv)
 	int com1, com2, i, j;
 	if (!parse_cmd_line(argc, argv))
 		return 1;
-	printf("\033[0m\033[H\033[J\033[7;H\033[30;46m"
-"                       Проверка COM-портов модуля ЭВМ ТКП                       \033[0m\n\n"
+	printf(
+		"\033[0m\033[H\033[J\033[7;H\033[30;46m"
+"                            Проверка COM%d <==> COM%d                             \033[0m\n\n"
 		"\033[1;36m"
-"                Название теста    Проход   Принято  Передано\033[0m\n");
+"                Название теста    Проход   Принято  Передано\033[0m\n",
+		com1_nr + 1, com2_nr + 1);
 	snd_timer = alloc_timer(SND_TIMEOUT, false);
 	rcv_timer = alloc_timer(RCV_TIMEOUT, false);
 	if ((snd_timer == -1) || (rcv_timer == -1)){
@@ -443,8 +441,9 @@ int main(int argc, char **argv)
 			fflush(stdout);
 			if (!do_transaction(com1, com2, tests[i].gen_fn,
 					tests[i].fname) ||
-					!do_transaction(com2, com1, tests[i].gen_fn,
-					tests[i].fname)){
+					((com1_nr != com2_nr) &&
+					 	!do_transaction(com2, com1, tests[i].gen_fn,
+							tests[i].fname))){
 				serial_close(com1);
 				serial_close(com2);
 				return 1;
@@ -458,6 +457,5 @@ int main(int argc, char **argv)
 	release_timer(rcv_timer);
 	printf("\033[0m\n\033[30;46m"
 "                            Все тесты прошли успешно                            \033[0m\n");
-/*	for (;;);*/
 	return 0;
 }
