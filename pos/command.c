@@ -10,6 +10,7 @@
 #include "genfunc.h"
 #include "hex.h"
 #include "sterm.h"
+#include "kkt/fd/ad.h"
 
 pos_request_param_list_t req_param_list;
 pos_response_param_list_t resp_param_list;
@@ -73,6 +74,7 @@ static int get_param_type(char *name)
 		{POS_PARAM_TERMID_STR,	POS_PARAM_TERMID},
 		{POS_PARAM_CLERKID_STR,	POS_PARAM_CLERKID},
 		{POS_PARAM_CLERKTYPE_STR,POS_PARAM_CLERKTYPE},
+		{POS_PARAM_ORDS_STR,	POS_PARAM_ORDS},
 	};
 	int i;
 	if (name == NULL)
@@ -282,6 +284,33 @@ bool pos_req_save_command_finish(struct pos_data_buf *buf)
 	}
 }
 
+static bool termid_empty()
+{
+	for (size_t i = 0; i < sizeof(bi_pos.termid); i++)
+		if (bi_pos.termid[i] != '0')
+			return false;
+	return true;
+}
+
+static void normalize_termid()
+{
+	if (_ad &&
+		_ad->p1 &&
+		_ad->p1->p && _ad->p1->p[0] && _ad->p1->p[1] &&
+		_ad->p1->t && _ad->p1->t[0] &&
+		termid_empty())
+	{
+		size_t p_len = strlen(_ad->p1->p + 1);
+		size_t t_len = strlen(_ad->p1->t);
+
+		if (p_len + t_len == sizeof(bi_pos.termid)) {
+			memcpy(bi_pos.termid, _ad->p1->p + 1, p_len);
+			memcpy(bi_pos.termid + p_len, _ad->p1->t, t_len);
+			recode_str(bi_pos.termid, sizeof(bi_pos.termid));
+		}
+	}
+}
+
 /* Запись в поток команд заданного параметра */
 static bool pos_write_param(struct pos_data_buf *buf, char *name, int param,
 		bool required)
@@ -311,6 +340,7 @@ static bool pos_write_param(struct pos_data_buf *buf, char *name, int param,
 			l = strlen(val);
 			break;
 		case POS_PARAM_TERMID:
+			normalize_termid();
 			memcpy(val, bi_pos.termid, sizeof(bi_pos.termid));
 			l = sizeof(bi_pos.termid);
 			write_hex_byte((uint8_t *)(val + l), cfg.gaddr);
@@ -325,6 +355,9 @@ static bool pos_write_param(struct pos_data_buf *buf, char *name, int param,
 			val[0] = recode(ds_key_char(kt));
 			val[1] = 0;
 			l = 1;
+			break;
+		case POS_PARAM_ORDS:
+			val[0] = 0;
 			break;
 		default:
 			if (required){

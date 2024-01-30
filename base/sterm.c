@@ -1888,7 +1888,7 @@ static void on_end_pos(void)
 		struct custom_btn *btns = (pos_err_xdesc == NULL) ? _btns : _btns + 1;
 		hide_cursor();
 		int rc = message_box("АВТОМАТИЧЕСКАЯ ПЕЧАТЬ ЧЕКА",
-			"Выберите дальнейшее действие", (int)btns, 0, al_center);
+			"Выберите дальнейшее действие", (intptr_t)btns, 0, al_center);
 		show_cursor();
 		switch (rc){
 			case DLG_BTN_YES:
@@ -2987,18 +2987,18 @@ static void show_kkt_info(void)
 
 			"%29s:  %u.%u.%u.%u\n"	/* IP-адрес ККТ */
 			"%29s:  %u.%u.%u.%u\n"	/* Маска подсети */
-			"%29s:  %u.%u.%u.%u\n"/* IP-адрес шлюза */
+			"%29s:  %u.%u.%u.%u\n"	/* IP-адрес шлюза */
 
 			"%29s:  %s\n"		/* Точка доступа GPRS */
 			"%29s:  %s\n"		/* Пользователь GPRS */
 			"%29s:  %s\n"		/* Пароль GPRS */
 
 			"%29s:  %s\n"		/* Интерфейс с ОФД */
-			"%29s:  %u.%u.%u.%u\n",	/* IP-адрес ОФД */
-			"%29s:  %hu\n",		/* TCP-порт ОФД */
+			"%29s:  %u.%u.%u.%u\n"	/* IP-адрес ОФД */
+			"%29s:  %hu\n"		/* TCP-порт ОФД */
 
-			"%29s:  %s\n",		/* SUPPORT_1222_1224_1225 */
-			"%29s:  %s"		/* COMP1057WO1171 */
+			"%29s:  %s\n"		/* SUPPORT_1222_1224_1225 */
+			"%29s:  %s",		/* COMP1057WO1171 */
 		"ККТ", kkt->name,
 		"Заводской номер ККТ", (kkt_nr == NULL) ? "НЕ УСТАНОВЛЕН" : kkt_nr,
 		"Версия ПО", (kkt_ver == NULL) ? "НЕИЗВЕСТНО" : kkt_ver,
@@ -3661,6 +3661,7 @@ static int need_pos(void)
 				clear_bank_info(&bi_pos, true);
 				ret = 1;
 			}
+		}
 	}
 	return ret;
 }

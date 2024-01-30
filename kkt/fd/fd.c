@@ -275,22 +275,25 @@ static void set_tag_error(uint8_t doc_type, char *s, uint8_t *err_info,
 void fd_set_error(uint8_t doc_type, uint8_t status, uint8_t *err_info, size_t err_info_len) 
 {
 	char *s = last_error;
-	
+
+
 	s += sprintf(s, "Код ошибки: Ф:%.3d", status);
 	if (err_info_len > 0) {
 		s += sprintf(s, " (");
-		
+
 		for (int i = 0; i < err_info_len; i++) {
 			if (i > 0)
 				s += sprintf(s, "%s", ", ");
 			s += sprintf(s, "%d", err_info[i]);
 		}
-		
+
 		s += sprintf(s, ")");
 	}
-	
+
+
 	s += sprintf(s, "\n");
-	
+
+
 	switch (status) {
 		case 0x00: // STATUS_OK
 		case 0x30:
@@ -527,11 +530,17 @@ void fd_set_error(uint8_t doc_type, uint8_t status, uint8_t *err_info, size_t er
 		case 0x90: // STATUS_SHIFT_NEED_CLOSED
 			sprintf(s, "%s", "Для подолжения необходимо закрыть смену");
 			break;
+		case 0xf0:
+			sprintf(s, "%s", "Переполнение буфера для передачи");
+			break;
 		case 0xf1: // STATUS_TIMEOUT
 			sprintf(s, "%s", "Таймаут приема ответа от ФР");
 			break;
 		case 0xf2:
 			sprintf(s, "%s", "ККТ не обнаружена. Подключите ККТ");
+			break;
+		case 0xf3:
+			sprintf(s, "%s", "Неверный формат ответа");
 			break;
 		default:
 			sprintf(s, "%s (0x%.2x)", "Неизвестная ошибка", status);

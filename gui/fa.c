@@ -576,7 +576,6 @@ bool fa_create_doc(uint16_t doc_type, const uint8_t *pattern_footer,
 			size_t err_info_len;
 
 			//printf("#1 %d\n", doc_type);
-LCheckLastDocNo:
 			err_info_len = sizeof(err_info);
 			status = kkt_get_last_doc_info(&ldi, err_info, &err_info_len);
 			if (status != 0) {
@@ -586,16 +585,19 @@ LCheckLastDocNo:
 				//printf("#3: %d, %d\n", ldi.last_nr, ldi.last_printed_nr);
 				if (ldi.last_nr != ldi.last_printed_nr) {
 					message_box("Ошибка", "Последний сформированный документ не был напечатан.\n"
-							"Для его печати вставьте бумагу в ККТ и нажмите Enter",
+							"Для его печати в меню фискального приложения выберите пункт\n"
+							"\"Печать последнего сформированного документа\"",
 							dlg_yes, 0, al_center);
-					if (update_func)
+					fdo_resume();
+					return false;
+/*					if (update_func)
 						update_func(update_func_arg);
 					status = fd_print_last_doc(ldi.last_type);
 
 					//printf("LD: status = %d\n", status);
 
 					if (status != 0)
-						fd_set_error(doc_type, status, err_info, err_info_len);
+						fd_set_error(doc_type, status, err_info, err_info_len);*/
 				}
 			}
 		}
@@ -613,8 +615,8 @@ LCheckLastDocNo:
 
 		printf("status: %.2X\n", status);
 
-		if (status == 0x41 || status == 0x42 || status == 0x44)
-			goto LCheckLastDocNo;
+/*		if (status == 0x41 || status == 0x42 || status == 0x44)
+			goto LCheckLastDocNo;*/
 
 		return false;
 	}
@@ -1104,11 +1106,17 @@ void fa_cheque() {
 			ffd_tlv_add_vln(1216, 0);
 			ffd_tlv_add_vln(1217, (uint64_t)c->sum.b);
 
-			if (c->p != user_inn) {
+			char agent_phone[19+1];
+			char phone[19+1];
+			bool is_same_agent;
+			bool attr = kkt_has_param("COMP1057WO1171");
+			if (C_is_agent_cheque(c, user_inn, agent_phone, &is_same_agent)) {
 				ffd_tlv_add_uint8(1057, 1 << 6);
-				char phone[19+1];
-				/*size_t size =*/ get_phone(c->h, phone);
-				ffd_tlv_add_string(1171, phone);
+
+				if (!attr || is_same_agent) {
+					get_phone(agent_phone, phone);
+					ffd_tlv_add_string(1171, phone);
+				}
 			}
 
 			if (_ad->t1086 != NULL) {
@@ -1141,12 +1149,17 @@ void fa_cheque() {
 							printf("ADD 1200, %lld\n", (long long)l->c);
 							ffd_tlv_add_vln(1200, l->c);
 						}
-						if (c->p != user_inn) {
+						if (l->i == 0) {
+							// если ИНН == 0, но есть l->z, значит перевозчик не российский.
+							if (l->z && l->z[0] != 0) {
+								ffd_tlv_add_fixed_string(1226, "000000000000", 12);
+							}
+						} else if (l->i != user_inn) {
 							char inn[12+1];
 							if (c->p > 9999999999ll)
-								sprintf(inn, "%.12lld", (long long)c->p);
+								sprintf(inn, "%.12ld", l->i);
 							else
-								sprintf(inn, "%.10lld", (long long)c->p);
+								sprintf(inn, "%.10ld", l->i);
 							ffd_tlv_add_fixed_string(1226, inn, 12);
 						}
 						ffd_tlv_stlv_end();
@@ -1167,6 +1180,7 @@ void fa_cheque() {
 //					changed = true;
 				} else {
 					has_errors = true;
+					cheque_draw();
 					break;
 				}
 			}
@@ -1239,6 +1253,12 @@ void fa_print_last_doc() {
 	} else if (ldi.last_type != 0) {
 		if (message_box("Уведомление",
 			"Будет напечатан последний сформированный документ.\n"
+			"Если в результате будет напечатан кассовый чек, то необходимо проверить\n"
+			"наличие включенных в него документов АСУ \"Экспресс-3\" в данных для\n"
+			"чеков в корзине фискального приложения, и, если они там имеются, то следовать\n"
+			"порядку действий при ошибках печати кассовых чеков для\n"
+			"документов АСУ \"Экспресс-3\", содержащемуся в локальных\n"
+			"административных актах пункта продаж.\n"
 			"Продолжить?",
 					dlg_yes_no, 0, al_center) == DLG_BTN_YES) {
 

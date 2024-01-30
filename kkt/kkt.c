@@ -957,3 +957,16 @@ uint8_t kkt_reset_fs(uint8_t b)
 	}
 	return kkt_status;
 }
+
+extern struct dev_lst *devices;
+bool kkt_has_param(const char *name)
+{
+	if (devices == NULL)
+		return false;
+	const struct dev_info *dev_kkt = get_dev_info(devices, DEV_KKT);
+	const char *ret = get_dev_param_str(dev_kkt, name);
+
+//	printf("devices: %p, dev_kkt: %p, ret: %p\n", devices, dev_kkt, ret);
+
+	return ret != NULL;
+}

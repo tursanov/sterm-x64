@@ -3,6 +3,7 @@
 
 
 #include "list.h"
+#include "agent.h"
 
 typedef struct {
 	int n;

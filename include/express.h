@@ -171,6 +171,9 @@ extern bool check_raw_resp(void);
 /* Многопроходный разбор */
 extern int handle_para(int n_para);
 
+/* Получение информации банковского абзаца во время обработки ответа */
+extern const struct bank_info *get_bi(void);
+
 /* Обработка текста ответа. Возвращает false, если надо перейти к ОЗУ заказа */
 extern bool execute_resp(void);
 

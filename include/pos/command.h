@@ -33,6 +33,7 @@ typedef struct {
 #define POS_PARAM_TERMID_STR	"TERMID"	/* идентификатор терминала */
 #define POS_PARAM_CLERKID_STR	"CLERKID"	/* идентификатор кассира */
 #define POS_PARAM_CLERKTYPE_STR	"CLERKTYPE"	/* тип жетона кассира */
+#define POS_PARAM_ORDS_STR	"ORDS"		/* ORDS */
 
 /* Типы параметров */
 enum {
@@ -43,6 +44,7 @@ enum {
 	POS_PARAM_TERMID,
 	POS_PARAM_CLERKID,
 	POS_PARAM_CLERKTYPE,
+	POS_PARAM_ORDS,
 };
 
 /* Параметры ответа */

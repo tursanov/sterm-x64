@@ -42,11 +42,7 @@ static void listview_selected_index_changed(listview_t *lv) {
 		list_item_t *li;
 		if (lv->items->count > 0) {
 			li = lv->items->head;
-			int si = lv->selected_index - lv->top_index;
-			for (int i = 0; li && i < lv->max_items; i++, li = li->next) {
-				if (i == si) 
-					break;
-			}
+			for (int i = 0; li && i < lv->selected_index; i++, li = li->next);
 		} else
 			li = NULL;
 		lv->selected_changed_func(&lv->control, lv->selected_index, li ? li->obj : NULL);
@@ -322,13 +318,11 @@ bool listview_get_data(listview_t *listview, int what, data_t *data) {
 	case 1:
 		if (listview->selected_index >= 0) {
 			list_item_t *li = listview->items->head;
-			int si = listview->selected_index - listview->top_index;
-			for (int i = 0; li && i < listview->max_items; i++, li = li->next) {
-				if (i == si) {
-					data->data = (void *)li->obj;
-					data->size = sizeof(list_item_t *);
-					return true;
-				}
+			for (int i = 0; li && i < listview->selected_index; i++, li = li->next);
+			if (li) {
+				data->data = (void *)li->obj;
+				data->size = sizeof(list_item_t *);
+				return true;
 			}
 		}
 

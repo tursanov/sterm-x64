@@ -96,10 +96,10 @@ int cheque_init(void) {
 		fnt = CreateFont(_("fonts/fixedsys8x16.fnt"), false);
 	if (fnt1 == NULL)
 		fnt1 = CreateFont(_("fonts/terminal10x18.fnt"), false);
-		
+
 	if (screen == NULL)
 	  	screen = CreateGC(0, 0, DISCX, DISCY);
-    SetFont(screen, fnt);
+	SetFont(screen, fnt);
 
 	active_item = NULL;
 	active_item_n = 0;
@@ -413,23 +413,23 @@ static int cheque_draw_cashier(int start_y) {
 	char *p = text;
 
 	p += sprintf(text, "Кассир: %s", cashier_get_name());
-	
+
 	if (cashier_get_post()[0])
 		p += sprintf(p, ", Должность: %s", cashier_get_post());
-		
+
 	if (cashier_get_inn()[0])
 		p += sprintf(p, ", ИНН: %s", cashier_get_inn());
-		
+
 	int x = 10;
 	int y = start_y + (BUTTON_HEIGHT - fnt->max_height) / 2;
-	
+
 	SetTextColor(screen, clBlack);
 	TextOut(screen, x, y, text);
-	
+
 	x += TextWidth(fnt, text) + 10;
 
 	draw_button(screen, x, start_y, BUTTON_WIDTH, BUTTON_HEIGHT, "Изменить", active_button == 2);
-	
+
 	return start_y + BUTTON_HEIGHT + 4;
 }
 
@@ -442,20 +442,20 @@ static int cheque_main_draw() {
 		char title[256];
 		sprintf(title, "Всего чеков: %zd текущая страница (с %d по %zd чек)",
 			_ad->clist.count, first_n + 1, MIN(first_n + MAX_CHEQUE_PER_PAGE, _ad->clist.count));
-	
+
 		draw_title(screen, fnt, title);
 
 		y += 20;
 		y = cheque_draw_cashier(y);
-				
+
 		size_t n = 0;
 		for (list_item_t *i1 = first; i1 && n < MAX_CHEQUE_PER_PAGE; i1 = i1->next, n++) {
 			C *c = LIST_ITEM(i1, C);
 			y = cheque_draw_cheque(c, first_n + n, y, true);
 		}
-		
+
 		y = cheque_draw_sum(y);
-		
+
 		x = ((DISCX - (BUTTON_WIDTH*2 + GAP)) / 2);
 		draw_button(screen, x, y, BUTTON_WIDTH, BUTTON_HEIGHT, "Печать", active_button == 0);
 	} else {

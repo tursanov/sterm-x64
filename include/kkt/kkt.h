@@ -178,5 +178,7 @@ extern uint8_t kkt_read_doc_tlv(uint8_t *data, size_t *len);
 /* Сброс ФН */
 extern uint8_t kkt_reset_fs(uint8_t b);
 
+/* Возвращает наличие параметра ККТ */
+extern bool kkt_has_param(const char *name);
 
 #endif		/* KKT_KKT_H */

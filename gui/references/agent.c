@@ -296,7 +296,7 @@ list_t agents = { NULL, NULL, 0, (list_item_delete_func_t)agent_free };
 int agents_load() {
     int fd = s_open(AGENTS_FILE_NAME, false);
 	int ret;
-    
+
     if (fd == -1) {
         return -1;
     }
@@ -318,7 +318,7 @@ int agents_destroy() {
 int agents_save() {
     int fd = s_open(AGENTS_FILE_NAME, true);
 	int ret;
-    
+
     if (fd == -1) {
         return -1;
     }
@@ -331,6 +331,31 @@ int agents_save() {
 	s_close(fd);
 
 	return ret;
+}
+
+agent_t* get_agent_by_id(int id) {
+	if (id <= 0)
+		return NULL;
+
+	for (list_item_t *li = agents.head; li; li = li->next) {
+		agent_t *agent = LIST_ITEM(li, agent_t);
+		if (agent->n == id)
+			return agent;
+	}
+	return NULL;
+}
+
+int get_agent_id_by_index(int index) {
+	if (index == 0)
+		return -1;
+
+	int n = 1;
+	for (list_item_t *li = agents.head; li; li = li->next, n++) {
+		agent_t *agent = LIST_ITEM(li, agent_t);
+		if (n == index)
+			return agent->n;
+	}
+	return -1;
 }
 
 void fa_agents() {
