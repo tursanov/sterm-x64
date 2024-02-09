@@ -629,6 +629,7 @@ void show_dest(int dst)
 		case dst_xprn:
 		case dst_aprn:
 		case dst_lprn:
+		case dst_kprn:
 			set_term_state(st_prn);
 			break;
 		case dst_out:
@@ -659,6 +660,7 @@ void show_ndest(int n)
 			case dst_xprn:
 			case dst_aprn:
 			case dst_lprn:
+			case dst_kprn:
 				set_term_astate(ast_prn);
 				astate_for_req = ast_prn;
 				break;
@@ -1708,7 +1710,7 @@ static int handle_options(struct kbd_event *e)
 				log_close(hklog);
 				open_log(hklog);
 			}
-			if (cfg.has_kkt){
+			if (cfg.has_kkt && (kkt != NULL)){
 				uint8_t rc = kkt_set_cfg();
 /*
  * NB: здесь предполагается, что последняя команда работы с ККТ в случае успеха
@@ -2482,7 +2484,6 @@ static inline void show_no_kkt(void){
 }
 
 /* Показать окно фискального приложения */
-
 static void show_fa_with_arg(int arg) {
 	if (!cfg.has_kkt || (kkt == NULL))
 		show_no_kkt();

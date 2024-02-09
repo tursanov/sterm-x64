@@ -24,6 +24,7 @@
 #define KKT_UNBREAK_ON		0x11		/* начало неразрывного текста */
 #define KKT_UNBREAK_OFF		0x12		/* конец неразрывного текста */
 #define KKT_UNDERLINE		0x14		/* подчёркнутый шрифт */
+#define KKT_END_BLOCK		0x15		/* конец блока печати */
 #define KKT_BELL		0x16		/* звуковой сигнал */
 #define KKT_CPI15		0x19		/* плотность печати 15 cpi */
 #define KKT_ESC			0x1b		/* начало команды для ФР */
@@ -301,7 +302,7 @@ extern uint32_t kkt_base_timeout;
 #define KKT_FDO_ADDR_TIMEOUT		10 *kkt_base_timeout	// 100
 #define KKT_FDO_DATA_TIMEOUT		30 * kkt_base_timeout	// 300
 #define KKT_FR_STATUS_TIMEOUT		kkt_base_timeout	// 10
-#define KKT_FR_PRINT_TIMEOUT		50 * kkt_base_timeout	// 500
+#define KKT_FR_PRINT_TIMEOUT		170 * kkt_base_timeout	// 1700
 #define KKT_FR_RESET_TIMEOUT		200 * kkt_base_timeout	// 2000
 
 #endif		/* KKT_CMD_H */

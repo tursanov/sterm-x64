@@ -865,7 +865,7 @@ bool show_hints(void)
 			if ((i == (NR_HINTS - 1))) {
 				if (!cfg.has_kkt)
 					glyph = NULL;
-				else if (!kkt)
+				else if (kkt == NULL)
 					glyph = _("pict/kkt_err.bmp");
 			}
 			glyphs[i] = glyph ? CreateBitmap(glyph) : NULL;

@@ -1,4 +1,4 @@
-/* Разбор ответов ККТ. (c) gsr 2018-2019 */
+/* Разбор ответов ККТ. (c) gsr 2018-2020 */
 
 #if !defined KKT_PARSER_H
 #define KKT_PARSER_H

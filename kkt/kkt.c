@@ -1,4 +1,4 @@
-/* Основной модуль для работы с ККТ. (c) gsr 2018-2019 */
+/* Основной модуль для работы с ККТ. (c) gsr 2018-2020, 2024 */
 
 #include <sys/timeb.h>
 #include <assert.h>
@@ -250,6 +250,13 @@ static uint32_t get_timeout(uint8_t prefix, uint8_t cmd)
 {
 	uint32_t ret = KKT_DEF_TIMEOUT;
 	switch (prefix){
+		case KKT_NUL:
+			switch (cmd){
+				case KKT_VF:
+					ret = KKT_FR_PRINT_TIMEOUT;
+					break;
+			}
+			break;
 		case KKT_SRV:
 			switch (cmd){
 				case KKT_SRV_FDO_IFACE:
@@ -867,7 +874,7 @@ uint8_t kkt_get_unconfirmed_docs_nr(uint32_t *nr_docs)
 	return kkt_status;
 }
 
-/* Получить данные последней регистрции */
+/* Получить данные последней регистрации */
 uint8_t kkt_get_last_reg_data(uint8_t *data, size_t *data_len)
 {
 	assert(data != NULL);
@@ -958,15 +965,31 @@ uint8_t kkt_reset_fs(uint8_t b)
 	return kkt_status;
 }
 
+/* Напечатать проездной документ */
+uint8_t kkt_print_vf(const uint8_t *data, size_t len)
+{
+	assert(data != NULL);
+	assert(len > 0);
+	if (kkt_lock()){
+		if (prepare_cmd(KKT_NUL, KKT_VF) && write_data(data, len) &&
+				kkt_open_dev_if_need()){
+			do_transaction(KKT_NUL, KKT_VF, NULL);
+			kkt_close_dev();
+		}
+		kkt_unlock();
+	}
+	return kkt_status;
+}
+
+
 extern struct dev_lst *devices;
 bool kkt_has_param(const char *name)
 {
 	if (devices == NULL)
 		return false;
 	const struct dev_info *dev_kkt = get_dev_info(devices, DEV_KKT);
-	const char *ret = get_dev_param_str(dev_kkt, name);
-
-//	printf("devices: %p, dev_kkt: %p, ret: %p\n", devices, dev_kkt, ret);
-
+	const char *ret = NULL;
+	if (dev_kkt != NULL)
+		ret = get_dev_param_str(dev_kkt, name);
 	return ret != NULL;
 }

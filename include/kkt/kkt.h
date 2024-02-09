@@ -1,4 +1,4 @@
-/* Работа с ККТ по виртуальному COM-порту. (c) gsr 2018-2019 */
+/* Работа с ККТ по виртуальному COM-порту. (c) gsr 2018-2020, 2024 */
 
 #if !defined KKT_KKT_H
 #define KKT_KKT_H
@@ -174,6 +174,9 @@ extern uint8_t kkt_get_doc_stlv(uint32_t doc_nr, uint16_t *doc_type, size_t *len
 
 /* Прочитать TLV фискального документа */
 extern uint8_t kkt_read_doc_tlv(uint8_t *data, size_t *len);
+
+/* Напечатать проездной документ */
+extern uint8_t kkt_print_vf(const uint8_t *data, size_t len);
 
 /* Сброс ФН */
 extern uint8_t kkt_reset_fs(uint8_t b);

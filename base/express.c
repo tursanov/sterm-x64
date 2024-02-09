@@ -1,6 +1,6 @@
 /*
  * Синтаксический разбор и обработка текста ответа из "Экспресс-3".
- * (c) gsr 2009-2020.
+ * (c) gsr 2009-2020, 2022.
  */
 
 #include <ctype.h>
@@ -735,6 +735,9 @@ static int get_dest(uint8_t b)
 		case X_LPRN:
 			ret = dst_lprn;
 			break;
+		case X_KPRN:
+			ret = dst_kprn;
+			break;
 		case X_OUT:
 			ret = dst_out;
 			break;
@@ -773,6 +776,7 @@ static int para_len(int offset)
 		X_XPRN,
 		X_APRN,
 		X_LPRN,
+		X_KPRN,
 		X_OUT,
 		X_QOUT,
 		X_ROM,
@@ -905,6 +909,46 @@ static uint8_t *check_lprn(uint8_t *txt, int l, int *ecode)
 	return txt;
 }
 
+/* Проверка абзаца для ККТ */
+static uint8_t *check_kprn(uint8_t *txt, int l, int *ecode)
+{
+	enum {
+		st_data,
+		st_dle,
+		st_ok,
+		st_err,
+	};
+	int i, st = st_data;
+	uint8_t b, b1 = 0;
+	*ecode = E_OK;
+	for (i = 0; (i < l) && (st != st_err) && (st != st_ok); i++){
+		b = *txt++;
+		switch (st){
+			case st_data:
+				if (b == KKT_ESC)
+					st = st_dle;
+				else
+					b1 = b;
+				break;
+			case st_dle:
+				if ((b == X_PARA_END_N) || (b == X_PARA_END)){
+					if ((b1 == KKT_FF) || (b1 == KKT_END_BLOCK))
+						st = st_ok;
+					else{
+						*ecode = E_NO_LPRN_CUT;	/* FIXME */
+						st = st_err;
+					}
+				}else
+					st = st_data;
+				break;
+		}
+	}
+	if ((st != st_ok) && (st != st_err))
+		*ecode = E_NOPEND;
+	return txt;
+}
+
+
 /* Проверка XML для ККТ */
 static uint8_t *check_kkt_xml(uint8_t *txt, int l, int *ecode)
 {
@@ -964,6 +1008,8 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode)
 		p = check_aprn(txt, l, ecode);
 	else if (dst == dst_lprn)
 		p = check_lprn(txt, l, ecode);
+	else if (dst == dst_kprn)
+		return check_kprn(txt, l, ecode);
 	else if (dst == dst_kkt)
 		return check_kkt_xml(txt, l, ecode);
 	else
@@ -1000,6 +1046,7 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode)
 				case X_XPRN:
 				case X_APRN:
 				case X_LPRN:
+				case X_KPRN:
 				case X_OUT:
 				case X_QOUT:
 				case X_ROM:
@@ -1094,8 +1141,6 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode)
 							*ecode = E_LCODEINBODY;
 							return p - 2;
 						}
-					}
-					if ((b == XPRN_WR_BCODE) || (b == XPRN_RD_BCODE)){
 						pp = check_bcode(p, txt + l - p, ecode);
 						if (*ecode != E_OK)
 							return pp;
@@ -1239,6 +1284,7 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 						return p;
 					n_dsts++;
 					break;
+				case X_KPRN:
 				case X_KKT:
 					if (!cfg.has_kkt || (kkt == NULL)){
 						*ecode = E_NO_KKT;
@@ -1340,7 +1386,8 @@ int make_resp_map(void)
 		if (next_para){
 			next_para = false;
 			if (((pi->dst == dst_xprn) || (pi->dst == dst_aprn) ||
-					(pi->dst == dst_lprn)) && first_print){
+					(pi->dst == dst_lprn) || (pi->dst == dst_kprn)) &&
+					first_print){
 				first_print = false;
 				pi->auto_handle = false;
 			}else
@@ -1359,19 +1406,19 @@ int make_resp_map(void)
 			if (dst != dst_none){
 				if ((dst != dst_sys) && (dst != dst_xprn) &&
 						(dst != dst_aprn) &&
-						(dst != dst_lprn))
+						(dst != dst_lprn) && (dst != dst_kprn))
 					first_print = false;
 				if (pi->dst == dst_none){
 					pi->dst = dst;
 					if ((dst == dst_xprn) || (dst == dst_aprn) ||
-							(dst == dst_lprn))
+							(dst == dst_lprn) || (dst == dst_kprn))
 						pi->can_print = true;
 					pi->offset = text_offset + i + 1;
 				}else{
 					next_para = true;
 					pi->jump_next = (dst != dst_xprn) &&
 						(dst != dst_aprn) &&
-						(dst != dst_lprn);
+						(dst != dst_lprn) && (dst != dst_kprn);
 					i -= 2;
 				}
 			}else{
@@ -1413,7 +1460,7 @@ int make_resp_map(void)
 	if ((n > 0) && (n < MAX_PARAS)){
 		pi = map;
 		if ((pi->dst == dst_xprn) || (pi->dst == dst_aprn) ||
-				(pi->dst == dst_lprn)){
+				(pi->dst == dst_lprn) || (pi->dst == dst_kprn)){
 			memmove(map + 1, map, n * sizeof(*map));
 			pi->dst = dst_sys;
 			pi->jump_next = false;
@@ -1444,7 +1491,7 @@ static void mark_prn(void)
 #if !defined __DEBUG_PRINT__
 	for (int i = 0; i < n_paras; i++)
 		if ((map[i].dst == dst_xprn) || (map[i].dst == dst_aprn) ||
-				(map[i].dst == dst_lprn))
+				(map[i].dst == dst_lprn) || (map[i].dst == dst_kprn))
 			map[i].can_print = false;
 #endif
 }
@@ -1464,7 +1511,7 @@ int n_unhandled(void)
 bool can_show(int dst)
 {
 	return	(dst == dst_text) || (dst == dst_xprn) ||
-		(dst == dst_aprn) || (dst == dst_lprn) ||
+		(dst == dst_aprn) || (dst == dst_lprn) || (dst == dst_kprn) ||
 		(dst == dst_out) || (dst == dst_log);
 }
 
@@ -1472,7 +1519,8 @@ bool can_show(int dst)
 bool can_print(int n)
 {
 	return !map[n].handled && ((map[n].dst == dst_xprn) ||
-			(map[n].dst == dst_aprn) || (map[n].dst == dst_lprn));
+			(map[n].dst == dst_aprn) || (map[n].dst == dst_lprn) ||
+			(map[n].dst == dst_kprn));
 }
 
 /* Можно ли остановиться на заданном абзаце */
@@ -1739,6 +1787,7 @@ static void preexecute_resp(void)
 					map[i-1].jump_next = true;
 				break;
 			case dst_xprn:
+			case dst_kprn:
 				no_print = false;
 				transition_flag = -1;
 				if (wm == wm_main)
@@ -1912,6 +1961,9 @@ static bool execute_prn(struct para_info *p, int l, int n_para)
 	}else if (p->dst == dst_aprn){
 		if (cfg.has_aprn)
 			ret = printed = aprn_print((char *)text_buf, l);
+	}else if (p->dst == dst_kprn){
+		if (cfg.has_kkt && (kkt != NULL))
+			ret = printed = kkt_print_vf(text_buf, l);
 	}else{		/* dst_lprn */
 		while (true){
 			bool sent_to_prn = false;
@@ -2113,6 +2165,7 @@ bool execute_resp(void)
 		if (!parsed && !lprn_error_shown){
 			parsed = true;
 			p = map + cur_para;
+			printf("%s: dst = %d\n", __func__, p->dst);
 			l = handle_para(cur_para);
 			if (can_show(p->dst)){
 				if (p->scr_mode == m_undef)
@@ -2132,10 +2185,11 @@ bool execute_resp(void)
 				case dst_xprn:
 				case dst_aprn:
 				case dst_lprn:
+				case dst_kprn:
 					if (p->auto_handle && (next_printable() == cur_para)){
 						if (p->can_print){
 							if (execute_prn(p, l, n_para++)){
-								if (p->dst == dst_xprn)
+								if ((p->dst == dst_xprn) || (p->dst == dst_kprn))
 									resp_printed = true;
 								ndest_shown = false;
 							}else{
@@ -2210,7 +2264,8 @@ bool execute_resp(void)
 			case cmd_print:
 				if ((map[next].dst == dst_xprn) ||
 						(map[next].dst == dst_aprn) ||
-						(map[next].dst == dst_lprn)){
+						(map[next].dst == dst_lprn) ||
+						(map[next].dst == dst_kprn)){
 					cur_para = next;
 					map[cur_para].auto_handle = true;
 					parsed = false;

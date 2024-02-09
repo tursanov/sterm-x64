@@ -1,4 +1,4 @@
-/* Прикладной протокол "Экспресс-3". (c) gsr 2000-2004, 2009, 2018 */
+/* Прикладной протокол "Экспресс-3". (c) gsr 2000-2004, 2009, 2018, 2020, 2024 */
 
 #if !defined EXPRESS_H
 #define EXPRESS_H
@@ -22,6 +22,7 @@
 #define X_ROM		0x4e	/* N абзац для ОЗУ констант (ПЗУ) */
 #define X_QOUT		0x4f	/* O абзац для ОЗУ заказа без отображения на экране */
 #define X_LPRN		0x50	/* P абзац для ППУ */
+#define X_KPRN		0x51	/* Q абзац для печати на ККТ */
 #define X_REPEAT	0x53	/* S автоповтор символа */
 #define X_REQ		0x55	/* U конец абзаца для ОЗУ заказа */
 #define X_ATTR		0x56	/* V атрибут символа для вывода на экран */
@@ -79,27 +80,32 @@
 #define E_UNKNOWN	0x99	/* Неизвестная ошибка */
 
 /* Биты возможностей терминала (передаются во втором байте идентификатора) */
+#define TCAP_TERM	0x00	/* терминал */
+#define TCAP_XSLT	0x01	/* поддержка ответа в формате XML/XSLT (печать шаблонами) */
+#define TCAP_BNK2	0x02	/* обработка банковских абзацев нового типа */
 #define TCAP_KKT	0x04	/* ККТ */
 #define TCAP_EX_BCODE	0x08	/* БПУ поддерживает расширенные штрих-коды */
 #define TCAP_NO_POS	0x10	/* нет ИПТ */
 #define TCAP_UNIBLANK	0x20	/* печать на универсальном бланке */
+#define TCAP_FPS	0x40	/* система быстрых платежей */
 #define TCAP_MASK	(TCAP_UNIBLANK | TCAP_NO_POS | TCAP_EX_BCODE | TCAP_KKT)
 
 /* Устройство для вывода абзаца ответа */
 enum {
-	dst_none,
-	dst_sys,
-	dst_text,
-	dst_xprn,	/* ОПУ */
-	dst_aprn,	/* ДПУ */
-	dst_lprn,	/* ППУ */
-	dst_out,
-	dst_qout,
-	dst_hash,
-	dst_keys,
-	dst_bank,
-	dst_log,
-	dst_kkt,
+	dst_none,	/*  0 */
+	dst_sys,	/*  1 */
+	dst_text,	/*  2 */
+	dst_xprn,	/*  3 ОПУ */
+	dst_aprn,	/*  4 ДПУ */
+	dst_lprn,	/*  5 ППУ */
+	dst_out,	/*  6 */
+	dst_qout,	/*  7 */
+	dst_hash,	/*  8 */
+	dst_keys,	/*  9 */
+	dst_bank,	/* 10 */
+	dst_log,	/* 11 */
+	dst_kkt,	/* 12 */
+	dst_kprn,	/* 13 */
 };
 
 /* Информация об абзаце ответа */
