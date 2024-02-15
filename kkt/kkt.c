@@ -11,6 +11,53 @@
 #include "log/kkt.h"
 #include "cfg.h"
 
+/* Текстовое описание статуса */
+const char *kkt_status_str(uint8_t status)
+{
+	const char *ret = "Неизвестная ошибка";
+	static struct {
+		uint8_t status;
+		const char *txt;
+	} map[] = {
+		{KKT_STATUS_OK,			"Нет ошибок"},
+		{KKT_STATUS_PAPER_END,		"Конец бумаги"},
+		{KKT_STATUS_COVER_OPEN,		"Крышка открыта"},
+		{KKT_STATUS_PAPER_LOCK,		"Бумага застряла на выходе"},
+		{KKT_STATUS_PAPER_WRACK,	"Бумага замялась"},
+		{KKT_STATUS_FS_ERR,		"Общая аппаратная ошибка ФН"},
+		{KKT_STATUS_CUT_ERR,		"Ошибка отрезки бумаги"},
+		{KKT_STATUS_INIT,		"ККТ находится в состоянии инициализации"},
+		{KKT_STATUS_THERMHEAD_ERR,	"Неполадки термоголовки"},
+		{KKT_STATUS_PREV_INCOMPLETE,	"Предыдущая команда была принята не полностью"},
+		{KKT_STATUS_CRC_ERR,		"Предыдущая команда была принята с ошибкой контрольной суммы"},
+		{KKT_STATUS_HW_ERR,		"Общая аппаратная ошибка ККТ"},
+		{KKT_STATUS_NO_FFEED,		"Нет команды отрезки бланка"},
+		{KKT_STATUS_VPOS_OVER,		"Превышение объёма текста по вертикальным позициям"},
+		{KKT_STATUS_HPOS_OVER,		"Превышение объёма текста по горизонтальным позициям"},
+		{KKT_STATUS_LOG_ERR,		"Нарушение структуры информации при печати КЛ"},
+		{KKT_STATUS_GRID_ERROR,		"Нарушение параметров нанесения макетов"},
+		{KKT_STATUS_BCODE_PARAM,	"Нарушение параметров нанесения штрих-кода"},
+		{KKT_STATUS_NO_ICON,		"Пиктограмма не найдена"},
+		{KKT_STATUS_GRID_WIDTH,		"Ширина сетки больше ширины бланка в установках"},
+		{KKT_STATUS_GRID_HEIGHT,	"Высота сетки больше высоты бланка в установках"},
+		{KKT_STATUS_GRID_NM_FMT,	"Неправильный формат имени сетки"},
+		{KKT_STATUS_GRID_NM_LEN,	"Длина имени сетки больше допустимой"},
+		{KKT_STATUS_GRID_NR,		"Неверный формат номера сетки"},
+		{KKT_STATUS_INVALID_ARG,	"Неверный параметр"},
+
+		{KKT_STATUS_OP_TIMEOUT,		"Таймаут операции"},
+		{KKT_STATUS_COM_ERROR,		"Ошибка COM-порта"},
+		{KKT_STATUS_RESP_FMT_ERROR,	"Неверный формат ответа"},
+	};
+	for (int i = 0; i < ASIZE(map); i++){
+		if (map[i].status == status){
+			ret = map[i].txt;
+			break;
+		}
+	}
+	return ret;
+}
+
 uint32_t kkt_base_timeout = KKT_BASE_TIMEOUT;
 
 const struct dev_info *kkt = NULL;
@@ -306,8 +353,16 @@ static bool do_transaction(uint8_t prefix, uint8_t cmd, void *param)
 	uint32_t timeout = get_timeout(prefix, cmd);
 	struct timeb t0;
 	ftime(&t0);
+	printf("%s: parser = %p; timeout = %u; kkt_tx_len = %zu\n",
+		__func__, parser, timeout, kkt_tx_len);
 	if (kkt_tx_len > 0){
+		FILE *f = fopen("kkt.bin", "wb");
+		if (f != NULL){
+			fwrite(kkt_tx, kkt_tx_len, 1, f);
+			fclose(f);
+		}
 		ssize_t rc = kkt_io_write(&timeout);
+		printf("%s: rc = %zd\n", __func__, rc);
 		if (rc != kkt_tx_len)
 			ret = kkt_on_com_error(timeout);
 	}
@@ -968,12 +1023,15 @@ uint8_t kkt_reset_fs(uint8_t b)
 /* Напечатать проездной документ */
 uint8_t kkt_print_vf(const uint8_t *data, size_t len)
 {
+	printf("%s: data = %p; len = %zu\n", __func__, data, len);
 	assert(data != NULL);
 	assert(len > 0);
 	if (kkt_lock()){
 		if (prepare_cmd(KKT_NUL, KKT_VF) && write_data(data, len) &&
 				kkt_open_dev_if_need()){
+			printf("%s: begin printing\n", __func__);
 			do_transaction(KKT_NUL, KKT_VF, NULL);
+			printf("%s: end printing; kkt_status = 0x%.hhx\n", __func__, kkt_status);
 			kkt_close_dev();
 		}
 		kkt_unlock();

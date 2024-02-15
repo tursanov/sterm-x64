@@ -1947,12 +1947,70 @@ static int show_lprn_error(int lprn_ret, bool rejectable)
 	return ret;
 }
 
+/* Вывод окна с сообщением об ошибке ККППУ при печати на ленте */
+static int show_kprn_error(uint8_t status, bool rejectable)
+{
+	struct custom_btn btns[3];
+	int n = 0;
+	btns[n].text = "Повторная печать";
+	btns[n++].cmd = cmd_print;
+	if (rejectable){
+		btns[n].text = "Отказ от заказа";
+		btns[n++].cmd = cmd_reject;
+	}
+	btns[n].text = NULL;
+	btns[n].cmd = cmd_none;
+	static char msg[256];
+	if (rejectable)
+		snprintf(msg, sizeof(msg), "При попытке печати на ККТ произошла ошибка:\n"
+			"%hhx (%s)\nВы можете повторить печать или отказаться от заказа, "
+			"выбрав соответствующую кнопку.\n"
+			"Для перемещения между кнопками используйте Tab.",
+			status, kkt_status_str(status));
+	else
+		snprintf(msg, sizeof(msg), "При попытке печати на ККТ произошла ошибка:\n"
+			"%hhx (%s)\nВы можете повторить печать.",
+			status, kkt_status_str(status));
+	int ret;
+	online = false;
+	set_term_busy(true);
+	ret = message_box("Ошибка ККТ", msg, (intptr_t)btns, 0, al_center);
+	online = true;
+	redraw_term(true, main_title);
+	return ret;
+}
+
+static bool kprn_print(const uint8_t *data, size_t len)
+{
+	bool ret = false;
+	while (true){
+		uint8_t status = kkt_print_vf(data, len);
+		can_reject = false;
+		if (status == KKT_STATUS_OK){
+			set_term_astate(ast_none);
+			ret = true;
+			break;
+		}else{
+			set_term_astate(ast_no_kkt);
+			err_beep();
+			int cmd = show_kprn_error(kkt_status, can_reject);
+			if (cmd == cmd_reject){
+				reject_req();
+				break;
+			}else if (cmd == cmd_reset)
+				break;
+		}
+	}
+	return ret;
+}
+
 /*
  * Обработка абзаца для печати. Возвращает false, если дальнейшая обработка
  * ответа невозможна.
  */
 static bool execute_prn(struct para_info *p, int l, int n_para)
 {
+	printf("%s: p->dst = %d\n", __func__, p->dst);
 	bool ret = true, printed = false;
 	set_term_astate(ast_none);
 	if (p->dst == dst_xprn){
@@ -1963,7 +2021,7 @@ static bool execute_prn(struct para_info *p, int l, int n_para)
 			ret = printed = aprn_print((char *)text_buf, l);
 	}else if (p->dst == dst_kprn){
 		if (cfg.has_kkt && (kkt != NULL))
-			ret = printed = kkt_print_vf(text_buf, l);
+			ret = printed = kprn_print(text_buf, l);
 	}else{		/* dst_lprn */
 		while (true){
 			bool sent_to_prn = false;
@@ -2165,7 +2223,6 @@ bool execute_resp(void)
 		if (!parsed && !lprn_error_shown){
 			parsed = true;
 			p = map + cur_para;
-			printf("%s: dst = %d\n", __func__, p->dst);
 			l = handle_para(cur_para);
 			if (can_show(p->dst)){
 				if (p->scr_mode == m_undef)

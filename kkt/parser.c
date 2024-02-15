@@ -539,6 +539,13 @@ parser_t get_parser(uint8_t prefix, uint8_t cmd)
 {
 	parser_t ret = NULL;
 	switch (prefix){
+		case KKT_NUL:
+			switch (cmd){
+				case KKT_VF:
+					ret = parse_status;
+					break;
+			}
+			break;
 		case KKT_SRV:
 			switch (cmd){
 				case KKT_SRV_FDO_IFACE:

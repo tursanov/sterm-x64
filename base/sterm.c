@@ -849,7 +849,8 @@ char *get_main_title(void)
 	snprintf(main_title, sizeof(main_title), MAIN_TITLE " ("
 		_s(STERM_VERSION_MAJOR) "."
 		_s(STERM_VERSION_MINOR) "."
-		_s(STERM_VERSION_RELEASE) ") -- \x01%s …†ˆŒ",
+		_s(STERM_VERSION_RELEASE) "  %s %s) -- \x01%s …†ˆŒ",
+		__DATE__, __TIME__,
 		(wm == wm_main) ? "‘‚‰" : "ˆƒ„\x9b‰");
 	return main_title;
 }

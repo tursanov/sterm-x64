@@ -293,6 +293,8 @@
 #define KKT_STATUS_MUTEX_ERROR		0xf4	/* ошибка получения мьюьекса */
 #define KKT_STATUS_OVERFLOW		0xf5	/* переполнение буфера */
 
+extern const char *kkt_status_str(uint8_t status);
+
 /* Таймауты в сотых сек операций с ККТ */
 extern uint32_t kkt_base_timeout;
 #define KKT_BASE_TIMEOUT		10
