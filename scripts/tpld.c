@@ -17,7 +17,7 @@
 #include <unistd.h>
 #include "cfg.h"
 #include "colortty.h"
-#include "hex.h"
+#include "numbers.h"
 #include "serial.h"
 
 /* Максимальный размер передаваемого блока без учета контрольной суммы */

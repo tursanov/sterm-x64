@@ -1,6 +1,6 @@
 /*
  * Синтаксический разбор и обработка текста ответа из "Экспресс-3".
- * (c) gsr 2009-2020, 2022.
+ * (c) gsr 2009-2020, 2022, 2024.
  */
 
 #include <ctype.h>
@@ -21,8 +21,8 @@
 #include "bscsym.h"
 #include "express.h"
 #include "hash.h"
-#include "hex.h"
 #include "keys.h"
+#include "numbers.h"
 #include "sterm.h"
 #include "tki.h"
 #include "transport.h"
@@ -271,7 +271,7 @@ static uint8_t *check_bcode(uint8_t *p, int l, int *ecode)
 	return p + i - 1;
 }
 
-/* Проверка команды нанесения штрихового кода для ППУ (Ар2 0x11) */
+/* Проверка команды нанесения штрихового кода для ППУ (Ар2 0x1a) */
 static uint8_t *check_bcode2(uint8_t *p, int l, int *ecode)
 {
 	enum {
@@ -1295,10 +1295,10 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 					}
 					goto main_chk;
 				case X_WR_LOG:
-					if (wm != wm_local){
+/*					if (wm != wm_local){
 						*ecode = E_NODEVICE;
 						return p - 2;
-					}		/* fall through */
+					}*/		/* fall through */
 				case X_SCR:
 				case X_OUT:
 				case X_QOUT:

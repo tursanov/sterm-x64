@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include "hex.h"
+#include "numbers.h"
 #include "sterm.h"
 #include "xchange.h"
 

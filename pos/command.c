@@ -8,7 +8,7 @@
 #include "pos/error.h"
 #include "ds1990a.h"
 #include "genfunc.h"
-#include "hex.h"
+#include "numbers.h"
 #include "sterm.h"
 #include "kkt/fd/ad.h"
 

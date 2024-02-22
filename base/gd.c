@@ -19,7 +19,7 @@
 #include "prn/local.h"
 #include "cfg.h"
 #include "genfunc.h"
-#include "hex.h"
+#include "numbers.h"
 #include "ppp.h"
 #include "sterm.h"
 #include "transport.h"
