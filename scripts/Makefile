@@ -24,9 +24,9 @@ BASE_OBJS =		\
 	cfg		\
 	ds1990a		\
 	genfunc		\
-	hex		\
 	licsig		\
 	md5		\
+	numbers		\
 	rndtbl		\
 	serial		\
 	tki
@@ -228,7 +228,7 @@ rmlprnlicx:	$(RMLPRNLICX_OBJS)
 ## tpld
 TPLD_BASE_OBJS =	\
 	cfg		\
-	hex		\
+	numbers		\
 	serial
 
 TPLD_SCRIPTS_OBJS =	\

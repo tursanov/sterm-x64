@@ -349,6 +349,96 @@ static uint8_t *check_bcode2(uint8_t *p, int l, int *ecode)
 	return p + i;
 }
 
+/*
+ * Проверка команды нанесения штрихового кода для ППУ (Ар2 0x1a).
+ * Формат команды нанесения штрих-кода:
+ * 1b 1a LLL N T1 XXX1 YYY1 lll1 [T2 XXX2 YYY2 lll2 [...]] ddd...ddd
+ * NB: данные одни и те же для всех штрих-кодов.
+ * В данных могут быть либо собственно данные, либо обращение к СОЛЭБ (1b 19).
+ * NB: Если ecode != NULL происходит синтаксическая проверка команды,
+ * иначе -- её выполнение (в этом случае используются dst и dst_len).
+ */
+static uint8_t *check_kkt_bcode(uint8_t *p, size_t l, int *ecode,
+	uint8_t *dst, size_t dst_len)
+{
+	if (ecode != NULL)
+		*ecode = E_UNKNOWN;
+	if ((p == NULL) || (l == 0)){
+		return p;
+	}else if ((ecode == NULL) && ((dst == NULL) || (dst_len == 0)))
+		return p;
+	if (ecode != NULL)
+		*ecode = E_BCODE;
+	off_t idx = 0;
+	if (l < 15)		/* заголовок команды плюс хотя бы один байт данных */
+		return p + idx;
+/* Общая длина данных штрих-кодов */
+	uint32_t total_len = 0;
+	if (!read_uint(p + idx, 3, &total_len) || (total_len < 12) ||
+			((idx + total_len + 3) > l))
+		return p;
+	idx += 3;
+	l = idx + total_len;	/* будут обработаны только данные штрих-кода */
+/* Количество штрих-кодов */
+	uint8_t n = p[idx];
+	if ((n < 0x31) || (n > 0x39))
+		return p + idx;
+	n -= 0x30;
+	idx++;
+	struct {
+		uint8_t type;
+		uint32_t x;
+		uint32_t y;
+		uint32_t len;
+	} bcodes[n];
+	memset(bcodes, 0, sizeof(bcodes));
+/* Обработка каждого из штрих-кодов */
+	for (uint8_t i = 0; i < n; i++){
+//		off_t idx0 = idx;
+		if ((idx + 11) > l)
+			return p + idx;
+/* Тип штрих-кода */
+		uint8_t type = p[idx];
+		if ((type < 0x30) || (type > 0x39))
+			return p + idx;
+		idx++;
+/* Координаты штрих-кода */
+		uint32_t x = 0, y = 0;
+		if (p[idx] == 0x3b){
+			x = UINT32_MAX;
+			idx++;
+		}else if (read_uint(p + idx, 3, &x))
+			idx += 3;
+		else
+			return p + idx;
+		if (p[idx] == 0x3b){
+			y = UINT32_MAX;
+			idx++;
+		}else if (read_uint(p + idx, 3, &y))
+			idx += 3;
+		else
+			return p + idx;
+/* Длина штрих-кода (ПОСЛЕ всех обращений к СОЛЭБ, если таковые имеются) */
+		uint32_t len = 0;
+		if (!read_uint(p + idx, 3, &len))
+			return p + idx;
+		if ((i > 0) && (len != bcodes[i - 1].len))	/* для всех штрих-кодов используются одни и те же данные */
+			return p + idx;
+		idx += 3;
+		bcodes[i].type = type;
+		bcodes[i].x = x;
+		bcodes[i].y = y;
+		bcodes[i].len = len;
+	}
+	if (ecode != NULL)
+		*ecode = E_OK;
+	if ((bcodes[0].len > 2) && is_escape(p[idx]) && (p[idx + 1] == LPRN_WR_BCODE2))
+		;
+	else{
+	}
+	return p + 3 + total_len;
+}
+
 static uint8_t *check_keys(uint8_t *keys, int l, int *ecode);
 static int prom_total_len = 0;
 

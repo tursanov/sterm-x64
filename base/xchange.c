@@ -56,13 +56,13 @@ static bool read_in_counters(uint8_t *data, int len,
 			(ONpo == NULL) || (ONtz == NULL) || (OBp == NULL))
 		return false;
 	*ONpo = read_hex(data + 6, 3);
-	if (hex_error)
+	if (number_error)
 		return false;
 	*ONtz = read_hex(data + 9, 3);
-	if (hex_error)
+	if (number_error)
 		return false;
 	*OBp = data[12];
-	return !hex_error;
+	return !number_error;
 }
 
 /* Чтение счетчиков исходящего сообщения */
@@ -76,13 +76,13 @@ static bool read_out_counters(uint8_t *data, int len,
 	for (i = 0; i < len - 8; i++){
 		if (data[i] == SESSION_INFO_MARK){
 			*ZNtz = read_hex(data + i + 1, 3);
-			if (hex_error)
+			if (number_error)
 				return false;
 			*ZNpo = read_hex(data + i + 4, 3);
-			if (hex_error)
+			if (number_error)
 				return false;
 			*ZBp = data[i + 7];
-			return !hex_error;
+			return !number_error;
 		}
 	}
 	return false;

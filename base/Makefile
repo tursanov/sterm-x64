@@ -12,13 +12,13 @@ BASE_OBJS =		\
 	gd		\
 	genfunc		\
 	hash		\
-	hex		\
 	iplir		\
 	kbd		\
 	keys		\
 	licsig		\
 	list		\
 	md5		\
+	numbers		\
 	rndtbl		\
 	serial		\
 	serialize	\

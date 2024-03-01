@@ -447,12 +447,12 @@ static bool read_resp_gd_info(void)
 	Ogaddr = resp_buf[4];
 	Oiaddr = resp_buf[5];
 	ONpo = read_hex(resp_buf + 6, 3);
-	if (!hex_error){
+	if (!number_error){
 		ONtz = read_hex(resp_buf + 9, 3);
-		if (!hex_error)
+		if (!number_error)
 			OBp = resp_buf[12];
 	}
-	return !hex_error;
+	return !number_error;
 }
 
 /* Проверка счетчиков и флагов для обычного ответа */
