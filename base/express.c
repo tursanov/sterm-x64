@@ -353,19 +353,19 @@ static uint8_t *check_bcode2(uint8_t *p, int l, int *ecode)
  * Проверка команды нанесения штрихового кода для ППУ (Ар2 0x1a).
  * Формат команды нанесения штрих-кода:
  * 1b 1a LLL N T1 XXX1 YYY1 lll1 [T2 XXX2 YYY2 lll2 [...]] ddd...ddd
- * NB: данные одни и те же для всех штрих-кодов.
  * В данных могут быть либо собственно данные, либо обращение к СОЛЭБ (1b 19).
  * NB: Если ecode != NULL происходит синтаксическая проверка команды,
  * иначе -- её выполнение (в этом случае используются dst и dst_len).
  */
 static uint8_t *check_kkt_bcode(uint8_t *p, size_t l, int *ecode,
-	uint8_t *dst, size_t dst_len)
+	uint8_t *dst, uint32_t *dst_len)
 {
+	printf("%s: p = %p; l = %zu; dst = %p; dst_len = %u\n", __func__, p, l, dst, *dst_len);
 	if (ecode != NULL)
 		*ecode = E_UNKNOWN;
 	if ((p == NULL) || (l == 0)){
 		return p;
-	}else if ((ecode == NULL) && ((dst == NULL) || (dst_len == 0)))
+	}else if ((ecode == NULL) && ((dst == NULL) || (dst_len == NULL)))
 		return p;
 	if (ecode != NULL)
 		*ecode = E_BCODE;
@@ -377,6 +377,7 @@ static uint8_t *check_kkt_bcode(uint8_t *p, size_t l, int *ecode,
 	if (!read_uint(p + idx, 3, &total_len) || (total_len < 12) ||
 			((idx + total_len + 3) > l))
 		return p;
+	printf("%s: total_len = %u\n", __func__, total_len);
 	idx += 3;
 	l = idx + total_len;	/* будут обработаны только данные штрих-кода */
 /* Количество штрих-кодов */
@@ -422,21 +423,56 @@ static uint8_t *check_kkt_bcode(uint8_t *p, size_t l, int *ecode,
 		uint32_t len = 0;
 		if (!read_uint(p + idx, 3, &len))
 			return p + idx;
-		if ((i > 0) && (len != bcodes[i - 1].len))	/* для всех штрих-кодов используются одни и те же данные */
-			return p + idx;
 		idx += 3;
 		bcodes[i].type = type;
 		bcodes[i].x = x;
 		bcodes[i].y = y;
 		bcodes[i].len = len;
 	}
+	size_t dst_idx = 0;
+	for (int i = 0; i < ASIZE(bcodes) && (bcodes[i].len > 0); i++){
+		typeof(*bcodes) *bc = bcodes + i;
+		printf("%s: type = %c; x = %u; y = %u; len = %u\n",
+			__func__, bc->type, bc->x, bc->y, bc->len);
+		if ((bc->len > 2) && is_escape(p[idx]) && (p[idx + 1] == 0x19))
+			break;
+		else if (ecode != NULL){
+			if ((idx + bc->len) > l)
+				break;
+		}else if ((dst_idx + 12 + bc->len) <= *dst_len){
+			dst[dst_idx++] = KKT_ESC;
+			dst[dst_idx++] = KKT_WR_BCODE;
+			dst[dst_idx++] = bc->type;
+			if (bc->x == UINT32_MAX)
+				dst[dst_idx++] = 0x3b;
+			else{
+				write_uint(dst + dst_idx, bc->x, 3);
+				dst_idx += 3;
+			}
+			if (bc->y == UINT32_MAX)
+				dst[dst_idx++] = 0x3b;
+			else{
+				write_uint(dst + dst_idx, bc->y, 3);
+				dst_idx += 3;
+			}
+			write_uint(dst + dst_idx, bc->len, 3);
+			dst_idx += 3;
+			memcpy(dst + dst_idx, p + idx, bc->len);
+			dst_idx += bc->len;
+			idx += bc->len;
+			FILE *f = fopen("bcode.bin", "wb");
+			if (f != NULL){
+				fwrite(dst, dst_idx, 1, f);
+				fclose(f);
+			}
+		}
+	}
+	printf("%s: dst_idx = %zu\n", __func__, dst_idx);
+	if (dst_len != NULL)
+		*dst_len = dst_idx;
 	if (ecode != NULL)
 		*ecode = E_OK;
-	if ((bcodes[0].len > 2) && is_escape(p[idx]) && (p[idx + 1] == LPRN_WR_BCODE2))
-		;
-	else{
-	}
-	return p + 3 + total_len;
+	return p + 3 + total_len - 1;
 }
 
 static uint8_t *check_keys(uint8_t *keys, int l, int *ecode);
@@ -1771,6 +1807,12 @@ int handle_para(int n_para)
 						i += ll;
 						p += 2;
 						n++;
+						break;
+					case LPRN_WR_BCODE2:
+						ll = sizeof(text_buf) - i;
+						p = check_kkt_bcode(p + 1, eptr - p - 1, NULL,
+							text_buf + i, &ll);
+						i += ll;
 						break;
 					default:		/* Неизвестная команда */
 						if ((i + 3) > sizeof(text_buf))

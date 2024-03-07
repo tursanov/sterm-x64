@@ -356,11 +356,6 @@ static bool do_transaction(uint8_t prefix, uint8_t cmd, void *param)
 	printf("%s: parser = %p; timeout = %u; kkt_tx_len = %zu\n",
 		__func__, parser, timeout, kkt_tx_len);
 	if (kkt_tx_len > 0){
-		FILE *f = fopen("kkt.bin", "wb");
-		if (f != NULL){
-			fwrite(kkt_tx, kkt_tx_len, 1, f);
-			fclose(f);
-		}
 		ssize_t rc = kkt_io_write(&timeout);
 		printf("%s: rc = %zd\n", __func__, rc);
 		if (rc != kkt_tx_len)
@@ -1030,6 +1025,11 @@ uint8_t kkt_print_vf(const uint8_t *data, size_t len)
 		if (prepare_cmd(KKT_NUL, KKT_VF) && write_data(data, len) &&
 				kkt_open_dev_if_need()){
 			printf("%s: begin printing\n", __func__);
+			FILE *f = fopen("kkt.bin", "wb");
+			if (f != NULL){
+				fwrite(kkt_tx, kkt_tx_len, 1, f);
+				fclose(f);
+			}
 			do_transaction(KKT_NUL, KKT_VF, NULL);
 			printf("%s: end printing; kkt_status = 0x%.hhx\n", __func__, kkt_status);
 			kkt_close_dev();
