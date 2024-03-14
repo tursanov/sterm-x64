@@ -36,6 +36,7 @@ typedef struct key_metric key_metric_array[N_CHAR_KEYS];
 
 static key_metric_array kbd_win_keys = {
 	{KEY_ESCAPE	,'\x1b'	,'\x1b'},
+#if defined __USE_NUMPAD__
 	{KEY_1		,'!'	,'!'},
 	{KEY_2		,'"'	,'@'},
 	{KEY_3		,'#'	,'#'},
@@ -46,6 +47,18 @@ static key_metric_array kbd_win_keys = {
 	{KEY_8		,'*'	,'*'},
 	{KEY_9		,'('	,'('},
 	{KEY_0		,')'	,')'},
+#else
+	{KEY_1		,'1'	,'!'},
+	{KEY_2		,'2'	,'@'},
+	{KEY_3		,'3'	,'#'},
+	{KEY_4		,'4'	,'ý'},
+	{KEY_5		,'5'	,'%'},
+	{KEY_6		,'6'	,'^'},
+	{KEY_7		,'7'	,'&'},
+	{KEY_8		,'8'	,'*'},
+	{KEY_9		,'9'	,'('},
+	{KEY_0		,'0'	,')'},
+#endif		/* __USE_NUMPAD__ */
 	{KEY_MINUS	,'-'	,'_'},
 	{KEY_PLUS	,'='	,'+'},
 	{KEY_Q		,'‰'	,'Q'},
