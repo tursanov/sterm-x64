@@ -1282,7 +1282,8 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode)
 						return p - 2;
 					}
 					if (b == LPRN_WR_BCODE2){
-						pp = check_bcode2(p, txt + l - p, ecode);
+//						pp = check_bcode2(p, txt + l - p, ecode);
+						pp = check_kkt_bcode(p, txt + l - p, ecode, NULL, NULL);
 						if (*ecode != E_OK)
 							return pp;
 						else
@@ -1412,6 +1413,7 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 					break;
 				case X_KPRN:
 				case X_KKT:
+					printf("%s: cfg.has_kkt = %d; kkt = %p\n", __func__, cfg.has_kkt, kkt);
 					if (!cfg.has_kkt || (kkt == NULL)){
 						*ecode = E_NO_KKT;
 						return p - 2;

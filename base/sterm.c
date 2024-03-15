@@ -1015,6 +1015,10 @@ static void init_devices(void)
 //			test_kkt();
 		}
 	}
+#if defined __FAKE_KKT__
+	if (kkt == NULL)
+		kkt = (const struct dev_info *)1;
+#endif		/* __FAKE_KKT__ */
 	fdo_resume();
 }
 
