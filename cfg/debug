@@ -45,10 +45,10 @@ option		__FAKE_REMOUNT__
 option		__SYNC_KKT_RTC__
 
 # Использовать цифровую клавиатуру для ввода цифр
-#option		__USE_NUMPAD__
+option		__USE_NUMPAD__
 
 # Использовать эмуляцию ККТ
-option		__FAKE_KKT__
+#option		__FAKE_KKT__
 
 # Каталог, в котором находятся файлы терминала. / в конце не обязателен
 STERM_HOME	/home/sterm

@@ -360,7 +360,8 @@ static uint8_t *check_bcode2(uint8_t *p, int l, int *ecode)
 static uint8_t *check_kkt_bcode(uint8_t *p, size_t l, int *ecode,
 	uint8_t *dst, uint32_t *dst_len)
 {
-	printf("%s: p = %p; l = %zu; dst = %p; dst_len = %u\n", __func__, p, l, dst, *dst_len);
+	printf("%s: p = %p; l = %zu; dst = %p; dst_len = %u\n", __func__, p, l, dst,
+		dst_len ? *dst_len : 0);
 	if (ecode != NULL)
 		*ecode = E_UNKNOWN;
 	if ((p == NULL) || (l == 0)){
@@ -1413,7 +1414,6 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 					break;
 				case X_KPRN:
 				case X_KKT:
-					printf("%s: cfg.has_kkt = %d; kkt = %p\n", __func__, cfg.has_kkt, kkt);
 					if (!cfg.has_kkt || (kkt == NULL)){
 						*ecode = E_NO_KKT;
 						return p - 2;
@@ -1811,11 +1811,13 @@ int handle_para(int n_para)
 						n++;
 						break;
 					case LPRN_WR_BCODE2:
-						ll = sizeof(text_buf) - i;
-						p = check_kkt_bcode(p + 1, eptr - p - 1, NULL,
-							text_buf + i, &ll);
-						i += ll;
-						break;
+						if (m == 0){	/* штрих-код обрабатывается только один раз */
+							ll = sizeof(text_buf) - i;
+							p = check_kkt_bcode(p + 1, eptr - p - 1, NULL,
+								text_buf + i, &ll);
+							i += ll;
+							break;
+						}	/* fall through */
 					default:		/* Неизвестная команда */
 						if ((i + 3) > sizeof(text_buf))
 							return 0;
@@ -2144,7 +2146,6 @@ static bool kprn_print(const uint8_t *data, size_t len)
  */
 static bool execute_prn(struct para_info *p, int l, int n_para)
 {
-	printf("%s: p->dst = %d\n", __func__, p->dst);
 	bool ret = true, printed = false;
 	set_term_astate(ast_none);
 	if (p->dst == dst_xprn){
