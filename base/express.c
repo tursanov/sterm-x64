@@ -360,8 +360,6 @@ static uint8_t *check_bcode2(uint8_t *p, int l, int *ecode)
 static uint8_t *check_kkt_bcode(uint8_t *p, size_t l, int *ecode,
 	uint8_t *dst, uint32_t *dst_len)
 {
-	printf("%s: p = %p; l = %zu; dst = %p; dst_len = %u\n", __func__, p, l, dst,
-		dst_len ? *dst_len : 0);
 	if (ecode != NULL)
 		*ecode = E_UNKNOWN;
 	if ((p == NULL) || (l == 0)){
@@ -378,7 +376,6 @@ static uint8_t *check_kkt_bcode(uint8_t *p, size_t l, int *ecode,
 	if (!read_uint(p + idx, 3, &total_len) || (total_len < 12) ||
 			((idx + total_len + 3) > l))
 		return p;
-	printf("%s: total_len = %u\n", __func__, total_len);
 	idx += 3;
 	l = idx + total_len;	/* будут обработаны только данные штрих-кода */
 /* Количество штрих-кодов */
@@ -433,8 +430,6 @@ static uint8_t *check_kkt_bcode(uint8_t *p, size_t l, int *ecode,
 	size_t dst_idx = 0;
 	for (int i = 0; i < ASIZE(bcodes) && (bcodes[i].len > 0); i++){
 		typeof(*bcodes) *bc = bcodes + i;
-		printf("%s: type = %c; x = %u; y = %u; len = %u\n",
-			__func__, bc->type, bc->x, bc->y, bc->len);
 		if ((bc->len > 2) && is_escape(p[idx]) && (p[idx + 1] == 0x19))
 			break;
 		else if (ecode != NULL){
@@ -468,7 +463,6 @@ static uint8_t *check_kkt_bcode(uint8_t *p, size_t l, int *ecode,
 			}
 		}
 	}
-	printf("%s: dst_idx = %zu\n", __func__, dst_idx);
 	if (dst_len != NULL)
 		*dst_len = dst_idx;
 	if (ecode != NULL)
@@ -1659,14 +1653,17 @@ bool can_stop(int n)
 		(map[n].dst != dst_log)) || !map[n].handled;
 }
 
-/* Обработан ли предыдущий абзац */
+/* Обработаны ли все предыдущие абзацы */
 bool prev_handled(void)
 {
-	int i;
-	for (i=0; i < cur_para; i++)
-		if (!map[i].handled)
-			return false;
-	return true;
+	bool ret = true;
+	for (int i = 0; i < cur_para; i++){
+		if (!map[i].handled){
+			ret = false;
+			break;
+		}
+	}
+	return ret;
 }
 
 /* Перейти к следующему абзацу */
@@ -2294,8 +2291,26 @@ static bool try_print_llog(const uint8_t *data, size_t len)
 	return lret != LPRN_RET_RST;
 }
 
+#include <libxml/parser.h>
+#include <libxml/tree.h>
+#include <libxslt/xslt.h>
+#include <libxslt/xsltInternals.h>
+#include <libxslt/transform.h>
+#include <libxslt/xsltutils.h>
+
 static void execute_kkt(struct para_info *pi __attribute__((unused)), int len)
 {
+	xmlDoc *xml = xmlReadMemory(NULL, 0, NULL, NULL, XML_PARSE_COMPACT);
+	if (xml != NULL){
+		xsltStylesheetPtr xslt = xsltParseStylesheetFile(NULL);
+		if (xslt != NULL){
+			xmlDocPtr doc = xsltApplyStylesheet(xslt, xml, NULL);
+			if (doc != NULL){
+				int len = xsltSaveResultToFilename(NULL, doc, xslt, 0);
+				printf("%s: len = %d\n", __func__, len);
+			}
+		}
+	}
 	int err = E_OK;
 	text_buf[len] = 0;
 	parse_kkt_xml(text_buf, false, kkt_xml_callback, &err);
@@ -2347,11 +2362,14 @@ bool execute_resp(void)
 		int l = 0;
 		if (jump_next && !lprn_error_shown){
 			jump_next = false;
-			int k = 0;
-			do {
+			for (int k = 0; k < n_paras; k++){
 				cur_para = next_para(cur_para);
-				k++;
-			} while ((k < n_paras) && !can_stop(cur_para));
+				if (prev_handled()){
+					if (can_stop(cur_para))
+						break;
+				}else if (can_show(map[cur_para].dst))
+					break;
+			}
 			parsed = false;
 			ndest_shown = false;
 		}

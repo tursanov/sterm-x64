@@ -1031,7 +1031,7 @@ uint8_t kkt_print_vf(const uint8_t *data, size_t len)
 				fclose(f);
 			}
 			do_transaction(KKT_NUL, KKT_VF, NULL);
-			printf("%s: end printing; kkt_status = 0x%.hhx\n", __func__, kkt_status);
+			printf("%s: end printing; kkt_status = 0x%.2hhx\n", __func__, kkt_status);
 			kkt_close_dev();
 		}
 		kkt_unlock();

@@ -2,6 +2,7 @@ include Makefile.conf
 DIR = base/
 
 INCLUDE = ../include
+CFLAGS += -I/usr/include/libxml2
 BASE_OBJS =		\
 	base64		\
 	cfg		\
