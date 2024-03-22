@@ -251,7 +251,4 @@ extern void AD_unmark_reissue_doc(int64_t doc);
 extern void AD_print(FILE *f);
 #endif
 
-// callback для обработки XML
-extern int kkt_xml_callback(uint32_t check, int evt, const char *name, const char *val);
-
 #endif // AD_H

@@ -5,10 +5,6 @@
 
 #include "sysdefs.h"
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 /* Типы событий при разборе XML для ККТ */
 #define KKT_XML_BEGIN		0	/* начало XML */
 #define KKT_XML_TAG		1	/* новый тег */
@@ -16,14 +12,9 @@ extern "C" {
 #define KKT_XML_ATTR		3	/* атрибут тега */
 #define KKT_XML_END		4	/* окончание XML */
 
-typedef int (*kkt_xml_callback_t)(uint32_t check, int evt, const char *name, const char *val);
+typedef int (*kkt_xml_callback_t)(bool check, int evt, const char *name, const char *val);
+extern int kkt_xml_callback(bool check, int evt, const char *name, const char *val);
 
-extern int kkt_xml_callback(uint32_t check, int evt, const char *name, const char *val);
-
-extern uint8_t *parse_kkt_xml(uint8_t *data, uint32_t check, kkt_xml_callback_t cbk, int *ecode);
-
-#if defined __cplusplus
-}
-#endif
+extern bool parse_kkt_xml(const char *data, bool check, kkt_xml_callback_t cbk, int *ecode);
 
 #endif		/* KKT_XML_H */

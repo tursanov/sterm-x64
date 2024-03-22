@@ -74,9 +74,7 @@ KKT_OBJS =		\
 	fdo		\
 	io		\
 	kkt		\
-	parser
-
-KKT_XML_OBJS =		\
+	parser		\
 	xml
 
 KKT_FD_OBJS =		\
@@ -115,7 +113,6 @@ OBJS =			\
 	$(addprefix base/,	$(addsuffix .o, $(BASE_OBJS)))		\
 	$(addprefix kkt/,	$(addsuffix .o, $(KKT_OBJS)))		\
 	$(addprefix kkt/fd/,	$(addsuffix .o, $(KKT_FD_OBJS)))	\
-	$(addprefix kkt/xml/,	$(addsuffix .o, $(KKT_XML_OBJS)))	\
 	$(addprefix log/,	$(addsuffix .o, $(LOG_OBJS)))		\
 	$(addprefix gui/,	$(addsuffix .o, $(GUI_OBJS)))		\
 	$(addprefix gui/log/,	$(addsuffix .o, $(GUI_LOG_OBJS)))	\

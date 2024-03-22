@@ -2,18 +2,19 @@ include Makefile.conf
 DIR = kkt/
 
 INCLUDE = ../include
+CFLAGS += -I/usr/include/libxml2
 
 KKT_OBJS =		\
 	fdo		\
 	io		\
 	kkt		\
-	parser
+	parser		\
+	xml
 
 OBJS = $(addsuffix .o, $(KKT_OBJS))
 
 SUBDIRS =		\
-	fd		\
-	xml
+	fd
 
 .PHONY: $(SUBDIRS)
 

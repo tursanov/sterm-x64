@@ -1101,14 +1101,12 @@ static uint8_t *check_kkt_xml(uint8_t *txt, int l, int *ecode)
 		return ret;
 	memcpy(text_buf, txt, len);
 	text_buf[len] = 0;
-	ret = parse_kkt_xml(text_buf, true, kkt_xml_callback, ecode);
+	parse_kkt_xml((const char *)text_buf, true, kkt_xml_callback, ecode);
 	printf("%s: ecode = %.2x\n", __func__, *ecode);
 	if (*ecode == E_OK)
 		ret = txt + len + 2;
-	else if (ret == NULL)
-		ret = txt;
 	else
-		ret = txt + (ret - text_buf);
+		ret = txt;
 	return ret;
 }
 
@@ -2291,29 +2289,11 @@ static bool try_print_llog(const uint8_t *data, size_t len)
 	return lret != LPRN_RET_RST;
 }
 
-#include <libxml/parser.h>
-#include <libxml/tree.h>
-#include <libxslt/xslt.h>
-#include <libxslt/xsltInternals.h>
-#include <libxslt/transform.h>
-#include <libxslt/xsltutils.h>
-
 static void execute_kkt(struct para_info *pi __attribute__((unused)), int len)
 {
-	xmlDoc *xml = xmlReadMemory(NULL, 0, NULL, NULL, XML_PARSE_COMPACT);
-	if (xml != NULL){
-		xsltStylesheetPtr xslt = xsltParseStylesheetFile(NULL);
-		if (xslt != NULL){
-			xmlDocPtr doc = xsltApplyStylesheet(xslt, xml, NULL);
-			if (doc != NULL){
-				int len = xsltSaveResultToFilename(NULL, doc, xslt, 0);
-				printf("%s: len = %d\n", __func__, len);
-			}
-		}
-	}
 	int err = E_OK;
 	text_buf[len] = 0;
-	parse_kkt_xml(text_buf, false, kkt_xml_callback, &err);
+	parse_kkt_xml((const char *)text_buf, false, kkt_xml_callback, &err);
 }
 
 extern void show_llog(void);

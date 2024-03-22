@@ -1466,8 +1466,10 @@ int check_str_len(const char *tag, const char *name, const char *val,
 }
 
 // обработка XML
-int kkt_xml_callback(uint32_t check, int evt, const char *name, const char *val)
+int kkt_xml_callback(bool check, int evt, const char *name, const char *val)
 {
+	printf("%s: check = %d; evt = %d; name = %s; val = %s\n", __func__,
+		check, evt, name ? name : "NULL", val ? val : "NULL");
     int64_t v64;
     int ret;
     switch (evt) {
