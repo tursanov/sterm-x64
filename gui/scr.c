@@ -2441,7 +2441,7 @@ static uint8_t *bctl_code(uint8_t *p)
 
 /*
  * Пропуск штрих-кода типа LPRN_WR_BCODE2. Возвращает указатель на последний
- * допустимый символ штрих-кода или NULL в случае ошибки.
+ * допустимый символ команды.
  */
 static uint8_t *skip_bcode2(uint8_t *p, int l)
 {
@@ -2450,24 +2450,20 @@ static uint8_t *skip_bcode2(uint8_t *p, int l)
 		st_type,
 		st_x,
 		st_y,
-		st_number,
 		st_len,
 		st_data,
 		st_stop,
 		st_err,
 	};
 	int st = st_start, i, n = 0, data_len = 0;
-	uint8_t b;
-	if ((p == NULL) || (l <= 0))
-		return NULL;
 	for (i = 0; (i < l) && (st != st_stop) && (st != st_err); i++){
-		b = p[i];
+		uint8_t b = p[i];
 		switch (st){
 			case st_start:
 				if (b == LPRN_WR_BCODE2)
 					st = st_type;
 				else
-					return NULL;
+					st = st_err;
 				break;
 			case st_type:
 				if (isdigit(b)){
@@ -2478,7 +2474,7 @@ static uint8_t *skip_bcode2(uint8_t *p, int l)
 				break;
 			case st_x:
 				if ((n == 0) && (b == 0x3b))
-					st = st_number;
+					st = st_y;
 				else if (!isdigit(b))
 					st = st_err;
 				else if (++n == 3){
@@ -2487,18 +2483,14 @@ static uint8_t *skip_bcode2(uint8_t *p, int l)
 				}
 				break;
 			case st_y:
-				if (!isdigit(b))
+				if ((n == 0) && (b == 0x3b))
+					st = st_y;
+				else if (!isdigit(b))
 					st = st_err;
 				else if (++n == 3){
 					n = 0;
 					st = st_len;
 				}
-				break;
-			case st_number:
-				if ((b != 0x31) && (b != 0x32) && (b != 0x33))
-					st = st_err;
-				n = 0;
-				st = st_len;
 				break;
 			case st_len:
 				if (!isdigit(b))
@@ -2520,10 +2512,113 @@ static uint8_t *skip_bcode2(uint8_t *p, int l)
 				break;
 		}
 	}
-	if (st == st_stop)
-		return p + i - 1;
-	else
-		return p + i - 2;
+	return (st == st_stop) ? p + i - 1 : p + i - 2;
+}
+
+/*
+ * Пропуск команды нанесения пиктограмм. Возвращает указатель на последний
+ * допустимый символ команды.
+ */
+static uint8_t *skip_icons(uint8_t *p, int l)
+{
+	enum {
+		st_start,
+		st_direct,
+		st_rotate,
+		st_idset,
+		st_icon,
+		st_icons,
+		st_x,
+		st_y,
+		st_shift,
+		st_stop,
+		st_err,
+	};
+	int st = st_start, i, n = 0, nr_icons = 1;
+	for (i = 0; (i < l) && (st != st_stop) && (st != st_err); i++){
+		uint8_t b = p[i];
+		switch (st){
+			case st_start:
+				if (b == KKT_ICON)
+					st = st_direct;
+				else
+					st = st_err;
+				break;
+			case st_direct:
+				if ((b == 0x65) || (b == 0x7b))
+					st = st_rotate;
+				else
+					st = st_err;
+				break;
+			case st_rotate:
+				if ((b == 0x30) || (b == 0x39))
+					st = st_idset;
+				else
+					st = st_err;
+				break;
+			case st_idset:
+				if ((b >= 0x41) && (b <= 0x5a) && (b != 0x48) && (b != 0x4c))
+					st = st_icon;
+				else
+					st = st_err;
+				break;
+			case st_icon:
+				if (b == 0x28){
+					nr_icons = 0;
+					st = st_icons;
+				}else if (((b >= 0x30) && (b <= 0x39)) ||
+						((b >= 0x41) && (b <= 0x5a))){
+					n = 0;
+					st = st_x;
+				}else
+					st = st_err;
+				break;
+			case st_icons:
+				if (b == 0x29){
+					n = 0;
+					st = st_x;
+				}else if (((b >= 0x30) && (b <= 0x39)) ||
+						((b >= 0x41) && (b <= 0x5a)))
+					nr_icons++;
+				else
+					st = st_err;
+				break;
+			case st_x:
+				if ((n == 0) && (b == 0x3b))
+					st = st_y;
+				else if (!isdigit(b))
+					st = st_err;
+				else if (++n == 3){
+					n = 0;
+					st = st_y;
+				}
+				break;
+			case st_y:
+				if ((n == 0) && (b == 0x3b)){
+					if (nr_icons > 1){
+						n = 0;
+						st = st_shift;
+					}else
+						st = st_stop;
+				}else if (!isdigit(b))
+					st = st_err;
+				else if (++n == 3){
+					if (nr_icons > 1){
+						n = 0;
+						st = st_shift;
+					}else
+						st = st_stop;
+				}
+				break;
+			case st_shift:
+				if (!isdigit(b))
+				       st = st_err;
+				else if (++n == 3)
+					st = st_stop;
+				break;
+		}
+	}
+	return (st == st_stop) ? p + i - 1 : p + i - 2;
 }
 
 /* Установка текста на экране */
@@ -2576,24 +2671,31 @@ int set_scr_text(uint8_t *s, int l, int t, bool need_redraw)
 							s = p + 12;
 						break;
 					case LPRN_WR_BCODE2:
-						p = skip_bcode2(s, ss + l - s);
-						if (p != NULL)
-							s = p;
+						s = skip_bcode2(s, ss + l - s);
 						break;
-					case XPRN_NO_BCODE:
+/*					case XPRN_NO_BCODE:
 					case LPRN_NO_BCODE:
-						break;
+						break;*/
 					case XPRN_PRNOP:
 						s=scr_find_eprnop(s);
 						break;
-					case XPRN_AUXLNG:
+/*					case XPRN_AUXLNG:
 					case XPRN_MAINLNG:
-						break;
+						break;*/
 					case LPRN_INTERLINE:
 						s += 2;
-						__fallthrough__;
-					default:
-						s++;
+						break;
+					case KKT_GRID:
+						s += 7;
+						break;
+					case KKT_TITLE:
+						s += 20;
+						break;
+					case KKT_ICON:
+						s = skip_icons(s, ss + l - s);
+						break;
+/*					default:
+						s++;*/
 				}
 			}else if (dle2){
 				dle2 = false;

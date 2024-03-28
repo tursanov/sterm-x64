@@ -1,4 +1,4 @@
-/* Общие функции для работы с контрольными лентами. (c) gsr 2009 */
+/* Общие функции для работы с контрольными лентами. (c) gsr 2009, 2024 */
 
 #include <ctype.h>
 #include <stdarg.h>
@@ -7,6 +7,7 @@
 #include "gui/log/generic.h"
 #include "gui/scr.h"
 #include "gui/status.h"
+#include "kkt/cmd.h"
 #include "prn/express.h"
 #include "prn/local.h"
 #include "cfg.h"
@@ -113,22 +114,20 @@ static int log_get_bcode_len(const uint8_t *data, uint32_t len, uint32_t index)
 	return k - index + 1;
 }
 
-/* Определение длины команды ПЧ ШТРИХ2 для ППУ; index указывает на код команды */
+/* Определение длины команды ПЧ ШТРИХ2; index указывает на код команды */
 static int log_get_bcode2_len(const uint8_t *data, uint32_t len, uint32_t index)
 {
 	enum {
 		st_type,
 		st_x,
 		st_y,
-		st_number,
 		st_len,
 		st_data,
 		st_stop,
 	};
 	int st = st_type, k, n = 0, data_len = 0;
-	uint8_t b;
 	for (k = index + 1; (k < len); k++){
-		b = data[k];
+		uint8_t b = data[k];
 		switch (st){
 			case st_type:
 				if (isdigit(b)){
@@ -139,7 +138,7 @@ static int log_get_bcode2_len(const uint8_t *data, uint32_t len, uint32_t index)
 				break;
 			case st_x:
 				if ((n == 0) && (b == 0x3b))
-					st = st_number;
+					st = st_y;
 				else if (!isdigit(b))
 					st = st_stop;
 				else if (++n == 3){
@@ -148,17 +147,11 @@ static int log_get_bcode2_len(const uint8_t *data, uint32_t len, uint32_t index)
 				}
 				break;
 			case st_y:
-				if (!isdigit(b))
+				if ((n == 0) && (b == 0x3b))
+					st = st_len;
+				else if (!isdigit(b))
 					st = st_stop;
 				else if (++n == 3){
-					n = 0;
-					st = st_len;
-				}
-				break;
-			case st_number:
-				if ((b != 0x31) && (b != 0x32) && (b != 0x33))
-					st = st_stop;
-				else{
 					n = 0;
 					st = st_len;
 				}
@@ -190,29 +183,139 @@ static int log_get_bcode2_len(const uint8_t *data, uint32_t len, uint32_t index)
 	return k - index + 1;
 }
 
+/* Определение длины команды нанесения пиктограмм; index указывает на код команды */
+static int log_get_icon_len(const uint8_t *data, uint32_t len, uint32_t index)
+{
+	enum {
+		st_direct,
+		st_rotate,
+		st_idset,
+		st_icon,
+		st_icons,
+		st_x,
+		st_y,
+		st_shift,
+		st_stop,
+	};
+	int st = st_direct, k, n = 0, nr_icons = 1;
+	for (k = index + 1; (k < len); k++){
+		uint8_t b = data[k];
+		switch (st){
+			case st_direct:
+				if ((b == 0x65) || (b == 0x7b))
+					st = st_rotate;
+				else
+					st = st_stop;
+				break;
+			case st_rotate:
+				if ((b == 0x30) || (b == 0x39))
+					st = st_idset;
+				else
+					st = st_stop;
+				break;
+			case st_idset:
+				if ((b >= 0x41) && (b <= 0x5a) && (b != 0x48) && (b != 0x4c))
+					st = st_icon;
+				else
+					st = st_stop;
+				break;
+			case st_icon:
+				if (b == 0x28){
+					nr_icons = 0;
+					st = st_icons;
+				}else if (((b >= 0x30) && (b <= 0x39)) ||
+						((b >= 0x41) && (b <= 0x5a))){
+					n = 0;
+					st = st_x;
+				}else
+					st = st_stop;
+				break;
+			case st_icons:
+				if (b == 0x29){
+					n = 0;
+					st = st_x;
+				}else if (((b >= 0x30) && (b <= 0x39)) ||
+						((b >= 0x41) && (b <= 0x5a)))
+					nr_icons++;
+				else
+					st = st_stop;
+				break;
+			case st_x:
+				if ((n == 0) && (b == 0x3b))
+					st = st_y;
+				else if (!isdigit(b))
+					st = st_stop;
+				else if (++n == 3){
+					n = 0;
+					st = st_y;
+				}
+				break;
+			case st_y:
+				if ((n == 0) && (b == 0x3b)){
+					if (nr_icons > 1){
+						n = 0;
+						st = st_shift;
+					}else
+						st = st_stop;
+				}else if (!isdigit(b))
+					st = st_stop;
+				else if (++n == 3){
+					if (nr_icons > 1){
+						n = 0;
+						st = st_shift;
+					}else
+						st = st_stop;
+				}
+				break;
+			case st_shift:
+				if (!isdigit(b) || (++n == 3))
+					st = st_stop;
+				break;
+		}
+		if (st == st_stop)
+			break;
+	}
+	return k - index + 1;
+}
+
 /* Определение длины команды без учета Ар2 */
 int log_get_cmd_len(const uint8_t *data, uint32_t len, int index)
 {
+	int ret = 1;
 	switch (data[index]){
 		case XPRN_FONT:
 		case XPRN_VPOS:
 		case X_RD_PROM:
 		case X_RD_ROM:
-			return 2;
+			ret = 2;
+			break;
 		case X_REPEAT:
-			return 3;
+			ret = 3;
+			break;
 		case LPRN_INTERLINE:
-			return 4;
+			ret = 4;
+			break;
+		case KKT_GRID:
+			ret = 8;
+			break;
+		case KKT_TITLE:
+			ret = 21;
+			break;
 		case XPRN_WR_BCODE:
 		case XPRN_RD_BCODE:
-			return log_get_bcode_len(data, len, index);
+			ret = log_get_bcode_len(data, len, index);
+			break;
 		case LPRN_WR_BCODE2:
-			return log_get_bcode2_len(data, len, index);
+			ret = log_get_bcode2_len(data, len, index);
+			break;
 		case XPRN_PRNOP:
-			return log_get_prnop_len(data, len, index);
-		default:
-			return 1;
+			ret = log_get_prnop_len(data, len, index);
+			break;
+		case KKT_ICON:
+			ret = log_get_icon_len(data, len, index);
+			break;
 	}
+	return ret;
 }
 
 /* Запись в экранный буфер заданной строки */
