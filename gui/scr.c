@@ -2484,7 +2484,7 @@ static uint8_t *skip_bcode2(uint8_t *p, int l)
 				break;
 			case st_y:
 				if ((n == 0) && (b == 0x3b))
-					st = st_y;
+					st = st_len;
 				else if (!isdigit(b))
 					st = st_err;
 				else if (++n == 3){
