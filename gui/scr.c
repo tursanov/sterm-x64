@@ -1,4 +1,4 @@
-/* Основные функции для работы с экраном. (c) gsr, Alex Popov 2000-2004 */
+/* Основные функции для работы с экраном. (c) gsr, Alex Popov 2000-2004, 2024 */
 
 #include <sys/ioctl.h>
 #include <sys/types.h>
@@ -2673,15 +2673,9 @@ int set_scr_text(uint8_t *s, int l, int t, bool need_redraw)
 					case LPRN_WR_BCODE2:
 						s = skip_bcode2(s, ss + l - s);
 						break;
-/*					case XPRN_NO_BCODE:
-					case LPRN_NO_BCODE:
-						break;*/
 					case XPRN_PRNOP:
 						s=scr_find_eprnop(s);
 						break;
-/*					case XPRN_AUXLNG:
-					case XPRN_MAINLNG:
-						break;*/
 					case LPRN_INTERLINE:
 						s += 2;
 						break;
@@ -2694,8 +2688,6 @@ int set_scr_text(uint8_t *s, int l, int t, bool need_redraw)
 					case KKT_ICON:
 						s = skip_icons(s, ss + l - s);
 						break;
-/*					default:
-						s++;*/
 				}
 			}else if (dle2){
 				dle2 = false;

@@ -109,6 +109,9 @@ PRN_OBJS =		\
 	generic		\
 	local
 
+X3DATA_OBJS =		\
+	grids
+
 OBJS =			\
 	$(addprefix base/,	$(addsuffix .o, $(BASE_OBJS)))		\
 	$(addprefix kkt/,	$(addsuffix .o, $(KKT_OBJS)))		\
@@ -119,7 +122,8 @@ OBJS =			\
 	$(addprefix gui/controls/,	$(addsuffix .o, $(GUI_CONTROLS_OBJS)))	\
 	$(addprefix pos/,	$(addsuffix .o, $(POS_OBJS)))		\
 	$(addprefix ppp/,	$(addsuffix .o, $(PPP_OBJS)))		\
-	$(addprefix prn/,	$(addsuffix .o, $(PRN_OBJS)))
+	$(addprefix prn/,	$(addsuffix .o, $(PRN_OBJS)))		\
+	$(addprefix x3data/,	$(addsuffix .o, $(X3DATA_OBJS)))
 
 SUBDIRS =		\
 	base		\
@@ -129,6 +133,7 @@ SUBDIRS =		\
 	pos		\
 	ppp		\
 	prn		\
+	x3data		\
 	helpers		\
 	scripts		\
 	modules
