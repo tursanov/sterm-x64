@@ -25,6 +25,7 @@ BASE_OBJS =		\
 	sterm		\
 	tki		\
 	transport	\
+	xbase64		\
 	xchange
 
 OBJS = $(addsuffix .o, $(BASE_OBJS))

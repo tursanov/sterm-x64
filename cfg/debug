@@ -60,4 +60,4 @@ KDIR		/usr/src/linux-headers-4.9.0-12-amd64
 #option		__DO_STATIC__
 
 CFLAGS		-std=gnu11 -Wall -Wextra -Wno-sign-compare -Wno-switch -g -pipe -pthread -I$(INCLUDE) -D_GNU_SOURCE
-CXXFLAGS	-std=gnu++0x -Wall -Wextra -Wno-sign-compare -Wno-switch -g -pipe -pthread -I$(INCLUDE) -D_GNU_SOURCE
+CXXFLAGS	-std=gnu++0x -Wall -Weffc++ -Wextra -Wno-sign-compare -Wno-switch -g -pipe -pthread -I$(INCLUDE) -D_GNU_SOURCE

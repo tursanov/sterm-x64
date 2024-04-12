@@ -27,6 +27,7 @@ BASE_OBJS =		\
 	sterm		\
 	tki		\
 	transport	\
+	xbase64		\
 	xchange
 
 GUI_OBJS =		\
