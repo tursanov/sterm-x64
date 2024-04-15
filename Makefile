@@ -25,6 +25,7 @@ BASE_OBJS =		\
 	serial		\
 	serialize	\
 	sterm		\
+	termlog		\
 	tki		\
 	transport	\
 	xbase64		\
