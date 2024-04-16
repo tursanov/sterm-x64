@@ -1,12 +1,16 @@
 /* Работа с разметками бланков БПУ/ККТ. (c) gsr, 2015-2016, 2019, 2022, 2024 */
 
+#include <sys/types.h>
+#include <dirent.h>
+#include <regex.h>
 #include <zlib.h>
 #include "kkt/cmd.h"
 #include "x3data/grids.h"
+#include "paths.h"
 #include "termlog.h"
 #include "xbase64.h"
 
-bool GridInfo::parse(const char * name)
+bool GridInfo::parse(const char *name)
 {
 	if (name == NULL)
 		return false;
@@ -17,7 +21,7 @@ bool GridInfo::parse(const char * name)
 	for (size_t i = 0; i <= len; i++)
 		nm[i] = (i < len) ? toupper(name[i]) : 0;
 	bool ret = false;
-	static const char * bmp_ext = ".BMP";
+	static const char *bmp_ext = ".BMP";
 	int nr;
 	char ext[5], pr, ch;
 	if ((sscanf(nm, "HU%d%4s%c", &nr, ext, &ch) == 2) && (strcmp(ext, bmp_ext) == 0)){
@@ -137,41 +141,58 @@ bool needGridsUpdate(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_r
 	return !grids_to_create.empty() || !grids_to_remove.empty();
 }
 
-static bool findStoredGrids(list<GridInfo> &stored_grids, const char * pattern)
+static regex_t reg;
+
+static int grid_selector(const struct dirent *entry)
+{
+	log_dbg("d_name = '%s'.", entry->d_name);
+	return regexec(&reg, entry->d_name, 0, NULL, 0) == REG_NOERROR;
+}
+
+static bool findStoredGrids(list<GridInfo> &stored_grids, const char *pattern)
 {
 	if (pattern == NULL)
 		return false;
-	bool ret = false;
-	static char path[PATH_MAX];
-	snprintf(path, ASIZE(path), "%s\\%s", grid_folder, pattern);
-	WIN32_FIND_DATA fd;
-	HANDLE fh = FindFirstFile(path, &fd);
-	if (fh != INVALID_HANDLE_VALUE){
-		do {
-			GridInfo gi;
-			if (gi.parse(fd.cFileName)){
-				log_dbg("Обнаружена разметка %s #%d (%hc).", gi.name().c_str(), gi.nr(), gi.id());
-				stored_grids.push_back(gi);
-				ret = true;
-			}
-		} while (FindNextFile(fh, &fd));
-		FindClose(fh);
+	int rc = regcomp(&reg, pattern, REG_EXTENDED | REG_NOSUB);
+	if (rc != REG_NOERROR){
+		log_err("Ошибка компиляции регулярного выражения для '%s': %d.", pattern, rc);
+		return false;
 	}
+	struct dirent **names;
+	int n = scandir(GRIDS_FOLDER, &names, grid_selector, alphasort);
+	if (n == -1){
+		log_sys_err("Ошибка поиска разметок бланков в каталоге " GRIDS_FOLDER ":");
+		regfree(&reg);
+		return false;
+	}
+	bool ret = false;
+	for (int i = 0; i < n; i++){
+		static char path[PATH_MAX];
+		snprintf(path, ASIZE(path), GRIDS_FOLDER "/%s", names[i]->d_name);
+		GridInfo gi;
+		if (gi.parse(names[i]->d_name)){
+			log_dbg("Обнаружена разметка %s #%d (%hc).", gi.name().c_str(), gi.nr(), gi.id());
+			stored_grids.push_back(gi);
+			ret = true;
+		}
+	}
+	free(names);
+	regfree(&reg);
 	return ret;
 }
 
 static bool findStoredGridsXPrn(list<GridInfo> &stored_grids)
 {
 	stored_grids.clear();
-	findStoredGrids(stored_grids, "HU?*.BMP");
-	findStoredGrids(stored_grids, "L???????.BMP");
+	findStoredGrids(stored_grids, "^HU[1-9].[Bb][Mm][Pp]$");
+	findStoredGrids(stored_grids, "^L[0-79]{2}[0-9]{5}\\.[Bb][Mm][Pp]$");
 	return !stored_grids.empty();
 }
 
 static bool findStoredGridsKkt(list<GridInfo> &stored_grids)
 {
 	stored_grids.clear();
-	findStoredGrids(stored_grids, "M???????.BMP");
+	findStoredGrids(stored_grids, "^M[0-79]{2}[0-9]{5}\\.[Bb][Mm][Pp]$");
 	return !stored_grids.empty();
 }
 
@@ -180,7 +201,7 @@ void checkStoredGrids(const list<GridInfo> &x3_grids, list<GridInfo> &grids_to_c
 {
 	clrGridLists(grids_to_create, grids_to_remove);
 /* Создаём список разметок, хранящихся в ПАК РМК */
-	log_dbg("Ищем разметки в каталоге %s...", grid_folder);
+	log_dbg("Ищем разметки в каталоге %s...", GRIDS_FOLDER);
 	list<GridInfo> stored_grids;
 	find_fn(stored_grids);
 	log_dbg("Найдено разметок: %d.", stored_grids.size());
@@ -482,7 +503,7 @@ static bool storeGrid(const GridInfo &gi)
 	snprintf(name, ASIZE(name), "%s\\%s.BMP", grid_folder, gi.name().c_str());
 	int fd = _topen(name, _O_WRONLY | _O_BINARY | _O_TRUNC | _O_CREAT, _S_IWRITE);
 	if (fd == -1){
-		log_win_err("Ошибка создания файла %s:", name);
+		log_sys_err("Ошибка создания файла %s:", name);
 		return false;
 	}
 	bool ret = false;
@@ -491,7 +512,7 @@ static bool storeGrid(const GridInfo &gi)
 		log_info("Разметка успешно записана в файл %s.", name);
 		ret = true;
 	}else if (rc == -1)
-		log_win_err("Ошибка записи в файл %s:", name);
+		log_sys_err("Ошибка записи в файл %s:", name);
 	else
 		log_err("В %s вместо %u записано %d байт.", name, bmp_len, rc);
 	_close(fd);
@@ -510,7 +531,7 @@ static bool removeGrid(const GridInfo &gi)
 	if (ret)
 		log_info("Разметка %s успешно удалена.", path);
 	else
-		log_win_err("Ошибка удаления разметки %s:", path);
+		log_sys_err("Ошибка удаления разметки %s:", path);
 	return ret;
 }
 

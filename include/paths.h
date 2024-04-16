@@ -29,5 +29,15 @@
 #define STERM_REQ_LIST		_("sterm.req")
 /* Имя файла признака работы в пригородном режиме */
 #define LOCAL_FLAG_NAME		_(".wm_local")
+/* Каталог, в котором хранятся разметки бланков */
+#define GRIDS_FOLDER		_("grids")
+/* Каталог, в котором хранятся пиктограммы */
+#define ICONS_FOLDER		_("icons")
+/* Каталог, в котором хранятся шаблоны печати ККТ */
+#define PATTERNS_FOLDER		_("patterns")
+/* Каталог, в котором хранятся таблицы трансформации XML */
+#define XSLT_FOLDER		_("xslt")
+/* Каталог, в котором хранятся обновления БПУ */
+#define XPRN_FOLDER		_("xprn")
 
 #endif		/* PATHS_H */
