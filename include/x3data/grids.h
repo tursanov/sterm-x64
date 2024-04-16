@@ -82,6 +82,8 @@ public:
 	GridInfo() :
 		_nr(0),
 		_id(0),
+		_name(),
+		_prefix(),
 		_date(0)
 	{
 	}

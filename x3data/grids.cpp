@@ -1,6 +1,7 @@
 /* Работа с разметками бланков БПУ/ККТ. (c) gsr, 2015-2016, 2019, 2022, 2024 */
 
 #include <zlib.h>
+#include "kkt/cmd.h"
 #include "x3data/grids.h"
 #include "termlog.h"
 #include "xbase64.h"
@@ -61,7 +62,7 @@ bool GridInfo::parse(const uint8_t *data, size_t len)
 		return false;
 	bool ret = false;
 	int nr = 0;
-	char nm[XPrn::SPRN_MAX_GRID_NAME_LEN + 1];
+	char nm[SPRN_MAX_GRID_NAME_LEN + 1];
 	static const char old_prefix[] = "<HU";
 	if (memcmp((const char *)data, old_prefix, ASIZE(old_prefix) - 1) == 0){
 		bool tail = false;
@@ -102,7 +103,7 @@ bool GridInfo::parse(const uint8_t *data, size_t len)
 				tm.tm_isdst = -1;
 				time_t t = mktime(&tm);
 				if (t != -1){
-					_prefix = ansi2tstr(&pr, 1);
+					_prefix = pr;
 					_date = t;
 					ret = true;
 				}

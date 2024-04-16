@@ -90,7 +90,7 @@
 #define KKT_SRV_END_DOC		0x3c		/* сформировать документ */
 #define KKT_SRV_PRINT_DOC	0x3e		/* печать документа по номеру */
 
-/* Настройки сетевых интерфейсов ФР */
+/* Настройки сетевых интерфейсов ККТ */
 #define KKT_SRV_NET_SETTINGS	0x41		/* настройки сети для Ethernet */
 #define KKT_SRV_GPRS_SETTINGS	0x42		/* настройки GPRS-модема */
 
@@ -130,6 +130,27 @@
 #define KKT_ECHO		0x45		/* эхо (нет в документации) */
 #define MAX_ECHO_LEN		4000		/* максимальная длина данных */
 
+/* Работа с разметками бланков (внутренняя команда) */
+#define CMD_GRID_LOAD		0xa8		/* загрузка разметки в БПУ */
+#define CMD_GRID_LST		0xa9		/* получение списка разметок */
+#define CMD_GRID_UPLOAD		0xaa		/* получение разметки бланка */
+#define CMD_GRID_ERASE		0xab		/* удаление разметки бланка */
+#define CMD_GRID_ERASE_ALL	0xac		/* удаление всех разметок бланков */
+
+/* Работа с пиктограммами (внутренняя команда) */
+#define CMD_ICON_LOAD		0xb8		/* загрузка пиктограмм в БПУ */
+#define CMD_ICON_LST		0xb9		/* получение списка пиктограмм */
+#define CMD_ICON_UPLOAD		0xba		/* получение пиктограммы */
+#define CMD_ICON_ERASE_ALL	0xbc		/* удаление всех пиктограмм */
+#define CMD_NEW_ICON_LOAD	0xbd		/* загрузка одной пиктограммы в ККТ */
+
+#define SPRN_MAX_GRIDS		36		/* максимальное количество шаблонов в БПУ */
+#define SPRN_MAX_ICONS		36		/* максимальное количество пиктограмм в БПУ */
+#define SPRN_MAX_PICS		78		/* максимальное количество изображений в БПУ "Видеотон" */
+#define SPRN_MAX_PIC_NAME_LEN	16		/* максимальная длина названия изображения в БПУ "Видеотон" */
+#define SPRN_MAX_GRID_NAME_LEN	SPRN_MAX_PIC_NAME_LEN	/* максимальная длина названия шаблона */
+#define SPRN_MAX_ICON_NAME_LEN	SPRN_MAX_PIC_NAME_LEN	/* максимальная длина названия пиктограммы */
+
 /* Команды для работы с ФН */
 #define KKT_FS				0x66
 #define KKT_FS_STATUS			0x30	/* получение статуса ФН */
@@ -151,7 +172,6 @@
 #define KKT_FS_READ_REGISTRATION_TLV	0x47	/* чтение TLV парамертров фискализации */
 #define KKT_FS_LAST_REG_DATA		0x61	/* получение параметров текущей регистрации (независимо от ФН) */
 #define KKT_FS_RESET			0x7f	/* сброс ФН */
-
 
 /* Обновление ПО ФР (внутренняя команда) */
 #define KKT_UPDATE		0xa0		/* переход в режим обновления */
@@ -298,13 +318,23 @@ extern const char *kkt_status_str(uint8_t status);
 /* Таймауты в сотых сек операций с ККТ */
 extern uint32_t kkt_base_timeout;
 #define KKT_BASE_TIMEOUT		10
-#define KKT_DEF_TIMEOUT			10 * kkt_base_timeout	// 100
+#define KKT_DEF_TIMEOUT			10  * kkt_base_timeout	// 100
 #define KKT_STATUS_TIMEOUT		kkt_base_timeout	// 10
-#define KKT_FDO_IFACE_TIMEOUT		10 * kkt_base_timeout	// 100
-#define KKT_FDO_ADDR_TIMEOUT		10 *kkt_base_timeout	// 100
-#define KKT_FDO_DATA_TIMEOUT		30 * kkt_base_timeout	// 300
+#define KKT_FDO_IFACE_TIMEOUT		10  * kkt_base_timeout	// 100
+#define KKT_FDO_ADDR_TIMEOUT		10  * kkt_base_timeout	// 100
+#define KKT_FDO_DATA_TIMEOUT		30  * kkt_base_timeout	// 300
 #define KKT_FR_STATUS_TIMEOUT		kkt_base_timeout	// 10
 #define KKT_FR_PRINT_TIMEOUT		170 * kkt_base_timeout	// 1700
 #define KKT_FR_RESET_TIMEOUT		200 * kkt_base_timeout	// 2000
+
+#define KKT_GRID_LOAD_TIMEOUT		200 * kkt_base_timeout	// 2000
+#define KKT_GRID_LST_TIMEOUT		20  * kkt_base_timeout	// 200
+#define KKT_GRID_ERASE_TIMEOUT		50  * kkt_base_timeout	// 500
+#define KKT_GRID_ERASE_ALL_TIMEOUT	200 * kkt_base_timeout	// 2000
+
+#define KKT_ICON_LOAD_TIMEOUT		200 * kkt_base_timeout	// 2000
+#define KKT_ICON_LST_TIMEOUT		20  * kkt_base_timeout	// 200
+#define KKT_ICON_UPLOAD_TIMEOUT		50  * kkt_base_timeout	// 500
+#define KKT_ICON_ERASE_ALL_TIMEOUT	200 * kkt_base_timeout	// 2000
 
 #endif		/* KKT_CMD_H */
