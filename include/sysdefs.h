@@ -43,8 +43,8 @@
 }
 
 /* Преобразование значения макроса в строку. См. info cpp: Argument Prescan */
-#define _s(s) __s(s)
-#define __s(s) #s
+#define _s(s) _$(s)
+#define _$(s) #s
 
 #if !defined __KERNEL__
 static inline uint32_t u_times(void)

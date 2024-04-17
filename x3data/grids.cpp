@@ -286,8 +286,6 @@ static uint32_t grid_req_t0 = 0;
 static const uint8_t *grid_auto_req = NULL;
 static size_t grid_auto_req_len = 0;
 
-static WaitTool gridReqWait;
-
 static X3SyncCallback_t grid_sync_cbk = NULL;
 
 static void onEndGridRequest(CwbSdk *cwb_sdk)
