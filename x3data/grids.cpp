@@ -4,10 +4,16 @@
 #include <dirent.h>
 #include <regex.h>
 #include <zlib.h>
+#include "gui/scr.h"
 #include "kkt/cmd.h"
 #include "x3data/grids.h"
+#include "gd.h"
+#include "express.h"
+#include "hash.h"
 #include "paths.h"
+#include "sterm.h"
 #include "termlog.h"
+#include "transport.h"
 #include "xbase64.h"
 
 bool GridInfo::parse(const char *name)
@@ -130,13 +136,13 @@ list<GridInfo> grids_to_create_kkt;
 list<GridInfo> grids_to_remove_kkt;
 list<GridInfo> grids_failed_kkt;
 
-void clrGridLists(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove)
+void clr_grid_lists(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove)
 {
 	grids_to_create.clear();
 	grids_to_remove.clear();
 }
 
-bool needGridsUpdate(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove)
+bool need_grids_update(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove)
 {
 	return !grids_to_create.empty() || !grids_to_remove.empty();
 }
@@ -149,7 +155,7 @@ static int grid_selector(const struct dirent *entry)
 	return regexec(&reg, entry->d_name, 0, NULL, 0) == REG_NOERROR;
 }
 
-static bool findStoredGrids(list<GridInfo> &stored_grids, const char *pattern)
+static bool find_stored_grids(list<GridInfo> &stored_grids, const char *pattern)
 {
 	if (pattern == NULL)
 		return false;
@@ -181,25 +187,25 @@ static bool findStoredGrids(list<GridInfo> &stored_grids, const char *pattern)
 	return ret;
 }
 
-static bool findStoredGridsXPrn(list<GridInfo> &stored_grids)
+static bool find_stored_grids_xprn(list<GridInfo> &stored_grids)
 {
 	stored_grids.clear();
-	findStoredGrids(stored_grids, "^HU[1-9].[Bb][Mm][Pp]$");
-	findStoredGrids(stored_grids, "^L[0-79]{2}[0-9]{5}\\.[Bb][Mm][Pp]$");
+	find_stored_grids(stored_grids, "^HU[1-9].[Bb][Mm][Pp]$");
+	find_stored_grids(stored_grids, "^L[0-79]{2}[0-9]{5}\\.[Bb][Mm][Pp]$");
 	return !stored_grids.empty();
 }
 
-static bool findStoredGridsKkt(list<GridInfo> &stored_grids)
+static bool find_stored_grids_kkt(list<GridInfo> &stored_grids)
 {
 	stored_grids.clear();
-	findStoredGrids(stored_grids, "^M[0-79]{2}[0-9]{5}\\.[Bb][Mm][Pp]$");
+	find_stored_grids(stored_grids, "^M[0-79]{2}[0-9]{5}\\.[Bb][Mm][Pp]$");
 	return !stored_grids.empty();
 }
 
-void checkStoredGrids(const list<GridInfo> &x3_grids, list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove,
+void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove,
 	bool (*find_fn)(list<GridInfo> &))
 {
-	clrGridLists(grids_to_create, grids_to_remove);
+	clr_grid_lists(grids_to_create, grids_to_remove);
 /* Создаём список разметок, хранящихся в ПАК РМК */
 	log_dbg("Ищем разметки в каталоге %s...", GRIDS_FOLDER);
 	list<GridInfo> stored_grids;
@@ -242,17 +248,17 @@ void checkStoredGrids(const list<GridInfo> &x3_grids, list<GridInfo> &grids_to_c
 	log_dbg("Найдено разметок: для закачки: %d; для удаления: %d.", grids_to_create.size(), grids_to_remove.size());
 }
 
-void checkStoredGridsXPrn(const list<GridInfo> &x3_grids)
+void check_stored_grids_xprn(const list<GridInfo> &x3_grids)
 {
-	checkStoredGrids(x3_grids, grids_to_create_xprn, grids_to_remove_xprn, findStoredGridsXPrn);
+	check_stored_grids(x3_grids, grids_to_create_xprn, grids_to_remove_xprn, find_stored_grids_xprn);
 }
 
-void checkStoredGridsKkt(const list<GridInfo> &x3_grids)
+void check_stored_grids_kkt(const list<GridInfo> &x3_grids)
 {
-	checkStoredGrids(x3_grids, grids_to_create_kkt, grids_to_remove_kkt, findStoredGridsKkt);
+	check_stored_grids(x3_grids, grids_to_create_kkt, grids_to_remove_kkt, find_stored_grids_kkt);
 }
 
-bool checkX3Grids(const uint8_t *data, size_t len, list<GridInfo> &x3_grids_xprn, list<GridInfo> &x3_grids_kkt)
+bool check_x3_grids(const uint8_t *data, size_t len, list<GridInfo> &x3_grids_xprn, list<GridInfo> &x3_grids_kkt)
 {
 	if ((data == NULL) || (len == 0))
 		return false;
@@ -288,33 +294,38 @@ static size_t grid_auto_req_len = 0;
 
 static X3SyncCallback_t grid_sync_cbk = NULL;
 
-static void onEndGridRequest(CwbSdk *cwb_sdk)
+static void on_end_grid_request(void)
 {
-	log_info("cwb_sdk = %p.", cwb_sdk);
 	grid_auto_req = NULL;
 	grid_auto_req_len = 0;
 	static char err_msg[1024];
 	err_msg[0] = 0;
 /* 0 -- данные разметки; 1 -- другой ответ, обработка не требуется; 2 -- другой ответ, требуется обработка */
 	int non_grid_resp = 0;
-	scoped_ptr<DMap> dmap(new DMap());
-	scoped_ptr<X3Response> rsp(new X3Response(inquirer, term_keys, term_smap, dmap.get(), xprn, tprn, kkt,
-		xlog, termcore_callbacks));
-	if (cwb_sdk->error() == CwbSdkError::OK){
-		setTermcoreState(TS_RESPONSE);
-		InquirerError inq_err = inquirer->checkResp(cwb_sdk->resp(), cwb_sdk->resp_len());
-		if (inq_err == InquirerError::OK){
-			if (inquirer->is_specific_error()){
-				uint8_t code = inquirer->x3_specific_error();
-				snprintf(err_msg, ASIZE(err_msg),
-					"Сообщение об ошибке \"Экспресс\": %.2hX (%s).", (uint16_t)code,
-					Inquirer::specific_error_str(code));
-				xlog->writeSpecial(0, code);
-				non_grid_resp = 1;
-			}else if (isXmlResp(inquirer->resp(), inquirer->resp_len())){
-				snprintf(err_msg, ASIZE(err_msg), "В ответ на запрос разметки пришёл XML.");
-				non_grid_resp = 1;
-			}else{
+	into_on_response = true;
+	if (ssaver_active)
+		scr_wakeup();
+	release_garbage();
+	resp_handling = true;
+	clear_hash(prom);
+	err_ptr = check_syntax(resp_buf + text_offset, text_len, &ecode);
+	if (err_ptr == NULL){	/* начинаем обработку ответа */
+		CLR_FLAG(ZBp, GDF_REQ_SYNTAX);
+/* При проверке синтаксиса в ДЗУ заносятся пробелы на место соответствующих записей */
+		clear_hash(prom);
+		if (s_state != ss_ready)
+			s_state = ss_ready;
+		delayed_init = false;
+		rejecting_req = false;
+		n_paras = make_resp_map();
+		if (TST_FLAG(ZBp, GDF_REQ_FOREIGN)){	/* эта проверка является избыточной */
+			err_beep();
+			set_term_state(st_fresp);
+			mark_all();
+		}else{
+			set_term_busy(true);
+			set_term_state(st_resp);
+#if 0
 				UINT idx = 0;
 				uint32_t rt = GetTickCount() - grid_req_t0;
 				try {
@@ -373,15 +384,17 @@ static void onEndGridRequest(CwbSdk *cwb_sdk)
 	}else{
 		snprintf(err_msg, ASIZE(err_msg), "Ошибка SDK РМК: %s", cwb_sdk->error_msg().c_str());
 		non_grid_resp = 1;
+#endif
+		}
 	}
 	if (err_msg[0] != 0){
 		log_err(err_msg);
 		grid_buf_idx = 0;
-		termcore_callbacks.callMessageBox("ОШИБКА", err_msg);
-/*		clrGridLists();
+//		termcore_callbacks.callMessageBox("ОШИБКА", err_msg);
+/*		clr_grid_lists();
 		clrIconLists();*/
 	}
-	if (!isTermcoreState(TS_CLOSE_WAIT)){
+/*	if (!isTermcoreState(TS_CLOSE_WAIT)){
 		if (non_grid_resp){
 			if (grid_sync_cbk != NULL)
 				grid_sync_cbk(true, NULL);
@@ -393,23 +406,23 @@ static void onEndGridRequest(CwbSdk *cwb_sdk)
 			setTermcoreState(TS_READY);
 	}
 	processExitFlag();
-	gridReqWait.stop();
+	gridReqWait.stop();*/
 }
 
-static TERMCORE_RETURN sendGridRequest(const GridInfo &grid)
+static int send_grid_request(const GridInfo &grid)
 {
 	if (!enterCriticalSection(CS_HOST_REQ)){
 		log_err(LOG_REENTRANCE);
 		return TC_REENTRANT;
 	}
-	TERMCORE_RETURN ret = TC_OK;
+	int ret = TC_OK;
 	char req[256];
-	sprintf(req, ASIZE(req), "P55TR(EXP.DATA.MAKET   %-8ls)000000000", grid.name().c_str());
+	snprintf(req, ASIZE(req), "P55TR(EXP.DATA.MAKET   %-8s)000000000", grid.name().c_str());
 	if (inquirer->writeRequest((uint8_t *)req, strlen(req), 0) == InquirerError::OK){
 		TERMCORE_STATE prev_ts = getTermcoreState();
 		setTermcoreState(TS_REQUEST);
 		CwbSdkError cwb_err = cwb_sdk->beginHostRequest(inquirer->req(),
-			inquirer->req_len(), onEndGridRequest);
+			inquirer->req_len(), on_end_grid_request);
 		if (cwb_err == CwbSdkError::OK)
 			grid_req_t0 = GetTickCount();
 		else{
@@ -430,19 +443,19 @@ static TERMCORE_RETURN sendGridRequest(const GridInfo &grid)
 	return ret;
 }
 
-static TERMCORE_RETURN sendGridAutoRequest()
+static int send_grid_auto_request()
 {
 	if (!enterCriticalSection(CS_HOST_REQ)){
 		log_err(LOG_REENTRANCE);
 		return TC_REENTRANT;
 	}
-	TERMCORE_RETURN ret = TC_OK;
+	int ret = TC_OK;
 	uint32_t rt = GetTickCount() - grid_req_t0;
 	if (inquirer->writeRequest(grid_auto_req, grid_auto_req_len, rt) == InquirerError::OK){
 		TERMCORE_STATE prev_ts = getTermcoreState();
 		setTermcoreState(TS_REQUEST);
 		CwbSdkError cwb_err = cwb_sdk->beginHostRequest(inquirer->req(),
-			inquirer->req_len(), onEndGridRequest);
+			inquirer->req_len(), on_end_grid_request);
 		if (cwb_err == CwbSdkError::OK)
 			grid_req_t0 = GetTickCount();
 		else{
@@ -464,7 +477,7 @@ static TERMCORE_RETURN sendGridAutoRequest()
 }
 
 /* Декодирование разметки, распаковка и сохранение в файле на диске */
-static bool storeGrid(const GridInfo &gi)
+static bool store_grid(const GridInfo &gi)
 {
 	log_info("name = %s; id = %hc.", gi.name().c_str(), gi.id());
 	if (grid_buf_idx == 0){
@@ -520,7 +533,7 @@ static bool storeGrid(const GridInfo &gi)
 }
 
 /* Удаление разметки с диска */
-static bool removeGrid(const GridInfo &gi)
+static bool remove_grid(const GridInfo &gi)
 {
 	static char path[PATH_MAX];
 	snprintf(path, ASIZE(path), "%s\\%s.BMP", grid_folder, gi.name().c_str());
@@ -534,15 +547,15 @@ static bool removeGrid(const GridInfo &gi)
 }
 
 /* Загрузка заданной разметки печати из "Экспресс-3" */
-static TERMCORE_RETURN downloadGrid(const GridInfo &gi)
+static int download_grid(const GridInfo &gi)
 {
-	TERMCORE_RETURN ret = TC_OK;
+	int ret = TC_OK;
 	bool flag = false, need_req = true;
 	log_info("Загружаем разметку %s...", gi.name().c_str());
 	grid_buf_idx = 0;
 	for (uint32_t n = 0; need_req; n++){
 		flag = false;
-		ret = (n == 0) ? sendGridRequest(gi) : sendGridAutoRequest();
+		ret = (n == 0) ? send_grid_request(gi) : send_grid_auto_request();
 		if (ret == TC_OK){
 			gridReqWait.wait();
 			if (isTermcoreState(TS_READY) && (grid_buf_idx > 0)){
@@ -550,7 +563,7 @@ static TERMCORE_RETURN downloadGrid(const GridInfo &gi)
 					log_info("Разметка %s получена полностью. Сохраняем в файл...",
 						gi.name().c_str());
 					need_req = false;
-					if (storeGrid(gi))
+					if (store_grid(gi))
 						flag = true;
 				}else
 					flag = true;
@@ -567,10 +580,10 @@ static TERMCORE_RETURN downloadGrid(const GridInfo &gi)
 	return ret;
 }
 
-bool syncGrids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, list<GridInfo> &grids_failed,
+bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, list<GridInfo> &grids_failed,
 	       X3SyncCallback_t cbk)
 {
-	if (!needGridsUpdate()){
+	if (!need_grids_update()){
 		log_info("Обновление разметок не требуется.");
 		return true;
 	}
@@ -587,7 +600,7 @@ bool syncGrids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove,
 		snprintf(txt, ASIZE(txt), "Загрузка разметки %s (%u из %u)",
 			p.name().c_str(), (n + 1), grids_to_create.size());
 		cbk(false, txt);
-		TERMCORE_RETURN rc = downloadGrid(p);
+		int rc = download_grid(p);
 		if (rc == TC_OK)
 			n++;
 		else /*if (inquirer->first_req())*/{
@@ -602,7 +615,7 @@ bool syncGrids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove,
 	if (ok){
 		grids_to_create.assign(_grids_to_create.cbegin(), _grids_to_create.cend());
 		for (const auto &p : grids_to_remove){
-			if (removeGrid(p))
+			if (remove_grid(p))
 				n++;
 			else
 				_grids_to_remove.push_back(p);
@@ -610,7 +623,7 @@ bool syncGrids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove,
 		grids_to_remove.assign(_grids_to_remove.cbegin(), _grids_to_remove.cend());
 	}
 	if (ok && (n > 0))
-		ok = updateXPrnGrids(cbk) && updateKktGrids(cbk);
+		ok = update_xprn_grids(cbk) && update_kkt_grids(cbk);
 	if (ok){
 		if (cbk != NULL)
 			cbk(false, "Разметки успешно загружены");
@@ -621,7 +634,7 @@ bool syncGrids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove,
 }
 
 /* Получение списка разметок из БПУ */
-static bool findXPrnGrids(list<GridInfo> &xprn_grids)
+static bool find_xprn_grids(list<GridInfo> &xprn_grids)
 {
 	bool ret = false;
 	xprn_grids.clear();
@@ -640,14 +653,14 @@ static bool findXPrnGrids(list<GridInfo> &xprn_grids)
 }
 
 /* Создание списка разметок БПУ для загрузки и удаления */
-static void checkXPrnGrids(const list<GridInfo> &stored_grids, list<GridInfo> &grids_to_load,
+static void check_xprn_grids(const list<GridInfo> &stored_grids, list<GridInfo> &grids_to_load,
 	list<GridInfo> &grids_to_erase)
 {
 	grids_to_load.clear();
 	grids_to_erase.clear();
 /* Создаём список разметок в БПУ */
 	list<GridInfo> xprn_grids;
-	if (!findXPrnGrids(xprn_grids))
+	if (!find_xprn_grids(xprn_grids))
 		return;
 /* Ищем разметки для загрузки */
 	log_dbg("Ищем разметки для загрузки...");
@@ -678,7 +691,7 @@ static void checkXPrnGrids(const list<GridInfo> &stored_grids, list<GridInfo> &g
 }
 
 /* Запись заданной разметки в БПУ */
-static bool writeGridToXPrn(const GridInfo &gi)
+static bool write_grid_to_xprn(const GridInfo &gi)
 {
 	if (xprn == NULL)
 		return false;
@@ -699,7 +712,7 @@ static bool writeGridToXPrn(const GridInfo &gi)
 }
 
 /* Удаление заданной разметки из БПУ */
-static bool eraseGridFromXPrn(const GridInfo &gi)
+static bool erase_grid_from_xprn(const GridInfo &gi)
 {
 	if (xprn == NULL)
 		return false;
@@ -720,7 +733,7 @@ static bool eraseGridFromXPrn(const GridInfo &gi)
 }
 
 /* Обновление разметок в БПУ "Видеотон" */
-static bool updateGridsVtsv(const list<GridInfo> &grids_to_load, const list<GridInfo> &grids_to_erase,
+static bool update_grids_vtsv(const list<GridInfo> &grids_to_load, const list<GridInfo> &grids_to_erase,
 	list<GridInfo> &grids_failed, InitializationNotify_t init_notify)
 {
 //	bool ret = true;
@@ -731,8 +744,8 @@ static bool updateGridsVtsv(const list<GridInfo> &grids_to_load, const list<Grid
 		snprintf(txt, ASIZE(txt), "Удаление из БПУ разметки %s (%u из %u)",
 			p.name().c_str(), n++, grids_to_erase.size());
 		init_notify(false, txt);
-		eraseGridFromXPrn(p);
-/*		if (!eraseGridFromXPrn(p)){
+		erase_grid_from_xprn(p);
+/*		if (!erase_grid_from_xprn(p)){
 			ret = false;
 			break;
 		}*/
@@ -745,7 +758,7 @@ static bool updateGridsVtsv(const list<GridInfo> &grids_to_load, const list<Grid
 		snprintf(txt, ASIZE(txt), "Загрузка в БПУ разметки %s (%u из %u)",
 			p.name().c_str(), n++, grids_to_load.size());
 		init_notify(false, txt);
-		if (!writeGridToXPrn(p))
+		if (!write_grid_to_xprn(p))
 			grids_failed.push_back(p);
 /*		{
 			ret = false;
@@ -756,7 +769,7 @@ static bool updateGridsVtsv(const list<GridInfo> &grids_to_load, const list<Grid
 	log_info("Проверяем записанные разметки...");
 	Sleep(3000);
 	list<GridInfo> xprn_grids;
-	if (!findXPrnGrids(xprn_grids))
+	if (!find_xprn_grids(xprn_grids))
 		return false;
 	bool ok = true;
 	for (const auto &p : grids_to_load){
@@ -782,7 +795,7 @@ static bool updateGridsVtsv(const list<GridInfo> &grids_to_load, const list<Grid
 }
 
 /* Обновление разметок в БПУ "СПЕКТР-ДС" */
-static bool updateGridsSPrn(const list<GridInfo> &stored_grids, list<GridInfo> &grids_failed,
+static bool update_grids_sprn(const list<GridInfo> &stored_grids, list<GridInfo> &grids_failed,
 	InitializationNotify_t init_notify)
 {
 /* Сначала удаляем все разметки из БПУ */
@@ -805,7 +818,7 @@ static bool updateGridsSPrn(const list<GridInfo> &stored_grids, list<GridInfo> &
 		snprintf(txt, ASIZE(txt), "Загрузка в БПУ разметки %s (%u из %u)",
 			p.name().c_str(), n++, stored_grids.size());
 		init_notify(false, txt);
-		if (!writeGridToXPrn(p))
+		if (!write_grid_to_xprn(p))
 			grids_failed.push_back(p);
 /*		{
 			ret = false;
@@ -816,7 +829,7 @@ static bool updateGridsSPrn(const list<GridInfo> &stored_grids, list<GridInfo> &
 }
 
 /* Обновление разметок в БПУ */
-bool updateXPrnGrids(InitializationNotify_t init_notify)
+bool update_xprn_grids(InitializationNotify_t init_notify)
 {
 	if (xprn == NULL){
 		log_err("БПУ отсутствует.");
@@ -826,13 +839,13 @@ bool updateXPrnGrids(InitializationNotify_t init_notify)
 	init_notify(false, "Обновление разметок в БПУ");
 	Sleep(100);
 	list<GridInfo> stored_grids, grids_to_load, grids_to_erase;
-	findStoredGridsXPrn(stored_grids);
-	checkXPrnGrids(stored_grids, grids_to_load, grids_to_erase);
+	find_stored_grids_xprn(stored_grids);
+	check_xprn_grids(stored_grids, grids_to_load, grids_to_erase);
 	if (!grids_to_load.empty() || !grids_to_erase.empty()){
 		if (xprn->type() == XPrnType::Videoton)
-			ret = updateGridsVtsv(grids_to_load, grids_to_erase, grids_failed_xprn, init_notify); 
+			ret = update_grids_vtsv(grids_to_load, grids_to_erase, grids_failed_xprn, init_notify); 
 		else if (xprn->type() == XPrnType::Spectrum)
-			ret = updateGridsSPrn(stored_grids, grids_failed_xprn, init_notify);
+			ret = update_grids_sprn(stored_grids, grids_failed_xprn, init_notify);
 	}else
 		ret = true;
 	if (!ret && !isTermcoreState(TS_INIT)){
@@ -849,7 +862,7 @@ bool updateXPrnGrids(InitializationNotify_t init_notify)
 }
 
 /* Получение списка разметок из ККТ */
-static bool findKktGrids(list<GridInfo> &kkt_grids)
+static bool find_kkt_grids(list<GridInfo> &kkt_grids)
 {
 	bool ret = false;
 	kkt_grids.clear();
@@ -868,14 +881,14 @@ static bool findKktGrids(list<GridInfo> &kkt_grids)
 }
 
 /* Создание списка разметок ККТ для загрузки и удаления */
-static void checkKktGrids(const list<GridInfo> &stored_grids, list<GridInfo> &grids_to_load,
+static void check_kkt_grids(const list<GridInfo> &stored_grids, list<GridInfo> &grids_to_load,
 	list<GridInfo> &grids_to_erase)
 {
 	grids_to_load.clear();
 	grids_to_erase.clear();
 /* Создаём список разметок в ККТ */
 	list<GridInfo> kkt_grids;
-	if (!findKktGrids(kkt_grids))
+	if (!find_kkt_grids(kkt_grids))
 		return;
 /* Ищем разметки для загрузки */
 	log_dbg("Ищем разметки для загрузки...");
@@ -906,7 +919,7 @@ static void checkKktGrids(const list<GridInfo> &stored_grids, list<GridInfo> &gr
 }
 
 /* Запись заданной разметки в ККТ */
-static bool writeGridToKkt(const GridInfo &gi)
+static bool write_grid_to_kkt(const GridInfo &gi)
 {
 	if (kkt == NULL)
 		return false;
@@ -927,7 +940,7 @@ static bool writeGridToKkt(const GridInfo &gi)
 }
 
 /* Обновление разметок в ККТ "СПЕКТР-Ф" */
-static bool updateGridsKkt(const list<GridInfo> &stored_grids, list<GridInfo> &grids_failed,
+static bool update_grids_kkt(const list<GridInfo> &stored_grids, list<GridInfo> &grids_failed,
 	InitializationNotify_t init_notify)
 {
 /* Сначала удаляем все разметки из ККТ */
@@ -953,7 +966,7 @@ static bool updateGridsKkt(const list<GridInfo> &stored_grids, list<GridInfo> &g
 		snprintf(txt, ASIZE(txt), "Загрузка в ККТ разметки %s (%u из %u)",
 			p.name().c_str(), n++, stored_grids.size());
 		init_notify(false, txt);
-		if (!writeGridToKkt(p))
+		if (!write_grid_to_kkt(p))
 			grids_failed.push_back(p);
 	}
 	kkt->endBatchMode();
@@ -961,7 +974,7 @@ static bool updateGridsKkt(const list<GridInfo> &stored_grids, list<GridInfo> &g
 }
 
 /* Обновление разметок в ККТ */
-bool updateKktGrids(InitializationNotify_t init_notify)
+bool update_kkt_grids(InitializationNotify_t init_notify)
 {
 	log_info("kkt = %p.", kkt);
 	if (kkt == NULL)
@@ -970,10 +983,10 @@ bool updateKktGrids(InitializationNotify_t init_notify)
 	init_notify(false, "Обновление разметок в ККТ");
 	Sleep(100);
 	list<GridInfo> stored_grids, grids_to_load, grids_to_erase;
-	findStoredGridsKkt(stored_grids);
-	checkKktGrids(stored_grids, grids_to_load, grids_to_erase);
+	find_stored_grids_kkt(stored_grids);
+	check_kkt_grids(stored_grids, grids_to_load, grids_to_erase);
 	if (!grids_to_load.empty() || !grids_to_erase.empty())
-		ret = updateGridsKkt(stored_grids, grids_failed_kkt, init_notify);
+		ret = update_grids_kkt(stored_grids, grids_failed_kkt, init_notify);
 	else
 		ret = true;
 	if (!ret && !isTermcoreState(TS_INIT)){

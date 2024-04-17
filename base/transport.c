@@ -38,7 +38,7 @@ uint8_t resp_buf[RESP_BUF_LEN];
 /* Длина ответа */
 int resp_len = 0;
 /* Ответ получен полностью */
-static bool full_resp;
+bool full_resp;
 /* Смещение начала прикладного ответа */
 int text_offset = 0;
 /* Длина прикладного ответа */

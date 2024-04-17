@@ -2,11 +2,7 @@
 
 #pragma once
 
-#include <boost/container/list.hpp>
-using boost::container::list;
-#include <boost/container/string.hpp>
-using boost::container::string;
-#include "sysdefs.h"
+#include "x3data/boost.h"
 
 typedef void (*InitializationNotify_t)(bool done, const char *message);
 typedef void (*X3SyncCallback_t)(bool done, const char *message);
@@ -97,25 +93,25 @@ extern list<GridInfo> grids_to_create_kkt;
 extern list<GridInfo> grids_to_remove_kkt;
 extern list<GridInfo> grids_failed_kkt;
 
-extern void clrGridLists(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove);
+extern void clr_grid_lists(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove);
 
-static inline void clrGridListsXPrn()
+static inline void clr_grid_lists_xprn()
 {
-	clrGridLists(grids_to_create_xprn, grids_to_remove_xprn);
+	clr_grid_lists(grids_to_create_xprn, grids_to_remove_xprn);
 }
 
-static inline void clrGridListsKkt()
+static inline void clr_grid_lists_kkt()
 {
-	clrGridLists(grids_to_create_kkt, grids_to_remove_kkt);
+	clr_grid_lists(grids_to_create_kkt, grids_to_remove_kkt);
 }
 
-static inline void clrGridLists()
+static inline void clr_grid_lists()
 {
-	clrGridListsXPrn();
-	clrGridListsKkt();
+	clr_grid_lists_xprn();
+	clr_grid_lists_kkt();
 }
 
-extern bool needGridsUpdate(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove);
+extern bool need_grids_update(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove);
 
 static inline bool needGridsUpdateXPrn()
 {
@@ -127,28 +123,28 @@ static inline bool needGridsUpdateKkt()
 	return !grids_to_create_kkt.empty() || !grids_to_remove_kkt.empty();
 }
 
-static inline bool needGridsUpdate()
+static inline bool need_grids_update()
 {
 	return needGridsUpdateXPrn() || needGridsUpdateKkt();
 }
 
-extern void checkStoredGrids(const list<GridInfo> &x3_grids,
+extern void check_stored_grids(const list<GridInfo> &x3_grids,
 	list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, bool (*find_fn)(list<GridInfo> &));
-extern void checkStoredGridsXPrn(const list<GridInfo> &x3_grids);
-extern void checkStoredGridsKkt(const list<GridInfo> &x3_grids);
-extern bool checkX3Grids(const uint8_t * data, size_t len, list<GridInfo> &x3_grids_xprn, list<GridInfo> &x3_grids_kkt);
-extern bool syncGrids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, list<GridInfo> &grids_failed,
+extern void check_stored_grids_xprn(const list<GridInfo> &x3_grids);
+extern void check_stored_grids_kkt(const list<GridInfo> &x3_grids);
+extern bool check_x3_grids(const uint8_t * data, size_t len, list<GridInfo> &x3_grids_xprn, list<GridInfo> &x3_grids_kkt);
+extern bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, list<GridInfo> &grids_failed,
 	X3SyncCallback_t cbk);
 
-static inline bool syncGridsXPrn(X3SyncCallback_t cbk)
+static inline bool sync_grids_xprn(X3SyncCallback_t cbk)
 {
-	return syncGrids(grids_to_create_xprn, grids_to_remove_xprn, grids_failed_xprn, cbk);
+	return sync_grids(grids_to_create_xprn, grids_to_remove_xprn, grids_failed_xprn, cbk);
 }
 
-static inline bool syncGridsKkt(X3SyncCallback_t cbk)
+static inline bool sync_grids_kkt(X3SyncCallback_t cbk)
 {
-	return syncGrids(grids_to_create_kkt, grids_to_remove_kkt, grids_failed_kkt, cbk);
+	return sync_grids(grids_to_create_kkt, grids_to_remove_kkt, grids_failed_kkt, cbk);
 }
 
-extern bool updateXPrnGrids(InitializationNotify_t init_notify);
-extern bool updateKktGrids(InitializationNotify_t init_notify);
+extern bool update_xprn_grids(InitializationNotify_t init_notify);
+extern bool update_kkt_grids(InitializationNotify_t init_notify);

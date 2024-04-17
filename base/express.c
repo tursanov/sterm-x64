@@ -30,33 +30,6 @@
 static uint32_t log_number;		/* номер текущей записи на КЛ при обработке ответа */
 uint32_t log_para = 0;			/* номер абзаца ответа на ЦКЛ при обработке ответа */
 
-extern uint8_t text_buf[TEXT_BUF_LEN];
-extern uint8_t *err_ptr;
-extern int ecode;
-extern struct para_info map[MAX_PARAS + 1];
-extern int n_paras;
-extern int cur_para;
-extern struct hash *rom;
-extern struct hash *prom;
-extern bool can_reject;
-extern bool resp_handling;
-extern bool resp_executing;
-extern bool resp_printed;
-extern bool has_bank_data;
-extern bool has_kkt_data;
-
-extern int astate_for_req;
-
-extern uint8_t n2hbyte(int n);
-extern void show_error(void);
-extern void show_dest(int dst);
-extern void show_ndest(int n);
-extern bool term_delay(int d);
-extern void show_req(void);
-extern void reject_req(void);
-extern void switch_term_mode(void);
-extern void send_request(void);
-
 /* Описание кода синтаксической ошибки ответа */
 const char *get_syntax_error_txt(uint8_t code)
 {
@@ -2295,8 +2268,6 @@ static void execute_kkt(struct para_info *pi __attribute__((unused)), int len)
 	text_buf[len] = 0;
 	parse_kkt_xml((const char *)text_buf, false, kkt_xml_callback, &err);
 }
-
-extern void show_llog(void);
 
 /* Получение информации банковского абзаца во время обработки ответа */
 const struct bank_info *get_bi(void)

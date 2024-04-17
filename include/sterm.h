@@ -168,14 +168,46 @@ extern bool apc;
 
 extern uint16_t	term_check_sum;	/* контрольная сумма терминала */
 extern time_t	time_delta;	/* Tхост - Tтерм. */
+extern uint8_t	hbyte;		/* H-байт */
 extern int	_term_state;
 extern int	_term_aux_state;
+extern bool	full_resp;	/* флаг прихода ответа от хост-ЭВМ */
+extern bool	rejecting_req;	/* был послан запрос с отказом от заказа */
 extern bool	online;		/* флаг возможности гашения экрана */
-extern uint8_t	hbyte;		/* H-байт */
-extern bool	resp_executing;
+extern bool	into_on_response;	/* используется в show_error */
 /* Устанавливается при выводе на экран сообщений об ошибках ППУ */
 extern bool	lprn_error_shown;
 
+extern uint8_t	text_buf[TEXT_BUF_LEN];
+extern uint8_t *err_ptr;
+extern int	ecode;
+extern struct para_info map[MAX_PARAS + 1];
+extern int	n_paras;
+extern int	cur_para;
+
+extern struct hash *rom;
+extern struct hash *prom;
+
+extern bool	can_reject;
+extern bool	resp_handling;
+extern bool	resp_executing;
+extern bool	resp_printed;
+
+extern bool	has_bank_data;
+extern bool	has_kkt_data;
+
+extern int	astate_for_req;
+
+extern uint8_t	n2hbyte(int n);
+extern void	show_error(void);
+extern void	show_dest(int dst);
+extern void	show_ndest(int n);
+extern bool	term_delay(int d);
+extern void	show_req(void);
+extern void	reject_req(void);
+extern void	switch_term_mode(void);
+extern void	send_request(void);
+extern void	show_llog(void);
 extern bool	push_term_info(void);
 extern bool	pop_term_info(void);
 extern int	get_key_type(void);
@@ -188,6 +220,8 @@ extern bool	set_term_state(int st);
 extern bool	set_term_astate(int ast);
 extern bool	set_term_led(char c);
 extern void	guess_term_state(void);
+extern void	scr_wakeup(void);
+extern void	release_garbage(void);
 extern void	redraw_term(bool show_text, const char *title);
 extern bool	kbd_alive(struct kbd_event *e);
 extern int	get_cmd(bool check_scr, bool busy);

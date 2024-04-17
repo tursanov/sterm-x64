@@ -143,13 +143,12 @@ bool resp_printed = false;		/* при обработке ответа выполнялась печать на БПУ */
 bool has_bank_data = false;		/* в ответе есть данные для ИПТ */
 bool has_kkt_data = false;		/* в ответе есть данные для ККТ */
 
-static bool full_resp;			/* флаг прихода ответа от хост-ЭВМ */
-static bool rejecting_req;		/* был послан запрос с отказом от заказа */
+bool full_resp;				/* флаг прихода ответа от хост-ЭВМ */
+bool rejecting_req;			/* был послан запрос с отказом от заказа */
 bool online = true;			/* флаг возможности гашения экрана */
 static int prev_s_state;		/* используется при работе с окном настроек */
 
-/* Используется в show_error */
-static bool into_on_response;
+bool into_on_response;			/* используется в show_error */
 
 /* Устанавливается при выводе на экран сообщений об ошибках ППУ */
 bool lprn_error_shown = false;
@@ -789,7 +788,7 @@ void redraw_term(bool show_text, const char *title)
 }
 
 /* Восстановление экрана после гашения */
-static void scr_wakeup(void)
+void scr_wakeup(void)
 {
 	kbd_reset_idle_interval();
 	release_ssaver();
@@ -798,7 +797,7 @@ static void scr_wakeup(void)
 }
 
 /* Закрытие ненужных окон при сбросе */
-static void release_garbage(void)
+void release_garbage(void)
 {
 	if (menu_active || lprn_menu_active){
 		release_menu(mnu, true);
@@ -844,7 +843,7 @@ static void release_garbage(void)
 }
 
 /* Получение заголовка главного окна терминала */
-char *get_main_title(void)
+static char *get_main_title(void)
 {
 	snprintf(main_title, sizeof(main_title), MAIN_TITLE " ("
 		_s(STERM_VERSION_MAJOR) "."
