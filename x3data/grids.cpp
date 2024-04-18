@@ -289,14 +289,13 @@ static size_t grid_buf_idx = 0;
 
 static uint32_t grid_req_t0 = 0;
 
-static const uint8_t *grid_auto_req = NULL;
+static uint8_t grid_auto_req[OUT_BUF_LEN];
 static size_t grid_auto_req_len = 0;
 
 static X3SyncCallback_t grid_sync_cbk = NULL;
 
 static void on_end_grid_request(void)
 {
-	grid_auto_req = NULL;
 	grid_auto_req_len = 0;
 	static char err_msg[1024];
 	err_msg[0] = 0;
@@ -308,6 +307,7 @@ static void on_end_grid_request(void)
 	release_garbage();
 	resp_handling = true;
 	clear_hash(prom);
+	int ecode = E_OK;
 	err_ptr = check_syntax(resp_buf + text_offset, text_len, &ecode);
 	if (err_ptr == NULL){	/* начинаем обработку ответа */
 		CLR_FLAG(ZBp, GDF_REQ_SYNTAX);
@@ -318,95 +318,53 @@ static void on_end_grid_request(void)
 		delayed_init = false;
 		rejecting_req = false;
 		n_paras = make_resp_map();
-		if (TST_FLAG(ZBp, GDF_REQ_FOREIGN)){	/* эта проверка является избыточной */
-			err_beep();
-			set_term_state(st_fresp);
-			mark_all();
-		}else{
-			set_term_busy(true);
-			set_term_state(st_resp);
-#if 0
-				UINT idx = 0;
-				uint32_t rt = GetTickCount() - grid_req_t0;
-				try {
-					log_info("Начинаем синтаксический разбор ответа.");
-					bool has_tprn = cfg->has_tprn();
-					cfg->set_has_tprn(true);
-					rsp->parse(inquirer->resp(), idx, inquirer->resp_len(), rt);
-					cfg->set_has_tprn(has_tprn);
-					cfg->clrChanged();
-					log_info("Ответ разобран.");
-					const uint8_t *grid = NULL, req = NULL;
-					size_t grid_len = 0, req_len = 0;
-					if (rsp->getPicData(grid, grid_len, req, req_len)){
-						log_info("Обнаружены данные разметки (%d байт).", grid_len);
-						if (grid_len > (ASIZE(grid_buf) - grid_buf_idx)){
-							snprintf(err_msg, ASIZE(err_msg),
-								"Переполнение буфера данных разметки.");
-							non_grid_resp = 1;
-						}else if (grid_len > 0){
-							memcpy(grid_buf + grid_buf_idx, grid, grid_len);
-							grid_buf_idx += grid_len;
-							if ((req != NULL) && (req_len > 0)){
-								log_info("Обнаружен автозапрос (%d байт).", req_len);
-								grid_auto_req = req;
-								grid_auto_req_len = req_len;
-							}
-						}else{
-							snprintf(err_msg, ASIZE(err_msg),
-								"Получены данные разметки нулевой длины.");
-							non_grid_resp = 1;
-						}
-					}else{
-						snprintf(err_msg, ASIZE(err_msg),
-							"Не найдены данные разметки.");
-						non_grid_resp = 2;
+		set_term_busy(true);
+		set_term_state(st_resp);
+		int grid_para = -1, req_para = -1;
+		size_t grid_len = 0, req_len = 0;
+		if (find_pic_data(&grid_para, &req_para) && (grid_para != -1)){
+			grid_len = handle_para(grid_para);
+			log_info("Обнаружены данные разметки (абзац #%d; %zd байт).",
+			grid_para + 1, grid_len);
+			if (grid_len > (ASIZE(grid_buf) - grid_buf_idx)){
+				snprintf(err_msg, ASIZE(err_msg), "Переполнение буфера данных разметки.");
+				non_grid_resp = 1;
+			}else if (grid_len > 0){
+				memcpy(grid_buf + grid_buf_idx, text_buf, grid_len);
+				grid_buf_idx += grid_len;
+				if (req_para != -1){
+					req_len = handle_para(req_para);
+					if (req_len > 0){
+						log_info("Обнаружен автозапрос (абзац %d; %zd байт).",
+							req_para + 1, req_len);
+						memcpy(grid_auto_req, text_buf, req_len);
+						grid_auto_req_len = req_len;
 					}
-				} catch (SYNTAX_ERROR e){
-					snprintf(err_msg, ASIZE(err_msg),
-						"Синтаксическая ошибка ответа %s по смещению %d (0x%.4X).",
-						X3Response::getErrorName(e), idx, idx);
-					inquirer->ZBp().setSyntaxError();
-					non_grid_resp = 1;
 				}
+			}else{
+				snprintf(err_msg, ASIZE(err_msg), "Получены данные разметки нулевой длины.");
+				non_grid_resp = 1;
 			}
-		}else if (inq_err == InquirerError::ForeignResp){
-			const uint8_t *addr = cwb_sdk->resp() + 4;
-			snprintf(err_msg, ASIZE(err_msg),
-				"Получен ответ для другого терминала (%.2hX:%.2hX).", (uint16_t)addr[0], (uint16_t)addr[1]);
-			xlog->writeForeign(0, addr[0], addr[1]);
-			non_grid_resp = 1;
 		}else{
-			snprintf(err_msg, ASIZE(err_msg), "Ошибка сеансового уровня: %s.",
-				inquirer->error_str(inq_err));
-			non_grid_resp = 1;
+			snprintf(err_msg, ASIZE(err_msg), "Не найдены данные разметки.");
+			non_grid_resp = 2;
 		}
 	}else{
-		snprintf(err_msg, ASIZE(err_msg), "Ошибка SDK РМК: %s", cwb_sdk->error_msg().c_str());
+		snprintf(err_msg, ASIZE(err_msg), "Синтаксическая ошибка ответа %s по смещению %zx.",
+			get_syntax_error_txt(ecode), err_ptr - resp_buf - text_offset);
 		non_grid_resp = 1;
-#endif
-		}
 	}
 	if (err_msg[0] != 0){
 		log_err(err_msg);
 		grid_buf_idx = 0;
 //		termcore_callbacks.callMessageBox("ОШИБКА", err_msg);
-/*		clr_grid_lists();
-		clrIconLists();*/
 	}
-/*	if (!isTermcoreState(TS_CLOSE_WAIT)){
-		if (non_grid_resp){
-			if (grid_sync_cbk != NULL)
-				grid_sync_cbk(true, NULL);
-			if (non_grid_resp == 2){
-				setTermcoreState(TS_RESPONSE);
-				handleResp(rsp.get());
-			}
-		}else
-			setTermcoreState(TS_READY);
+	if (non_grid_resp){
+		if (grid_sync_cbk != NULL)
+			grid_sync_cbk(true, NULL);
+		if (non_grid_resp == 2)
+			execute_resp();
 	}
-	processExitFlag();
-	gridReqWait.stop();*/
 }
 
 static int send_grid_request(const GridInfo &grid)

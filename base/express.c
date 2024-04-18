@@ -2284,6 +2284,32 @@ const struct bank_info *get_bi(void)
 	return ret;
 }
 
+/* Получение данных изображения для БПУ */
+bool find_pic_data(int *data, int *req)
+{
+	bool ret = false;
+	*data = *req = -1;
+	int n = 0, m = 0, pic_para = -1, req_para = -1;
+	for (int i = 0; i < n_paras; i++){
+		if (map[i].dst == dst_tprn){
+			if (++n > 1)
+				break;
+			pic_para = i;
+		}else if (map[i].dst == dst_out){
+			if (++m > 1)
+				break;
+			req_para = i;
+		}
+	}
+	if ((n == 1) && (pic_para != -1)){
+		*data = pic_para;
+		ret = true;
+	}
+	if ((m == 1) && (req_para != -1))
+		*req = req_para;
+	return ret;
+}
+
 /* Обработка текста ответа. Возвращает false, если надо перейти к ОЗУ заказа */
 bool execute_resp(void)
 {

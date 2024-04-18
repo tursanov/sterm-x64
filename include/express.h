@@ -19,6 +19,7 @@
 #define X_SCR		0x49	/* I абзац для отображения на экране */
 #define X_KEY		0x4b	/* K абзац для ОЗУ ключей */
 #define X_XPRN		0x4d	/* M абзац для ОПУ */
+#define X_TPRN		X_XPRN	/* M абзац для ТПУ */
 #define X_ROM		0x4e	/* N абзац для ОЗУ констант (ПЗУ) */
 #define X_QOUT		0x4f	/* O абзац для ОЗУ заказа без отображения на экране */
 #define X_LPRN		0x50	/* P абзац для ППУ */
@@ -96,6 +97,7 @@ enum {
 	dst_sys,	/*  1 */
 	dst_text,	/*  2 */
 	dst_xprn,	/*  3 ОПУ */
+	dst_tprn = dst_xprn,
 	dst_aprn,	/*  4 ДПУ */
 	dst_lprn,	/*  5 ППУ */
 	dst_out,	/*  6 */
@@ -170,7 +172,7 @@ extern int next_printable(void);
 extern bool is_rstatus_error_msg(void);
 
 /* Проверка синтаксиса ответа */
-extern uint8_t *check_syntax(uint8_t *txt,int l,int *ecode);
+extern uint8_t *check_syntax(uint8_t *txt, int l, int *ecode);
 /* Проверка ответа, введенного вручную, а также ОЗУ ключей */
 extern bool check_raw_resp(void);
 
@@ -179,6 +181,9 @@ extern int handle_para(int n_para);
 
 /* Получение информации банковского абзаца во время обработки ответа */
 extern const struct bank_info *get_bi(void);
+
+/* Получение данных изображения для БПУ */
+extern bool find_pic_data(int *data, int *req);
 
 /* Обработка текста ответа. Возвращает false, если надо перейти к ОЗУ заказа */
 extern bool execute_resp(void);
