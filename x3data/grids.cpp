@@ -289,7 +289,7 @@ static size_t grid_buf_idx = 0;
 
 static uint32_t grid_req_t0 = 0;
 
-static uint8_t grid_auto_req[OUT_BUF_LEN];
+static uint8_t grid_auto_req[REQ_BUF_LEN];
 static size_t grid_auto_req_len = 0;
 
 static X3SyncCallback_t grid_sync_cbk = NULL;
@@ -367,71 +367,20 @@ static void on_end_grid_request(void)
 	}
 }
 
-static int send_grid_request(const GridInfo &grid)
+static void send_grid_request(const GridInfo &grid)
 {
-	if (!enterCriticalSection(CS_HOST_REQ)){
-		log_err(LOG_REENTRANCE);
-		return TC_REENTRANT;
-	}
-	int ret = TC_OK;
-	char req[256];
-	snprintf(req, ASIZE(req), "P55TR(EXP.DATA.MAKET   %-8s)000000000", grid.name().c_str());
-	if (inquirer->writeRequest((uint8_t *)req, strlen(req), 0) == InquirerError::OK){
-		TERMCORE_STATE prev_ts = getTermcoreState();
-		setTermcoreState(TS_REQUEST);
-		CwbSdkError cwb_err = cwb_sdk->beginHostRequest(inquirer->req(),
-			inquirer->req_len(), on_end_grid_request);
-		if (cwb_err == CwbSdkError::OK)
-			grid_req_t0 = GetTickCount();
-		else{
-			setTermcoreState(prev_ts);
-			if (cwb_err == CwbSdkError::Cwb)
-				log_err("Ошибка SDK РМК: %s.", cwb_sdk->error_msg().c_str());
-			else
-				log_err("Ошибка взаимодействия с SDK РМК: %s.",
-					(cwb_sdk->error() == CwbSdkError::OK) ? CwbSdk::error_msg(cwb_err) : cwb_sdk->error_msg().c_str());
-			ret = TC_CWB_FAULT;
-		}
-		processExitFlag();
-	}else{
-		log_err("Ошибка создания запроса для получения разметки.");
-		ret = TC_INVALID_REQ;
-	}
-	leaveCriticalSection(CS_HOST_REQ);
-	return ret;
+	req_len = get_req_offset();
+	req_len += snprintf((char *)req_buf + req_len, ASIZE(req_buf) - req_len,
+		"P55TR(EXP.DATA.MAKET   %-8s)000000000", grid.name().c_str());
+	wrap_text();
 }
 
-static int send_grid_auto_request()
+static void send_grid_auto_request()
 {
-	if (!enterCriticalSection(CS_HOST_REQ)){
-		log_err(LOG_REENTRANCE);
-		return TC_REENTRANT;
-	}
-	int ret = TC_OK;
-	uint32_t rt = GetTickCount() - grid_req_t0;
-	if (inquirer->writeRequest(grid_auto_req, grid_auto_req_len, rt) == InquirerError::OK){
-		TERMCORE_STATE prev_ts = getTermcoreState();
-		setTermcoreState(TS_REQUEST);
-		CwbSdkError cwb_err = cwb_sdk->beginHostRequest(inquirer->req(),
-			inquirer->req_len(), on_end_grid_request);
-		if (cwb_err == CwbSdkError::OK)
-			grid_req_t0 = GetTickCount();
-		else{
-			setTermcoreState(prev_ts);
-			if (cwb_err == CwbSdkError::Cwb)
-				log_err("Ошибка SDK РМК: %s.", cwb_sdk->error_msg().c_str());
-			else
-				log_err("Ошибка взаимодействия с SDK РМК: %s.",
-					(cwb_sdk->error() == CwbSdkError::OK) ? CwbSdk::error_msg(cwb_err) : cwb_sdk->error_msg().c_str());
-			ret = TC_CWB_FAULT;
-		}
-		processExitFlag();
-	}else{
-		log_err("Ошибка создания запроса для получения разметки.");
-		ret = TC_INVALID_REQ;
-	}
-	leaveCriticalSection(CS_HOST_REQ);
-	return ret;
+	req_len = get_req_offset();
+	memcpy(req_buf + req_len, grid_auto_req, grid_auto_req_len);	/* FIXME */
+	req_len += grid_auto_req_len;
+	wrap_text();
 }
 
 /* Декодирование разметки, распаковка и сохранение в файле на диске */
@@ -449,7 +398,7 @@ static bool store_grid(const GridInfo &gi)
 	}
 	BITMAPFILEHEADER bmp_hdr;
 	size_t l = sizeof(bmp_hdr);
-	int rc = uncompress((LPBYTE)&bmp_hdr, &l, grid_buf, len);
+	int rc = uncompress((uint8_t *)&bmp_hdr, &l, grid_buf, len);
 	if ((rc != Z_OK) && (rc != Z_BUF_ERROR)){
 		log_err("Ошибка распаковки (%d).", rc);
 		return false;
