@@ -1866,12 +1866,14 @@ static void sync_date(void)
 	}
 }
 
+extern bool find_x3_grids(const uint8_t *data, size_t len);
+
 /* Предварительная обработка ответа */
 static void preexecute_resp(void)
 {
 	int i, l, transition_flag = 0;
-	bool no_print = true;
-	if (TST_FLAG(ZBp, GDF_REQ_INIT)){
+	bool no_print = true, init = TST_FLAG(ZBp, GDF_REQ_INIT);
+	if (init){
 		sync_date();
 		if (!resp_executing)
 			return;
@@ -1948,8 +1950,14 @@ static void preexecute_resp(void)
 				}
 				break;
 			case dst_text:
+				if (init){
+					printf("%s: find_x3_grids; i = %d; l = %d\n", __func__, i, l);
+					bool rc = find_x3_grids(text_buf, l);
+					printf("%s: find_x3_grids returned %d\n", __func__, rc);
+				}
 				if (transition_flag != -1)
 					transition_flag++;
+				break;
 		}
 	}
 	if (no_print && TST_FLAG(ZBp, GDF_REQ_APP)){

@@ -3,6 +3,10 @@
 #if !defined LICSIG_H
 #define LICSIG_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include <stdlib.h>
 #include "sysdefs.h"
 
@@ -30,5 +34,9 @@ extern bool check_lic_signature(off_t offs, uint16_t sig);
 extern bool write_lic_signature(off_t offs, uint16_t sig);
 /* Очистка признака удаления лицензии */
 extern bool clear_lic_signature(off_t offs, uint16_t sig);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* LICSIG_H */

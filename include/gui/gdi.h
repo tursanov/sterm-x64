@@ -1,6 +1,10 @@
 #ifndef GDI_H
 #define GDI_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "sysdefs.h"
 #include "gui/metrics.h"
 
@@ -263,5 +267,9 @@ typedef struct
 extern Color* symbol_palette;
 /* Рисование строки с атрибутами */
 void draw_rich_text(GCPtr pGC, int x, int y, rich_text_t *text);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif	/* GDI_H */

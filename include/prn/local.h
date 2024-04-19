@@ -3,6 +3,10 @@
 #if !defined PRN_LOCAL_H
 #define PRN_LOCAL_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "prn/express.h"
 #include "cfg.h"
 #include "gd.h"
@@ -139,6 +143,10 @@ extern struct lprn_error_txt *lprn_get_sd_error_txt(uint8_t code);
 
 #if defined __LOG_LPRN__
 extern bool lprn_create_log(void);
+#endif
+
+#if defined __cplusplus
+}
 #endif
 
 #endif		/* PRN_LOCAL_H */

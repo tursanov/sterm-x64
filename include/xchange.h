@@ -3,6 +3,10 @@
 #if !defined XCHANGE_H
 #define XCHANGE_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "genfunc.h"
 
 /* Максимальная длина блока данных в журнале */
@@ -28,5 +32,9 @@ struct xlog_item {
 extern bool xlog_add_item(uint8_t *data, int len, int dir);
 extern int xlog_count_items(void);
 extern struct xlog_item *xlog_get_item(int index);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* XCHANGE_H */

@@ -1,6 +1,10 @@
 #ifndef CONTROL_H
 #define CONTROL_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "gui/gdi.h"
 
 #define BORDER_WIDTH	2

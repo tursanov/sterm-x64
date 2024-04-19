@@ -1,6 +1,10 @@
 #ifndef lLVFORM_H
 #define LVFORM_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "list.h"
 
 typedef struct lvform_column_t {

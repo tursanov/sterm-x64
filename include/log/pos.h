@@ -6,6 +6,10 @@
 #if !defined LOG_POS_H
 #define LOG_POS_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include <time.h>
 #include "log/generic.h"
 #include "prn/local.h"
@@ -75,5 +79,9 @@ extern bool  plog_read_rec(struct log_handle *hlog, uint32_t index);
 extern bool  plog_print_header(void);
 extern bool  plog_print_footer(void);
 extern bool  plog_print_rec(void);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* LOG_POS_H */

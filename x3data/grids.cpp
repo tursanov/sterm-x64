@@ -1,11 +1,14 @@
 /* Работа с разметками бланков БПУ/ККТ. (c) gsr, 2015-2016, 2019, 2022, 2024 */
 
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <fcntl.h>
 #include <regex.h>
 #include <zlib.h>
 #include "gui/scr.h"
 #include "kkt/cmd.h"
+#include "x3data/bmp.h"
 #include "x3data/grids.h"
 #include "gd.h"
 #include "express.h"
@@ -133,6 +136,7 @@ list<GridInfo> grids_to_remove_xprn;
 list<GridInfo> grids_failed_xprn;
 
 list<GridInfo> grids_to_create_kkt;
+static list<GridInfo>::const_iterator grids_to_create_kkt_ptr = grids_to_create_kkt.cbegin();
 list<GridInfo> grids_to_remove_kkt;
 list<GridInfo> grids_failed_kkt;
 
@@ -270,14 +274,32 @@ bool check_x3_grids(const uint8_t *data, size_t len, list<GridInfo> &x3_grids_xp
 			break;
 		GridInfo gi;
 		if (gi.parse(data + i, len - 1)){
-			if ((gi.prefix() == "HU") || (gi.prefix() == "L"))
+			if ((gi.prefix() == "HU") || (gi.prefix() == "L")){
+				log_dbg("Найдена разметка для БПУ: %s.", gi.name().c_str());
 				x3_grids_xprn.push_back(gi);
-			else if (gi.prefix() == "M")
+			}else if (gi.prefix() == "M"){
+				log_dbg("Найдена разметка для ККТ: %s.", gi.name().c_str());
 				x3_grids_kkt.push_back(gi);
+			}
 		}
 		i += p - (data + i);
 	}
 	return !x3_grids_xprn.empty() || !x3_grids_kkt.empty();
+}
+
+bool find_x3_grids(const uint8_t *data, size_t len)
+{
+	list<GridInfo> xprn_grids, kkt_grids;
+	bool ret = check_x3_grids(data, len, xprn_grids, kkt_grids);
+	if (ret){
+		printf("%s: xprn_grids:\n", __func__);
+		for (const auto &p : xprn_grids)
+			printf("%s\n", p.name().c_str());
+		printf("%s: kkt_grids:\n", __func__);
+		for (const auto &p : kkt_grids)
+			printf("%s\n", p.name().c_str());
+	}
+	return ret;
 }
 
 /* Максимальный размер буфера сжатой разметки */
@@ -287,14 +309,98 @@ static uint8_t grid_buf[MAX_COMPRESSED_GRID_LEN];
 /* Текущий размер принятых данных сжатой разметки */
 static size_t grid_buf_idx = 0;
 
-static uint32_t grid_req_t0 = 0;
-
 static uint8_t grid_auto_req[REQ_BUF_LEN];
 static size_t grid_auto_req_len = 0;
 
 static X3SyncCallback_t grid_sync_cbk = NULL;
 
-static void on_end_grid_request(void)
+static void send_grid_request(const GridInfo &grid)
+{
+	req_len = get_req_offset();
+	req_len += snprintf((char *)req_buf + req_len, ASIZE(req_buf) - req_len,
+		"P55TR(EXP.DATA.MAKET   %-8s)000000000", grid.name().c_str());
+	wrap_text();
+}
+
+static void send_grid_auto_request()
+{
+	req_len = get_req_offset();
+	memcpy(req_buf + req_len, grid_auto_req, grid_auto_req_len);	/* FIXME */
+	req_len += grid_auto_req_len;
+	wrap_text();
+}
+
+/* Декодирование разметки, распаковка и сохранение в файле на диске */
+static bool store_grid(const GridInfo &gi)
+{
+	log_info("path = %s; id = %hc.", gi.name().c_str(), gi.id());
+	if (grid_buf_idx == 0){
+		log_err("Буфер данных пуст.");
+		return false;
+	}
+	size_t len = 0;
+	if (!xbase64_decode(grid_buf, grid_buf_idx, grid_buf, grid_buf_idx, &len) || (len == 0)){
+		log_err("Ошибка декодирования данных.");
+		return false;
+	}
+	BITMAPFILEHEADER bmp_hdr;
+	size_t l = sizeof(bmp_hdr);
+	int rc = uncompress((uint8_t *)&bmp_hdr, &l, grid_buf, len);
+	if ((rc != Z_OK) && (rc != Z_BUF_ERROR)){
+		log_err("Ошибка распаковки (%d).", rc);
+		return false;
+	}else if ((bmp_hdr.bfType != 0x4d42) || (bmp_hdr.bfSize == 0)){
+		log_err("Неверный формат заголовка BMP.");
+		return false;
+	}
+	size_t bmp_len = bmp_hdr.bfSize;
+	if (bmp_len > 262144){
+		log_err("Размер файла BMP (%u) превышает максимально допустимый.", bmp_len);
+		return false;
+	}
+	scoped_ptr<uint8_t> bmp_data(new uint8_t[bmp_len]);
+	rc = uncompress(bmp_data.get(), &bmp_len, grid_buf, len);
+	if (rc != Z_OK){
+		log_err("Ошибка распаковки BMP (%d).", rc);
+		return false;
+	}
+	char path[PATH_MAX];
+	snprintf(path, ASIZE(path), GRIDS_FOLDER "/%s.BMP", gi.name().c_str());
+	int fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH);
+	if (fd == -1){
+		log_sys_err("Ошибка создания файла %s:", path);
+		return false;
+	}
+	bool ret = false;
+	rc = write(fd, bmp_data.get(), bmp_len);
+	if (rc == bmp_len){
+		log_info("Разметка успешно записана в файл %s.", path);
+		ret = true;
+	}else if (rc == -1)
+		log_sys_err("Ошибка записи в файл %s:", path);
+	else
+		log_err("В %s вместо %u записано %d байт.", path, bmp_len, rc);
+	close(fd);
+	if (!ret)
+		unlink(path);
+	return ret;
+}
+
+/* Удаление разметки с диска */
+static bool remove_grid(const GridInfo &gi)
+{
+	static char path[PATH_MAX];
+	snprintf(path, ASIZE(path), GRIDS_FOLDER "/%s.BMP", gi.name().c_str());
+	log_info("Удаляем разметку %s...", path);
+	bool ret = unlink(path) == 0;
+	if (ret)
+		log_info("Разметка %s успешно удалена.", path);
+	else
+		log_sys_err("Ошибка удаления разметки %s:", path);
+	return ret;
+}
+
+void on_end_grid_request(void)
 {
 	grid_auto_req_len = 0;
 	static char err_msg[1024];
@@ -339,7 +445,13 @@ static void on_end_grid_request(void)
 							req_para + 1, req_len);
 						memcpy(grid_auto_req, text_buf, req_len);
 						grid_auto_req_len = req_len;
+						send_grid_auto_request();
 					}
+				}else{
+					log_info("Разметка %s получена полностью. Сохраняем в файл...",
+						grids_to_create_kkt_ptr->name().c_str());
+					store_grid(*grids_to_create_kkt_ptr);
+					grids_to_create_kkt_ptr++;
 				}
 			}else{
 				snprintf(err_msg, ASIZE(err_msg), "Получены данные разметки нулевой длины.");
@@ -367,128 +479,8 @@ static void on_end_grid_request(void)
 	}
 }
 
-static void send_grid_request(const GridInfo &grid)
-{
-	req_len = get_req_offset();
-	req_len += snprintf((char *)req_buf + req_len, ASIZE(req_buf) - req_len,
-		"P55TR(EXP.DATA.MAKET   %-8s)000000000", grid.name().c_str());
-	wrap_text();
-}
-
-static void send_grid_auto_request()
-{
-	req_len = get_req_offset();
-	memcpy(req_buf + req_len, grid_auto_req, grid_auto_req_len);	/* FIXME */
-	req_len += grid_auto_req_len;
-	wrap_text();
-}
-
-/* Декодирование разметки, распаковка и сохранение в файле на диске */
-static bool store_grid(const GridInfo &gi)
-{
-	log_info("name = %s; id = %hc.", gi.name().c_str(), gi.id());
-	if (grid_buf_idx == 0){
-		log_err("Буфер данных пуст.");
-		return false;
-	}
-	size_t len = 0;
-	if (!xbase64Decode(grid_buf, grid_buf_idx, grid_buf, grid_buf_idx, len) || (len == 0)){
-		log_err("Ошибка декодирования данных.");
-		return false;
-	}
-	BITMAPFILEHEADER bmp_hdr;
-	size_t l = sizeof(bmp_hdr);
-	int rc = uncompress((uint8_t *)&bmp_hdr, &l, grid_buf, len);
-	if ((rc != Z_OK) && (rc != Z_BUF_ERROR)){
-		log_err("Ошибка распаковки (%d).", rc);
-		return false;
-	}else if ((bmp_hdr.bfType != 0x4d42) || (bmp_hdr.bfSize == 0)){
-		log_err("Неверный формат заголовка BMP.");
-		return false;
-	}
-	size_t bmp_len = bmp_hdr.bfSize;
-	if (bmp_len > 262144){
-		log_err("Размер файла BMP (%u) превышает максимально допустимый.", bmp_len);
-		return false;
-	}
-	scoped_ptr<uint8_t> bmp_data(new uint8_t[bmp_len]);
-	rc = uncompress(bmp_data.get(), &bmp_len, grid_buf, len);
-	if (rc != Z_OK){
-		log_err("Ошибка распаковки BMP (%d).", rc);
-		return false;
-	}
-	char name[PATH_MAX];
-	snprintf(name, ASIZE(name), "%s\\%s.BMP", grid_folder, gi.name().c_str());
-	int fd = _topen(name, _O_WRONLY | _O_BINARY | _O_TRUNC | _O_CREAT, _S_IWRITE);
-	if (fd == -1){
-		log_sys_err("Ошибка создания файла %s:", name);
-		return false;
-	}
-	bool ret = false;
-	rc = _write(fd, bmp_data.get(), bmp_len);
-	if (rc == bmp_len){
-		log_info("Разметка успешно записана в файл %s.", name);
-		ret = true;
-	}else if (rc == -1)
-		log_sys_err("Ошибка записи в файл %s:", name);
-	else
-		log_err("В %s вместо %u записано %d байт.", name, bmp_len, rc);
-	_close(fd);
-	if (!ret)
-		_tremove(name);
-	return ret;
-}
-
-/* Удаление разметки с диска */
-static bool remove_grid(const GridInfo &gi)
-{
-	static char path[PATH_MAX];
-	snprintf(path, ASIZE(path), "%s\\%s.BMP", grid_folder, gi.name().c_str());
-	log_info("Удаляем разметку %s...", path);
-	bool ret = _tunlink(path) == 0;
-	if (ret)
-		log_info("Разметка %s успешно удалена.", path);
-	else
-		log_sys_err("Ошибка удаления разметки %s:", path);
-	return ret;
-}
-
-/* Загрузка заданной разметки печати из "Экспресс-3" */
-static int download_grid(const GridInfo &gi)
-{
-	int ret = TC_OK;
-	bool flag = false, need_req = true;
-	log_info("Загружаем разметку %s...", gi.name().c_str());
-	grid_buf_idx = 0;
-	for (uint32_t n = 0; need_req; n++){
-		flag = false;
-		ret = (n == 0) ? send_grid_request(gi) : send_grid_auto_request();
-		if (ret == TC_OK){
-			gridReqWait.wait();
-			if (isTermcoreState(TS_READY) && (grid_buf_idx > 0)){
-				if (grid_auto_req_len == 0){
-					log_info("Разметка %s получена полностью. Сохраняем в файл...",
-						gi.name().c_str());
-					need_req = false;
-					if (store_grid(gi))
-						flag = true;
-				}else
-					flag = true;
-			}
-		}
-		if (!flag){
-			if (ret == TC_OK)
-				ret = TC_GRID_LOAD;
-			break;
-		}
-	}
-	if ((ret != TC_OK) && (ret != TS_CLOSE_WAIT))
-		log_err("Ошибка загрузки разметки %s.", gi.name().c_str());
-	return ret;
-}
-
 bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, list<GridInfo> &grids_failed,
-	       X3SyncCallback_t cbk)
+       X3SyncCallback_t cbk)
 {
 	if (!need_grids_update()){
 		log_info("Обновление разметок не требуется.");
@@ -499,21 +491,20 @@ bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove
 	size_t n = 0;
 	grid_sync_cbk = cbk;
 	cbk(false, "Загрузка разметок из \"Экспресс-3\"");
-	Sleep(100);
 	grids_failed.clear();
 	list<GridInfo> _grids_to_create, _grids_to_remove;
 /* Сначала закачиваем новые разметки */
 	for (const auto &p : grids_to_create){
-		snprintf(txt, ASIZE(txt), "Загрузка разметки %s (%u из %u)",
+		snprintf(txt, ASIZE(txt), "Загрузка разметки %s (%zu из %zu)",
 			p.name().c_str(), (n + 1), grids_to_create.size());
 		cbk(false, txt);
-		int rc = download_grid(p);
+/*		int rc = download_grid(p);
 		if (rc == TC_OK)
 			n++;
-		else /*if (inquirer->first_req())*/{
+		else if (inquirer->first_req()){
 			ok = false;
 			break;
-		}/*else{
+		}else{
 			_grids_to_create.push_back(p);
 			grids_failed.push_back(p);
 		}*/
@@ -529,17 +520,18 @@ bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove
 		}
 		grids_to_remove.assign(_grids_to_remove.cbegin(), _grids_to_remove.cend());
 	}
-	if (ok && (n > 0))
-		ok = update_xprn_grids(cbk) && update_kkt_grids(cbk);
+/*	if (ok && (n > 0))
+		ok = update_xprn_grids(cbk) && update_kkt_grids(cbk);*/
 	if (ok){
 		if (cbk != NULL)
 			cbk(false, "Разметки успешно загружены");
-	}else
-		showXPrnPicSyncError(grids_failed_xprn, grids_failed_kkt, icons_failed_xprn, icons_failed_kkt);
+	}/*else
+		showXPrnPicSyncError(grids_failed_xprn, grids_failed_kkt, icons_failed_xprn, icons_failed_kkt);*/
 	grid_sync_cbk = NULL;
 	return ok;
 }
 
+#if 0
 /* Получение списка разметок из БПУ */
 static bool find_xprn_grids(list<GridInfo> &xprn_grids)
 {
@@ -904,3 +896,4 @@ bool update_kkt_grids(InitializationNotify_t init_notify)
 	}
 	return ret;
 }
+#endif

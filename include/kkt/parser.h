@@ -3,6 +3,10 @@
 #if !defined KKT_PARSER_H
 #define KKT_PARSER_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "kkt/kkt.h"
 
 extern uint8_t tx_prefix;
@@ -40,5 +44,9 @@ struct read_doc_tlv_arg {
 typedef bool (*parser_t)();
 
 extern parser_t get_parser(uint8_t prefix, uint8_t cmd);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* KKT_PARSER_H */

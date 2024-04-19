@@ -3,6 +3,10 @@
 #if !defined LOG_KKT_H
 #define LOG_KKT_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include <sys/timeb.h>
 #include <pthread.h>
 #include <time.h>
@@ -94,5 +98,9 @@ extern bool  klog_read_rec(struct log_handle *hlog, uint32_t index);
 extern bool  klog_print_header(void);
 extern bool  klog_print_footer(void);
 extern bool  klog_print_rec(void);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* LOG_KKT_H */

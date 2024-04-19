@@ -3,6 +3,10 @@
 #if !defined LOG_EXPRESS_H
 #define LOG_EXPRESS_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include <time.h>
 #include "log/generic.h"
 #include "blimits.h"
@@ -103,5 +107,9 @@ extern bool  xlog_print_header(void);
 extern bool  xlog_print_footer(void);
 extern bool  xlog_print_rec(void);
 extern bool  xlog_print_llrt_normal(void);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* LOG_EXPRESS_H */

@@ -6,6 +6,10 @@
 #ifndef HELP_H
 #define HELP_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "kbd.h"
 #include "gui/scr.h"
 
@@ -31,5 +35,9 @@ extern bool	hv_end(void);
 extern bool	draw_hlp_lines(void);
 extern bool	draw_hlp_hints(void);
 extern void	print_help(void);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* HELP_H */

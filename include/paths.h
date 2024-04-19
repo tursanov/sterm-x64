@@ -3,6 +3,10 @@
 #if !defined PATHS_H
 #define PATHS_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "config.h"
 
 /* Для удобства указания пути */
@@ -39,5 +43,9 @@
 #define XSLT_FOLDER		_("xslt")
 /* Каталог, в котором хранятся обновления БПУ */
 #define XPRN_FOLDER		_("xprn")
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* PATHS_H */

@@ -1,6 +1,11 @@
 /* Журналы работы приложения. (c) gsr, 2014-2016, 2024 */
 
-#pragma once
+#if !defined TERMLOG_H
+#define TERMLOG_H
+
+#if defined __cplusplus
+extern "C" {
+#endif
 
 #include "sysdefs.h"
 
@@ -28,3 +33,9 @@ extern bool log_internal(int lvl, const char *file, const char *fn, uint32_t lin
 #define LOG_NO_FR		"ККТ отсутствует."
 #define LOG_FR_BUSY		"ККТ занята."
 #define LOG_NO_BNK_BIN		"Банковская корзина отсутствует."
+
+#if defined __cplusplus
+}
+#endif
+
+#endif		/* TERMLOG_H */

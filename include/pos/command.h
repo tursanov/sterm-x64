@@ -3,6 +3,10 @@
 #if !defined POS_COMMAND_H
 #define POS_COMMAND_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "pos/pos.h"
 
 /* Коды команд */
@@ -75,5 +79,9 @@ extern bool pos_req_save_command_request_parameters(struct pos_data_buf *buf);
 extern bool pos_req_save_command_response_parameters(struct pos_data_buf *buf);
 /* Запись команды INIT_CHECK */
 extern bool pos_req_save_command_init_check(struct pos_data_buf *buf);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* POS_COMMAND_H */

@@ -3,6 +3,10 @@
 #if !defined POS_H
 #define POS_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "sysdefs.h"
 
 /* Блок данных для обмена с POS-эмулятором */
@@ -139,5 +143,9 @@ extern int  pos_get_state(void);
 extern void pos_set_state(int st);
 extern void pos_process(void);
 extern bool pos_send_params(void);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* POS_H */

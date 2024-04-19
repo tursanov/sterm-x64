@@ -7,6 +7,10 @@
 #if !defined CFG_H
 #define CFG_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "sterm.h"
 #include "gui/gdi.h"		/* для определения Color */
 
@@ -128,5 +132,9 @@ extern void translate_color_scheme(int scheme,
 		Color *rus, Color *lat, Color *bg);
 /* Определение ip хост-ЭВМ */
 extern uint32_t get_x3_ip(void);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* CFG_H */

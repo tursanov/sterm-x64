@@ -3,6 +3,10 @@
 #if !defined GUI_MENU_H
 #define GUI_MENU_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "sterm.h"
 #include "gui/scr.h"
 
@@ -37,5 +41,9 @@ extern bool		draw_menu(struct menu *mnu);
 extern int		process_menu(struct menu *mnu, struct kbd_event *e);
 extern int		get_menu_command(struct menu *mnu);
 extern int		execute_menu(struct menu *mnu);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* GUI_MENU_H */

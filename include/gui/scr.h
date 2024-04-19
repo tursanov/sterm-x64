@@ -3,6 +3,10 @@
 #ifndef SCR_H
 #define SCR_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "blimits.h"
 #include "kbd.h"
 #include "sterm.h"
@@ -105,5 +109,9 @@ extern bool		quick_astate(int ast);
  * хотя бы один символ.
  */
 extern bool		input_chars(const uint8_t *chars, int len);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* SCR_H */

@@ -6,6 +6,10 @@
 #ifndef COLORTTY_H
 #define COLORTTY_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 /* Атрибуты текста */
 #define ANSI_PREFIX	"\033["
 #define ANSI_SUFFIX	"m"
@@ -91,5 +95,9 @@
 /* Очистка строки после курсора */
 #define CLR_EOL		ANSI_PREFIX "0K"
 #define CLR_SOL		ANSI_PREFIX "1K"
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* COLORTTY_H */

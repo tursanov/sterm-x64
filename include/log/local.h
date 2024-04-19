@@ -6,6 +6,10 @@
 #if !defined LOG_LOCAL_H
 #define LOG_LOCAL_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include <time.h>
 #include "log/generic.h"
 #include "prn/local.h"
@@ -132,5 +136,9 @@ extern bool  llog_print_rec_header(void);
 extern bool  llog_print_rec_header_short(void);
 extern bool  llog_print_rec(bool reset, bool need_header);
 extern bool  llog_print_rec_footer(void);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* LOG_LOCAL_H */

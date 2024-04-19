@@ -1,6 +1,10 @@
 #ifndef FD_H
 #define FD_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 //#include "kkt/fd/ad.h"
 
 // режимы работы

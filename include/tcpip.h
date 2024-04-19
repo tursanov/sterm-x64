@@ -3,6 +3,10 @@
 #ifndef TCPIP_H
 #define TCPIP_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
@@ -36,5 +40,9 @@ extern bool	init_tcpip(void);
 extern void	release_tcpip(void);
 extern void	process_tcpip(void);
 extern bool	release_term_socket(void);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* TCPIP_H */

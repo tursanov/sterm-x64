@@ -3,10 +3,18 @@
 #if !defined BASE64_H
 #define BASE64_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "sysdefs.h"
 
 extern size_t base64_get_encoded_len(size_t l);
 extern ssize_t base64_encode(const uint8_t *src, size_t l, uint8_t *dst);
 extern ssize_t base64_decode(const uint8_t *src, size_t l, uint8_t *dst);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* BASE64_H */

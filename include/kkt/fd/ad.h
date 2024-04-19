@@ -1,6 +1,10 @@
 #ifndef AD_H
 #define AD_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <stdio.h>
 #include "sysdefs.h"

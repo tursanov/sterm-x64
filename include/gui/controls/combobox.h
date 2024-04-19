@@ -1,6 +1,10 @@
 #ifndef COMBOBOX_H
 #define COMBOBOX_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "gui/controls/edit.h"
 
 

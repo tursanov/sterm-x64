@@ -3,6 +3,10 @@
 #if !defined IPLIR_H
 #define IPLIR_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include <netinet/in.h>
 #include "sysdefs.h"
 
@@ -19,5 +23,9 @@ extern bool iplir_is_active(void);
 extern bool iplir_disabled;
 
 extern bool iplir_test(void);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* IPLIR_H */

@@ -1,6 +1,10 @@
 #ifndef REF_AGENT_H
 #define REF_AGENT_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "list.h"
 
 typedef struct {

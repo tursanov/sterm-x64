@@ -6,6 +6,10 @@
 #ifndef BSCSYM_H
 #define BSCSYM_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #define BSC_STX		0x02
 #define BSC_ETX		0x03
 #define BSC_EOT		0x04
@@ -20,5 +24,9 @@
 #define BSC_ACK0	0x30
 #define BSC_ACK1	0x31
 #define BSC_PAD		0x7f
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* BSCSYM_H */

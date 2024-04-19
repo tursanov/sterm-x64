@@ -3,6 +3,10 @@
 #ifndef PRN_AUX_H
 #define PRN_AUX_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "prn/generic.h"
 #include "sys/ioctls.h"
 #include "sys/xprn.h"
@@ -46,5 +50,9 @@ extern void aprn_init(void);
 extern void aprn_release(void);
 extern void aprn_flush(void);
 extern bool aprn_print(const char *txt, int l);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* APRN_H */

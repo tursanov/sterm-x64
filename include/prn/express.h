@@ -3,6 +3,10 @@
 #ifndef PRN_EXPRESS_H
 #define PRN_EXPRESS_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "prn/generic.h"
 #include "sys/ioctls.h"
 #include "sys/xprn.h"
@@ -54,5 +58,9 @@ extern void xprn_init(void);
 extern void xprn_release(void);
 extern void xprn_flush(void);
 extern bool xprn_print(const char *txt, int l);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* PRN_EXPRESS_H */

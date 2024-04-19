@@ -3,6 +3,10 @@
 #if !defined KBD_H
 #define KBD_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include <time.h>
 #include "sysdefs.h"
 
@@ -169,5 +173,9 @@ extern void beep(uint32_t freq, uint32_t ms);
 extern void beep_sync(uint32_t freq, uint32_t ms);
 
 #define delay(ms) usleep((ms)*1000)
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* KBD_H */

@@ -1,6 +1,10 @@
 #ifndef SERIALIZE_H
 #define SERIALIZE_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "list.h"
 #include "sysdefs.h"
 

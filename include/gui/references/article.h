@@ -1,6 +1,10 @@
 #ifndef ARTICLE_H
 #define ARTICLE_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 
 #include "list.h"
 #include "agent.h"

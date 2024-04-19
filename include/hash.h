@@ -3,6 +3,10 @@
 #if !defined HASH_H
 #define HASH_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "sysdefs.h"
 #include "sterm.h"
 
@@ -33,5 +37,9 @@ extern int		hash_get_len(struct hash *h, uint8_t id);
 extern int		hash_get(struct hash *h, uint8_t id, uint8_t *buf);
 extern bool		hash_set(struct hash *h, uint8_t id, uint8_t *txt);
 extern int		hash_set_all(struct hash *h, uint8_t *str);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* HASH_H */

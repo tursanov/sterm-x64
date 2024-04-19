@@ -3,6 +3,10 @@
 #if !defined GUI_OPTIONS_H
 #define GUI_OPTIONS_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "cfg.h"
 #include "kbd.h"
 
@@ -17,5 +21,9 @@ extern void	adjust_kkt_brightness(uint32_t n);
 extern bool	optn_get_items(struct term_cfg *p);
 extern bool	draw_options(void);
 extern bool	process_options(const struct kbd_event *e);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* GUI_OPTIONS_H */

@@ -5,6 +5,10 @@
 #if !defined SYSDES_H
 #define SYSDES_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #if defined __KERNEL__
 #include <linux/types.h>
 #else
@@ -67,6 +71,10 @@ static inline uint32_t u_times(void)
 #define __fallthrough__	__attribute__((__fallthrough__))
 #else
 #define __fallthrough__	((void)0)
+#endif
+
+#if defined __cplusplus
+}
 #endif
 
 #endif		/* SYSDEFS_H */

@@ -5,6 +5,10 @@
 #ifndef PPP_H
 #define PPP_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "gui/options.h"
 #include "transport.h"
 
@@ -72,5 +76,9 @@ extern void release_ppp_ipc(void);
 extern bool ppp_connect(void);
 extern bool ppp_hangup(void);
 extern void ppp_process(void);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* PPP_H */

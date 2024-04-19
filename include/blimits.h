@@ -3,6 +3,10 @@
 #if !defined BLIMITS_H
 #define BLIMITS_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #define OUT_BUF_LEN		2048	/* ОЗУ заказа */
 #define REQ_BUF_LEN		4096	/* буфер для передачи заказа */
 #define RESP_BUF_LEN		65536	/* ОЗУ ответа */
@@ -27,5 +31,9 @@
 #define MAX_TERM_STATE_LEN	20
 #define MAX_TERM_ASTATE_LEN	25
 #define TERM_STATUS_LEN		81
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* BLIMITS_H */

@@ -1,6 +1,10 @@
 #ifndef WINDOW_H
 #define WINDOW_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "controls.h"
 
 struct window_t;

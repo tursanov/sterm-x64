@@ -1,6 +1,6 @@
 #include "xbase64.h"
 
-bool xbase64Encode(const uint8_t *src, size_t src_len, uint8_t *dst, size_t dst_len, size_t *encoded_len)
+bool xbase64_encode(const uint8_t *src, size_t src_len, uint8_t *dst, size_t dst_len, size_t *encoded_len)
 {
 	if ((src == NULL) || (src_len == 0) || (dst == NULL) || (dst_len < (((src_len + 2) / 3) * 4)))
 		return false;
@@ -29,7 +29,7 @@ bool xbase64Encode(const uint8_t *src, size_t src_len, uint8_t *dst, size_t dst_
 	return true;
 }
 
-bool xbase64Decode(const uint8_t *src, size_t src_len, uint8_t *dst, size_t dst_len, size_t *decoded_len)
+bool xbase64_decode(const uint8_t *src, size_t src_len, uint8_t *dst, size_t dst_len, size_t *decoded_len)
 {
 	if ((src == NULL) || (src_len == 0) || (dst == NULL) || (dst_len == 0))
 		return false;

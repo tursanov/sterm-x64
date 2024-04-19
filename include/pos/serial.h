@@ -3,6 +3,10 @@
 #if !defined POS_SERIAL_H
 #define POS_SERIAL_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "pos/pos.h"
 
 extern bool pos_serial_open(void);
@@ -15,5 +19,9 @@ extern bool pos_serial_get_msg(struct pos_data_buf *buf);
 extern bool pos_serial_send_msg(struct pos_data_buf *buf);
 
 /*extern bool read_pos_data(void);*/
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* POS_SERIAL_H */

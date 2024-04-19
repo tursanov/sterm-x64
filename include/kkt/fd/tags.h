@@ -1,6 +1,10 @@
 #ifndef TAGS_H
 #define TAGS_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include "sysdefs.h"
 #include "kkt/fd/tlv.h"

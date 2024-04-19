@@ -3,6 +3,10 @@
 #if !defined DEVINFO_H
 #define DEVINFO_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "serial.h"
 
 /* Тиы устройств */
@@ -92,5 +96,9 @@ extern struct dev_lst *poll_devices(void);
 extern const char *get_dev_param_str(const struct dev_info *dev, const char *name);
 extern uint32_t get_dev_param_uint(const struct dev_info *dev, const char *name);
 extern uint32_t get_dev_param_ip(const struct dev_info *dev, const char *name);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* DEVINFO_H */

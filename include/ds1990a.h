@@ -3,6 +3,10 @@
 #ifndef DS1990A_H
 #define DS1990A_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "md5.h"
 #include "sysdefs.h"
 
@@ -29,5 +33,9 @@ extern char ds_key_char(int kt);
 
 /* Управление динамиком через COM-порт */
 #define SPEAKER_DEV	"/dev/speaker"
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* DS1990A_H */

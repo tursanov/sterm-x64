@@ -3,6 +3,10 @@
 #ifndef GUI_DIALOG_H
 #define GUI_DIALOG_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "sysdefs.h"
 
 /* Кнопки в окне диалога */
@@ -55,5 +59,9 @@ extern int find_log_date_dlg(int *hour, int *day, int *mon, int *year);
 /* Поиск записи контрольной ленты по номеру */
 extern int find_log_number_dlg(uint32_t *number, uint32_t min_number,
 		uint32_t max_number);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* GUI_DIALOG_H */

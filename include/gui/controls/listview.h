@@ -1,6 +1,10 @@
 #ifndef LISTVIEW_H
 #define LISTVIEW_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "gui/controls/control.h"
 #include "list.h"
 

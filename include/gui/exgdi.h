@@ -1,6 +1,10 @@
 #ifndef EXGDI_H
 #define EXGDI_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "gdi.h"
 
 extern Color clBtnFace;
@@ -42,4 +46,8 @@ extern int borderCX;
 void DrawButton(GCPtr pGC, int x, int y, int cx, int cy,
     const char *text, bool down);
 
-#endif /* EXGDI_H */
+#if defined __cplusplus
+}
+#endif
+
+#endif		/* EXGDI_H */

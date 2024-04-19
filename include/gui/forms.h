@@ -1,6 +1,10 @@
 #if !defined GUI_FORMS_H
 #define GUI_FORMS_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "gui/controls/control.h"
 
 typedef struct form_t form_t;
@@ -112,5 +116,9 @@ void draw_button(GCPtr screen, int x, int y, int width, int height, const char *
 void fill_rect(GCPtr screen, int x, int y, int width, int height, int border_width,
 		Color border_color, int bg_color);
 	
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* GUI_FORMS_H */

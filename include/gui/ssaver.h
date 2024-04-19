@@ -1,6 +1,10 @@
 #ifndef SSAVER_H
 #define SSAVER_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 
 extern void 	init_ssaver(void);
 extern void		release_ssaver(void);

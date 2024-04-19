@@ -1,6 +1,10 @@
 #ifndef BUTTON_H
 #define BUTTON_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "gui/controls/control.h"
 
 typedef void (*action_t)(control_t *, int cmd);

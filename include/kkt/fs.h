@@ -3,6 +3,10 @@
 #if !defined KKT_FS_H
 #define KKT_FS_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include "sysdefs.h"
 
@@ -248,5 +252,9 @@ struct kkt_fs_doc_stlv_info {
 	uint32_t doc_type;		/* тип документа */
 	size_t len;			/* длина документа */
 };
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* KKT_FS_H */

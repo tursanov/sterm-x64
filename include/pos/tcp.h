@@ -3,6 +3,10 @@
 #if !defined POS_TCP_H
 #define POS_TCP_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "pos/pos.h"
 
 /* Базовый номер TCP-порта процессингового центра */
@@ -32,5 +36,9 @@ extern bool pos_parse_tcp_stream(struct pos_data_buf *buf, bool check_only);
 extern int pos_count_tcp_events(void);
 /* Запись потока TCP/IP */
 extern bool pos_req_save_tcp(struct pos_data_buf *buf);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* POS_TCP_H */

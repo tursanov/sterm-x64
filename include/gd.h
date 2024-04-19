@@ -6,7 +6,11 @@
 #ifndef GD_H
 #define GD_H
 
-#include <sysdefs.h>
+#if defined __cplusplus
+extern "C" {
+#endif
+
+#include "sysdefs.h"
 
 /* Максимальное число попыток инициализации при ошибках сеансового уровня */
 #define MAX_INIT_TRIES_SESSION	1
@@ -168,5 +172,9 @@ extern bool check_min_resp_len(void);
 extern bool check_crc(void);
 extern bool check_gd_rules(void);
 extern void set_text_len(void);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* GD_H */

@@ -1,6 +1,10 @@
 #ifndef CHEQUE_DOCS_H
 #define CHEQUE_DOCS_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "kkt/fd/ad.h"
 
 int cheque_docs_init(void);

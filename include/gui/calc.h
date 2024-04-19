@@ -3,6 +3,10 @@
 #if !defined CALC_H
 #define CALC_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "kbd.h"
 
 #define MAX_DIGITS	14	/* Максимальное число разрядов операнда */
@@ -38,5 +42,9 @@ extern bool	ch_op_sign(void);	/* Изменение знака */
 extern bool	calc_bk_char(void);	/* Удаление предыдущего символа */
 extern bool	adjust_op(void);
 extern bool	draw_op(void);	/* Вывод операнда на экран */
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* CALC_H */

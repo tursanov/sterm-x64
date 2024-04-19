@@ -1,6 +1,10 @@
 #ifndef __TLV_H__
 #define __TLV_H__
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <time.h>
 
@@ -54,5 +58,9 @@ int ffd_tlv_add_string(uint16_t tag, const char* value);
 int ffd_tlv_add_fixed_string(uint16_t tag, const char* value, size_t fixed_length);
 int ffd_tlv_stlv_begin(uint16_t tag, uint16_t max_length);
 int ffd_tlv_stlv_end();
+
+#if defined __cplusplus
+}
+#endif
 
 #endif // __TLV_H__

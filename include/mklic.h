@@ -3,6 +3,10 @@
 #if !defined MKLIC_H
 #define MKLIC_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "sysdefs.h"
 
 /*
@@ -13,5 +17,9 @@ extern int read_number(int fd, uint8_t *number);
 
 /* Открытие файла списка номеров */
 extern int open_number_file(const char *name);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* MKLIC_H */

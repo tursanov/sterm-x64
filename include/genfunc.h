@@ -6,13 +6,13 @@
 #if !defined GENFUNC_H
 #define GENFUNC_H
 
-#include <stdio.h>
-#include <time.h>
-#include "sysdefs.h"
-
 #if defined __cplusplus
 extern "C" {
 #endif
+
+#include <stdio.h>
+#include <time.h>
+#include "sysdefs.h"
 
 /*
  * Дата и время хранятся в специальном формате, чтобы

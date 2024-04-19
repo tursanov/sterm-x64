@@ -3,6 +3,10 @@
 #ifndef GUI_METRICS_H
 #define GUI_METRICS_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 /* screen metrics */
 
 #define DISCX			800	/* screen width in pixels */
@@ -131,5 +135,9 @@
 #define HINTS_TOP		524
 #define HINTS_WIDTH		DISCX
 #define HINTS_HEIGHT		(DISCY-HINTS_TOP)
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* METRICS_H */

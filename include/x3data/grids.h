@@ -148,3 +148,6 @@ static inline bool sync_grids_kkt(X3SyncCallback_t cbk)
 
 extern bool update_xprn_grids(InitializationNotify_t init_notify);
 extern bool update_kkt_grids(InitializationNotify_t init_notify);
+
+extern "C" bool find_x3_grids(const uint8_t *data, size_t len);
+extern "C" void on_end_grid_request(void);

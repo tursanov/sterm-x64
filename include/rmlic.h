@@ -10,6 +10,10 @@
 #if !defined RMLIC_H
 #define RMLIC_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "md5.h"
 #include "rndtbl.h"
 
@@ -24,5 +28,9 @@ extern bool mk_del_hash(uint8_t *buf, const struct rnd_rec *rnd_tbl, int n);
 extern void print_del_hash(const uint8_t *del_hash, const char *lic_name);
 /* Запрос подтверждения удаления лицензии */
 extern bool ask_rmlic_confirmation(const char *lic_name);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* RMLIC_H */

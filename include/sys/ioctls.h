@@ -3,6 +3,10 @@
 #ifndef SYS_IOCTLS_H
 #define SYS_IOCTLS_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #define STERM_MAJOR_BASE	200
 #define XPRN_MAJOR		STERM_MAJOR_BASE + 2 
 
@@ -16,5 +20,9 @@
 #define XPRN_IO_RESET		_IO(XPRN_IOCTL_CODE, XPRN_IO_SEQ_BASE)
 /* Вывод символа на принтер */
 #define XPRN_IO_OUTCHAR		_IOW(XPRN_IOCTL_CODE, XPRN_IO_SEQ_BASE + 1, char)
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* SYS_IOCTLS_H */

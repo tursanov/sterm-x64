@@ -3,6 +3,10 @@
 #if !defined KEYS_H
 #define KEYS_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "sysdefs.h"
 #include "sterm.h"
 
@@ -35,5 +39,9 @@ extern int		make_key_map(struct key_set *p);
 extern bool		is_key(uint8_t c);
 extern bool		is_key_delim(int c);
 extern bool		is_key_id(int c);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* KEYS_H */

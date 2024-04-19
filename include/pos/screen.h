@@ -3,6 +3,10 @@
 #if !defined POS_SCREEN_H
 #define POS_SCREEN_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "gui/gdi.h"
 #include "pos/pos.h"
 #include "kbd.h"
@@ -166,5 +170,9 @@ extern bool pos_write_scr(struct pos_data_buf *buf, char *msg,
 		uint8_t fg, uint8_t bg);
 /* Запись в поток для экрана сообщения об ошибке */
 extern bool pos_save_err_msg(struct pos_data_buf *buf, char *msg);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* POS_SCREEN_H */

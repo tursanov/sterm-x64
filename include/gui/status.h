@@ -6,6 +6,10 @@
 #ifndef STATUS_H
 #define STATUS_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "sysdefs.h"
 
 /* Левая часть строки статуса */
@@ -79,5 +83,9 @@ extern bool		scr_show_key(bool show);
 extern bool		scr_draw_rollers(void);
 extern bool		scr_set_lstatus(const char *s);
 extern bool		scr_set_rstatus(const char *s);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* STATUS_H */

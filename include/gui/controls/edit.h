@@ -1,6 +1,10 @@
 #ifndef __EDIT_H__
 #define __EDIT_H__
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "gui/controls/control.h"
 
 typedef enum edit_input_type_t {
@@ -13,5 +17,9 @@ typedef enum edit_input_type_t {
 
 control_t* edit_create(int id, GCPtr gc, int x, int y, int width, int height,
 	const char *text, edit_input_type_t input_type, size_t max_length);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif

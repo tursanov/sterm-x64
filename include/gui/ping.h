@@ -6,6 +6,10 @@
 #if !defined GUI_PING_H
 #define GUI_PING_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "kbd.h"
 #include "gui/scr.h"
 
@@ -25,5 +29,9 @@ extern bool	init_ping();
 extern void	release_ping(void);
 extern bool	draw_ping(void);
 extern bool	process_ping(struct kbd_event *e);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* GUI_PING_H */

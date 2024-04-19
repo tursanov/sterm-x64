@@ -3,6 +3,10 @@
 #if !defined KKT_KKT_H
 #define KKT_KKT_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "kkt/cmd.h"
 #include "kkt/fs.h"
 #include "devinfo.h"
@@ -183,5 +187,9 @@ extern uint8_t kkt_reset_fs(uint8_t b);
 
 /* Возвращает наличие параметра ККТ */
 extern bool kkt_has_param(const char *name);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* KKT_KKT_H */

@@ -3,6 +3,10 @@
 #if !defined GUI_LOG_LOCAL_H
 #define GUI_LOG_LOCAL_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "gui/log/generic.h"
 #include "log/local.h"
 
@@ -18,5 +22,9 @@ extern bool llog_print_aux(struct log_gui_context *ctx);
 extern bool llog_print_range(struct log_gui_context *ctx, uint32_t from, uint32_t to);
 /* Полная печать контрольной ленты */
 extern bool llog_print_all(struct log_gui_context *ctx);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* GUI_LOG_LOCAL_H */

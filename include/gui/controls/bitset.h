@@ -1,6 +1,10 @@
 #ifndef BITSET_H
 #define BITSET_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "gui/controls/control.h"
 
 control_t* bitset_create(int id, GCPtr gc, int x, int y, int width, int height,

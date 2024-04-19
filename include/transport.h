@@ -3,6 +3,10 @@
 #ifndef TRANSPORT_H
 #define TRANSPORT_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/socket.h>
@@ -85,5 +89,9 @@ extern void begin_transmit(void);
 extern bool process_transport(void);
 extern bool can_send_request(void);
 extern bool prepare_raw_resp(void);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* TRANSPORT_H */

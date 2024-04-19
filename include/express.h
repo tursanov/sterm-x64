@@ -3,6 +3,10 @@
 #if !defined EXPRESS_H
 #define EXPRESS_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "genfunc.h"
 
 /* Команды "Экспресс-3" */
@@ -187,5 +191,9 @@ extern bool find_pic_data(int *data, int *req);
 
 /* Обработка текста ответа. Возвращает false, если надо перейти к ОЗУ заказа */
 extern bool execute_resp(void);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* EXPRESS_H */

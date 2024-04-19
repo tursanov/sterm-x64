@@ -6,6 +6,10 @@
 #ifndef ADV_CALC_H
 #define ADV_CALC_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "gui/calc.h"
 
 //#define MAX_DIGITS	14	/* Максимальное число разрядов операнда */
@@ -38,5 +42,9 @@ extern bool	adv_ch_op_sign(void);	/* Изменение знака */
 extern bool	adv_calc_bk_char(void);	/* Удаление предыдущего символа */
 extern bool	adv_adjust_op(void);
 extern bool	adv_draw_op(void);	/* Вывод операнда на экран */
+
+#if defined __cplusplus
+}
+#endif
 
 #endif		/* ADV_CALC_H */
