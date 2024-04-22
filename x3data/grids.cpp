@@ -292,12 +292,12 @@ bool find_x3_grids(const uint8_t *data, size_t len)
 	list<GridInfo> xprn_grids, kkt_grids;
 	bool ret = check_x3_grids(data, len, xprn_grids, kkt_grids);
 	if (ret){
-		printf("%s: xprn_grids:\n", __func__);
+		log_dbg("xprn_grids:");
 		for (const auto &p : xprn_grids)
-			printf("%s\n", p.name().c_str());
-		printf("%s: kkt_grids:\n", __func__);
+			log_dbg(p.name().c_str());
+		log_dbg("kkt_grids:");
 		for (const auto &p : kkt_grids)
-			printf("%s\n", p.name().c_str());
+			log_dbg(p.name().c_str());
 	}
 	return ret;
 }

@@ -60,6 +60,7 @@
 #include "paths.h"
 #include "ppp.h"
 #include "sterm.h"
+#include "termlog.h"
 #include "tki.h"
 #include "transport.h"
 
@@ -1025,6 +1026,7 @@ static void init_devices(void)
 static void init_term(bool need_init)
 {
 	bool flag = xlog_active || plog_active || llog_active || klog_active;
+	set_log_lvl(Debug);
 	can_reject = false;
 	err_ptr = NULL;
 	set_term_state(st_stop_iplir);

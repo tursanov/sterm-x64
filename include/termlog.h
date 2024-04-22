@@ -16,6 +16,9 @@ enum {
 	Debug,
 };
 
+extern int get_log_lvl(void);
+extern void set_log_lvl(int lvl);
+
 extern bool log_internal(int lvl, const char *file, const char *fn, uint32_t line, uint32_t nr_err, const char *fmt, ...);
 #define log_generic(lvl, fmt, nr_err, ...) log_internal(lvl, __FILE__, __FUNCTION__, __LINE__, nr_err, fmt, ##__VA_ARGS__)
 #define log_err(fmt, ...)		log_generic(Error, fmt, UINT32_MAX, ##__VA_ARGS__)

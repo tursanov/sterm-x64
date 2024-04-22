@@ -10,6 +10,16 @@
 
 static int log_lvl = Info;
 
+int get_log_lvl(void)
+{
+	return log_lvl;
+}
+
+void set_log_lvl(int lvl)
+{
+	log_lvl = lvl;
+}
+
 static const char *log_level_str(int lvl)
 {
 	const char *ret = NULL;
