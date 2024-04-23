@@ -9,6 +9,19 @@ extern "C" {
 
 #include "genfunc.h"
 
+/* Типы запроса */
+enum {
+	req_regular,		/* обычный запрос */
+	req_pos_cheque,		/* запрос чека ИПТ */
+	req_grid,		/* запрос разметки бланка */
+	req_icon,		/* запрос пиктограммы */
+	req_pattern,		/* запрос шаблона печати */
+	req_xslt,		/* запрос таблицы трансформации XML */
+};
+
+/* Тип текущего запроса */
+extern int req_type;
+
 /* Команды "Экспресс-3" */
 #define X_DLE		0x1b	/* Esc префикс команды */
 #define X_WRITE		0x31	/* 1 запись */

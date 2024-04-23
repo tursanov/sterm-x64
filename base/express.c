@@ -18,6 +18,7 @@
 #include "prn/aux.h"
 #include "prn/express.h"
 #include "prn/local.h"
+#include "x3data/grids.h"
 #include "bscsym.h"
 #include "express.h"
 #include "hash.h"
@@ -26,6 +27,9 @@
 #include "sterm.h"
 #include "tki.h"
 #include "transport.h"
+
+/* Тип текущего запроса */
+int req_type = req_regular;
 
 static uint32_t log_number;		/* номер текущей записи на КЛ при обработке ответа */
 uint32_t log_para = 0;			/* номер абзаца ответа на ЦКЛ при обработке ответа */
@@ -1866,8 +1870,6 @@ static void sync_date(void)
 	}
 }
 
-extern bool find_x3_grids(const uint8_t *data, size_t len);
-
 /* Предварительная обработка ответа */
 static void preexecute_resp(void)
 {
@@ -1950,11 +1952,8 @@ static void preexecute_resp(void)
 				}
 				break;
 			case dst_text:
-				if (init){
-					printf("%s: find_x3_grids; i = %d; l = %d\n", __func__, i, l);
-					bool rc = find_x3_grids(text_buf, l);
-					printf("%s: find_x3_grids returned %d\n", __func__, rc);
-				}
+				if (init)
+					find_x3_grids(text_buf, l);
 				if (transition_flag != -1)
 					transition_flag++;
 				break;

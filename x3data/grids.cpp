@@ -10,6 +10,7 @@
 #include "kkt/cmd.h"
 #include "x3data/bmp.h"
 #include "x3data/grids.h"
+#include "x3data/grids.hpp"
 #include "gd.h"
 #include "express.h"
 #include "hash.h"
@@ -131,24 +132,45 @@ bool GridInfo::parse(const uint8_t *data, size_t len)
 	return ret;
 }
 
-list<GridInfo> grids_to_create_xprn;
-list<GridInfo> grids_to_remove_xprn;
-list<GridInfo> grids_failed_xprn;
+static list<GridInfo> grids_to_create_xprn;
+static list<GridInfo> grids_to_remove_xprn;
+static list<GridInfo> grids_failed_xprn;
 
-list<GridInfo> grids_to_create_kkt;
+static list<GridInfo> grids_to_create_kkt;
 static list<GridInfo>::const_iterator grids_to_create_kkt_ptr = grids_to_create_kkt.cbegin();
-list<GridInfo> grids_to_remove_kkt;
-list<GridInfo> grids_failed_kkt;
+static list<GridInfo> grids_to_remove_kkt;
+static list<GridInfo> grids_failed_kkt;
 
-void clr_grid_lists(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove)
+static void clr_grid_lists(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove)
 {
 	grids_to_create.clear();
 	grids_to_remove.clear();
 }
 
-bool need_grids_update(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove)
+static inline void clr_grid_lists_xprn()
 {
-	return !grids_to_create.empty() || !grids_to_remove.empty();
+	clr_grid_lists(grids_to_create_xprn, grids_to_remove_xprn);
+}
+
+static inline void clr_grid_lists_kkt()
+{
+	clr_grid_lists(grids_to_create_kkt, grids_to_remove_kkt);
+}
+
+static inline void clr_grid_lists()
+{
+	clr_grid_lists_xprn();
+	clr_grid_lists_kkt();
+}
+
+bool need_grids_update_xprn()
+{
+	return !grids_to_create_xprn.empty() || !grids_to_remove_xprn.empty();
+}
+
+bool need_grids_update_kkt()
+{
+	return !grids_to_create_kkt.empty() || !grids_to_remove_kkt.empty();
 }
 
 static regex_t reg;
@@ -159,6 +181,7 @@ static int grid_selector(const struct dirent *entry)
 	return regexec(&reg, entry->d_name, 0, NULL, 0) == REG_NOERROR;
 }
 
+/* Поиск на диске разметок по регулярному выражению */
 static bool find_stored_grids(list<GridInfo> &stored_grids, const char *pattern)
 {
 	if (pattern == NULL)
@@ -191,6 +214,7 @@ static bool find_stored_grids(list<GridInfo> &stored_grids, const char *pattern)
 	return ret;
 }
 
+/* Поиск на диске разметок для БПУ */
 static bool find_stored_grids_xprn(list<GridInfo> &stored_grids)
 {
 	stored_grids.clear();
@@ -199,6 +223,7 @@ static bool find_stored_grids_xprn(list<GridInfo> &stored_grids)
 	return !stored_grids.empty();
 }
 
+/* Поиск на диске разметок для ККТ */
 static bool find_stored_grids_kkt(list<GridInfo> &stored_grids)
 {
 	stored_grids.clear();
@@ -206,6 +231,10 @@ static bool find_stored_grids_kkt(list<GridInfo> &stored_grids)
 	return !stored_grids.empty();
 }
 
+/*
+ * Создание списков разметок для закачки/удаления на основании списка
+ * из "Экспресс" и файлов на диске.
+ */
 void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove,
 	bool (*find_fn)(list<GridInfo> &))
 {
@@ -252,16 +281,19 @@ void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &grids_to
 	log_dbg("Найдено разметок: для закачки: %d; для удаления: %d.", grids_to_create.size(), grids_to_remove.size());
 }
 
+/* Создание списка разметок для БПУ */
 void check_stored_grids_xprn(const list<GridInfo> &x3_grids)
 {
 	check_stored_grids(x3_grids, grids_to_create_xprn, grids_to_remove_xprn, find_stored_grids_xprn);
 }
 
+/* Создание списка разметок для ККТ */
 void check_stored_grids_kkt(const list<GridInfo> &x3_grids)
 {
 	check_stored_grids(x3_grids, grids_to_create_kkt, grids_to_remove_kkt, find_stored_grids_kkt);
 }
 
+/* Поиск в абзаце ответа идентификаторов разметок для БПУ/ККТ */
 bool check_x3_grids(const uint8_t *data, size_t len, list<GridInfo> &x3_grids_xprn, list<GridInfo> &x3_grids_kkt)
 {
 	if ((data == NULL) || (len == 0))
@@ -289,14 +321,14 @@ bool check_x3_grids(const uint8_t *data, size_t len, list<GridInfo> &x3_grids_xp
 
 bool find_x3_grids(const uint8_t *data, size_t len)
 {
-	list<GridInfo> xprn_grids, kkt_grids;
-	bool ret = check_x3_grids(data, len, xprn_grids, kkt_grids);
+	list<GridInfo> x3_grids_xprn, x3_grids_kkt;
+	bool ret = check_x3_grids(data, len, x3_grids_xprn, x3_grids_kkt);
 	if (ret){
 		log_dbg("xprn_grids:");
-		for (const auto &p : xprn_grids)
+		for (const auto &p : x3_grids_xprn)
 			log_dbg(p.name().c_str());
 		log_dbg("kkt_grids:");
-		for (const auto &p : kkt_grids)
+		for (const auto &p : x3_grids_kkt)
 			log_dbg(p.name().c_str());
 	}
 	return ret;
@@ -309,11 +341,14 @@ static uint8_t grid_buf[MAX_COMPRESSED_GRID_LEN];
 /* Текущий размер принятых данных сжатой разметки */
 static size_t grid_buf_idx = 0;
 
+/* Автозапрос для получения разметки по частям */
 static uint8_t grid_auto_req[REQ_BUF_LEN];
+/* Длина автозапроса */
 static size_t grid_auto_req_len = 0;
 
 static X3SyncCallback_t grid_sync_cbk = NULL;
 
+/* Отправка начального запроса на получение разметки */
 static void send_grid_request(const GridInfo &grid)
 {
 	req_len = get_req_offset();
@@ -322,6 +357,7 @@ static void send_grid_request(const GridInfo &grid)
 	wrap_text();
 }
 
+/* Отправка автозапроса для получения разметки */
 static void send_grid_auto_request()
 {
 	req_len = get_req_offset();
@@ -400,6 +436,7 @@ static bool remove_grid(const GridInfo &gi)
 	return ret;
 }
 
+/* Вызывается после получения ответа на запрос разметки */
 void on_end_grid_request(void)
 {
 	grid_auto_req_len = 0;
@@ -529,6 +566,16 @@ bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove
 		showXPrnPicSyncError(grids_failed_xprn, grids_failed_kkt, icons_failed_xprn, icons_failed_kkt);*/
 	grid_sync_cbk = NULL;
 	return ok;
+}
+
+static inline bool sync_grids_xprn(X3SyncCallback_t cbk)
+{
+	return sync_grids(grids_to_create_xprn, grids_to_remove_xprn, grids_failed_xprn, cbk);
+}
+
+static inline bool sync_grids_kkt(X3SyncCallback_t cbk)
+{
+	return sync_grids(grids_to_create_kkt, grids_to_remove_kkt, grids_failed_kkt, cbk);
 }
 
 #if 0

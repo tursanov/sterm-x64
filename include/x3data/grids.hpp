@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "x3data/boost.h"
+#include "x3data/boost.hpp"
 
 typedef void (*InitializationNotify_t)(bool done, const char *message);
 typedef void (*X3SyncCallback_t)(bool done, const char *message);
@@ -16,6 +16,7 @@ typedef void (*X3SyncCallback_t)(bool done, const char *message);
 /* Максимальная высота разметки бланка в точках */
 #define GRID_MAX_HEIGHT		660
 
+/* Информация о разметке для БПУ/ККТ */
 class GridInfo {
 private:
 	uint8_t _nr;
@@ -67,14 +68,6 @@ public:
 	bool parse(const char * name);
 	bool parse(const uint8_t * data, size_t len);
 
-/*	GridInfo(uint8_t nr, string name) :
-		_nr(nr),
-		_id(nrToId(nr)),
-		_name(name),
-		_date(0)
-	{
-	}*/
-
 	GridInfo() :
 		_nr(0),
 		_id(0),
@@ -85,49 +78,6 @@ public:
 	}
 };
 
-extern list<GridInfo> grids_to_create_xprn;
-extern list<GridInfo> grids_to_remove_xprn;
-extern list<GridInfo> grids_failed_xprn;
-
-extern list<GridInfo> grids_to_create_kkt;
-extern list<GridInfo> grids_to_remove_kkt;
-extern list<GridInfo> grids_failed_kkt;
-
-extern void clr_grid_lists(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove);
-
-static inline void clr_grid_lists_xprn()
-{
-	clr_grid_lists(grids_to_create_xprn, grids_to_remove_xprn);
-}
-
-static inline void clr_grid_lists_kkt()
-{
-	clr_grid_lists(grids_to_create_kkt, grids_to_remove_kkt);
-}
-
-static inline void clr_grid_lists()
-{
-	clr_grid_lists_xprn();
-	clr_grid_lists_kkt();
-}
-
-extern bool need_grids_update(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove);
-
-static inline bool needGridsUpdateXPrn()
-{
-	return !grids_to_create_xprn.empty() || !grids_to_remove_xprn.empty();
-}
-
-static inline bool needGridsUpdateKkt()
-{
-	return !grids_to_create_kkt.empty() || !grids_to_remove_kkt.empty();
-}
-
-static inline bool need_grids_update()
-{
-	return needGridsUpdateXPrn() || needGridsUpdateKkt();
-}
-
 extern void check_stored_grids(const list<GridInfo> &x3_grids,
 	list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, bool (*find_fn)(list<GridInfo> &));
 extern void check_stored_grids_xprn(const list<GridInfo> &x3_grids);
@@ -136,18 +86,5 @@ extern bool check_x3_grids(const uint8_t * data, size_t len, list<GridInfo> &x3_
 extern bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, list<GridInfo> &grids_failed,
 	X3SyncCallback_t cbk);
 
-static inline bool sync_grids_xprn(X3SyncCallback_t cbk)
-{
-	return sync_grids(grids_to_create_xprn, grids_to_remove_xprn, grids_failed_xprn, cbk);
-}
-
-static inline bool sync_grids_kkt(X3SyncCallback_t cbk)
-{
-	return sync_grids(grids_to_create_kkt, grids_to_remove_kkt, grids_failed_kkt, cbk);
-}
-
 extern bool update_xprn_grids(InitializationNotify_t init_notify);
 extern bool update_kkt_grids(InitializationNotify_t init_notify);
-
-extern "C" bool find_x3_grids(const uint8_t *data, size_t len);
-extern "C" void on_end_grid_request(void);
