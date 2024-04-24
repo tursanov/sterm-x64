@@ -78,11 +78,6 @@ public:
 	}
 };
 
-extern void check_stored_grids(const list<GridInfo> &x3_grids,
-	list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, bool (*find_fn)(list<GridInfo> &));
-extern void check_stored_grids_xprn(const list<GridInfo> &x3_grids);
-extern void check_stored_grids_kkt(const list<GridInfo> &x3_grids);
-extern bool check_x3_grids(const uint8_t * data, size_t len, list<GridInfo> &x3_grids_xprn, list<GridInfo> &x3_grids_kkt);
 extern bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, list<GridInfo> &grids_failed,
 	X3SyncCallback_t cbk);
 

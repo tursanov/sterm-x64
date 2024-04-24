@@ -235,7 +235,7 @@ static bool find_stored_grids_kkt(list<GridInfo> &stored_grids)
  * Создание списков разметок для закачки/удаления на основании списка
  * из "Экспресс" и файлов на диске.
  */
-void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove,
+static void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove,
 	bool (*find_fn)(list<GridInfo> &))
 {
 	clr_grid_lists(grids_to_create, grids_to_remove);
@@ -282,19 +282,19 @@ void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &grids_to
 }
 
 /* Создание списка разметок для БПУ */
-void check_stored_grids_xprn(const list<GridInfo> &x3_grids)
+static inline void check_stored_grids_xprn(const list<GridInfo> &x3_grids)
 {
 	check_stored_grids(x3_grids, grids_to_create_xprn, grids_to_remove_xprn, find_stored_grids_xprn);
 }
 
 /* Создание списка разметок для ККТ */
-void check_stored_grids_kkt(const list<GridInfo> &x3_grids)
+static inline void check_stored_grids_kkt(const list<GridInfo> &x3_grids)
 {
 	check_stored_grids(x3_grids, grids_to_create_kkt, grids_to_remove_kkt, find_stored_grids_kkt);
 }
 
 /* Поиск в абзаце ответа идентификаторов разметок для БПУ/ККТ */
-bool check_x3_grids(const uint8_t *data, size_t len, list<GridInfo> &x3_grids_xprn, list<GridInfo> &x3_grids_kkt)
+static bool check_x3_grids(const uint8_t *data, size_t len, list<GridInfo> &x3_grids_xprn, list<GridInfo> &x3_grids_kkt)
 {
 	if ((data == NULL) || (len == 0))
 		return false;
@@ -319,17 +319,13 @@ bool check_x3_grids(const uint8_t *data, size_t len, list<GridInfo> &x3_grids_xp
 	return !x3_grids_xprn.empty() || !x3_grids_kkt.empty();
 }
 
-bool find_x3_grids(const uint8_t *data, size_t len)
+bool check_x3_grids(const uint8_t *data, size_t len)
 {
 	list<GridInfo> x3_grids_xprn, x3_grids_kkt;
 	bool ret = check_x3_grids(data, len, x3_grids_xprn, x3_grids_kkt);
 	if (ret){
-		log_dbg("xprn_grids:");
-		for (const auto &p : x3_grids_xprn)
-			log_dbg(p.name().c_str());
-		log_dbg("kkt_grids:");
-		for (const auto &p : x3_grids_kkt)
-			log_dbg(p.name().c_str());
+		check_stored_grids_xprn(x3_grids_xprn);
+		check_stored_grids_kkt(x3_grids_kkt);
 	}
 	return ret;
 }

@@ -3673,6 +3673,71 @@ static int need_pos(void)
 	return ret;
 }
 
+/* Запрос синхронизации данных с "Экспресс-3" */
+static bool x3data_sync_dlg(uint32_t x3data_to_sync)
+{
+	if (x3data_to_sync == X3_SYNC_NONE)
+		return false;
+	static char msg[1024];
+	int offs = 0, n = 0;
+	int rc = snprintf(msg, sizeof(msg), "Необходимо синхронизировать с \"Экспресс-3\" следующие данные:\n");
+	if (rc > 0)
+		offs += rc;
+	if ((offs< sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_GRIDS)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "разметки бланков БПУ;\n");
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	if ((offs< sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_ICONS)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "пиктограмммы БПУ;\n");
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	if ((offs< sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_GRIDS)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "разметки бланков ККТ;\n");
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	if ((offs< sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_ICONS)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "пиктограмммы ККТ;\n");
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	if ((offs< sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_PATTERNS)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "шаблоны печати ККТ;\n");
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	if ((offs< sizeof(msg)) && (x3data_to_sync & X3_SYNC_XSLT)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "таблицы трансформации XML для ККТ;\n");
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	if (n > 0)
+		msg[offs - 2] = '.';
+	if (offs < sizeof(msg))
+		snprintf(msg + offs, sizeof(msg) - offs, "Синхронизировать указанные данные с \"Экспресс-3\"?");
+/*	set_term_busy(true);
+	online = false;*/
+	rc = message_box("СИНХРОНИЗАЦИЯ ДАНН\x9bХ", msg, dlg_yes_no, DLG_BTN_YES, al_center);
+/*	online = true;
+	set_term_busy(false);*/
+	redraw_term(true, main_title);
+	return rc == DLG_BTN_YES;
+}
+
 /* Вызывается при приходе ответа */
 static void on_response(void)
 {
@@ -3705,18 +3770,25 @@ static void on_response(void)
 			set_term_state(st_resp);
 			if (!execute_resp() && !rejecting_req)
 				show_req();
-			if ((c_state != cs_hasreq) && need_apc()){
-				show_req();
-				apc = true;
-				int np = need_pos();
-				if (np == 1){
-					show_pos();
-					apc = pos_active;
-				}else if (np == 0){
-					show_cheque_fa();
-					apc = fa_active;
-				}else
-					apc = false;
+			if (c_state != cs_hasreq){
+				if (need_apc()){
+					show_req();
+					apc = true;
+					int np = need_pos();
+					if (np == 1){
+						show_pos();
+						apc = pos_active;
+					}else if (np == 0){
+						show_cheque_fa();
+						apc = fa_active;
+					}else
+						apc = false;
+				}else if (TST_FLAG(OBp, GDF_RESP_INIT)){
+					uint32_t x3data_to_sync = need_x3_sync();
+					if (x3data_to_sync != X3_SYNC_NONE){
+						x3data_sync_dlg(x3data_to_sync);
+					}
+				}
 			}
 			if (!apc)
 				set_term_busy(false);

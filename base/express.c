@@ -25,6 +25,7 @@
 #include "keys.h"
 #include "numbers.h"
 #include "sterm.h"
+#include "termlog.h"
 #include "tki.h"
 #include "transport.h"
 
@@ -1952,8 +1953,11 @@ static void preexecute_resp(void)
 				}
 				break;
 			case dst_text:
-				if (init)
-					find_x3_grids(text_buf, l);
+				if (init){
+					check_x3_grids(text_buf, l);
+					log_dbg("need_grids_update_xprn = %d; need_grids_update_kkt = %d.",
+						need_grids_update_xprn(), need_grids_update_kkt());
+				}
 				if (transition_flag != -1)
 					transition_flag++;
 				break;
@@ -2314,6 +2318,17 @@ bool find_pic_data(int *data, int *req)
 	}
 	if ((m == 1) && (req_para != -1))
 		*req = req_para;
+	return ret;
+}
+
+/* Проверка необходимости синхронизация данных с "Экспресс-3" */
+uint32_t need_x3_sync(void)
+{
+	uint32_t ret = X3_SYNC_NONE;
+	if (need_grids_update_xprn())
+		ret |= X3_SYNC_XPRN_GRIDS;
+	if (need_grids_update_kkt())
+		ret |= X3_SYNC_KKT_GRIDS;
 	return ret;
 }
 
