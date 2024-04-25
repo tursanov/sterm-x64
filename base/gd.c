@@ -404,6 +404,7 @@ void begin_initialization(void)
 	hbyte = HB_INIT;
 	s_state = ss_initializing;
 	req_len = get_req_offset();
+	req_type = req_regular;
 	wrap_text();
 }
 

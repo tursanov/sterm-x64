@@ -133,6 +133,7 @@ bool GridInfo::parse(const uint8_t *data, size_t len)
 }
 
 static list<GridInfo> grids_to_create_xprn;
+static list<GridInfo>::const_iterator grids_to_create_xprn_ptr = grids_to_create_xprn.cbegin();
 static list<GridInfo> grids_to_remove_xprn;
 static list<GridInfo> grids_failed_xprn;
 
@@ -342,11 +343,12 @@ static uint8_t grid_auto_req[REQ_BUF_LEN];
 /* Длина автозапроса */
 static size_t grid_auto_req_len = 0;
 
-static X3SyncCallback_t grid_sync_cbk = NULL;
+static x3_sync_callback_t grid_sync_cbk = NULL;
 
 /* Отправка начального запроса на получение разметки */
 static void send_grid_request(const GridInfo &grid)
 {
+	log_dbg("name = %s.", grid.name().c_str());
 	req_len = get_req_offset();
 	req_len += snprintf((char *)req_buf + req_len, ASIZE(req_buf) - req_len,
 		"P55TR(EXP.DATA.MAKET   %-8s)000000000", grid.name().c_str());
@@ -432,72 +434,61 @@ static bool remove_grid(const GridInfo &gi)
 	return ret;
 }
 
-/* Вызывается после получения ответа на запрос разметки */
-void on_end_grid_request(void)
+/* Вызывается после получения ответа на запрос разметки БПУ/ККТ */
+void on_response_grid(void)
 {
 	grid_auto_req_len = 0;
 	static char err_msg[1024];
 	err_msg[0] = 0;
 /* 0 -- данные разметки; 1 -- другой ответ, обработка не требуется; 2 -- другой ответ, требуется обработка */
 	int non_grid_resp = 0;
-	into_on_response = true;
-	if (ssaver_active)
-		scr_wakeup();
-	release_garbage();
-	resp_handling = true;
-	clear_hash(prom);
-	int ecode = E_OK;
-	err_ptr = check_syntax(resp_buf + text_offset, text_len, &ecode);
-	if (err_ptr == NULL){	/* начинаем обработку ответа */
-		CLR_FLAG(ZBp, GDF_REQ_SYNTAX);
-/* При проверке синтаксиса в ДЗУ заносятся пробелы на место соответствующих записей */
-		clear_hash(prom);
-		if (s_state != ss_ready)
-			s_state = ss_ready;
-		delayed_init = false;
-		rejecting_req = false;
-		n_paras = make_resp_map();
-		set_term_busy(true);
-		set_term_state(st_resp);
-		int grid_para = -1, req_para = -1;
-		size_t grid_len = 0, req_len = 0;
-		if (find_pic_data(&grid_para, &req_para) && (grid_para != -1)){
-			grid_len = handle_para(grid_para);
-			log_info("Обнаружены данные разметки (абзац #%d; %zd байт).",
-			grid_para + 1, grid_len);
-			if (grid_len > (ASIZE(grid_buf) - grid_buf_idx)){
-				snprintf(err_msg, ASIZE(err_msg), "Переполнение буфера данных разметки.");
-				non_grid_resp = 1;
-			}else if (grid_len > 0){
-				memcpy(grid_buf + grid_buf_idx, text_buf, grid_len);
-				grid_buf_idx += grid_len;
-				if (req_para != -1){
-					req_len = handle_para(req_para);
-					if (req_len > 0){
-						log_info("Обнаружен автозапрос (абзац %d; %zd байт).",
-							req_para + 1, req_len);
-						memcpy(grid_auto_req, text_buf, req_len);
-						grid_auto_req_len = req_len;
-						send_grid_auto_request();
-					}
-				}else{
-					log_info("Разметка %s получена полностью. Сохраняем в файл...",
-						grids_to_create_kkt_ptr->name().c_str());
-					store_grid(*grids_to_create_kkt_ptr);
-					grids_to_create_kkt_ptr++;
+	set_term_state(st_resp);
+	int grid_para = -1, req_para = -1;
+	size_t grid_len = 0, req_len = 0;
+	if (find_pic_data(&grid_para, &req_para) && (grid_para != -1)){
+		grid_len = handle_para(grid_para);
+		log_info("Обнаружены данные разметки (абзац #%d; %zd байт).",
+		grid_para + 1, grid_len);
+		if (grid_len > (ASIZE(grid_buf) - grid_buf_idx)){
+			snprintf(err_msg, ASIZE(err_msg), "Переполнение буфера данных разметки.");
+			non_grid_resp = 1;
+		}else if (grid_len > 0){
+			memcpy(grid_buf + grid_buf_idx, text_buf, grid_len);
+			grid_buf_idx += grid_len;
+			if (req_para != -1){
+				req_len = handle_para(req_para);
+				if (req_len > 0){
+					log_info("Обнаружен автозапрос (абзац %d; %zd байт).",
+						req_para + 1, req_len);
+					memcpy(grid_auto_req, text_buf, req_len);
+					grid_auto_req_len = req_len;
+					send_grid_auto_request();
 				}
 			}else{
-				snprintf(err_msg, ASIZE(err_msg), "Получены данные разметки нулевой длины.");
-				non_grid_resp = 1;
+				log_info("Разметка %s получена полностью. Сохраняем в файл...",
+					grids_to_create_kkt_ptr->name().c_str());
+				if (req_type == req_grid_xprn){
+					store_grid(*grids_to_create_xprn_ptr++);
+					if (grids_to_create_xprn_ptr == grids_to_create_xprn.cend()){
+						log_info("Загрузка разметок для БПУ завершена.");
+						sync_grids_kkt(NULL);
+					}else
+						send_grid_request(*grids_to_create_xprn_ptr);
+				}else if (req_type == req_grid_kkt){
+					store_grid(*grids_to_create_kkt_ptr++);
+					if (grids_to_create_kkt_ptr == grids_to_create_kkt.cend())
+						log_info("Загрузка разметок для ККТ завершена.");
+					else
+						send_grid_request(*grids_to_create_kkt_ptr);
+				}
 			}
 		}else{
-			snprintf(err_msg, ASIZE(err_msg), "Не найдены данные разметки.");
-			non_grid_resp = 2;
+			snprintf(err_msg, ASIZE(err_msg), "Получены данные разметки нулевой длины.");
+			non_grid_resp = 1;
 		}
 	}else{
-		snprintf(err_msg, ASIZE(err_msg), "Синтаксическая ошибка ответа %s по смещению %zx.",
-			get_syntax_error_txt(ecode), err_ptr - resp_buf - text_offset);
-		non_grid_resp = 1;
+		snprintf(err_msg, ASIZE(err_msg), "Не найдены данные разметки.");
+		non_grid_resp = 2;
 	}
 	if (err_msg[0] != 0){
 		log_err(err_msg);
@@ -512,8 +503,9 @@ void on_end_grid_request(void)
 	}
 }
 
-bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, list<GridInfo> &grids_failed,
-       X3SyncCallback_t cbk)
+/* Начало синхронизации разметок с "Экспресс" */
+static bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, list<GridInfo> &grids_failed,
+       x3_sync_callback_t cbk)
 {
 	if (!need_grids_update()){
 		log_info("Обновление разметок не требуется.");
@@ -523,14 +515,27 @@ bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove
 	char txt[256];
 	size_t n = 0;
 	grid_sync_cbk = cbk;
-	cbk(false, "Загрузка разметок из \"Экспресс-3\"");
+	if (cbk != NULL)
+		cbk(false, "Загрузка разметок из \"Экспресс-3\"");
 	grids_failed.clear();
 	list<GridInfo> _grids_to_create, _grids_to_remove;
-/* Сначала закачиваем новые разметки */
+/* Сначала удаляем старые разметки */
+	for (const auto &p : grids_to_remove){
+		if (remove_grid(p))
+			n++;
+		else
+			_grids_to_remove.push_back(p);
+	}
+	grids_to_remove.assign(_grids_to_remove.cbegin(), _grids_to_remove.cend());
+/* Затем закачиваем новые */
 	for (const auto &p : grids_to_create){
 		snprintf(txt, ASIZE(txt), "Загрузка разметки %s (%zu из %zu)",
 			p.name().c_str(), (n + 1), grids_to_create.size());
-		cbk(false, txt);
+		if (cbk != NULL)
+			cbk(false, txt);
+		log_dbg(txt);
+		send_grid_request(p);
+		break;
 /*		int rc = download_grid(p);
 		if (rc == TC_OK)
 			n++;
@@ -542,16 +547,8 @@ bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove
 			grids_failed.push_back(p);
 		}*/
 	}
-/* Затем удаляем старые */
 	if (ok){
 		grids_to_create.assign(_grids_to_create.cbegin(), _grids_to_create.cend());
-		for (const auto &p : grids_to_remove){
-			if (remove_grid(p))
-				n++;
-			else
-				_grids_to_remove.push_back(p);
-		}
-		grids_to_remove.assign(_grids_to_remove.cbegin(), _grids_to_remove.cend());
 	}
 /*	if (ok && (n > 0))
 		ok = update_xprn_grids(cbk) && update_kkt_grids(cbk);*/
@@ -564,14 +561,27 @@ bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove
 	return ok;
 }
 
-static inline bool sync_grids_xprn(X3SyncCallback_t cbk)
+bool sync_grids_xprn(x3_sync_callback_t cbk)
 {
-	return sync_grids(grids_to_create_xprn, grids_to_remove_xprn, grids_failed_xprn, cbk);
+	log_dbg("");
+	bool ret = true;
+	if (need_grids_update_xprn()){
+		req_type = req_grid_xprn;
+		grids_to_create_xprn_ptr = grids_to_create_xprn.cbegin();
+		ret = sync_grids(grids_to_create_xprn, grids_to_remove_xprn, grids_failed_xprn, cbk);
+	}
+	return ret;
 }
 
-static inline bool sync_grids_kkt(X3SyncCallback_t cbk)
+bool sync_grids_kkt(x3_sync_callback_t cbk)
 {
-	return sync_grids(grids_to_create_kkt, grids_to_remove_kkt, grids_failed_kkt, cbk);
+	bool ret = true;
+	if (need_grids_update_kkt()){
+		req_type = req_grid_kkt;
+		grids_to_create_kkt_ptr = grids_to_create_xprn.cbegin();
+		ret = sync_grids(grids_to_create_kkt, grids_to_remove_kkt, grids_failed_kkt, cbk);
+	}
+	return ret;
 }
 
 #if 0

@@ -5,7 +5,6 @@
 #include "x3data/boost.hpp"
 
 typedef void (*InitializationNotify_t)(bool done, const char *message);
-typedef void (*X3SyncCallback_t)(bool done, const char *message);
 
 /* Минимальная ширина разметки бланка в точках */
 #define GRID_MIN_WIDTH		8
@@ -77,9 +76,6 @@ public:
 	{
 	}
 };
-
-extern bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, list<GridInfo> &grids_failed,
-	X3SyncCallback_t cbk);
 
 extern bool update_xprn_grids(InitializationNotify_t init_notify);
 extern bool update_kkt_grids(InitializationNotify_t init_notify);

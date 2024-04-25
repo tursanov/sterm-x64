@@ -48,6 +48,7 @@
 #include "prn/aux.h"
 #include "prn/express.h"
 #include "prn/local.h"
+#include "x3data/grids.h"
 #include "bscsym.h"
 #include "devinfo.h"
 #include "gd.h"
@@ -2098,6 +2099,7 @@ void send_request(void)
 		s_state = ss_new;
 		return;
 	}
+	req_type = req_regular;
 	flush_resp_mode();
 	resp_handling = false;
 	if (delayed_init)
@@ -3738,9 +3740,20 @@ static bool x3data_sync_dlg(uint32_t x3data_to_sync)
 	return rc == DLG_BTN_YES;
 }
 
+static bool begin_x3data_sync(uint32_t x3data_to_sync)
+{
+	bool ret = false;
+	if (x3data_to_sync && X3_SYNC_XPRN_GRIDS)
+		ret = sync_grids_xprn(NULL);
+	else if (x3data_to_sync && X3_SYNC_KKT_GRIDS)
+		ret = sync_grids_kkt(NULL);
+	return ret;
+}
+
 /* Вызывается при приходе ответа */
 static void on_response(void)
 {
+	printf("%s: req_type = %d\n", __func__, req_type);
 	into_on_response = true;
 #if defined __WATCH_EXPRESS__
 	watch_transaction = false;
@@ -3768,9 +3781,11 @@ static void on_response(void)
 		}else{
 			set_term_busy(true);
 			set_term_state(st_resp);
-			if (!execute_resp() && !rejecting_req)
+			if ((req_type == req_grid_xprn) || (req_type == req_grid_kkt))
+				on_response_grid();
+			else if (!execute_resp() && !rejecting_req)
 				show_req();
-			if (c_state != cs_hasreq){
+			if ((req_type == req_regular) && (c_state != cs_hasreq)){
 				if (need_apc()){
 					show_req();
 					apc = true;
@@ -3786,7 +3801,8 @@ static void on_response(void)
 				}else if (TST_FLAG(OBp, GDF_RESP_INIT)){
 					uint32_t x3data_to_sync = need_x3_sync();
 					if (x3data_to_sync != X3_SYNC_NONE){
-						x3data_sync_dlg(x3data_to_sync);
+						if (x3data_sync_dlg(x3data_to_sync))
+							begin_x3data_sync(x3data_to_sync);
 					}
 				}
 			}
