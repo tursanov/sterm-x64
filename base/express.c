@@ -2533,12 +2533,16 @@ bool execute_resp(void)
 	if (has_kkt_data)
 		show_hints();
 
+	bool ret = true;
 	if (kt != key_none){
 		if (!is_rstatus_error_msg())
 			set_term_astate(ast_none);
 		if (has_req && resp_handling)
 			send_request();
-		return (p != NULL) ? !p->jump_next : false;
-	}else
-		return true;
+		if (TST_FLAG(OBp, GDF_RESP_INIT))
+			ret = false;
+		else
+			ret = (p != NULL) ? !p->jump_next : false;
+	}
+	return ret;
 }

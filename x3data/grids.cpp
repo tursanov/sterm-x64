@@ -351,9 +351,11 @@ static x3_sync_callback_t grid_sync_cbk = NULL;
 static void send_grid_request(const GridInfo &grid)
 {
 	log_dbg("name = %s.", grid.name().c_str());
-	req_len = get_req_offset();
+	int offs = get_req_offset();
+	req_len = offs;
 	req_len += snprintf((char *)req_buf + req_len, ASIZE(req_buf) - req_len,
 		"P55TR(EXP.DATA.MAKET   %-8s)000000000", grid.name().c_str());
+	set_scr_request(req_buf + offs, req_len - offs, true);
 	wrap_text();
 }
 
@@ -362,6 +364,7 @@ static void send_grid_auto_request()
 {
 	req_len = get_req_offset();
 	memcpy(req_buf + req_len, grid_auto_req, grid_auto_req_len);	/* FIXME */
+	set_scr_request(grid_auto_req, grid_auto_req_len, true);
 	req_len += grid_auto_req_len;
 	wrap_text();
 }
@@ -471,6 +474,7 @@ void on_response_grid(void)
 				log_info("Разметка %s получена полностью. Сохраняем в файл...",
 					grids_to_create_xprn_ptr->name().c_str());
 				store_grid(*grids_to_create_xprn_ptr++);
+				grid_buf_idx = 0;
 				if (grids_to_create_xprn_ptr == grids_to_create_xprn.cend()){
 					log_info("Загрузка разметок для БПУ завершена.");
 					sync_grids_kkt(NULL);
@@ -480,6 +484,7 @@ void on_response_grid(void)
 				log_info("Разметка %s получена полностью. Сохраняем в файл...",
 					grids_to_create_kkt_ptr->name().c_str());
 				store_grid(*grids_to_create_kkt_ptr++);
+				grid_buf_idx = 0;
 				if (grids_to_create_kkt_ptr == grids_to_create_kkt.cend())
 					log_info("Загрузка разметок для ККТ завершена.");
 				else
@@ -581,7 +586,7 @@ bool sync_grids_kkt(x3_sync_callback_t cbk)
 	bool ret = true;
 	if (need_grids_update_kkt()){
 		req_type = req_grid_kkt;
-		grids_to_create_kkt_ptr = grids_to_create_xprn.cbegin();
+		grids_to_create_kkt_ptr = grids_to_create_kkt.cbegin();
 		ret = sync_grids(grids_to_create_kkt, grids_to_remove_kkt, grids_failed_kkt, cbk);
 	}
 	return ret;
