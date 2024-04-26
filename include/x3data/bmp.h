@@ -8,4 +8,4 @@ typedef struct tagBITMAPFILEHEADER {
 	uint16_t	bfReserved1;
 	uint16_t	bfReserved2;
 	uint32_t	bfOffBits;
-} BITMAPFILEHEADER;
+} __attribute__((__packed__)) BITMAPFILEHEADER;

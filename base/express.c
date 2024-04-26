@@ -1072,7 +1072,7 @@ static uint8_t *check_kkt_xml(uint8_t *txt, int l, int *ecode)
 		if (len == -1){
 			ret = txt + l;
 			*ecode = E_NOPEND;
-		}else if (len > OUT_BUF_LEN)
+		}else if (len > TEXT_BUF_LEN)
 			*ecode = E_BIGPARA;
 	}
 	if (*ecode != E_OK)
@@ -1097,7 +1097,7 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode)
 	*ecode = E_OK;
 	if ((txt == NULL) || (l <= 0))
 		return NULL;
-	else if (para_len(txt - resp_buf) > OUT_BUF_LEN){
+	else if (para_len(txt - resp_buf) > TEXT_BUF_LEN){
 		*ecode = E_BIGPARA;
 		return txt;
 	}

@@ -151,11 +151,13 @@ static void clr_grid_lists(list<GridInfo> &grids_to_create, list<GridInfo> &grid
 static inline void clr_grid_lists_xprn()
 {
 	clr_grid_lists(grids_to_create_xprn, grids_to_remove_xprn);
+	grids_to_create_xprn_ptr = grids_to_create_xprn.cbegin();
 }
 
 static inline void clr_grid_lists_kkt()
 {
 	clr_grid_lists(grids_to_create_kkt, grids_to_remove_kkt);
+	grids_to_create_kkt_ptr = grids_to_create_kkt.cbegin();
 }
 
 static inline void clr_grid_lists()
@@ -384,7 +386,8 @@ static bool store_grid(const GridInfo &gi)
 		log_err("Ошибка распаковки (%d).", rc);
 		return false;
 	}else if ((bmp_hdr.bfType != 0x4d42) || (bmp_hdr.bfSize == 0)){
-		log_err("Неверный формат заголовка BMP.");
+		log_err("Неверный формат заголовка BMP (bfType = 0x%.hx; bfSize = %u; bfOffBits = %u).",
+			bmp_hdr.bfType, bmp_hdr.bfSize, bmp_hdr.bfOffBits);
 		return false;
 	}
 	size_t bmp_len = bmp_hdr.bfSize;
@@ -464,23 +467,23 @@ void on_response_grid(void)
 					grid_auto_req_len = req_len;
 					send_grid_auto_request();
 				}
-			}else{
+			}else if (req_type == req_grid_xprn){
+				log_info("Разметка %s получена полностью. Сохраняем в файл...",
+					grids_to_create_xprn_ptr->name().c_str());
+				store_grid(*grids_to_create_xprn_ptr++);
+				if (grids_to_create_xprn_ptr == grids_to_create_xprn.cend()){
+					log_info("Загрузка разметок для БПУ завершена.");
+					sync_grids_kkt(NULL);
+				}else
+					send_grid_request(*grids_to_create_xprn_ptr);
+			}else if (req_type == req_grid_kkt){
 				log_info("Разметка %s получена полностью. Сохраняем в файл...",
 					grids_to_create_kkt_ptr->name().c_str());
-				if (req_type == req_grid_xprn){
-					store_grid(*grids_to_create_xprn_ptr++);
-					if (grids_to_create_xprn_ptr == grids_to_create_xprn.cend()){
-						log_info("Загрузка разметок для БПУ завершена.");
-						sync_grids_kkt(NULL);
-					}else
-						send_grid_request(*grids_to_create_xprn_ptr);
-				}else if (req_type == req_grid_kkt){
-					store_grid(*grids_to_create_kkt_ptr++);
-					if (grids_to_create_kkt_ptr == grids_to_create_kkt.cend())
-						log_info("Загрузка разметок для ККТ завершена.");
-					else
-						send_grid_request(*grids_to_create_kkt_ptr);
-				}
+				store_grid(*grids_to_create_kkt_ptr++);
+				if (grids_to_create_kkt_ptr == grids_to_create_kkt.cend())
+					log_info("Загрузка разметок для ККТ завершена.");
+				else
+					send_grid_request(*grids_to_create_kkt_ptr);
 			}
 		}else{
 			snprintf(err_msg, ASIZE(err_msg), "Получены данные разметки нулевой длины.");
@@ -547,10 +550,10 @@ static bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to
 			grids_failed.push_back(p);
 		}*/
 	}
-	if (ok){
+/*	if (ok){
 		grids_to_create.assign(_grids_to_create.cbegin(), _grids_to_create.cend());
 	}
-/*	if (ok && (n > 0))
+	if (ok && (n > 0))
 		ok = update_xprn_grids(cbk) && update_kkt_grids(cbk);*/
 	if (ok){
 		if (cbk != NULL)
