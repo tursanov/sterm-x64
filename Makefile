@@ -112,7 +112,8 @@ PRN_OBJS =		\
 	local
 
 X3DATA_OBJS =		\
-	grids
+	grids		\
+	icons
 
 OBJS =			\
 	$(addprefix base/,	$(addsuffix .o, $(BASE_OBJS)))		\

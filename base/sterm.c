@@ -49,6 +49,7 @@
 #include "prn/express.h"
 #include "prn/local.h"
 #include "x3data/grids.h"
+#include "x3data/icons.h"
 #include "bscsym.h"
 #include "devinfo.h"
 #include "gd.h"
@@ -3685,42 +3686,42 @@ static bool x3data_sync_dlg(uint32_t x3data_to_sync)
 	int rc = snprintf(msg, sizeof(msg), "Необходимо синхронизировать с \"Экспресс-3\" следующие данные:\n");
 	if (rc > 0)
 		offs += rc;
-	if ((offs< sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_GRIDS)){
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_GRIDS)){
 		rc = snprintf(msg + offs, sizeof(msg) - offs, "разметки бланков БПУ;\n");
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
-	if ((offs< sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_ICONS)){
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_ICONS)){
 		rc = snprintf(msg + offs, sizeof(msg) - offs, "пиктограмммы БПУ;\n");
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
-	if ((offs< sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_GRIDS)){
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_GRIDS)){
 		rc = snprintf(msg + offs, sizeof(msg) - offs, "разметки бланков ККТ;\n");
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
-	if ((offs< sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_ICONS)){
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_ICONS)){
 		rc = snprintf(msg + offs, sizeof(msg) - offs, "пиктограмммы ККТ;\n");
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
-	if ((offs< sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_PATTERNS)){
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_PATTERNS)){
 		rc = snprintf(msg + offs, sizeof(msg) - offs, "шаблоны печати ККТ;\n");
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
-	if ((offs< sizeof(msg)) && (x3data_to_sync & X3_SYNC_XSLT)){
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XSLT)){
 		rc = snprintf(msg + offs, sizeof(msg) - offs, "таблицы трансформации XML для ККТ;\n");
 		if (rc > 0){
 			offs += rc;
@@ -3747,6 +3748,10 @@ static bool begin_x3data_sync(uint32_t x3data_to_sync)
 		ret = sync_grids_xprn(NULL);
 	else if (x3data_to_sync && X3_SYNC_KKT_GRIDS)
 		ret = sync_grids_kkt(NULL);
+	else if (x3data_to_sync && X3_SYNC_XPRN_ICONS)
+		ret = sync_icons_xprn(NULL);
+	else if (x3data_to_sync && X3_SYNC_KKT_ICONS)
+		ret = sync_icons_kkt(NULL);
 	return ret;
 }
 
@@ -3783,6 +3788,8 @@ static void on_response(void)
 			set_term_state(st_resp);
 			if ((req_type == req_grid_xprn) || (req_type == req_grid_kkt))
 				on_response_grid();
+			else if ((req_type == req_icon_xprn) || (req_type == req_icon_kkt))
+				on_response_icon();
 			else if (!execute_resp() && !rejecting_req)
 				show_req();
 			if ((req_type == req_regular) && (c_state != cs_hasreq)){

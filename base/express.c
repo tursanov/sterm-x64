@@ -19,6 +19,7 @@
 #include "prn/express.h"
 #include "prn/local.h"
 #include "x3data/grids.h"
+#include "x3data/icons.h"
 #include "bscsym.h"
 #include "express.h"
 #include "hash.h"
@@ -1957,6 +1958,9 @@ static void preexecute_resp(void)
 					check_x3_grids(text_buf, l);
 					log_dbg("need_grids_update_xprn = %d; need_grids_update_kkt = %d.",
 						need_grids_update_xprn(), need_grids_update_kkt());
+					check_x3_icons(text_buf, l);
+					log_dbg("need_icons_update_xprn = %d; need_icons_update_kkt = %d.",
+						need_icons_update_xprn(), need_icons_update_kkt());
 				}
 				if (transition_flag != -1)
 					transition_flag++;
@@ -2329,6 +2333,10 @@ uint32_t need_x3_sync(void)
 		ret |= X3_SYNC_XPRN_GRIDS;
 	if (need_grids_update_kkt())
 		ret |= X3_SYNC_KKT_GRIDS;
+	if (need_icons_update_xprn())
+		ret |= X3_SYNC_XPRN_ICONS;
+	if (need_icons_update_kkt())
+		ret |= X3_SYNC_KKT_ICONS;
 	return ret;
 }
 

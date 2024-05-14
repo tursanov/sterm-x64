@@ -4,7 +4,8 @@ DIR = x3data/
 INCLUDE = ../include
 
 X3DATA_OBJS =		\
-	grids
+	grids		\
+	icons
 
 OBJS = $(addsuffix .o, $(X3DATA_OBJS))
 

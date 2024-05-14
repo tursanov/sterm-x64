@@ -11,6 +11,7 @@
 #include "x3data/bmp.h"
 #include "x3data/grids.h"
 #include "x3data/grids.hpp"
+#include "x3data/icons.h"
 #include "gd.h"
 #include "express.h"
 #include "hash.h"
@@ -485,9 +486,10 @@ void on_response_grid(void)
 					grids_to_create_kkt_ptr->name().c_str());
 				store_grid(*grids_to_create_kkt_ptr++);
 				grid_buf_idx = 0;
-				if (grids_to_create_kkt_ptr == grids_to_create_kkt.cend())
+				if (grids_to_create_kkt_ptr == grids_to_create_kkt.cend()){
 					log_info("Загрузка разметок для ККТ завершена.");
-				else
+					sync_icons_xprn(NULL);
+				}else
 					send_grid_request(*grids_to_create_kkt_ptr);
 			}
 		}else{
@@ -577,7 +579,8 @@ bool sync_grids_xprn(x3_sync_callback_t cbk)
 		req_type = req_grid_xprn;
 		grids_to_create_xprn_ptr = grids_to_create_xprn.cbegin();
 		ret = sync_grids(grids_to_create_xprn, grids_to_remove_xprn, grids_failed_xprn, cbk);
-	}
+	}else
+		ret = sync_grids_kkt(cbk);
 	return ret;
 }
 
@@ -588,7 +591,8 @@ bool sync_grids_kkt(x3_sync_callback_t cbk)
 		req_type = req_grid_kkt;
 		grids_to_create_kkt_ptr = grids_to_create_kkt.cbegin();
 		ret = sync_grids(grids_to_create_kkt, grids_to_remove_kkt, grids_failed_kkt, cbk);
-	}
+	}else
+		ret = sync_icons_xprn(cbk);
 	return ret;
 }
 
