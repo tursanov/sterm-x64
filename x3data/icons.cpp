@@ -186,7 +186,7 @@ static bool find_stored_icons(list<IconInfo> &stored_icons, const char *pattern)
 static bool find_stored_icons_xprn(list<IconInfo> &stored_icons)
 {
 	stored_icons.clear();
-	find_stored_icons(stored_icons, "^Z[0-79]{2}[0-9]{5}\\.[Bb][Mm][Pp]$");
+	find_stored_icons(stored_icons, "^Z[0-9]{7}\\.[Bb][Mm][Pp]$");
 	return !stored_icons.empty();
 }
 
@@ -194,7 +194,7 @@ static bool find_stored_icons_xprn(list<IconInfo> &stored_icons)
 static bool find_stored_icons_kkt(list<IconInfo> &stored_icons)
 {
 	stored_icons.clear();
-	find_stored_icons(stored_icons, "^Y[0-79]{2}[0-9]{5}\\.[Bb][Mm][Pp]$");
+	find_stored_icons(stored_icons, "^Y[0-9]{7}\\.[Bb][Mm][Pp]$");
 	return !stored_icons.empty();
 }
 
@@ -527,7 +527,7 @@ static bool sync_icons(list<IconInfo> &icons_to_create, list<IconInfo> &icons_to
 		ok = update_xprn_icons(cbk) && update_kkt_icons(cbk);*/
 	if (ok){
 		if (cbk != NULL)
-			cbk(false, "Разметки успешно загружены");
+			cbk(false, "Пиктограммы успешно загружены");
 	}/*else
 		showXPrnPicSyncError(icons_failed_xprn, icons_failed_kkt, icons_failed_xprn, icons_failed_kkt);*/
 	icon_sync_cbk = NULL;
@@ -597,7 +597,7 @@ static void check_xprn_icons(const list<IconInfo> &stored_icons, list<IconInfo> 
 				p.name().c_str(), p.nr(), p.id());
 			icons_to_load.push_back(p);
 		}else if (p.isNewer(*p1)){
-			log_dbg("Разметку %s #%d (%hc) необходимо обновить.",
+			log_dbg("Пиктограмму %s #%d (%hc) необходимо обновить.",
 				(*p1).name().c_str(), (*p1).nr(), (*p1).id());
 			icons_to_load.push_back(p);
 			icons_to_erase.push_back(*p1);
@@ -716,7 +716,7 @@ static bool update_icons_vtsv(const list<IconInfo> &icons_to_load, const list<Ic
 		}
 	}
 	if (ok)
-		log_info("Разметки в БПУ успешно обновлены.");
+		log_info("Пиктограммы в БПУ успешно обновлены.");
 	return true; /*ret;*/
 }
 
@@ -825,7 +825,7 @@ static void check_kkt_icons(const list<IconInfo> &stored_icons, list<IconInfo> &
 				p.name().c_str(), p.nr(), p.id());
 			icons_to_load.push_back(p);
 		}else if (p.isNewer(*p1)){
-			log_dbg("Разметку %s #%d (%hc) необходимо обновить.",
+			log_dbg("Пиктограмму %s #%d (%hc) необходимо обновить.",
 				(*p1).name().c_str(), (*p1).nr(), (*p1).id());
 			icons_to_load.push_back(p);
 			icons_to_erase.push_back(*p1);
@@ -875,7 +875,7 @@ static bool update_icons_kkt(const list<IconInfo> &stored_icons, list<IconInfo> 
 	if (kkt->eraseAllGrids()){
 		KktRespGridEraseAll *rsp = dynamic_cast<KktRespGridEraseAll *>(kkt->rsp());
 		if ((rsp != NULL) && rsp->statusOk())
-			log_info("Разметки удалены из ККТ.");
+			log_info("Пиктограммы удалены из ККТ.");
 		else{
 			log_err("Ошибка удаления пиктограмм из ККТ: 0x%.2hx.", (uint16_t)kkt->status());
 			return false;

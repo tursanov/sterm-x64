@@ -223,7 +223,7 @@ static bool find_stored_grids_xprn(list<GridInfo> &stored_grids)
 {
 	stored_grids.clear();
 	find_stored_grids(stored_grids, "^HU[1-9].[Bb][Mm][Pp]$");
-	find_stored_grids(stored_grids, "^L[0-79]{2}[0-9]{5}\\.[Bb][Mm][Pp]$");
+	find_stored_grids(stored_grids, "^L[0-9]{7}\\.[Bb][Mm][Pp]$");
 	return !stored_grids.empty();
 }
 
@@ -231,7 +231,7 @@ static bool find_stored_grids_xprn(list<GridInfo> &stored_grids)
 static bool find_stored_grids_kkt(list<GridInfo> &stored_grids)
 {
 	stored_grids.clear();
-	find_stored_grids(stored_grids, "^M[0-79]{2}[0-9]{5}\\.[Bb][Mm][Pp]$");
+	find_stored_grids(stored_grids, "^M[0-9]{7}\\.[Bb][Mm][Pp]$");
 	return !stored_grids.empty();
 }
 
