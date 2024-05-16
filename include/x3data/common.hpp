@@ -1,6 +1,8 @@
-/* Включаемые файлы библиотеки boost. (c) gsr, 2024 */
+/* Общие определения для всех файлов. (c) gsr, 2024 */
 
 #pragma once
+
+typedef void (*InitializationNotify_t)(bool done, const char *message);
 
 #include <boost/container/list.hpp>
 using boost::container::list;

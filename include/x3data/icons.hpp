@@ -2,9 +2,7 @@
 
 #pragma once
 
-#include "x3data/boost.hpp"
-
-typedef void (*InitializationNotify_t)(bool done, const char *message);	/* FIXME */
+#include "x3data/common.hpp"
 
 /* Минимальная ширина пиктограммы в точках */
 #define ICON_MIN_WIDTH		8

@@ -3,9 +3,7 @@
 #if !defined X3DATA_ICONS_H
 #define X3DATA_ICONS_H
 
-#include "sysdefs.h"
-
-typedef void (*x3_sync_callback_t)(bool done, const char *message);
+#include "x3data/common.h"
 
 #if defined __cplusplus
 extern "C" {

@@ -2,9 +2,7 @@
 
 #pragma once
 
-#include "x3data/boost.hpp"
-
-typedef void (*InitializationNotify_t)(bool done, const char *message);
+#include "x3data/common.hpp"
 
 /* Минимальная ширина разметки бланка в точках */
 #define GRID_MIN_WIDTH		8
