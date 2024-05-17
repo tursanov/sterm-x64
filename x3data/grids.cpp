@@ -453,7 +453,7 @@ void on_response_grid(void)
 	if (find_pic_data(&grid_para, &req_para) && (grid_para != -1)){
 		grid_len = handle_para(grid_para);
 		log_info("Обнаружены данные разметки (абзац #%d; %zd байт).",
-		grid_para + 1, grid_len);
+			grid_para + 1, grid_len);
 		if (grid_len > (ASIZE(grid_buf) - grid_buf_idx)){
 			snprintf(err_msg, ASIZE(err_msg), "Переполнение буфера данных разметки.");
 			non_grid_resp = 1;

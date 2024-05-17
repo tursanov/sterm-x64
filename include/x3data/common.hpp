@@ -12,3 +12,6 @@ using boost::container::string;
 
 #include <boost/smart_ptr/scoped_ptr.hpp>
 using boost::scoped_ptr;
+
+#include <boost/container/vector.hpp>
+using boost::container::vector;

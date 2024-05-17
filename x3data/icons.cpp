@@ -11,6 +11,7 @@
 #include "x3data/bmp.h"
 #include "x3data/icons.h"
 #include "x3data/icons.hpp"
+#include "x3data/patterns.h"
 #include "express.h"
 #include "paths.h"
 #include "sterm.h"
@@ -417,7 +418,7 @@ void on_response_icon(void)
 	if (find_pic_data(&icon_para, &req_para) && (icon_para != -1)){
 		icon_len = handle_para(icon_para);
 		log_info("Обнаружены данные пиктограммы (абзац #%d; %zd байт).",
-		icon_para + 1, icon_len);
+			icon_para + 1, icon_len);
 		if (icon_len > (ASIZE(icon_buf) - icon_buf_idx)){
 			snprintf(err_msg, ASIZE(err_msg), "Переполнение буфера данных пиктограммы.");
 			non_icon_resp = 1;
@@ -448,9 +449,10 @@ void on_response_icon(void)
 					icons_to_create_kkt_ptr->name().c_str());
 				store_icon(*icons_to_create_kkt_ptr++);
 				icon_buf_idx = 0;
-				if (icons_to_create_kkt_ptr == icons_to_create_kkt.cend())
+				if (icons_to_create_kkt_ptr == icons_to_create_kkt.cend()){
 					log_info("Загрузка пиктограмм для ККТ завершена.");
-				else
+					sync_patterns(NULL);
+				}else
 					send_icon_request(*icons_to_create_kkt_ptr);
 			}
 		}else{
@@ -552,7 +554,8 @@ bool sync_icons_kkt(x3_sync_callback_t cbk)
 		req_type = req_icon_kkt;
 		icons_to_create_kkt_ptr = icons_to_create_kkt.cbegin();
 		ret = sync_icons(icons_to_create_kkt, icons_to_remove_kkt, icons_failed_kkt, cbk);
-	}
+	}else
+		ret = sync_patterns(cbk);
 	return ret;
 }
 

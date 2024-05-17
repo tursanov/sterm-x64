@@ -113,7 +113,8 @@ PRN_OBJS =		\
 
 X3DATA_OBJS =		\
 	grids		\
-	icons
+	icons		\
+	patterns
 
 OBJS =			\
 	$(addprefix base/,	$(addsuffix .o, $(BASE_OBJS)))		\
