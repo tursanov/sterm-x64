@@ -303,7 +303,7 @@ static bool check_x3_grids(const uint8_t *data, size_t len, list<GridInfo> &x3_g
 	x3_grids_xprn.clear();
 	x3_grids_kkt.clear();
 	for (size_t i = 0; (data[i] == 0x3c) && ((i + 1) < len); i++){
-		const uint8_t *p = (uint8_t *)memchr(data + i + 1, 0x3e, len - i - 1);
+		const uint8_t *p = (const uint8_t *)memchr(data + i + 1, 0x3e, len - i - 1);
 		if (p == NULL)
 			break;
 		GridInfo gi;
