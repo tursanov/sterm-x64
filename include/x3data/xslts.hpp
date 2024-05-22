@@ -17,10 +17,6 @@ public:
 /* Индекс таблицы XSLT состоит из двух символов, принимающих значения 0-9 и A-Z */
 /* Проверка правильности индекса таблицы XSLT */
 	static bool isIdxValid(const char *idx);
-	static bool isIdxValid(char *idx)
-	{
-		return isIdxValid(idx.c_str());
-	}
 private:
 /* Имя таблицы XSLT */
 	string _name;
@@ -44,6 +40,7 @@ public:
 
 /* Создание экземпляра класса XSLTInfo со значениями по умолчанию */
 	XSLTInfo() :
+		_name(),
 		_date(0)
 	{
 		_idx[0] = 0;

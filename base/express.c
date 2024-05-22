@@ -21,6 +21,7 @@
 #include "x3data/grids.h"
 #include "x3data/icons.h"
 #include "x3data/patterns.h"
+#include "x3data/xslts.h"
 #include "bscsym.h"
 #include "express.h"
 #include "hash.h"
@@ -1964,6 +1965,8 @@ static void preexecute_resp(void)
 						need_icons_update_xprn(), need_icons_update_kkt());
 					check_x3_kkt_patterns(text_buf, l);
 					log_dbg("need_patterns_update = %d.", need_patterns_update());
+					check_x3_xslt(text_buf, l);
+					log_dbg("need_xslt_update = %d.", need_xslt_update());
 				}
 				if (transition_flag != -1)
 					transition_flag++;
@@ -2342,6 +2345,8 @@ uint32_t need_x3_sync(void)
 		ret |= X3_SYNC_KKT_ICONS;
 	if (need_patterns_update())
 		ret |= X3_SYNC_KKT_PATTERNS;
+	if (need_xslt_update())
+		ret |= X3_SYNC_XSLT;
 	return ret;
 }
 

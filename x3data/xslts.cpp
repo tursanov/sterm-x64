@@ -9,6 +9,7 @@
 #include <zlib.h>
 #include "x3data/common.hpp"
 #include "x3data/xslts.h"
+#include "x3data/xslts.hpp"
 #include "gui/scr.h"
 #include "express.h"
 #include "paths.h"
@@ -38,7 +39,7 @@ bool XSLTInfo::parse(const char *name)
 	static const char *xslt_ext = ".XSL";
 	char pr, idx[3], ext[5], ch;
 	int y, d;
-	if (sscanf(nm, "%c%2s%2d%3d%4s%c", &pr, &idx, &y, &d, ext, &ch) == 5){
+	if (sscanf(nm, "%c%2s%2d%3d%4s%c", &pr, idx, &y, &d, ext, &ch) == 5){
 		pr = toupper(pr);
 		if ((pr == 'T') && isIdxValid(idx) &&
 				(strcmp(ext, xslt_ext) == 0) && (y > 14) && (d > 0) && (d < 367)){
@@ -71,10 +72,10 @@ bool XSLTInfo::parse(const uint8_t *data, size_t len)
 	char nm[MAX_XSLT_NAME_LEN + 1];
 	char pr, idx[3], ch;
 	int y, d;
-	if (sscanf((const char *)data, "<%c%2s%2d%3d%c", &pr, &idx, &y, &d, &ch) == 5){
+	if (sscanf((const char *)data, "<%c%2s%2d%3d%c", &pr, idx, &y, &d, &ch) == 5){
 		pr = toupper(pr);
 		if ((pr == 'T') && (ch == '>') && isIdxValid(idx) && (y > 14) && (d > 0) && (d < 367)){
-			snprintf(nm, ARRAYSIZE(nm) "%c%.2s%.2d%.3d", pr, idx, y, d);
+			snprintf(nm, ASIZE(nm), "%c%.2s%.2d%.3d", pr, idx, y, d);
 			struct tm tm;
 			tm.tm_year = 100 + y;
 			tm.tm_mon = 0;
@@ -96,7 +97,7 @@ bool XSLTInfo::parse(const uint8_t *data, size_t len)
 }
 
 static list<XSLTInfo> xslt_to_create;
-static list<XSLTInfo>::const_iterator xslt_to_creste_ptr = xslt_to_create::cbegin();
+static list<XSLTInfo>::const_iterator xslt_to_create_ptr = xslt_to_create.cbegin();
 static list<XSLTInfo> xslt_to_remove;
 static list<XSLTInfo> xslt_failed;
 
@@ -126,7 +127,7 @@ static void check_stored_xslt(const list<XSLTInfo> &x3_xslt)
 	int rc = regcomp(&reg, "^T[0-9A-Z]{2}[0-9]{5}\\.[Xx][Ss][Ll]$", REG_EXTENDED | REG_NOSUB);
 	if (rc != REG_NOERROR){
 		log_err("Ошибка компиляции регулярного выражения для: %d.", rc);
-		return false;
+		return;
 	}
 	list<XSLTInfo> stored_xslt;
 	struct dirent **names;
@@ -134,14 +135,14 @@ static void check_stored_xslt(const list<XSLTInfo> &x3_xslt)
 	if (n == -1){
 		log_sys_err("Ошибка поиска таблиц XSLT в каталоге " XSLT_FOLDER ":");
 		regfree(&reg);
-		return false;
+		return;
 	}
 	for (int i = 0; i < n; i++){
 		static char path[PATH_MAX];
 		snprintf(path, ASIZE(path), XSLT_FOLDER "/%s", names[i]->d_name);
 		XSLTInfo xi;
 		if (xi.parse(names[i]->d_name)){
-			log_dbg(_T("Обнаружена таблица XSLT %s #%s."), xi.name().c_str(), xi.idx());
+			log_dbg("Обнаружена таблица XSLT %s #%s.", xi.name().c_str(), xi.idx());
 			stored_xslt.push_back(xi);
 		}
 	}
@@ -149,7 +150,7 @@ static void check_stored_xslt(const list<XSLTInfo> &x3_xslt)
 	regfree(&reg);
 	log_dbg("Найдено таблиц XSLT: %d.", stored_xslt.size());
 /* Ищем таблицы XSLT для закачки */
-	log_dbg(_T("Ищем таблицы XSLT для закачки..."));
+	log_dbg("Ищем таблицы XSLT для закачки...");
 	for (const auto &p : x3_xslt){
 		bool found = false;
 		for (const auto &p1 : stored_xslt){
@@ -197,7 +198,7 @@ static bool check_x3_xslt(const uint8_t *data, size_t len, list<XSLTInfo> &x3_xs
 	return !x3_xslt.empty();
 }
 
-bool check_x3_icons(const uint8_t *data, size_t len)
+bool check_x3_xslt(const uint8_t *data, size_t len)
 {
 	list<XSLTInfo> x3_xslt;
 	bool ret = check_x3_xslt(data, len, x3_xslt);
@@ -214,7 +215,7 @@ static uint8_t xslt_buf[MAX_COMPRESSED_XSLT_LEN];
 static size_t xslt_buf_idx = 0;
 
 /* Автозапрос для получения таблиц XSLT по частям */
-static const uint8_t *xslt_auto_req = NULL;
+static uint8_t xslt_auto_req[REQ_BUF_LEN];
 /* Длина автозапроса */
 static size_t xslt_auto_req_len = 0;
 
@@ -245,7 +246,7 @@ static void send_xslt_auto_request()
 /* Декодирование таблицы XSLT, распаковка и сохранение в файле на диске */
 static bool store_xslt(const XSLTInfo &xi)
 {
-	log_info("path = %s; id = %hc.", xi.name().c_str(), xi.id());
+	log_info("path = %s; idx = %s.", xi.name().c_str(), xi.idx());
 	if (xslt_buf_idx == 0){
 		log_err("Буфер данных пуст.");
 		return false;
@@ -260,9 +261,9 @@ static bool store_xslt(const XSLTInfo &xi)
 	size_t xslt_data_len = MAX_COMPRESSED_XSLT_LEN;
 	int rc = uncompress(xslt_data.get(), &xslt_data_len, xslt_buf, len);
 	if (rc == Z_OK)
-		log_info(_T("Данные таблицы XSLT распакованы; длина данных после распаковки %u байт."), xslt_data_len);
+		log_info("Данные таблицы XSLT распакованы; длина данных после распаковки %u байт.", xslt_data_len);
 	else{
-		log_err(_T("Ошибка распаковки таблицы XSLT (%d)."), rc);
+		log_err("Ошибка распаковки таблицы XSLT (%d).", rc);
 		return false;
 	}
 	char path[PATH_MAX];
@@ -292,214 +293,120 @@ static bool store_xslt(const XSLTInfo &xi)
 static bool remove_xslt(const XSLTInfo &xi)
 {
 	static char path[PATH_MAX];
-	snprintf(path, ARRAYSIZE(path), XSLT_FOLDER "/%s.XSL", xi.name().c_str());
-	log_info(_T("Удаляем таблицу XSLT %s..."), path);
+	snprintf(path, ASIZE(path), XSLT_FOLDER "/%s.XSL", xi.name().c_str());
+	log_info("Удаляем таблицу XSLT %s...", path);
 	bool ret = unlink(path) == 0;
 	if (ret)
-		log_info(_T("Таблица %s успешно удалена."), path);
+		log_info("Таблица %s успешно удалена.", path);
 	else
-		log_sys_err(_T("Ошибка удаления таблицы XSLT %s:"), path);
+		log_sys_err("Ошибка удаления таблицы XSLT %s:", path);
 	return ret;
 }
 
-static void onEndXSLTRequest(CwbSdk *cwb_sdk)
+/* Вызывается после получения ответа на запрос таблицы XSLT */
+void on_response_xslt(void)
 {
-	log_info(_T("cwb_sdk = %p."), cwb_sdk);
-	xslt_auto_req = NULL;
 	xslt_auto_req_len = 0;
 	static char err_msg[1024];
 	err_msg[0] = 0;
-/* 0 -- данные таблицы XSLT; 1 -- другой ответ, обработка не требуется; 2 -- другой ответ, требуется обработка */
+/* 0 -- данные XSLT; 1 -- другой ответ, обработка не требуется; 2 -- другой ответ, требуется обработка */
 	int non_xslt_resp = 0;
-	scoped_ptr<DMap> dmap(new DMap());
-	scoped_ptr<X3Response> rsp(new X3Response(inquirer, term_keys, term_smap, dmap.get(), xprn, tprn, kkt,
-		xlog, termcore_callbacks));
-	if (cwb_sdk->error() == CwbSdkError::OK){
-		setTermcoreState(TS_RESPONSE);
-		InquirerError inq_err = inquirer->checkResp(cwb_sdk->resp(), cwb_sdk->resp_len());
-		if (inq_err == InquirerError::OK){
-			if (inquirer->is_specific_error()){
-				uint8_t code = inquirer->x3_specific_error();
-				snprintf(err_msg, ARRAYSIZE(err_msg), _TRUNCATE,
-					_T("Сообщение об ошибке \"Экспресс\": %.2hX (%s)."), (WORD)code,
-					Inquirer::specific_error_str(code));
-				xlog->writeSpecial(0, code);
-				non_xslt_resp = 1;
-			}else if (isXmlResp(inquirer->resp(), inquirer->resp_len())){
-				snprintf(err_msg, ARRAYSIZE(err_msg), _TRUNCATE, _T("В ответ на запрос таблицы XSLT пришёл XML."));
-				non_xslt_resp = 1;
-			}else{
-				UINT idx = 0;
-				uint32_t rt = GetTickCount() - xslt_req_t0;
-				try {
-					log_info(_T("Начинаем синтаксический разбор ответа."));
-					bool has_tprn = cfg->has_tprn();
-					cfg->set_has_tprn(true);
-					rsp->parse(inquirer->resp(), idx, inquirer->resp_len(), rt);
-					cfg->set_has_tprn(has_tprn);
-					cfg->clrChanged();
-					log_info(_T("Ответ разобран."));
-					const uint8_t *xslt = NULL, req = NULL;
-					size_t xslt_len = 0, req_len = 0;
-					if (rsp->getPicData(xslt, xslt_len, req, req_len)){
-						log_info(_T("Обнаружены данные таблицы XSLT (%d байт)."), xslt_len);
-						if ((xslt_buf_idx + xslt_len) > ARRAYSIZE(xslt_buf)){
-							snprintf(err_msg, ARRAYSIZE(err_msg), _TRUNCATE,
-								_T("Переполнение буфера данных таблицы XSLT."));
-							non_xslt_resp = 1;
-						}else if (xslt_len > 0){
-							memcpy(xslt_buf + xslt_buf_idx, xslt, xslt_len);
-							xslt_buf_idx += xslt_len;
-							if ((req != NULL) && (req_len > 0)){
-								log_info(_T("Обнаружен автозапрос таблицы XSLT (%d байт)."), req_len);
-								xslt_auto_req = req;
-								xslt_auto_req_len = req_len;
-							}
-						}else{
-							snprintf(err_msg, ARRAYSIZE(err_msg), _TRUNCATE,
-								_T("Получены данные таблицы XSLT нулевой длины."));
-							non_xslt_resp = 1;
-						}
-					}else{
-						snprintf(err_msg, ARRAYSIZE(err_msg), _TRUNCATE,
-							_T("Не найдены данные таблицы XSLT."));
-						non_xslt_resp = 2;
-					}
-				} catch (SYNTAX_ERROR e){
-					snprintf(err_msg, ARRAYSIZE(err_msg), _TRUNCATE,
-						_T("Синтаксическая ошибка ответа %s по смещению %d (0x%.4X)."),
-						X3Response::getErrorName(e), idx, idx);
-					inquirer->ZBp().setSyntaxError();
-					non_xslt_resp = 1;
-				}
-			}
-		}else if (inq_err == InquirerError::ForeignResp){
-			const uint8_t *addr = cwb_sdk->resp() + 4;
-			snprintf(err_msg, ARRAYSIZE(err_msg), _TRUNCATE,
-				_T("Получен ответ для другого терминала (%.2hX:%.2hX)."), (WORD)addr[0], (WORD)addr[1]);
-			xlog->writeForeign(0, addr[0], addr[1]);
+	set_term_state(st_resp);
+	int xslt_para = -1, req_para = -1;
+	size_t xslt_len = 0, req_len = 0;
+	if (find_pic_data(&xslt_para, &req_para) && (xslt_para != -1)){
+		xslt_len = handle_para(xslt_para);
+		log_info("Обнаружены данные XSLT (абзац #%d; %zd байт).",
+			xslt_para + 1, xslt_len);
+		if (xslt_len > (ASIZE(xslt_buf) - xslt_buf_idx)){
+			snprintf(err_msg, ASIZE(err_msg), "Переполнение буфера данных XSLT.");
 			non_xslt_resp = 1;
+		}else if (xslt_len > 0){
+			memcpy(xslt_buf + xslt_buf_idx, text_buf, xslt_len);
+			xslt_buf_idx += xslt_len;
+			if (req_para != -1){
+				req_len = handle_para(req_para);
+				if (req_len > 0){
+					log_info("Обнаружен автозапрос (абзац %d; %zd байт).",
+						req_para + 1, req_len);
+					memcpy(xslt_auto_req, text_buf, req_len);
+					xslt_auto_req_len = req_len;
+					send_xslt_auto_request();
+				}
+			}else{
+				log_info("Таблица XSLT %s получена полностью. Сохраняем в файл...",
+					xslt_to_create_ptr->name().c_str());
+				store_xslt(*xslt_to_create_ptr++);
+				xslt_buf_idx = 0;
+				if (xslt_to_create_ptr == xslt_to_create.cend())
+					log_info("Загрузка таблиц XSLT завершена.");
+				else
+					send_xslt_request(*xslt_to_create_ptr);
+			}
 		}else{
-			snprintf(err_msg, ARRAYSIZE(err_msg), _TRUNCATE, _T("Ошибка сеансового уровня: %s."),
-				inquirer->error_str(inq_err));
+			snprintf(err_msg, ASIZE(err_msg), "Получены данные таблицы XSLT нулевой длины.");
 			non_xslt_resp = 1;
 		}
 	}else{
-		snprintf(err_msg, ARRAYSIZE(err_msg), _TRUNCATE, _T("Ошибка SDK РМК: %s"), cwb_sdk->error_msg().c_str());
-		non_xslt_resp = 1;
+		snprintf(err_msg, ASIZE(err_msg), "Не найдены данные таблицы XSLT.");
+		non_xslt_resp = 2;
 	}
 	if (err_msg[0] != 0){
 		log_err(err_msg);
 		xslt_buf_idx = 0;
-		termcore_callbacks.callMessageBox(_T("ОШИБКА"), err_msg);
-/*		clrGridLists();
-		clrIconLists();*/
 	}
-	if (!isTermcoreState(TS_CLOSE_WAIT)){
-		if (non_xslt_resp){
-			callSyncCbk(true, NULL);
-			if (non_xslt_resp == 2){
-				setTermcoreState(TS_RESPONSE);
-				handleResp(rsp.get());
-			}
-		}else
-			setTermcoreState(TS_READY);
+	if (non_xslt_resp){
+		if (xslt_sync_cbk != NULL)
+			xslt_sync_cbk(true, NULL);
+		if (non_xslt_resp == 2)
+			execute_resp();
 	}
-	processExitFlag();
-	xsltReqWait.stop();
 }
 
-/* Загрузка заданной таблицы XSLT из "Экспресс-3" */
-static TERMCORE_RETURN downloadXSLT(const XSLTInfo &xi)
+/* Начало синхронизации таблиц XSLT с "Экспресс" */
+static bool sync_xslt(list<XSLTInfo> &xslt_to_create, list<XSLTInfo> &xslt_to_remove, list<XSLTInfo> &xslt_failed,
+       x3_sync_callback_t cbk)
 {
-	TERMCORE_RETURN ret = TC_OK;
-	bool flag = false, need_req = true;
-	log_info(_T("Загружаем таблицу XSLT %s..."), xi.name().c_str());
-	xslt_buf_idx = 0;
-	for (uint32_t n = 0; need_req; n++){
-		flag = false;
-		ret = (n == 0) ? sendXSLTRequest(xi) : sendXSLTAutoRequest();
-		if (ret == TC_OK){
-			xsltReqWait.wait();
-			if (isTermcoreState(TS_READY) && (xslt_buf_idx > 0)){
-				if (xslt_auto_req_len == 0){
-					log_info(_T("Таблица XSLT %s получена полностью. Сохраняем в файл..."), xi.name().c_str());
-					need_req = false;
-					if (store_xslt(xi))
-						flag = true;
-				}else
-					flag = true;
-			}
-		}
-		if (!flag){
-			if (ret == TC_OK)
-				ret = TC_XSLT_LOAD;
-			break;
-		}
+	if (!need_xslt_update()){
+		log_info("Обновление таблиц XSLT не требуется.");
+		return true;
 	}
-	if ((ret != TC_OK) && (ret != TS_CLOSE_WAIT))
-		log_err(_T("Ошибка загрузки таблицы XSLT %s."), xi.name().c_str());
-	return ret;
-}
-
-void showXSLTSyncError()
-{
-	if (xslt_failed.empty())
-		return;
-	static tstring msg;
-	msg.assign(_T("Ошибка синхронизации следующих таблиц XSLT:\r\n"));
-	bool first = true;
-	for (const auto &p : xslt_failed){
-		if (first)
-			first = false;
-		else
-			msg.append(_T(";\r\n"));
-		msg.append(p.name());
-	}
-	msg.append(_T("."));
-	termcore_callbacks.callMessageBox(_T("ВНИМАНИЕ"), msg.c_str());
-}
-
-bool syncXSLT(X3SyncCallback_t cbk)
-{
 	bool ok = true;
 	char txt[256];
 	size_t n = 0;
 	xslt_sync_cbk = cbk;
-	callSyncCbk(false, _T("Загрузка таблиц XSLT из \"Экспресс\""));
-	Sleep(100);
+	if (cbk != NULL)
+		cbk(false, "Загрузка таблиц XSLT из \"Экспресс-3\"");
 	xslt_failed.clear();
-/* Сначала закачиваем новые таблицы XSLT */
-	for (const auto &p : xslt_to_create){
-		snprintf(txt, ARRAYSIZE(txt), _TRUNCATE, _T("Загрузка таблицы XSLT %s (%u из %u)"),
-			p.name().c_str(), n + 1, xslt_to_create.size());
-		callSyncCbk(false, txt);
-		TERMCORE_RETURN rc = downloadXSLT(p);
-		if (rc == TC_OK)
+	list<XSLTInfo> _xslt_to_create, _xslt_to_remove;
+/* Сначала удаляем старые таблицы XSLT */
+	for (const auto &p : xslt_to_remove){
+		if (remove_xslt(p))
 			n++;
-		else{
-			ok = false;
-			break;
-		}
+		else
+			_xslt_to_remove.push_back(p);
 	}
-/* Затем удаляем старые */
-	if (ok){
-		xslt_to_create.clear();
-		for (const auto &p : xslt_to_remove){
-			if (remove_xslt(p))
-				n++;
-			else{
-				ok = false;
-				break;
-			}
-		}
-		if (ok)
-			xslt_to_remove.clear();
+	xslt_to_remove.assign(_xslt_to_remove.cbegin(), _xslt_to_remove.cend());
+/* Затем начинаем закачку новых */
+	for (const auto &p : xslt_to_create){
+		snprintf(txt, ASIZE(txt), "Загрузка таблицы XSLT %s (%zu из %zu)",
+			p.name().c_str(), (n + 1), xslt_to_create.size());
+		log_dbg(txt);
+		send_xslt_request(p);
+		break;
 	}
-	if (ok)
-		callSyncCbk(false, _T("Таблицы XSLT успешно загружены"));
-	else
-		showXSLTSyncError();
 	xslt_sync_cbk = NULL;
 	return ok;
+}
+
+bool sync_xslt(x3_sync_callback_t cbk)
+{
+	log_dbg("");
+	bool ret = true;
+	if (need_xslt_update()){
+		req_type = req_xslt;
+		xslt_to_create_ptr = xslt_to_create.cbegin();
+		ret = sync_xslt(xslt_to_create, xslt_to_remove, xslt_failed, cbk);
+	}
+	return ret;
 }

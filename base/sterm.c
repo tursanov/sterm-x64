@@ -51,6 +51,7 @@
 #include "x3data/grids.h"
 #include "x3data/icons.h"
 #include "x3data/patterns.h"
+#include "x3data/xslts.h"
 #include "bscsym.h"
 #include "devinfo.h"
 #include "gd.h"
@@ -3755,6 +3756,8 @@ static bool begin_x3data_sync(uint32_t x3data_to_sync)
 		ret = sync_icons_kkt(NULL);
 	else if (x3data_to_sync && X3_SYNC_KKT_PATTERNS)
 		ret = sync_patterns(NULL);
+	else if (x3data_to_sync && X3_SYNC_XSLT)
+		ret = sync_xslt(NULL);
 	return ret;
 }
 
@@ -3795,6 +3798,8 @@ static void on_response(void)
 				on_response_icon();
 			else if (req_type == req_patterns)
 				on_response_patterns();
+			else if (req_type == req_xslt)
+				on_response_xslt();
 			else if (!execute_resp() && !rejecting_req)
 				show_req();
 			if ((req_type == req_regular) && (c_state != cs_hasreq)){

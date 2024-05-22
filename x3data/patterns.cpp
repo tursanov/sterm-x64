@@ -9,6 +9,7 @@
 #include <zlib.h>
 #include "x3data/common.hpp"
 #include "x3data/patterns.h"
+#include "x3data/xslts.h"
 #include "gui/scr.h"
 #include "express.h"
 #include "paths.h"
@@ -339,6 +340,7 @@ void on_response_patterns(void)
 			}else{
 				log_info("Шаблоны печати получены полностью. Сохраняем на диск...");
 				store_patterns();
+				sync_xslt(NULL);
 			}
 		}else{
 			snprintf(err_msg, ASIZE(err_msg), "Получены данные шаблонов печати нулевой длины.");
@@ -376,7 +378,7 @@ bool sync_patterns(x3_sync_callback_t cbk)
 	if (need_patterns_update(x3_kkt_patterns_version)){
 		req_type = req_patterns;
 		ret = download_patterns(cbk);
-	}/*else
-		ret = sync_xslt(cbk);*/
+	}else
+		ret = sync_xslt(cbk);
 	return ret;
 }
