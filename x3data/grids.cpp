@@ -822,6 +822,7 @@ bool update_xprn_grids(InitializationNotify_t init_notify)
 	}
 	return ret;
 }
+#endif
 
 /* Получение списка разметок из ККТ */
 static bool find_kkt_grids(list<GridInfo> &kkt_grids)
