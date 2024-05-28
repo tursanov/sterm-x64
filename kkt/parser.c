@@ -4,6 +4,7 @@
 #include <string.h>
 #include "kkt/io.h"
 #include "kkt/parser.h"
+#include "x3data/common.h"
 
 uint8_t tx_prefix = KKT_NUL;
 uint8_t tx_cmd = KKT_NUL;
@@ -535,6 +536,40 @@ static bool parse_fs_doc_tlv(struct read_doc_tlv_arg *arg)
 
 }
 
+static bool parse_grid_lst(void)
+{
+	bool ret = true;
+	if (rx_st == st_prefix){
+		ret = parse_prefix();
+		if (ret && (kkt_status == KKT_STATUS_OK))
+			begin_fix_data(1);
+	}else if (rx_st == st_fix_data){
+		if (rx_exp_len == 4){
+			uint8_t n = kkt_rx[3];
+			if ((n > 0) && (n <= SPRN_MAX_GRIDS))
+				begin_fix_data(n * sizeof(struct pic_header));
+		}
+	}
+	return ret;
+}
+
+static bool parse_icon_lst(void)
+{
+	bool ret = true;
+	if (rx_st == st_prefix){
+		ret = parse_prefix();
+		if (ret && (kkt_status == KKT_STATUS_OK))
+			begin_fix_data(1);
+	}else if (rx_st == st_fix_data){
+		if (rx_exp_len == 4){
+			uint8_t n = kkt_rx[3];
+			if ((n > 0) && (n <= SPRN_MAX_ICONS))
+				begin_fix_data(n * sizeof(struct pic_header));
+		}
+	}
+	return ret;
+}
+
 parser_t get_parser(uint8_t prefix, uint8_t cmd)
 {
 	parser_t ret = NULL;
@@ -543,6 +578,12 @@ parser_t get_parser(uint8_t prefix, uint8_t cmd)
 			switch (cmd){
 				case KKT_VF:
 					ret = parse_status;
+					break;
+				case KKT_GRID_LST:
+					ret = parse_grid_lst;
+					break;
+				case KKT_ICON_LST:
+					ret = parse_icon_lst;
 					break;
 			}
 			break;

@@ -302,6 +302,12 @@ static uint32_t get_timeout(uint8_t prefix, uint8_t cmd)
 				case KKT_VF:
 					ret = KKT_FR_PRINT_TIMEOUT;
 					break;
+				case KKT_GRID_LST:
+					ret = KKT_GRID_LST_TIMEOUT;
+					break;
+				case KKT_ICON_LST:
+					ret = KKT_ICON_LST_TIMEOUT;
+					break;
 			}
 			break;
 		case KKT_SRV:
@@ -998,6 +1004,54 @@ uint8_t kkt_read_doc_tlv(uint8_t *data, size_t *len)
 		kkt_unlock();
 		if (flag)
 			*len = l;
+	}
+	return kkt_status;
+}
+
+/* Получить список разметок в ККТ */
+uint8_t kkt_get_grid_lst(uint8_t *data, size_t *len)
+{
+	assert(data != NULL);
+	assert(len != NULL);
+	assert(*len != 0);
+	if (kkt_lock()){
+		if (do_cmd(KKT_NUL, KKT_GRID_LST, &arg)){
+			if ((kkt_status == KKT_STATUS_OK) && (kkt_rx_len > 3)){
+				size_t lst_len = kkt_rx_len - 3;
+				if (*len < lst_len)
+					kkt_status = KKT_STATUS_OVERFLOW;
+				else
+					memcpy(data, kkt_rx + 3, lst_len);
+				*len = lst_len;
+			}else
+				*len = 0;
+		}else
+			*len = 0;
+		kkt_unlock();
+	}
+	return kkt_status;
+}
+
+/* Получить список пиктограмм в ККТ */
+uint8_t kkt_get_icon_lst(uint8_t *data, size_t *len)
+{
+	assert(data != NULL);
+	assert(len != NULL);
+	assert(*len != 0);
+	if (kkt_lock()){
+		if (do_cmd(KKT_NUL, KKT_ICON_LST, &arg)){
+			if ((kkt_status == KKT_STATUS_OK) && (kkt_rx_len > 3)){
+				size_t lst_len = kkt_rx_len - 3;
+				if (*len < lst_len)
+					kkt_status = KKT_STATUS_OVERFLOW;
+				else
+					memcpy(data, kkt_rx + 3, lst_len);
+				*len = kkt_rx_len;
+			}else
+				*len = 0;
+		}else
+			*len = 0;
+		kkt_unlock();
 	}
 	return kkt_status;
 }

@@ -182,6 +182,12 @@ extern uint8_t kkt_read_doc_tlv(uint8_t *data, size_t *len);
 /* Напечатать проездной документ */
 extern uint8_t kkt_print_vf(const uint8_t *data, size_t len);
 
+/* Получить список разметок в ККТ */
+extern uint8_t kkt_get_grid_lst(uint8_t *data, size_t *len);
+
+/* Получить список пиктограмм в ККТ */
+extern uint8_t kkt_get_icon_lst(uint8_t *data, size_t *len);
+
 /* Сброс ФН */
 extern uint8_t kkt_reset_fs(uint8_t b);
 

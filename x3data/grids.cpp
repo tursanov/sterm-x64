@@ -8,6 +8,7 @@
 #include <zlib.h>
 #include "gui/scr.h"
 #include "kkt/cmd.h"
+#include "kkt/kkt.h"
 #include "x3data/bmp.h"
 #include "x3data/grids.h"
 #include "x3data/grids.hpp"
@@ -830,7 +831,8 @@ static bool find_kkt_grids(list<GridInfo> &kkt_grids)
 	bool ret = false;
 	kkt_grids.clear();
 	log_info("Чтение списка разметок из ККТ...");
-	if (kkt->getGridLst()){
+	size_t len = sizeof(grid_buf);
+	if (kkt_get_grid_lst(grid_buf, &len) == KKT_STATUS_OK){
 		KktRespGridLst *rsp = dynamic_cast<KktRespGridLst *>(kkt->rsp());
 		if ((rsp != NULL) && rsp->statusOk()){
 			kkt_grids.assign(rsp->grids().cbegin(), rsp->grids().cend());
@@ -839,7 +841,7 @@ static bool find_kkt_grids(list<GridInfo> &kkt_grids)
 		}else
 			log_err("Ошибка получения списка разметок из ККТ: 0x%.2hx.", (uint16_t)kkt->status());
 	}else
-		log_err("Невозможно начать получение списка разметок из ККТ: 0x%.2hx.", (uint16_t)kkt->status());
+		log_err("Невозможно начать получение списка разметок из ККТ: 0x%.2hhx.", kkt_status);
 	return ret;
 }
 
