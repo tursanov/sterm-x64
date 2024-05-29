@@ -21,6 +21,9 @@ struct pic_header {
 	uint32_t data_len;	/* длина данных */
 } __attribute__((__packed__));
 
+/* Вычисление контрольной суммы CRC32 x^30 + x^27 + x^18 + x^3 + x^1 блока данных */
+extern uint32_t pic_crc32(const uint8_t *data, size_t len);
+
 #if defined __cplusplus
 }
 #endif

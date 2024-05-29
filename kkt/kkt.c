@@ -1015,7 +1015,7 @@ uint8_t kkt_get_grid_lst(uint8_t *data, size_t *len)
 	assert(len != NULL);
 	assert(*len != 0);
 	if (kkt_lock()){
-		if (do_cmd(KKT_NUL, KKT_GRID_LST, &arg)){
+		if (do_cmd(KKT_NUL, KKT_GRID_LST, NULL)){
 			if ((kkt_status == KKT_STATUS_OK) && (kkt_rx_len > 3)){
 				size_t lst_len = kkt_rx_len - 3;
 				if (*len < lst_len)
@@ -1039,7 +1039,7 @@ uint8_t kkt_get_icon_lst(uint8_t *data, size_t *len)
 	assert(len != NULL);
 	assert(*len != 0);
 	if (kkt_lock()){
-		if (do_cmd(KKT_NUL, KKT_ICON_LST, &arg)){
+		if (do_cmd(KKT_NUL, KKT_ICON_LST, NULL)){
 			if ((kkt_status == KKT_STATUS_OK) && (kkt_rx_len > 3)){
 				size_t lst_len = kkt_rx_len - 3;
 				if (*len < lst_len)
@@ -1054,6 +1054,39 @@ uint8_t kkt_get_icon_lst(uint8_t *data, size_t *len)
 		kkt_unlock();
 	}
 	return kkt_status;
+}
+
+/* Запись в буфер передачи шаблона для ККТ */
+static bool kkt_write_grid(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
+		const char *name)
+{
+	if ((data == NULL) || (len == 0) ||
+			((len + 4 + sizeof(struct pic_header) + sizeof(uint32_t)) > KKT_TX_BUF_LEN) ||
+			(name == NULL))
+		return false;
+	prepare_cmd(KKT_NUL, KKT_GRID_LOAD);
+	kkt_tx[kkt_tx_len++] = id;
+	*(uint32_t *)(kkt_tx + kkt_tx_len) = len + sizeof(struct pic_header);
+	kkt_tx_len += sizeof(uint32_t);
+	size_t start = kkt_tx_len;
+	struct pic_hdr *hdr = (struct pic_hdr *)(kkt_tx + kkt_tx_len);
+	hdr->hdr_len = sizeof(*hdr);
+	hdr->w = (uint8_t)(w / 8);
+	hdr->h = (uint8_t)(h / 8);
+	hdr->id = id;
+	size_t name_len = strlen(name);
+	if (name_len > sizeof(hdr->name))
+		name_len = sizeof(hdr->name);
+	memcpy(hdr->name, name, name_len);
+	if (name_len < sizeof(hdr->name))
+		memset(hdr->name + name_len, 0, sizeof(hdr->name) - name_len);
+	hdr->data_len = len;
+	kkt_tx_len += sizeof(*hdr);
+	memcpy(kkt_tx + kkt_tx_len, data, len);
+	kkt_tx_len += len;
+	(uint32_t *)(kkt_tx + kkt_tx_len) = pic_crc32(kkt_tx + start, kkt_tx_len - start);
+	kkt_tx_len += sizeof(uint32_t);
+	return true;
 }
 
 /* Сброс ФН */

@@ -9,8 +9,8 @@ extern "C" {
 
 #include "devinfo.h"
 
-#define RX_BUF_LEN	4096
-#define TX_BUF_LEN	262144
+#define KKT_RX_BUF_LEN	4096
+#define KKT_TX_BUF_LEN	262144
 
 extern void kkt_io_init(const struct dev_info *di);
 extern void kkt_io_release(void);

@@ -347,6 +347,48 @@ static size_t grid_auto_req_len = 0;
 
 static x3_sync_callback_t grid_sync_cbk = NULL;
 
+/* Минимальная ширина разметки бланка в мм */
+#define GRID_MIN_WIDTH		1
+/* Максимальная ширина разметки бланка в мм */
+#define GRID_MAX_WIDTH		204
+/* Минимальная высота разметки бланка в мм */
+#define GRID_MIN_HEIGHT		1
+/* Максимальная высота разметки бланка в мм */
+#define GRID_MAX_HEIGHT		82
+
+/* Проверка заголовка разметки */
+static bool check_grid_header(const struct pic_header *hdr, uint8_t id)
+{
+	bool ret = false;
+	if (hdr == NULL)
+		;
+	else if (hdr->hdr_len != sizeof(*hdr))
+		;
+	else if (hdr->id != id)
+		;
+	else if ((hdr->w < GRID_MIN_WIDTH) || (hdr->w > GRID_MAX_WIDTH))
+		;
+	else if ((hdr->h < GRID_MIN_HEIGHT) || (hdr->h > GRID_MAX_HEIGHT))
+		;
+	else if (!GridInfo::isIdValid(hdr->id) || (hdr->id == 0x38))
+		;
+	else if ((hdr->data_len == 0) || (hdr->data_len > MAX_COMPRESSED_GRID_LEN))
+		;
+	else{
+		ret = true;
+		for (size_t i = 0; i < sizeof(hdr->name); i++){
+			char ch = hdr->name[i];
+			if (ch == 0)
+				break;
+			else if (ch < 0x20){
+				ret = false;
+				break;
+			}
+		}
+	}
+	return ret;
+}
+
 /* Отправка начального запроса на получение разметки */
 static void send_grid_request(const GridInfo &grid)
 {
@@ -832,16 +874,25 @@ static bool find_kkt_grids(list<GridInfo> &kkt_grids)
 	kkt_grids.clear();
 	log_info("Чтение списка разметок из ККТ...");
 	size_t len = sizeof(grid_buf);
-	if (kkt_get_grid_lst(grid_buf, &len) == KKT_STATUS_OK){
-		KktRespGridLst *rsp = dynamic_cast<KktRespGridLst *>(kkt->rsp());
-		if ((rsp != NULL) && rsp->statusOk()){
-			kkt_grids.assign(rsp->grids().cbegin(), rsp->grids().cend());
-			log_info("Найдено разметок в ККТ: %d.", kkt_grids.size());
-			ret = true;
-		}else
-			log_err("Ошибка получения списка разметок из ККТ: 0x%.2hx.", (uint16_t)kkt->status());
+	uint8_t status = kkt_get_grid_lst(grid_buf, &len);
+	if (status == KKT_STATUS_OK){
+		size_t n = grid_buf[0];
+		const struct pic_header *hdr = (const struct pic_header *)(grid_buf + 1);
+		for (size_t i = 0; i < n; i++, hdr++){
+			if (check_grid_headr(hdr)){
+				char name[SPRN_MAX_PIC_NAME_LEN + 1];
+				memcpy(name, hdr->name, sizeof(hdr->name));
+				name[MAX_PIC_NAME_LEN] = 0;
+				GridInfo gi;
+				if (gi.parse(name))
+					kkt_grids.push_back(gi);
+			}
+		}
+		log_info("Найдено разметок в ККТ: %zu.", kkt_grids.size());
+		ret = true;
 	}else
-		log_err("Невозможно начать получение списка разметок из ККТ: 0x%.2hhx.", kkt_status);
+		log_err("Ошибка получения списка разметок из ККТ: 0x%.2hhx (%s).",
+			status, kkt_status_str(status));
 	return ret;
 }
 
@@ -860,27 +911,27 @@ static void check_kkt_grids(const list<GridInfo> &stored_grids, list<GridInfo> &
 	for (const auto &p : stored_grids){
 		auto p1 = find_if(kkt_grids, [p](const GridInfo &gi) {return gi.id() == p.id();});
 		if (p1 == kkt_grids.end()){
-			log_dbg("Разметка %s #%d (%hc) отсутствует в ККТ и будет туда загружена.",
+			log_dbg("Разметка %s #%d (%c) отсутствует в ККТ и будет туда загружена.",
 				p.name().c_str(), p.nr(), p.id());
 			grids_to_load.push_back(p);
 		}else if (p.isNewer(*p1)){
-			log_dbg("Разметку %s #%d (%hc) необходимо обновить.",
+			log_dbg("Разметку %s #%d (%c) необходимо обновить.",
 				(*p1).name().c_str(), (*p1).nr(), (*p1).id());
 			grids_to_load.push_back(p);
 			grids_to_erase.push_back(*p1);
 		}else
-			log_dbg("Разметка %s #%d (%hc) не требует обновления.",
+			log_dbg("Разметка %s #%d (%c) не требует обновления.",
 				(*p1).name().c_str(), (*p1).nr(), (*p1).id());
 	}
 /* Ищем разметки для удаления */
 	log_dbg("Ищем разметки для удаления...");
 	for (const auto &p : kkt_grids){
 		if (find_if(stored_grids, [p](const GridInfo &gi) {return gi.id() == p.id();}) == stored_grids.end()){
-			log_dbg("Разметка %s #%d (%hc) помечена для удаления.", p.name().c_str(), p.nr(), p.id());
+			log_dbg("Разметка %s #%d (%c) помечена для удаления.", p.name().c_str(), p.nr(), p.id());
 			grids_to_erase.push_back(p);
 		}
 	}
-	log_dbg("Найдено разметок: для загрузки: %d; для удаления: %d.", grids_to_load.size(), grids_to_erase.size());
+	log_dbg("Найдено разметок: для загрузки: %zu; для удаления: %zu.", grids_to_load.size(), grids_to_erase.size());
 }
 
 /* Запись заданной разметки в ККТ */
@@ -890,7 +941,7 @@ static bool write_grid_to_kkt(const GridInfo &gi)
 		return false;
 	bool ret = false;
 	static char path[PATH_MAX];
-	snprintf(path, ASIZE(path), "%s\\%s.BMP", grid_folder, gi.name().c_str());
+	snprintf(path, ASIZE(path), GRIDS_FOLDER "/%s.BMP", gi.name().c_str());
 	log_info("Загружаем в ККТ разметку %s...", path);
 	if (kkt->loadGrid(path, gi.nr())){
 		KktRespGridLoad *rsp = dynamic_cast<KktRespGridLoad *>(kkt->rsp());
@@ -962,4 +1013,3 @@ bool update_kkt_grids(InitializationNotify_t init_notify)
 	}
 	return ret;
 }
-#endif

@@ -544,7 +544,7 @@ static bool parse_grid_lst(void)
 		if (ret && (kkt_status == KKT_STATUS_OK))
 			begin_fix_data(1);
 	}else if (rx_st == st_fix_data){
-		if (rx_exp_len == 4){
+		if (kkt_rx_exp_len == 4){
 			uint8_t n = kkt_rx[3];
 			if ((n > 0) && (n <= SPRN_MAX_GRIDS))
 				begin_fix_data(n * sizeof(struct pic_header));
@@ -561,7 +561,7 @@ static bool parse_icon_lst(void)
 		if (ret && (kkt_status == KKT_STATUS_OK))
 			begin_fix_data(1);
 	}else if (rx_st == st_fix_data){
-		if (rx_exp_len == 4){
+		if (kkt_rx_exp_len == 4){
 			uint8_t n = kkt_rx[3];
 			if ((n > 0) && (n <= SPRN_MAX_ICONS))
 				begin_fix_data(n * sizeof(struct pic_header));

@@ -76,7 +76,7 @@ void kkt_io_release(void)
 	kkt_close_dev();
 }
 
-uint8_t kkt_tx[TX_BUF_LEN];
+uint8_t kkt_tx[KKT_TX_BUF_LEN];
 size_t kkt_tx_len = 0;
 
 void kkt_reset_tx(void)
@@ -85,7 +85,7 @@ void kkt_reset_tx(void)
 	tx_prefix = tx_cmd = 0;
 }
 
-uint8_t kkt_rx[RX_BUF_LEN];
+uint8_t kkt_rx[KKT_RX_BUF_LEN];
 size_t kkt_rx_len = 0;
 size_t kkt_rx_exp_len = 0;
 

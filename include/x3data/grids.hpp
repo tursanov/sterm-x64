@@ -4,15 +4,6 @@
 
 #include "x3data/common.hpp"
 
-/* Минимальная ширина разметки бланка в точках */
-#define GRID_MIN_WIDTH		8
-/* Максимальная ширина разметки бланка в точках */
-#define GRID_MAX_WIDTH		1632
-/* Минимальная высота разметки бланка в точках */
-#define GRID_MIN_HEIGHT		8
-/* Максимальная высота разметки бланка в точках */
-#define GRID_MAX_HEIGHT		660
-
 /* Информация о разметке для БПУ/ККТ */
 class GridInfo {
 private:

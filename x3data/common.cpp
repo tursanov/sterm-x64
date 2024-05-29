@@ -70,3 +70,135 @@ bool compressPicture(const uint8_t *src, size_t len, size_t w, size_t h, vector<
 	}
 	return true;
 }
+
+static uint8_t *pic_data = NULL;
+
+static void clr_pic_data()
+{
+	if (pic_data != NULL){
+		delete [] pic_data;
+		pic_data = NULL;
+	}
+}
+
+/* Чтение данных файла изображения */
+const uint8_t *read_bmp(const char *name, size_t &len, size_t &w, size_t &h,
+	size_t min_w, size_t max_w, size_t min_h, size_t max_h)
+{
+	log_dbg("name = %s; min_w = %zu; max_w = %zu; min_h = %zu; max_h = %zu.",
+		name, min_w, max_w, min_h, max_h);
+	clr_pic_data();
+	len = w = h = 0;
+	if (name == NULL){
+		log_err("Не указано имя файла.");
+		return NULL;
+	}
+	struct stat st;
+	if (stat(name, &st) == -1){
+		log_sys_err("Ошибка получения информации о файле %s:", name);
+		return NULL;
+	}else if ((st.st_size < (sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFO))) || (st.st_size > KKT_TX_BUF_LEN)){
+		log_err("Неверный размер файла %s (%d байт).", name, st.st_size);
+		return NULL;
+	}
+	int fd = open(name, O_RDONLY);
+	if (fd == -1){
+		log_sys_err("Ошибка открытия файла %s для чтения:", name);
+		return NULL;
+	}
+	uint8_t *ret = NULL;
+	do {
+		BITMAPFILEHEADER hdr;
+		if (read(fd, &hdr, sizeof(hdr)) != sizeof(hdr)){
+			log_sys_err("Ошибка чтения заголовка BMP из файла %s:", name);
+			break;
+		}else if (hdr.bfType != 0x4d42){
+			log_err("Неверная сигнатура BMP в файле %s.", name);
+			break;
+		}else if (hdr.bfSize != st.st_size){
+			log_err("Несовпадение фактического размера файла %s с размером в заголовке.", name);
+			break;
+		}
+		BITMAPINFOHEADER bmi;
+		if (read(fd, &bmi, sizeof(bmi)) != sizeof(bmi)){
+			log_sys_err("Ошибка чтения информации о BMP из файла %s:", name);
+			break;
+		}else if ((bmi.biWidth < min_w) || (bmi.biWidth > max_w) || ((bmi.biWidth % 32) != 0)){
+			log_err("Неверная ширина изображения (%d).", bmi.biWidth);
+			break;
+		}else if ((bmi.biHeight < min_h) || (abs(bmi.biHeight) > max_h) || ((bmi.biHeight % 8) != 0)){
+			log_err("Неверная высота изображения (%d).", bmi.biHeight);
+			break;
+		}else if (bmi.biBitCount != 1){
+			log_err("Неверная глубина цвета изображения (%d bpp).", bmi.biBitCount);
+			break;
+		}else if (bmi.biCompression != BI_RGB){
+			log_err("Неверный формат сжатия изображения.");
+			break;
+		}
+		size_t data_len = (bmi.biWidth / 8) * bmi.biHeight;
+		if (data_len == 0){
+			log_err("Длина данных изображения равна 0.");
+			break;
+		}else if ((bmi.biSizeImage != 0) && (bmi.biSizeImage < data_len)){
+			log_err("Неверный размер изображения (%d байт).", bmi.biSizeImage);
+			break;
+		}
+		RGBQUAD pal[2];
+		if (read(fd, pal, sizeof(pal)) != sizeof(pal)){
+			log_sys_err("Ошибка чтения палитры изображения:");
+			break;
+		}
+		bool inverted = (pal[0].rgbRed == 0) && (pal[0].rgbGreen == 0) && (pal[0].rgbBlue == 0);
+		if (lseek(fd, hdr.bfOffBits, SEEK_SET) != hdr.bfOffBits){
+			log_sys_err("Ошибка позиционирования в файле %s для чтения данных изображения:", name);
+			break;
+		}
+		pic_data = new uint8_t[data_len];
+		if (read(fd, pic_data, data_len) != data_len){
+			log_sys_err("Ошибка чтения данных изображения из %s:", name);
+			clr_pic_data();
+			break;
+		}
+		if (bmi.biHeight > 0){
+			int w = bmi.biWidth / 8;
+			scoped_ptr<uint8_t> buf(new uint8_t[w]);
+			for (int offs1 = 0, offs2 = data_len - w; offs1 < offs2; offs1 += w, offs2 -= w){
+				memcpy(buf.get(), pic_data + offs1, w);
+				memcpy(pic_data + offs1, pic_data + offs2, w);
+				memcpy(pic_data + offs2, buf.get(), w);
+			}
+		}
+		if (inverted){
+			for (size_t i = 0; i < data_len; i++)
+				pic_data[i] ^= 0xff;
+		}
+		len = data_len;
+		w = bmi.biWidth;
+		h = abs(bmi.biHeight);
+		ret = pic_data;
+	} while (false);
+	close(fd);
+	return ret;
+}
+
+/* Вычисление контрольной суммы CRC32 x^30 + x^27 + x^18 + x^3 + x^1 блока данных */
+uint32_t pic_crc32(const uint8_t *data, size_t len)
+{
+	if ((data == NULL) || (len == 0))
+		return 0;
+	uint32_t ret = 0;
+	for (size_t i = 0; i < len; i++){
+		uint8_t b = data[i];
+		for (int j = 0; j < 8; j++){
+			ret >>= 1;
+			ret |=	(uint32_t)(((b & 1) ^
+				((ret & (1 << 1))  >> 1)  ^
+				((ret & (1 << 3))  >> 3)  ^
+				((ret & (1 << 18)) >> 18) ^
+				((ret & (1 << 27)) >> 27) ^
+				((ret & (1 << 30)) >> 30)) << 31);
+		}
+	}
+	return ret;
+}
