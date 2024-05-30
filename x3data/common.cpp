@@ -1,12 +1,20 @@
 /* Общие функции. (c) gsr, 2024 */
 
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include "kkt/io.h"
+#include "x3data/bmp.h"
+#include "x3data/common.h"
 #include "x3data/common.hpp"
-#include "sysdefs.h"
+#include "termlog.h"
 
 /* Сжатие файла шаблона (w и h задаются в точках) */
-bool compressPicture(const uint8_t *src, size_t len, size_t w, size_t h, vector<uint8_t> &dst)
+bool compress_picture(const uint8_t *src, size_t len, size_t w,
+	size_t h __attribute__((unused)), vector<uint8_t> &dst)
 {
-	if ((src == NULL) || (len == 0) || (len > MAX_TX_LEN))
+	if ((src == NULL) || (len == 0) || (len > KKT_TX_BUF_LEN))
 		return false;
 	dst.clear();
 	w /= 8;
@@ -82,46 +90,46 @@ static void clr_pic_data()
 }
 
 /* Чтение данных файла изображения */
-const uint8_t *read_bmp(const char *name, size_t &len, size_t &w, size_t &h,
+const uint8_t *read_bmp(const char *path, size_t &len, size_t &w, size_t &h,
 	size_t min_w, size_t max_w, size_t min_h, size_t max_h)
 {
-	log_dbg("name = %s; min_w = %zu; max_w = %zu; min_h = %zu; max_h = %zu.",
-		name, min_w, max_w, min_h, max_h);
+	log_dbg("path = %s; min_w = %zu; max_w = %zu; min_h = %zu; max_h = %zu.",
+		path, min_w, max_w, min_h, max_h);
 	clr_pic_data();
 	len = w = h = 0;
-	if (name == NULL){
+	if (path == NULL){
 		log_err("Не указано имя файла.");
 		return NULL;
 	}
 	struct stat st;
-	if (stat(name, &st) == -1){
-		log_sys_err("Ошибка получения информации о файле %s:", name);
+	if (stat(path, &st) == -1){
+		log_sys_err("Ошибка получения информации о файле %s:", path);
 		return NULL;
 	}else if ((st.st_size < (sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFO))) || (st.st_size > KKT_TX_BUF_LEN)){
-		log_err("Неверный размер файла %s (%d байт).", name, st.st_size);
+		log_err("Неверный размер файла %s (%d байт).", path, st.st_size);
 		return NULL;
 	}
-	int fd = open(name, O_RDONLY);
+	int fd = open(path, O_RDONLY);
 	if (fd == -1){
-		log_sys_err("Ошибка открытия файла %s для чтения:", name);
+		log_sys_err("Ошибка открытия файла %s для чтения:", path);
 		return NULL;
 	}
 	uint8_t *ret = NULL;
 	do {
 		BITMAPFILEHEADER hdr;
 		if (read(fd, &hdr, sizeof(hdr)) != sizeof(hdr)){
-			log_sys_err("Ошибка чтения заголовка BMP из файла %s:", name);
+			log_sys_err("Ошибка чтения заголовка BMP из файла %s:", path);
 			break;
 		}else if (hdr.bfType != 0x4d42){
-			log_err("Неверная сигнатура BMP в файле %s.", name);
+			log_err("Неверная сигнатура BMP в файле %s.", path);
 			break;
 		}else if (hdr.bfSize != st.st_size){
-			log_err("Несовпадение фактического размера файла %s с размером в заголовке.", name);
+			log_err("Несовпадение фактического размера файла %s с размером в заголовке.", path);
 			break;
 		}
 		BITMAPINFOHEADER bmi;
 		if (read(fd, &bmi, sizeof(bmi)) != sizeof(bmi)){
-			log_sys_err("Ошибка чтения информации о BMP из файла %s:", name);
+			log_sys_err("Ошибка чтения информации о BMP из файла %s:", path);
 			break;
 		}else if ((bmi.biWidth < min_w) || (bmi.biWidth > max_w) || ((bmi.biWidth % 32) != 0)){
 			log_err("Неверная ширина изображения (%d).", bmi.biWidth);
@@ -151,12 +159,12 @@ const uint8_t *read_bmp(const char *name, size_t &len, size_t &w, size_t &h,
 		}
 		bool inverted = (pal[0].rgbRed == 0) && (pal[0].rgbGreen == 0) && (pal[0].rgbBlue == 0);
 		if (lseek(fd, hdr.bfOffBits, SEEK_SET) != hdr.bfOffBits){
-			log_sys_err("Ошибка позиционирования в файле %s для чтения данных изображения:", name);
+			log_sys_err("Ошибка позиционирования в файле %s для чтения данных изображения:", path);
 			break;
 		}
 		pic_data = new uint8_t[data_len];
 		if (read(fd, pic_data, data_len) != data_len){
-			log_sys_err("Ошибка чтения данных изображения из %s:", name);
+			log_sys_err("Ошибка чтения данных изображения из %s:", path);
 			clr_pic_data();
 			break;
 		}

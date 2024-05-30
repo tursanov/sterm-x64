@@ -24,12 +24,12 @@ extern void kkt_end_batch_mode(void);
 
 extern bool kkt_on_com_error(uint32_t timeout);
 
-extern uint8_t kkt_tx[TX_BUF_LEN];
+extern uint8_t kkt_tx[KKT_TX_BUF_LEN];
 extern size_t kkt_tx_len;
 
 extern void kkt_reset_tx(void);
 
-extern uint8_t kkt_rx[RX_BUF_LEN];
+extern uint8_t kkt_rx[KKT_RX_BUF_LEN];
 extern size_t kkt_rx_len;
 extern size_t kkt_rx_exp_len;
 

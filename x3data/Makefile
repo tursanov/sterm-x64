@@ -4,6 +4,7 @@ DIR = x3data/
 INCLUDE = ../include
 
 X3DATA_OBJS =		\
+	common		\
 	grids		\
 	icons		\
 	patterns	\

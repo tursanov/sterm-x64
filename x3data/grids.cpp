@@ -8,6 +8,7 @@
 #include <zlib.h>
 #include "gui/scr.h"
 #include "kkt/cmd.h"
+#include "kkt/io.h"
 #include "kkt/kkt.h"
 #include "x3data/bmp.h"
 #include "x3data/grids.h"
@@ -879,10 +880,10 @@ static bool find_kkt_grids(list<GridInfo> &kkt_grids)
 		size_t n = grid_buf[0];
 		const struct pic_header *hdr = (const struct pic_header *)(grid_buf + 1);
 		for (size_t i = 0; i < n; i++, hdr++){
-			if (check_grid_headr(hdr)){
+			if (check_grid_header(hdr, hdr->id)){
 				char name[SPRN_MAX_PIC_NAME_LEN + 1];
 				memcpy(name, hdr->name, sizeof(hdr->name));
-				name[MAX_PIC_NAME_LEN] = 0;
+				name[SPRN_MAX_GRID_NAME_LEN] = 0;
 				GridInfo gi;
 				if (gi.parse(name))
 					kkt_grids.push_back(gi);
@@ -940,76 +941,64 @@ static bool write_grid_to_kkt(const GridInfo &gi)
 	if (kkt == NULL)
 		return false;
 	bool ret = false;
+	size_t len = 0, w = 0, h = 0;
 	static char path[PATH_MAX];
 	snprintf(path, ASIZE(path), GRIDS_FOLDER "/%s.BMP", gi.name().c_str());
 	log_info("Загружаем в ККТ разметку %s...", path);
-	if (kkt->loadGrid(path, gi.nr())){
-		KktRespGridLoad *rsp = dynamic_cast<KktRespGridLoad *>(kkt->rsp());
-		if ((rsp != NULL) && rsp->statusOk()){
-			ret = true;
-			log_info("Разметка %s успешно загружена в ККТ.", path);
+	const uint8_t *data = read_bmp(path, len, w, h, GRID_MIN_WIDTH, GRID_MAX_WIDTH,
+		GRID_MIN_HEIGHT, GRID_MAX_HEIGHT);
+	if (data != NULL){
+		vector<uint8_t> cdata;
+		if (compress_picture(data, len, w, h, cdata) && !cdata.empty()){
+			if (kkt_load_grid(cdata.data(), cdata.size(), gi.id(), w, h, gi.name().c_str()) == KKT_STATUS_OK){
+				log_info("Разметка %s успешно загружена в ККТ.", path);
+				ret = true;
+			}else
+				log_err("Ошибка загрузки разметки %s в ККТ: 0x%.2hhx.", path, kkt_status);
 		}else
-			log_err("Ошибка загрузки разметки %s в ККТ: 0x%.2hx.", path, (uint16_t)kkt->status());
+			log_err("Ошибка сжатия разметки %s.", path);
 	}else
-		log_err("Невозможно начать загрузку разметки %s в ККТ: 0x%.2hx.", path, (uint16_t)kkt->status());
+		log_err("Невозможно начать загрузку разметки %s в ККТ: 0x%.2hhx.", path, kkt_status);
 	return ret;
 }
 
 /* Обновление разметок в ККТ "СПЕКТР-Ф" */
-static bool update_grids_kkt(const list<GridInfo> &stored_grids, list<GridInfo> &grids_failed,
-	InitializationNotify_t init_notify)
+static bool update_grids_kkt(const list<GridInfo> &stored_grids, list<GridInfo> &grids_failed)
 {
 /* Сначала удаляем все разметки из ККТ */
 	log_info("Удаляем все имеющиеся разметки из ККТ...");
-	init_notify(false, "Удаление разметок из ККТ");
-	if (kkt->eraseAllGrids()){
-		KktRespGridEraseAll *rsp = dynamic_cast<KktRespGridEraseAll *>(kkt->rsp());
-		if ((rsp != NULL) && rsp->statusOk())
-			log_info("Разметки удалены из ККТ.");
-		else{
-			log_err("Ошибка удаления разметок из ККТ: 0x%.2hx.", (uint16_t)kkt->status());
-			return false;
-		}
-	}else{
-		log_err("Невозможно начать удаление разметок из ККТ: 0x%.2hx.", (uint16_t)kkt->status());
+	if (kkt_erase_all_grids() == KKT_STATUS_OK)
+		log_info("Разметки удалены из ККТ.");
+	else{
+		log_err("Ошибка удаления разметок из ККТ: 0x%.2hhx.", kkt_status);
 		return false;
 	}
 /* Затем загружаем новые разметки */
 	size_t n = 1;
-	kkt->beginBatchMode();
+	kkt_begin_batch_mode();
 	for (const auto &p : stored_grids){
-		static char txt[64];
-		snprintf(txt, ASIZE(txt), "Загрузка в ККТ разметки %s (%u из %u)",
+		log_info("Загрузка в ККТ разметки %s (%u из %u)",
 			p.name().c_str(), n++, stored_grids.size());
-		init_notify(false, txt);
 		if (!write_grid_to_kkt(p))
 			grids_failed.push_back(p);
 	}
-	kkt->endBatchMode();
+	kkt_end_batch_mode();
 	return true;
 }
 
 /* Обновление разметок в ККТ */
-bool update_kkt_grids(InitializationNotify_t init_notify)
+bool update_kkt_grids()
 {
 	log_info("kkt = %p.", kkt);
 	if (kkt == NULL)
 		return false;
 	bool ret = false;
-	init_notify(false, "Обновление разметок в ККТ");
-	Sleep(100);
 	list<GridInfo> stored_grids, grids_to_load, grids_to_erase;
 	find_stored_grids_kkt(stored_grids);
 	check_kkt_grids(stored_grids, grids_to_load, grids_to_erase);
 	if (!grids_to_load.empty() || !grids_to_erase.empty())
-		ret = update_grids_kkt(stored_grids, grids_failed_kkt, init_notify);
+		ret = update_grids_kkt(stored_grids, grids_failed_kkt);
 	else
 		ret = true;
-	if (!ret && !isTermcoreState(TS_INIT)){
-		static char txt[256];
-		snprintf(txt, ASIZE(txt), "Ошибка обновления разметок в ККТ: 0x%.2hx.",
-			(uint16_t)kkt->status());
-		termcore_callbacks.callMessageBox("ОБНОВЛЕНИЕ РАЗМЕТОК", txt);
-	}
 	return ret;
 }

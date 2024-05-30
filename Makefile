@@ -112,6 +112,7 @@ PRN_OBJS =		\
 	local
 
 X3DATA_OBJS =		\
+	common		\
 	grids		\
 	icons		\
 	patterns	\

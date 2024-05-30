@@ -9,6 +9,7 @@
 #include "kkt/kkt.h"
 #include "kkt/parser.h"
 #include "log/kkt.h"
+#include "x3data/common.h"
 #include "cfg.h"
 
 /* Текстовое описание статуса */
@@ -302,8 +303,18 @@ static uint32_t get_timeout(uint8_t prefix, uint8_t cmd)
 				case KKT_VF:
 					ret = KKT_FR_PRINT_TIMEOUT;
 					break;
+				case KKT_GRID_LOAD:
+					ret = KKT_GRID_LOAD_TIMEOUT;
+					break;
 				case KKT_GRID_LST:
 					ret = KKT_GRID_LST_TIMEOUT;
+					break;
+				case KKT_GRID_ERASE_ALL:
+					ret = KKT_GRID_ERASE_ALL_TIMEOUT;
+					break;
+				case KKT_ICON_LOAD:
+				case KKT_NEW_ICON_LOAD:
+					ret = KKT_ICON_LOAD_TIMEOUT;
 					break;
 				case KKT_ICON_LST:
 					ret = KKT_ICON_LST_TIMEOUT;
@@ -1008,7 +1019,55 @@ uint8_t kkt_read_doc_tlv(uint8_t *data, size_t *len)
 	return kkt_status;
 }
 
-/* Получить список разметок в ККТ */
+/* Запись в буфер передачи разметки бланка для ККТ */
+static bool kkt_write_grid(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
+	const char *name)
+{
+	if ((data == NULL) || (len == 0) ||
+			((len + 4 + sizeof(struct pic_header) + sizeof(uint32_t)) > KKT_TX_BUF_LEN) ||
+			(name == NULL))
+		return false;
+	kkt_tx[kkt_tx_len++] = id;
+	*(uint32_t *)(kkt_tx + kkt_tx_len) = len + sizeof(struct pic_header);
+	kkt_tx_len += sizeof(uint32_t);
+	size_t start = kkt_tx_len;
+	struct pic_header *hdr = (struct pic_header *)(kkt_tx + kkt_tx_len);
+	hdr->hdr_len = sizeof(*hdr);
+	hdr->w = (uint8_t)(w / 8);
+	hdr->h = (uint8_t)(h / 8);
+	hdr->id = id;
+	size_t name_len = strlen(name);
+	if (name_len > sizeof(hdr->name))
+		name_len = sizeof(hdr->name);
+	memcpy(hdr->name, name, name_len);
+	if (name_len < sizeof(hdr->name))
+		memset(hdr->name + name_len, 0, sizeof(hdr->name) - name_len);
+	hdr->data_len = len;
+	kkt_tx_len += sizeof(*hdr);
+	memcpy(kkt_tx + kkt_tx_len, data, len);
+	kkt_tx_len += len;
+	*(uint32_t *)(kkt_tx + kkt_tx_len) = pic_crc32(kkt_tx + start, kkt_tx_len - start);
+	kkt_tx_len += sizeof(uint32_t);
+	return true;
+}
+
+/* Загрузить в ККТ разметку бланка */
+uint8_t kkt_load_grid(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
+	const char *name)
+{
+	if (kkt_lock()){
+		if (prepare_cmd(KKT_NUL, KKT_GRID_LOAD) &&
+				kkt_write_grid(data, len, id, w, h, name) &&
+				kkt_open_dev_if_need()){
+			do_transaction(KKT_NUL, KKT_GRID_LOAD, NULL);
+			kkt_close_dev();
+		}
+		kkt_unlock();
+	}
+	return kkt_status;
+}
+
+/* Получить список разметок бланков в ККТ */
 uint8_t kkt_get_grid_lst(uint8_t *data, size_t *len)
 {
 	assert(data != NULL);
@@ -1056,44 +1115,21 @@ uint8_t kkt_get_icon_lst(uint8_t *data, size_t *len)
 	return kkt_status;
 }
 
-/* Запись в буфер передачи шаблона для ККТ */
-static bool kkt_write_grid(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
-		const char *name)
+/* Удалить из ККТ все разметки бланков */
+uint8_t kkt_erase_all_grids(void)
 {
-	if ((data == NULL) || (len == 0) ||
-			((len + 4 + sizeof(struct pic_header) + sizeof(uint32_t)) > KKT_TX_BUF_LEN) ||
-			(name == NULL))
-		return false;
-	prepare_cmd(KKT_NUL, KKT_GRID_LOAD);
-	kkt_tx[kkt_tx_len++] = id;
-	*(uint32_t *)(kkt_tx + kkt_tx_len) = len + sizeof(struct pic_header);
-	kkt_tx_len += sizeof(uint32_t);
-	size_t start = kkt_tx_len;
-	struct pic_hdr *hdr = (struct pic_hdr *)(kkt_tx + kkt_tx_len);
-	hdr->hdr_len = sizeof(*hdr);
-	hdr->w = (uint8_t)(w / 8);
-	hdr->h = (uint8_t)(h / 8);
-	hdr->id = id;
-	size_t name_len = strlen(name);
-	if (name_len > sizeof(hdr->name))
-		name_len = sizeof(hdr->name);
-	memcpy(hdr->name, name, name_len);
-	if (name_len < sizeof(hdr->name))
-		memset(hdr->name + name_len, 0, sizeof(hdr->name) - name_len);
-	hdr->data_len = len;
-	kkt_tx_len += sizeof(*hdr);
-	memcpy(kkt_tx + kkt_tx_len, data, len);
-	kkt_tx_len += len;
-	(uint32_t *)(kkt_tx + kkt_tx_len) = pic_crc32(kkt_tx + start, kkt_tx_len - start);
-	kkt_tx_len += sizeof(uint32_t);
-	return true;
+	if (kkt_lock()){
+		do_cmd(KKT_NUL, KKT_GRID_ERASE_ALL, NULL);
+		kkt_unlock();
+	}
+	return kkt_status;
 }
 
 /* Сброс ФН */
 uint8_t kkt_reset_fs(uint8_t b)
 {
 	if (kkt_lock()){
-		if (prepare_cmd(KKT_FS, KKT_FS_RESET) && write_byte(b) && kkt_open_dev_if_need()) {
+		if (prepare_cmd(KKT_FS, KKT_FS_RESET) && write_byte(b) && kkt_open_dev_if_need()){
 			do_transaction(KKT_FS, KKT_FS_RESET, NULL);
 			kkt_close_dev();
 		}

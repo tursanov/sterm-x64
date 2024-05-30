@@ -20,6 +20,9 @@ extern bool sync_grids_xprn(x3_sync_callback_t cbk);
 extern bool sync_grids_kkt(x3_sync_callback_t cbk);
 extern void on_response_grid(void);
 
+/* Обновление разметок в ККТ */
+extern bool update_kkt_grids(void);
+
 #if defined __cplusplus
 }
 #endif

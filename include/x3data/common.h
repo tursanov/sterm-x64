@@ -3,7 +3,7 @@
 #if !defined X3DATA_COMMON_H
 #define X3DATA_COMMON_H
 
-#include "sysdefs.h"
+#include "kkt/cmd.h"
 
 #if defined __cplusplus
 extern "C" {
