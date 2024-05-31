@@ -174,7 +174,7 @@ extern uint16_t	term_check_sum;	/* контрольная сумма терминала */
 extern time_t	time_delta;	/* Tхост - Tтерм. */
 extern uint8_t	hbyte;		/* H-байт */
 extern int	_term_state;
-extern int	_term_aux_state;
+extern intptr_t	_term_aux_state;
 extern bool	full_resp;	/* флаг прихода ответа от хост-ЭВМ */
 extern bool	rejecting_req;	/* был послан запрос с отказом от заказа */
 extern bool	online;		/* флаг возможности гашения экрана */
@@ -219,9 +219,9 @@ extern void	flush_home(void);
 extern bool	is_escape(uint8_t c);
 extern bool	set_term_busy(bool busy);
 extern const char *find_term_state(int st);
-extern const char *find_term_astate(int ast);
+extern const char *find_term_astate(intptr_t ast);
 extern bool	set_term_state(int st);
-extern bool	set_term_astate(int ast);
+extern bool	set_term_astate(intptr_t ast);
 extern bool	set_term_led(char c);
 extern void	guess_term_state(void);
 extern void	scr_wakeup(void);

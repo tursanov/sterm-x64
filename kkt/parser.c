@@ -577,6 +577,10 @@ parser_t get_parser(uint8_t prefix, uint8_t cmd)
 		case KKT_NUL:
 			switch (cmd){
 				case KKT_VF:
+				case KKT_GRID_LOAD:
+				case KKT_GRID_ERASE_ALL:
+				case KKT_ICON_LOAD:
+				case KKT_ICON_ERASE_ALL:
 					ret = parse_status;
 					break;
 				case KKT_GRID_LST:
@@ -584,10 +588,6 @@ parser_t get_parser(uint8_t prefix, uint8_t cmd)
 					break;
 				case KKT_ICON_LST:
 					ret = parse_icon_lst;
-					break;
-				case KKT_GRID_ERASE_ALL:
-				case KKT_ICON_ERASE_ALL:
-					ret = parse_status;
 					break;
 			}
 			break;

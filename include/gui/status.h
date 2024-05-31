@@ -44,6 +44,11 @@ enum {
 	st_ppp_ipcp,
 /* Работа с VipNet */
 	st_stop_iplir,
+/* Изображения в БПУ/ККТ */
+	st_xprn_grids,
+	st_xprn_icons,
+	st_kkt_grids,
+	st_kkt_icons,
 };
 
 /* Правая часть строки статуса */
@@ -73,6 +78,7 @@ enum {
 	ast_pos_error,
 	ast_pos_need_init,
 	ast_no_kkt,
+	ast_max,
 };
 
 extern bool		scr_show_language(bool show);

@@ -131,10 +131,12 @@ const uint8_t *read_bmp(const char *path, size_t &len, size_t &w, size_t &h,
 		if (read(fd, &bmi, sizeof(bmi)) != sizeof(bmi)){
 			log_sys_err("Ошибка чтения информации о BMP из файла %s:", path);
 			break;
-		}else if ((bmi.biWidth < min_w) || (bmi.biWidth > max_w) || ((bmi.biWidth % 32) != 0)){
+		}else if ((bmi.biWidth < (min_w * 8)) || (bmi.biWidth > (max_w * 8)) ||
+				((bmi.biWidth % 32) != 0)){
 			log_err("Неверная ширина изображения (%d).", bmi.biWidth);
 			break;
-		}else if ((bmi.biHeight < min_h) || (abs(bmi.biHeight) > max_h) || ((bmi.biHeight % 8) != 0)){
+		}else if ((bmi.biHeight < (min_h * 8)) || (abs(bmi.biHeight) > (max_h * 8)) ||
+				((bmi.biHeight % 8) != 0)){
 			log_err("Неверная высота изображения (%d).", bmi.biHeight);
 			break;
 		}else if (bmi.biBitCount != 1){

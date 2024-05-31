@@ -125,9 +125,9 @@ static struct md5_hash srv_keys[NR_SRV_KEYS];
 /* Хеши отладочных ключей */
 static struct md5_hash dbg_keys[NR_DBG_KEYS];
 
-uint8_t hbyte = HB_INIT;			/* H-байт */
+uint8_t hbyte = HB_INIT;		/* H-байт */
 int _term_state = st_none;		/* левая часть строки статуса */
-int _term_aux_state = ast_none;		/* правая часть строки статуса */
+intptr_t _term_aux_state = ast_none;	/* правая часть строки статуса */
 /* Если quick_astate(term_astate), выводим это состояние в show_req при resp_executing */
 int astate_for_req = ast_none;
 
@@ -465,6 +465,10 @@ const char *find_term_state(int st)
 		{st_ppp_login,		"Авторизация"},
 		{st_ppp_ipcp,		"Конфигурация TCP/IP"},
 		{st_stop_iplir,		"Выгрузка ViPNet"},
+		{st_xprn_grids,		"Разметки БПУ"},
+		{st_xprn_icons,		"Пиктограммы БПУ"},
+		{st_kkt_grids,		"Разметки ККТ"},
+		{st_kkt_icons,		"Пиктограммы ККТ"},
 	};
 	int i;
 	static char buf[MAX_TERM_STATE_LEN+1];
@@ -496,10 +500,10 @@ bool set_term_state(int st)
 		return false;
 }
 
-const char *find_term_astate(int ast)
+const char *find_term_astate(intptr_t ast)
 {
 	static struct astate_entry {
-		int ast;
+		intptr_t ast;
 		char *descr;
 	} astates[] = {
 		{ast_none,		""},
@@ -531,6 +535,7 @@ const char *find_term_astate(int ast)
 	struct astate_entry *p;
 	int i;
 	static char buf[MAX_TERM_ASTATE_LEN + 2];	/* для учёта 0x01 */
+	const char *ret = NULL;
 	bool flag = false;
 	for (i = 0; i < ASIZE(astates); i++){
 		p = &astates[i];
@@ -601,14 +606,19 @@ const char *find_term_astate(int ast)
 			}
 			if (!flag)
 				snprintf(buf, sizeof(buf), "%s", p->descr);
-			return buf;
+			ret = buf;
 		}
 	}
-	return NULL;
+	if ((ret == NULL) && (ast > ast_max)){
+		snprintf(buf, sizeof(buf), "%s", (const char *)ast);
+		ret = buf;
+	}
+	return ret;
 }
 
-bool set_term_astate(int ast)
+bool set_term_astate(intptr_t ast)
 {
+	printf("%s: ast = %ld\n", __func__, ast);
 	const char *str = NULL;
 	if ((str = find_term_astate(ast)) != NULL){
 		_term_aux_state=ast;
@@ -779,17 +789,24 @@ void redraw_term(bool show_text, const char *title)
 	};
 	int i;
 	bool v=scr_visible;
+	printf("%s #1\n", __func__);
 	scr_visible=true;
 	draw_scr(show_text, title);
+	printf("%s #2\n", __func__);
 	set_term_state(_term_state);
+	printf("%s #3\n", __func__);
 	set_term_astate(_term_aux_state);
+	printf("%s #4\n", __func__);
 	set_term_led(hbyte);
+	printf("%s #5\n", __func__);
 	scr_visible=v;
+	printf("%s #6\n", __func__);
 	for (i=0; i < ASIZE(scr_elems); i++)
 		if (*scr_elems[i].active)
 			scr_elems[i].draw_fn();
 	if (menu_active || lprn_menu_active)
 		draw_menu(mnu);
+	printf("%s #7\n", __func__);
 }
 
 /* Восстановление экрана после гашения */
@@ -1091,6 +1108,7 @@ static void init_term(bool need_init)
 	rollback_keys(true);
 	apc = false;
 	init_devices();
+	update_kkt_grids();
 	if (cfg.use_iplir)
 		iplir_start();
 }
@@ -1313,9 +1331,12 @@ static bool create_term(void)
 	lprn_create_log();
 #endif
 	init_term(kt == key_reg);
+	printf("%s: #1\n", __func__);
 	redraw_term(true, main_title);
+	printf("%s: #2\n", __func__);
 	if (show_usb_msg())
 		redraw_term(true, main_title);
+	printf("%s: #3\n", __func__);
 	return true;
 }
 
@@ -4219,6 +4240,11 @@ static bool process_term(void)
 		{cmd_find_klog_date,	find_klog_date,		true},
 		{cmd_find_klog_number,	find_klog_number,	true},
 	};
+/*	static int n = 0;
+	if (n < 10){
+		printf("%s\n", __func__);
+		n++;
+	}*/
 	if (need_lock_term){
 		need_lock_term = false;
 		if ((wm == wm_local) && (kt == key_reg))

@@ -8,6 +8,7 @@
 #include <zlib.h>
 #include "gui/scr.h"
 #include "kkt/cmd.h"
+#include "kkt/fdo.h"
 #include "kkt/io.h"
 #include "kkt/kkt.h"
 #include "x3data/bmp.h"
@@ -362,19 +363,19 @@ static bool check_grid_header(const struct pic_header *hdr, uint8_t id)
 {
 	bool ret = false;
 	if (hdr == NULL)
-		;
+		log_err("hdr = NULL");
 	else if (hdr->hdr_len != sizeof(*hdr))
-		;
+		log_err("len mismatch");
 	else if (hdr->id != id)
-		;
+		log_err("id mismatch");
 	else if ((hdr->w < GRID_MIN_WIDTH) || (hdr->w > GRID_MAX_WIDTH))
-		;
+		log_err("illegal w");
 	else if ((hdr->h < GRID_MIN_HEIGHT) || (hdr->h > GRID_MAX_HEIGHT))
-		;
+		log_err("illegal h");
 	else if (!GridInfo::isIdValid(hdr->id) || (hdr->id == 0x38))
-		;
+		log_err("illegal id");
 	else if ((hdr->data_len == 0) || (hdr->data_len > MAX_COMPRESSED_GRID_LEN))
-		;
+		log_err("illegal data len");
 	else{
 		ret = true;
 		for (size_t i = 0; i < sizeof(hdr->name); i++){
@@ -382,6 +383,7 @@ static bool check_grid_header(const struct pic_header *hdr, uint8_t id)
 			if (ch == 0)
 				break;
 			else if (ch < 0x20){
+				log_err("illegal name");
 				ret = false;
 				break;
 			}
@@ -878,15 +880,19 @@ static bool find_kkt_grids(list<GridInfo> &kkt_grids)
 	uint8_t status = kkt_get_grid_lst(grid_buf, &len);
 	if (status == KKT_STATUS_OK){
 		size_t n = grid_buf[0];
+		log_dbg("n = %zu.", n);
 		const struct pic_header *hdr = (const struct pic_header *)(grid_buf + 1);
 		for (size_t i = 0; i < n; i++, hdr++){
 			if (check_grid_header(hdr, hdr->id)){
-				char name[SPRN_MAX_PIC_NAME_LEN + 1];
+				char name[SPRN_MAX_GRID_NAME_LEN + 1];
 				memcpy(name, hdr->name, sizeof(hdr->name));
 				name[SPRN_MAX_GRID_NAME_LEN] = 0;
+				log_dbg("name = %s", name);
 				GridInfo gi;
 				if (gi.parse(name))
 					kkt_grids.push_back(gi);
+				else
+					log_err("parse error.");
 			}
 		}
 		log_info("Найдено разметок в ККТ: %zu.", kkt_grids.size());
@@ -947,10 +953,14 @@ static bool write_grid_to_kkt(const GridInfo &gi)
 	log_info("Загружаем в ККТ разметку %s...", path);
 	const uint8_t *data = read_bmp(path, len, w, h, GRID_MIN_WIDTH, GRID_MAX_WIDTH,
 		GRID_MIN_HEIGHT, GRID_MAX_HEIGHT);
+	log_dbg("w = %zu; h = %zu.", w, h);
 	if (data != NULL){
 		vector<uint8_t> cdata;
 		if (compress_picture(data, len, w, h, cdata) && !cdata.empty()){
-			if (kkt_load_grid(cdata.data(), cdata.size(), gi.id(), w, h, gi.name().c_str()) == KKT_STATUS_OK){
+			log_dbg("Размер данных после сжатия: %zu байт.", cdata.size());
+			char name[SPRN_MAX_GRID_NAME_LEN + 1];
+			snprintf(name, sizeof(name), "%s.BMP", gi.name().c_str());
+			if (kkt_load_grid(cdata.data(), cdata.size(), gi.id(), w, h, name) == KKT_STATUS_OK){
 				log_info("Разметка %s успешно загружена в ККТ.", path);
 				ret = true;
 			}else
@@ -967,18 +977,27 @@ static bool update_grids_kkt(const list<GridInfo> &stored_grids, list<GridInfo> 
 {
 /* Сначала удаляем все разметки из ККТ */
 	log_info("Удаляем все имеющиеся разметки из ККТ...");
+	set_term_state(st_kkt_grids);
+	set_term_astate((intptr_t)"УДАЛЕНИЕ ВСЕХ РАЗМЕТОК");
 	if (kkt_erase_all_grids() == KKT_STATUS_OK)
 		log_info("Разметки удалены из ККТ.");
 	else{
+		static char txt[MAX_TERM_ASTATE_LEN + 1];
 		log_err("Ошибка удаления разметок из ККТ: 0x%.2hhx.", kkt_status);
+		snprintf(txt, sizeof(txt), "ОШИБКА УДАЛЕНИЯ %.2hhx", kkt_status);
+		set_term_astate((intptr_t)txt);
 		return false;
 	}
 /* Затем загружаем новые разметки */
 	size_t n = 1;
 	kkt_begin_batch_mode();
+	static char txt[MAX_TERM_ASTATE_LEN + 1];
 	for (const auto &p : stored_grids){
-		log_info("Загрузка в ККТ разметки %s (%u из %u)",
+		log_info("Загрузка в ККТ разметки %s (%zu из %zu)",
+			p.name().c_str(), n, stored_grids.size());
+		snprintf(txt, sizeof(txt), "%s (%zu из %zu)",
 			p.name().c_str(), n++, stored_grids.size());
+		set_term_astate((intptr_t)txt);
 		if (!write_grid_to_kkt(p))
 			grids_failed.push_back(p);
 	}
@@ -990,15 +1009,20 @@ static bool update_grids_kkt(const list<GridInfo> &stored_grids, list<GridInfo> 
 bool update_kkt_grids()
 {
 	log_info("kkt = %p.", kkt);
-	if (kkt == NULL)
+	if (kkt == NULL){
+		log_err("ККТ не подключена.");
 		return false;
+	}
+	fdo_suspend();
 	bool ret = false;
 	list<GridInfo> stored_grids, grids_to_load, grids_to_erase;
 	find_stored_grids_kkt(stored_grids);
 	check_kkt_grids(stored_grids, grids_to_load, grids_to_erase);
-	if (!grids_to_load.empty() || !grids_to_erase.empty())
+	if (!grids_to_load.empty() || !grids_to_erase.empty()){
 		ret = update_grids_kkt(stored_grids, grids_failed_kkt);
-	else
+		set_term_state(st_input);
+	}else
 		ret = true;
+	fdo_resume();
 	return ret;
 }
