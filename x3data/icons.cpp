@@ -311,6 +311,49 @@ static size_t icon_auto_req_len = 0;
 
 static x3_sync_callback_t icon_sync_cbk = NULL;
 
+/* Минимальная ширина пиктограммы в точках */
+#define ICON_MIN_WIDTH		8
+/* Максимальная ширина пиктограммы в точках */
+#define ICON_MAX_WIDTH		640
+/* Минимальная высота пиктограммы в точках */
+#define ICON_MIN_HEIGHT		8
+/* Максимальная высота пиктограммы в точках */
+#define ICON_MAX_HEIGHT		640
+
+/* Проверка заголовка пиктограммы */
+static bool check_grid_header(const struct pic_header *hdr, uint8_t id)
+{
+	bool ret = false;
+	if (hdr == NULL)
+		log_err("hdr = NULL");
+	else if (hdr->hdr_len != sizeof(*hdr))
+		log_err("len mismatch");
+	else if (hdr->id != id)
+		log_err("id mismatch");
+	else if ((hdr->w < ICON_MIN_WIDTH) || (hdr->w > ICON_MAX_WIDTH))
+		log_err("illegal w");
+	else if ((hdr->h < ICON_MIN_HEIGHT) || (hdr->h > ICON_MAX_HEIGHT))
+		log_err("illegal h");
+	else if (!IconInfo::isIdValid(hdr->id))
+		log_err("illegal id");
+	else if ((hdr->data_len == 0) || (hdr->data_len > MAX_COMPRESSED_ICON_LEN))
+		log_err("illegal data len");
+	else{
+		ret = true;
+		for (size_t i = 0; i < sizeof(hdr->name); i++){
+			char ch = hdr->name[i];
+			if (ch == 0)
+				break;
+			else if (ch < 0x20){
+				log_err("illegal name");
+				ret = false;
+				break;
+			}
+		}
+	}
+	return ret;
+}
+
 /* Отправка начального запроса на получение пиктограммы */
 static void send_icon_request(const IconInfo &icon)
 {
@@ -794,16 +837,30 @@ static bool find_kkt_icons(list<IconInfo> &kkt_icons)
 	bool ret = false;
 	kkt_icons.clear();
 	log_info("Чтение списка пиктограмм из ККТ...");
-	if (kkt->getGridLst()){
-		KktRespGridLst *rsp = dynamic_cast<KktRespGridLst *>(kkt->rsp());
-		if ((rsp != NULL) && rsp->statusOk()){
-			kkt_icons.assign(rsp->icons().cbegin(), rsp->icons().cend());
-			log_info("Найдено пиктограмм в ККТ: %d.", kkt_icons.size());
-			ret = true;
-		}else
-			log_err("Ошибка получения списка пиктограмм из ККТ: 0x%.2hx.", (uint16_t)kkt->status());
+	size_t len = sizeof(icon_buf);
+	uint8_t status = kkt_get_icon_lst(icon_buf, &len);
+	if (status == KKT_STATUS_OK){
+		size_t n = icon_buf[0];
+		log_dbg("n = %zu.", n);
+		const struct pic_header *hdr = (const struct pic_header *)(icon_buf + 1);
+		for (size_t i = 0; i < n; i++, hdr++){
+			if (check_icon_header(hdr, hdr->id)){
+				char name[SPRN_MAX_ICON_NAME_LEN + 1];
+				memcpy(name, hdr->name, sizeof(hdr->name));
+				name[SPRN_MAX_ICON_NAME_LEN] = 0;
+				log_dbg("name = %s", name);
+				IconInfo ii;
+				if (ii.parse(name))
+					kkt_icons.push_back(ii);
+				else
+					log_err("parse error.");
+			}
+		}
+		log_info("Найдено пиктограмм в ККТ: %zu.", kkt_icons.size());
+		ret = true;
 	}else
-		log_err("Невозможно начать получение списка пиктограмм из ККТ: 0x%.2hx.", (uint16_t)kkt->status());
+		log_err("Ошибка получения списка пиктограмм из ККТ: 0x%.2hhx (%s).",
+			status, kkt_status_str(status));
 	return ret;
 }
 
@@ -846,24 +903,27 @@ static void check_kkt_icons(const list<IconInfo> &stored_icons, list<IconInfo> &
 }
 
 /* Запись заданной пиктограммы в ККТ */
-static bool write_icon_to_kkt(const IconInfo &gi)
+static bool write_icon_to_kkt(const IconInfo &ii, bool first = false, bool last false)
 {
 	if (kkt == NULL)
 		return false;
 	bool ret = false;
+	size_t len = 0, w = 0, h = 0;
 	static char path[PATH_MAX];
-	snprintf(path, ASIZE(path), "%s\\%s.BMP", icon_folder, gi.name().c_str());
-	log_info("Загружаем в ККТ пиктограмму %s...", path);
-	if (kkt->loadGrid(path, gi.nr())){
-		KktRespGridLoad *rsp = dynamic_cast<KktRespGridLoad *>(kkt->rsp());
-		if ((rsp != NULL) && rsp->statusOk()){
+	snprintf(path, ASIZE(path), ICONS_FOLDER "/%s.BMP", ii.name().c_str());
+	log_info("Загружаем в ККТ разметку %s...", path);
+	const uint8_t *data = read_bmp(path, len, w, h, ICON_MIN_WIDTH, ICON_MAX_WIDTH,
+		ICON_MIN_HEIGHT, ICON_MAX_HEIGHT);
+	log_dbg("w = %zu; h = %zu.", w, h);
+	if (data != NULL){
+		char name[SPRN_MAX_ICON_NAME_LEN + 1];
+		snprintf(name, sizeof(name), "%s.BMP", ii.name().c_str());
+		if (kkt_load_icon(data, len, ii.id(), w, h, name) == KKT_STATUS_OK){
+			log_info("Разметка %s успешно загружена в ККТ.", path);
 			ret = true;
-			log_info("Пиктограмма %s успешно загружена в ККТ.", path);
 		}else
-			log_err("Ошибка загрузки пиктограммы %s в ККТ: 0x%.2hx.", path, (uint16_t)kkt->status());
-	}else
-		log_err("Невозможно начать загрузку пиктограммы %s в ККТ: 0x%.2hx.", path, (uint16_t)kkt->status());
-	return ret;
+			log_err("Ошибка загрузки разметки %s в ККТ: 0x%.2hhx.", path, kkt_status);
+	}
 }
 
 /* Обновление пиктограмм в ККТ "СПЕКТР-Ф" */
@@ -924,4 +984,3 @@ bool update_kkt_icons(InitializationNotify_t init_notify)
 	}
 	return ret;
 }
-#endif

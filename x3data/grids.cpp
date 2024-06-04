@@ -967,8 +967,7 @@ static bool write_grid_to_kkt(const GridInfo &gi)
 				log_err("Ошибка загрузки разметки %s в ККТ: 0x%.2hhx.", path, kkt_status);
 		}else
 			log_err("Ошибка сжатия разметки %s.", path);
-	}else
-		log_err("Невозможно начать загрузку разметки %s в ККТ: 0x%.2hhx.", path, kkt_status);
+	}
 	return ret;
 }
 

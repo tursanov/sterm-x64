@@ -4,15 +4,6 @@
 
 #include "x3data/common.hpp"
 
-/* Минимальная ширина пиктограммы в точках */
-#define ICON_MIN_WIDTH		8
-/* Максимальная ширина пиктограммы в точках */
-#define ICON_MAX_WIDTH		640
-/* Минимальная высота пиктограммы в точках */
-#define ICON_MIN_HEIGHT		8
-/* Максимальная высота пиктограммы в точках */
-#define ICON_MAX_HEIGHT		640
-
 /* Информация о пиктограмме для БПУ/ККТ */
 class IconInfo {
 private:

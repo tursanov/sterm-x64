@@ -20,6 +20,9 @@ extern bool sync_icons_xprn(x3_sync_callback_t cbk);
 extern bool sync_icons_kkt(x3_sync_callback_t cbk);
 extern void on_response_icon(void);
 
+/* Обновление пиктограмм в ККТ */
+extern bool update_kkt_icons(void);
+
 #if defined __cplusplus
 }
 #endif
