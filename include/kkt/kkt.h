@@ -194,7 +194,7 @@ extern uint8_t kkt_erase_all_grids(void);
 
 /* Загрузить в ККТ пиктограмму */
 extern uint8_t kkt_load_icon(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
-	const char *name);
+	const char *name, bool first, bool last);
 
 /* Получить список пиктограмм в ККТ */
 extern uint8_t kkt_get_icon_lst(uint8_t *data, size_t *len);

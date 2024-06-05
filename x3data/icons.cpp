@@ -321,7 +321,7 @@ static x3_sync_callback_t icon_sync_cbk = NULL;
 #define ICON_MAX_HEIGHT		640
 
 /* Проверка заголовка пиктограммы */
-static bool check_grid_header(const struct pic_header *hdr, uint8_t id)
+static bool check_icon_header(const struct pic_header *hdr, uint8_t id)
 {
 	bool ret = false;
 	if (hdr == NULL)
@@ -903,8 +903,9 @@ static void check_kkt_icons(const list<IconInfo> &stored_icons, list<IconInfo> &
 }
 
 /* Запись заданной пиктограммы в ККТ */
-static bool write_icon_to_kkt(const IconInfo &ii, bool first = false, bool last false)
+static bool write_icon_to_kkt(const IconInfo &ii, bool first, bool last)
 {
+	log_dbg("name = %s; first = %d; last = %d.", ii.name().c_str(), first, last);
 	if (kkt == NULL)
 		return false;
 	bool ret = false;
@@ -918,7 +919,7 @@ static bool write_icon_to_kkt(const IconInfo &ii, bool first = false, bool last 
 	if (data != NULL){
 		char name[SPRN_MAX_ICON_NAME_LEN + 1];
 		snprintf(name, sizeof(name), "%s.BMP", ii.name().c_str());
-		if (kkt_load_icon(data, len, ii.id(), w, h, name) == KKT_STATUS_OK){
+		if (kkt_load_icon(data, len, ii.id(), w, h, name, first, last) == KKT_STATUS_OK){
 			log_info("Разметка %s успешно загружена в ККТ.", path);
 			ret = true;
 		}else
