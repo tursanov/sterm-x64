@@ -1007,7 +1007,6 @@ static bool update_grids_kkt(const list<GridInfo> &stored_grids, list<GridInfo> 
 /* Обновление разметок в ККТ */
 bool update_kkt_grids()
 {
-	log_info("kkt = %p.", kkt);
 	if (kkt == NULL){
 		log_err("ККТ не подключена.");
 		return false;

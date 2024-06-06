@@ -1109,6 +1109,7 @@ static void init_term(bool need_init)
 	apc = false;
 	init_devices();
 	update_kkt_grids();
+	update_kkt_icons();
 	if (cfg.use_iplir)
 		iplir_start();
 }

@@ -319,6 +319,9 @@ static uint32_t get_timeout(uint8_t prefix, uint8_t cmd)
 				case KKT_ICON_LST:
 					ret = KKT_ICON_LST_TIMEOUT;
 					break;
+				case KKT_ICON_ERASE_ALL:
+					ret = KKT_ICON_ERASE_ALL_TIMEOUT;
+					break;
 			}
 			break;
 		case KKT_SRV:
@@ -1159,21 +1162,46 @@ uint8_t kkt_load_icon(const uint8_t *data, size_t len, uint8_t id, size_t w, siz
 	static size_t start = 0;
 	if (kkt_lock()){
 		if (first){
-			if (prepare_cmd(KKT_NUL, KKT_GRID_LOAD) &&
+			if (prepare_cmd(KKT_NUL, KKT_ICON_LOAD)){
 				kkt_tx_len += sizeof(uint32_t);
 				start = kkt_tx_len;
 			}
 		}
 		kkt_write_icon(data, len, id, w, h, name);
-			do_transaction(KKT_NUL, KKT_GRID_LOAD, NULL);
-			kkt_close_dev();
+		if (last){
+			*(uint32_t *)(kkt_tx + kkt_tx_len) =
+				pic_crc32(kkt_tx + start, kkt_tx_len - start);
+			*(uint32_t *)(kkt_tx + start - sizeof(uint32_t)) = kkt_tx_len - start;
+					kkt_tx_len += sizeof(uint32_t);
+			printf("Начинаем загрузку пиктограмм в ККТ...");
+			if (kkt_open_dev_if_need()){
+				do_transaction(KKT_NUL, KKT_ICON_LOAD, NULL);
+				kkt_close_dev();
+			}
 		}
-				kkt_open_dev_if_need()){
 		kkt_unlock();
 	}
 	return kkt_status;
 }
 
+/* Загрузить в ККТ сжатую пиктограмму */
+uint8_t kkt_load_icon_new(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
+	const char *name)
+{
+	printf("data = %p; len = %zu; id = %c; w = %zu; h = %zu; name = %s\n",
+		data, len, id, w, h, name);
+	if (kkt_lock()){
+		if (prepare_cmd(KKT_NUL, KKT_NEW_ICON_LOAD) &&
+				kkt_write_icon_new(data, len, id, w, h, name) &&
+				kkt_open_dev_if_need()){
+			printf("kkt_tx_len = %zu\n", kkt_tx_len);
+			do_transaction(KKT_NUL, KKT_NEW_ICON_LOAD, NULL);
+			kkt_close_dev();
+		}
+		kkt_unlock();
+	}
+	return kkt_status;
+}
 
 /* Получить список пиктограмм в ККТ */
 uint8_t kkt_get_icon_lst(uint8_t *data, size_t *len)
@@ -1194,6 +1222,16 @@ uint8_t kkt_get_icon_lst(uint8_t *data, size_t *len)
 				*len = 0;
 		}else
 			*len = 0;
+		kkt_unlock();
+	}
+	return kkt_status;
+}
+
+/* Удалить из ККТ все пиктограммы */
+uint8_t kkt_erase_all_icons(void)
+{
+	if (kkt_lock()){
+		do_cmd(KKT_NUL, KKT_ICON_ERASE_ALL, NULL);
 		kkt_unlock();
 	}
 	return kkt_status;

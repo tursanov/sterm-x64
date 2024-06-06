@@ -196,8 +196,15 @@ extern uint8_t kkt_erase_all_grids(void);
 extern uint8_t kkt_load_icon(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
 	const char *name, bool first, bool last);
 
+/* Загрузить в ККТ сжатую пиктограмму */
+extern uint8_t kkt_load_icon_new(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
+	const char *name);
+
 /* Получить список пиктограмм в ККТ */
 extern uint8_t kkt_get_icon_lst(uint8_t *data, size_t *len);
+
+/* Удалить из ККТ все пиктограммы */
+extern uint8_t kkt_erase_all_icons(void);
 
 /* Сброс ФН */
 extern uint8_t kkt_reset_fs(uint8_t b);
