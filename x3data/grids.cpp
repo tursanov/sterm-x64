@@ -182,7 +182,6 @@ static regex_t reg;
 
 static int grid_selector(const struct dirent *entry)
 {
-	log_dbg("d_name = '%s'.", entry->d_name);
 	return regexec(&reg, entry->d_name, 0, NULL, 0) == REG_NOERROR;
 }
 

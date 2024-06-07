@@ -789,24 +789,17 @@ void redraw_term(bool show_text, const char *title)
 	};
 	int i;
 	bool v=scr_visible;
-	printf("%s #1\n", __func__);
 	scr_visible=true;
 	draw_scr(show_text, title);
-	printf("%s #2\n", __func__);
 	set_term_state(_term_state);
-	printf("%s #3\n", __func__);
 	set_term_astate(_term_aux_state);
-	printf("%s #4\n", __func__);
 	set_term_led(hbyte);
-	printf("%s #5\n", __func__);
 	scr_visible=v;
-	printf("%s #6\n", __func__);
 	for (i=0; i < ASIZE(scr_elems); i++)
 		if (*scr_elems[i].active)
 			scr_elems[i].draw_fn();
 	if (menu_active || lprn_menu_active)
 		draw_menu(mnu);
-	printf("%s #7\n", __func__);
 }
 
 /* Восстановление экрана после гашения */
@@ -1332,12 +1325,9 @@ static bool create_term(void)
 	lprn_create_log();
 #endif
 	init_term(kt == key_reg);
-	printf("%s: #1\n", __func__);
 	redraw_term(true, main_title);
-	printf("%s: #2\n", __func__);
 	if (show_usb_msg())
 		redraw_term(true, main_title);
-	printf("%s: #3\n", __func__);
 	return true;
 }
 

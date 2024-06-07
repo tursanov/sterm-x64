@@ -43,6 +43,7 @@ extern int req_type;
 #define X_QOUT		0x4f	/* O абзац для ОЗУ заказа без отображения на экране */
 #define X_LPRN		0x50	/* P абзац для ППУ */
 #define X_KPRN		0x51	/* Q абзац для печати на ККТ */
+#define X_XML		0x52	/* R данные в формате XML */
 #define X_REPEAT	0x53	/* S автоповтор символа */
 #define X_REQ		0x55	/* U конец абзаца для ОЗУ заказа */
 #define X_ATTR		0x56	/* V атрибут символа для вывода на экран */
@@ -149,8 +150,7 @@ extern const char *get_syntax_error_txt(uint8_t code);
 /* Информация для ИПТ */
 struct bank_info {
 	uint32_t id;
-	char  termid[5];
-/*	struct date_time dt;*/
+	char termid[5];
 	uint32_t amount1;
 	uint32_t amount2;
 };

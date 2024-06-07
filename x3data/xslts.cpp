@@ -110,7 +110,6 @@ static regex_t reg;
 
 static int xslt_selector(const struct dirent *entry)
 {
-	log_dbg("d_name = '%s'.", entry->d_name);
 	return regexec(&reg, entry->d_name, 0, NULL, 0) == REG_NOERROR;
 }
 
@@ -126,7 +125,7 @@ static void check_stored_xslt(const list<XSLTInfo> &x3_xslt)
 	log_dbg("Ищем таблицы XSLT в каталоге " XSLT_FOLDER "...");
 	int rc = regcomp(&reg, "^T[0-9A-Z]{2}[0-9]{5}\\.[Xx][Ss][Ll]$", REG_EXTENDED | REG_NOSUB);
 	if (rc != REG_NOERROR){
-		log_err("Ошибка компиляции регулярного выражения для: %d.", rc);
+		log_err("Ошибка компиляции регулярного выражения: %d.", rc);
 		return;
 	}
 	list<XSLTInfo> stored_xslt;
