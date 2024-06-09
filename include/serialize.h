@@ -1,12 +1,7 @@
 #ifndef SERIALIZE_H
 #define SERIALIZE_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "list.h"
-#include "sysdefs.h"
 
 int s_open(const char *file_name, int open_for_write);
 int s_close(int fd);

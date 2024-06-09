@@ -2,7 +2,11 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <unistd.h>
+#if !defined WIN32
+	#include <unistd.h>
+#else
+	#include <io.h>
+#endif
 #include <fcntl.h>
 #include "serialize.h"
 
@@ -55,24 +59,24 @@ int save_data(int fd, const void *data, size_t size) {
 
 }
 
-int load_data(int fd, void **data, size_t *size)
-{
-	size_t len = 0;
-	if (s_read(fd, &len, sizeof(len)) < 0)
-		return -1;
-	else if (len > 0){
+int load_data(int fd, void **data, size_t *size) {
+    size_t len = 0;
+    if (s_read(fd, &len, sizeof(len)) < 0)
+        return -1;
+	if (len > 0) {
 		uint8_t *s = (uint8_t *)malloc(len);
 		if (s == NULL)
 			return -1;
-		else if (s_read(fd, s, len) < 0){
+
+		if (s_read(fd, s, len) < 0) {
 			free(s);
 			return -1;
-		}else
-			*data = s;
-	}else
+		}
+		*data = s;
+	} else
 		*data = NULL;
 	*size = len;
-	return 0;
+    return 0;
 }
 
 
@@ -86,9 +90,9 @@ int save_string(int fd, const char *s) {
 }
 
 int load_string(int fd, char **ret) {
-	size_t len;
-	if (s_read(fd, &len, sizeof(len)) < 0)
-		return -1;
+    size_t len;
+    if (s_read(fd, &len, sizeof(len)) < 0)
+        return -1;
 	if (len > 0) {
 		char *s = (char *)malloc(len + 1);
 		if (s == NULL)
@@ -104,7 +108,7 @@ int load_string(int fd, char **ret) {
 	} else
 		*ret = NULL;
     
-	return 0;
+    return 0;
 }
 
 int save_int(int fd, uint64_t v, size_t size) {
@@ -121,7 +125,7 @@ int load_int(int fd, uint64_t *v, size_t size) {
 
 int save_list(int fd, list_t *list, list_item_func_t save_item_func) {
     if (SAVE_INT(fd, list->count) < 0 ||
-        list_foreach(list, (void *)(intptr_t)fd, save_item_func) < 0)
+        list_foreach(list, (void *)fd, save_item_func) < 0)
         return -1;
     return 0;
 }

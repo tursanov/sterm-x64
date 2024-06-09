@@ -18,6 +18,22 @@ int list_add_item(list_t *list, list_item_t *item) {
 	return 0;
 }
 
+int list_add_item_head(list_t *list, list_item_t *item) {
+	item->next = list->head;
+	item->prev = NULL;
+	if (list->head == NULL) {
+		list->head = list->tail = item;
+	} else {
+		list->head->prev = item;
+		list->head = item;
+	}
+
+	list->count++;
+
+	return 0;
+}
+
+
 int list_add(list_t *list, void *obj) {
     list_item_t *item = (list_item_t *)malloc(sizeof(list_item_t));
     if (item == NULL)
@@ -26,6 +42,16 @@ int list_add(list_t *list, void *obj) {
     item->obj = obj;
 
 	return list_add_item(list, item);
+}
+
+int list_add_head(list_t *list, void *obj)
+{
+	list_item_t *item = (list_item_t *)malloc(sizeof(list_item_t));
+	if (item == NULL)
+		return -1;
+
+	item->obj = obj;
+	return list_add_item_head(list, item);
 }
 
 int list_remove_item(list_t *list, list_item_t *i) {
@@ -162,15 +188,20 @@ int list_remove_if(list_t *list, void *arg, list_item_func_t func) {
         item = item->next;
         if (func(arg, tmp->obj) == 0) {
 			list_item_t *prev = tmp->prev;
-            free(tmp);
+
             if (prev != NULL)
                 prev->next = item;
-            if (item == NULL)
+
+			if (item == NULL)
                 list->tail = prev;
 			else
 				item->prev = prev;
-            if (tmp == list->head)
+
+			if (tmp == list->head)
                 list->head = item;
+
+			free(tmp);
+
             count++;
         } /*else
             prev = tmp;*/

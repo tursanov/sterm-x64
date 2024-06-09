@@ -146,16 +146,30 @@ struct para_info{
 /* Описание кода синтаксической ошибки ответа */
 extern const char *get_syntax_error_txt(uint8_t code);
 
-/* Информация для ИПТ */
 struct bank_info {
-	uint32_t id;
+	uint32_t id;								// идентификатор платежа
 	char  termid[5];
 /*	struct date_time dt;*/
 	uint32_t amount1;
 	uint32_t amount2;
 };
 
+
+#define BNK_BIN_DOC_NR_LEN		14
+/* Информация для ИПТ (новая структура) */
+struct bank_info_ex {
+	uint32_t id;								// идентификатор платежа
+    char term_id[7];							// номер терминала
+	char op;									// тип платежа (-;+;*)
+	char repayment; 							// тип возврата (\x0;0;1)
+	bool ticket;								// ОД/ПВД
+	char blank_nr[BNK_BIN_DOC_NR_LEN + 1];		// номер документа
+	char prev_blank_nr[BNK_BIN_DOC_NR_LEN + 1];	// номер предыдущего документа
+	uint64_t amount;							// сумма в копейках
+};
+
 extern struct bank_info bi;
+extern struct bank_info_ex bi_ex;
 extern struct bank_info bi_pos;
 
 /* Очистка содержимого структуры */
@@ -200,6 +214,9 @@ extern int handle_para(int n_para);
 
 /* Получение информации банковского абзаца во время обработки ответа */
 extern const struct bank_info *get_bi(void);
+
+/* Получение информации банковского абзаца во время обработки ответа (в новой структуре) */
+extern const struct bank_info_ex *get_bi_ex(void);
 
 /* Получение данных изображения для БПУ */
 extern bool find_pic_data(int *data, int *req);

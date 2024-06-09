@@ -112,6 +112,7 @@ const char *get_syntax_error_txt(uint8_t code)
 
 /* Информация для ИПТ */
 struct bank_info bi;
+struct bank_info_ex bi_ex;
 struct bank_info bi_pos;
 
 /* Очистка содержимого структуры */
@@ -2304,6 +2305,23 @@ const struct bank_info *get_bi(void)
 	}
 	return ret;
 }
+
+/* Получение информации банковского абзаца во время обработки ответа (новая структура) */
+const struct bank_info_ex *get_bi_ex(void)
+{
+	const struct bank_info_ex *ret = NULL;
+	if (resp_executing){
+		for (int i = 0; i < n_paras; i++){
+			if (map[i].dst == dst_bank){
+				ret = &bi_ex;
+				break;
+			}
+		}
+	}
+	return ret;
+}
+
+
 
 /* Получение данных изображения для БПУ */
 bool find_pic_data(int *data, int *req)

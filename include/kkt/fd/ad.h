@@ -1,12 +1,9 @@
 #ifndef AD_H
 #define AD_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include <stdint.h>
 #include <stdio.h>
+#include <express.h>
 #include "sysdefs.h"
 #include "list.h"
 
@@ -34,7 +31,7 @@ extern L *L_create(void);
 // удаление составляющей
 extern void L_destroy(L *l);
 // запись составляющей в файл
-extern int L_save(void *arg, L *l);
+extern int L_save(int fd, L *l);
 // загрузка составляющей из файла
 extern L *L_load_v1(int fd);
 extern L *L_load_v2(int fd);
@@ -67,19 +64,6 @@ typedef struct {
 	char *s;
 } op_doc_no_t;
 
-// инициализация
-void op_doc_no_init(op_doc_no_t *d);
-// освобождение
-void op_doc_no_free(op_doc_no_t *d);
-// сохранение из файла
-int op_doc_no_save(int fd, op_doc_no_t *d);
-// загрузка из файла
-int op_doc_no_load(int fd, op_doc_no_t *d);
-// копирование
-void op_doc_no_copy(op_doc_no_t *dst, op_doc_no_t *src);
-// установка значения
-void op_doc_no_set(op_doc_no_t *dst, doc_no_t *d1, const char *op, doc_no_t *d2);
-
 // документ
 typedef struct K {
 	struct list_t llist;    // список составляющих
@@ -93,15 +77,28 @@ typedef struct K {
 	doc_no_t i2;        // индекс
 	doc_no_t i21;       // индекс
 	doc_no_t u;			// номер переоформляемого документа
-	op_doc_no_t b;		// список документов
+	doc_no_t g;			// признак группировки билетов
+	doc_no_t b;			// список документов
 	int64_t p;          // ИНН перевозчика
     char *h;            // телефон перевозчика
     uint8_t m;          // способ оплаты
     char *t;            // номер телефона пассажира
     char *e;            // адрес электронной посты пассажира
 	char *z;			// наименование договорного перевозчика
-	int32_t y;			// orderid банковского абзаца, или -1, если его нет для K
+	char s;				// подкорзина для элемента
+	struct bank_info_ex* y; // информация о банковском абзаце
+	bool i;				// признак главного документа
+	bool in_processing_state; // состояние в обработке
+	int c;				// номер квитанции, по которой документ был оплачен или 0
+	int bank_state;		// состояние обработки банковской транзакции
+	int print_state;	// состояние печати
+	bool check_state;	// состояние проверки
+	uint8_t v; 			// вид деятельности (1 - основной, 2 - прочие)
+	time_t dt;			// дата и время добавления документа
 } K;
+
+// проверка банковского абзаца на соответствие операции и возврата
+#define check_k_y(k, o, r) ((k)->y->op == (o) && (k)->y->repayment == (r))
 
 // создание информации о документе
 extern K *K_create(void);
@@ -116,8 +113,14 @@ extern bool K_equalByL(K *k1, K *k2);
 // получить сумму всех узлов L
 extern int64_t K_get_sum(K *k);
 
+// установить код подкорзины
+extern void set_k_s(char s, K* k, K* k1, K* k2);
+
+// установить признак главного документа для группы документов
+extern void set_k_i(K* k, K* k1, K* k2);
+
 // запись документа в файл
-extern int K_save(void *arg, K *k);
+extern int K_save(int fd, K *k);
 // загрузка документа из файла
 extern K *K_load_v1(int fd);
 extern K *K_load_v2(int fd);
@@ -146,7 +149,7 @@ extern C* C_create(void);
 extern void C_destroy(C *c);
 extern bool C_addK(C *c, K *k);
 
-extern int C_save(void *arg, C *c);
+extern int C_save(int fd, C *c);
 
 // загрузка из файла
 extern C* C_load_v1(int fd);
@@ -170,6 +173,36 @@ extern void P1_destroy(P1 *p1);
 extern int P1_save(int fd, P1 *p1);
 extern P1* P1_load_v1(int fd);
 extern P1* P1_load_v2(int fd);
+
+// документ
+typedef struct D {
+	int64_t total_sum;	// общая сумма
+	S sum;          	// сумма
+	K *k;				// документ
+	list_t related; 	// связанные документы
+	list_t group; 		// группа документов
+	char *description; // описание
+	char *name; // наименование
+} D;
+
+extern D *D_create(void);
+extern void D_destroy(D *d);
+
+// подкорзина
+typedef struct SubCart {
+	list_t documents; // документы
+	char type; // тип подкорзины
+} SubCart;
+
+#define MAX_SUB_CART	9
+#define SUB_CART_INDEX(s)	((s) - 'A')
+typedef struct Cart {
+	SubCart sc[MAX_SUB_CART];
+} Cart;
+
+extern Cart cart;
+
+extern void cart_build();
 
 // массив 64-битных величин
 typedef struct {
@@ -209,6 +242,7 @@ typedef struct AD {
 #define MAX_SUM 4
     S sum[MAX_SUM];     // сумма
     list_t clist;       // список чеков
+	list_t archive_items; // архив
 	int64_array_t docs;	// список документов
 	string_array_t phones; // список телефонов
 	string_array_t emails; // список e-mail
@@ -242,7 +276,7 @@ typedef struct AD_state {
 	// кол-во чеков с оплатой по банковской карте
 	int cashless_cheque_count;
 	// идентификатор заказа
-	int order_id;
+	uint32_t order_id;
 } AD_state;
 
 // получение состояния корзины (false - корзина пуста)
@@ -253,6 +287,13 @@ extern void AD_unmark_reissue_doc(int64_t doc);
 
 #ifdef TEST_PRINT
 extern void AD_print(FILE *f);
+extern void cart_print(FILE *fd);
 #endif
+
+// callback для обработки XML
+extern int kkt_xml_callback(bool check, int evt, const char *name, const char *val);
+
+extern void get_subcart_documents(char type, list_t *documents, const char *doc_no);
+extern void process_non_cash_documents(list_t *documents, int invoice);
 
 #endif // AD_H
