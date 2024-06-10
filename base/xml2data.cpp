@@ -1,3 +1,19 @@
+template <typename T> T &replace(T &s, const T &what, const T &txt)
+{
+	T::size_type l1 = what.size();
+	if (l1 > 0){
+		T::size_type i = 0, l2 = txt.size();
+		while (i != s.npos){
+			i = s.find(what, i);
+			if (i != s.npos){
+				s.replace(i, l1, txt);
+				i += l2;
+			}
+		}
+	}
+	return s;
+}
+
 static vector<pair<string, string>> subst_tbl;
 static vector<pair<string, string>> pre_subst_tbl;
 
@@ -167,7 +183,7 @@ static bool is_comment_str(const char *str)
 
 static regex_t reg;
 
-static int subst_selector(const struct dirent *entry)
+static int find_selector(const struct dirent *entry)
 {
 	return regexec(&reg, entry->d_name, 0, NULL, 0) == REG_NOERROR;
 }
@@ -184,7 +200,7 @@ ssize_t read_subst_tbl(const char *id, vector<pair<string, string>> &tbl)
 		return -1;
 	}
 	struct dirent **names = NULL;
-	int n = scandir(XSLT_FOLDER, &names, subst_selector, alphasort);
+	int n = scandir(XSLT_FOLDER, &names, find_selector, alphasort);
 	if (n == -1){
 		log_sys_err("Ошибка поиска таблицы замен в каталоге " XSLT_FOLDER ":");
 		regfree(&reg);
@@ -381,122 +397,126 @@ static bool transform_xml(xmlDocPtr xml, const char *xslt_id, uint8_t *out, size
 	char path[PATH_MAX];
 	if (embedded)
 		snprintf(path, ASIZE(path), XSLT_FOLDER "/%s.xsl", xslt_id);
-	else
-		snprintf(path, ASIZE(path), _TRUNCATE, "%s\\T%s?????.xsl", xslt_folder, xslt_id);
-	WIN32_FIND_DATA fd;
-	HANDLE fh = FindFirstFile(path, &fd);
-	if (fh != INVALID_HANDLE_VALUE){
-		bool found = embedded;
-		if (!found){
-			do {
-				XSLTInfo xi;
-				if (xi.parse(fd.cFileName))
-					found = true;
-			} while (!found && FindNextFile(fh, &fd));
+	else{
+		char pattern[128];
+		snprintf(pattern, sizeof(pattern), "^T%s[0-9]{5}\\.[Xx][Ss][Ll]$", xslt_id);
+		int rc = regcomp(&reg, pattern, REG_EXTENDED | REG_NOSUB);
+		if (rc != REG_NOERROR){
+			log_err("Ошибка компиляции регулярного выражения для %s: %d.",
+				pattern, rc);
+			return false;
 		}
-		FindClose(fh);
-		if (found){
-			XsltErrorCtx ctx = {recode, subst_tbl};
-			xsltSetGenericErrorFunc(reinterpret_cast<LPVOID>(&ctx), onXsltError);
-			char *p = _tcsrchr(path, '\\'));
-			if (p != NULL){
-				snprintf(p + 1, ASIZE(path) - (p - path) - 1, _TRUNCATE, "%s", fd.cFileName);
-				xsltStylesheetPtr xslt = xsltParseStylesheetFile((const xmlChar *)tstr2ansi(path).c_str());
-				if (xslt != NULL){
-					xmlDocPtr doc = xsltApplyStylesheet(xslt, xml, NULL);
-					if (doc != NULL){
-						snprintf(path, ASIZE(path), _TRUNCATE, "%s\\out.bin", xslt_folder);
-						int len = xsltSaveResultToFilename(tstr2ansi(path).c_str(), doc, xslt, 0);
-						if (len != -1){
-							log_dbg("%d байт записано в файл %s.", len, path);
-							FILE *f = _tfopen(path, "rt");
-							if (f != NULL){
-								char *buf = new char[len + 1];
-								int rc = fread(buf, 1, len, f);
-								if (rc == len){
-									buf[len] = 0;
-									string str;
-									str.assign(buf, buf + len);
-									for (const auto &p : subst_tbl)
-										txt::replace(str, p.first, p.second);
-									size_t data_len = str.size();
-									if (data_len > out_len)
-										data_len = out_len;
-									else
-										out_len = data_len;
-									if (out_len > 0)
-										memcpy(out, str.c_str(), out_len);
-									ret = true;
-								}else if (rc == -1)
-									log_sys_err("Ошибка чтения из %s:", path);
-								else
-									log_err("Из %s прочитано %d байт вместо %d.", path, rc, len);
-								delete [] buf;
-							}else
-								log_sys_err("Ошибка открытия файла %s для чтения:", path);
-							if (fclose(f) != 0)
-								log_sys_err("Ошибка закрытия файла %s:", path);
-						}else
-							log_err("Ошибка записи результата трансформации в файл %s.", path);
-					}else
-						log_err("Ошибка трансформации XML.");
+		struct dirent **names = NULL;
+		int n = scandir(XSLT_FOLDER, &names, find_selector, alphasort);
+		if (n == -1){
+			log_sys_err("Ошибка поиска файла XSLT %s в каталоге " XSLT_FOLDER ":",
+				xslt_id);
+			regfree(&reg);
+			return false;
+		}else if (n == 0){
+			log_err("В каталоге " XSLT_FOLDER " не найден файл XSLT %s.", xslt_id);
+			logfree(&reg);
+			if (names != NULL)
+				free(names);
+			return false;
+		}else if (n > 1)
+			log_warn("В каталоге " XSLT_FOLDER " обнаружено более одного файла XSLT %s (%d). "
+				"Будет использован файл %s.", xslt_id, n, names[0]->d_name);
+		snprintf(path, ASIZE(patn), XSLT_FOLDER "/%s", names[0]->d_name);
+		free(names);
+		regfree(&reg);
+	}
+	xsltStylesheetPtr xslt = xsltParseStylesheetFile((const xmlChar *)path);
+	if (xslt != NULL){
+		xmlDocPtr doc = xsltApplyStylesheet(xslt, xml, NULL);
+		if (doc != NULL){
+			snprintf(path, ASIZE(path), XSLT_FOLDER "/out.bin");
+			int len = xsltSaveResultToFilename(path, doc, xslt, 0);
+			if (len != -1){
+				log_dbg("%d байт записано в файл %s.", len, path);
+				int fd = open(path, O_RDONLY);
+				if (fd != -1){
+					char *buf = new char[len + 1];
+					int rc = read(fd, buf, len);
+					if (rc == len){
+						buf[len] = 0;
+						string str;
+						str.assign(buf, buf + len);
+						for (const auto &p : subst_tbl)
+							replace(str, p.first, p.second);
+						size_t data_len = str.size();
+						if (data_len > out_len)
+							data_len = out_len;
+						else
+							out_len = data_len;
+						if (out_len > 0)
+							memcpy(out, str.c_str(), out_len);
+						ret = true;
+					}else if (rc == -1)
+						log_sys_err("Ошибка чтения из %s:", path);
+					else
+						log_err("Из %s прочитано %d байт вместо %d.", path, rc, len);
+					delete [] buf;
 				}else
-					log_err("Ошибка разбора XSLT в %s.", path);
+					log_sys_err("Ошибка открытия файла %s для чтения:", path);
+				if (close(f) != 0)
+					log_sys_err("Ошибка закрытия файла %s:", path);
 			}else
-				log_err("Не найден каталог в строке %s.", path);
-			xsltSetGenericErrorFunc(NULL, NULL);
+				log_err("Ошибка записи результата трансформации в файл %s.", path);
 		}else
-			log_err("Не найден файл XSLT для %s.", xslt_id);
+			log_err("Ошибка трансформации XML.");
 	}else
-		log_err("Не найден файл XSLT для %s.", xslt_id);
+		log_err("Ошибка разбора XSLT в %s.", path);
 	return ret;
 }
 
-bool storeEmbeddedXslt(const uint8_t *xslt, size_t xslt_len, const char *fname)
+static bool store_embedded_xslt(const uint8_t *xslt, size_t xslt_len, const char *fname)
 {
 	if ((xslt == NULL) || (xslt_len == 0) || (fname == NULL))
 		return false;
 	bool ret = false;
 	char path[PATH_MAX];
-	snprintf(path, ASIZE(path), _TRUNCATE, "%s\\%s.xsl", xslt_folder, fname);
-	FILE *f = _tfopen(path, "wb");
-	if (f != NULL){
-		size_t rc = fwrite(xslt, 1, xslt_len, f);
+	snprintf(path, ASIZE(path), XSLT_FOLDER "/%s.xsl", fname);
+	int fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH);
+	if (fd != -1){
+		ssize_t rc = write(fd, xslt, xslt_len);
 		if (rc == xslt_len){
 			log_dbg("Данные для трансформации записаны в %s.", path);
 			ret = true;
-		}else
+		}else if (rc == -1)
+			log_sys_err("Ошибка записи в %s:", path);
+		else
 			log_sys_err("В %s записано %d байт вместо %d:", path, rc, xslt_len);
-		if (fclose(f) != 0)
+		if (close(f) != 0)
 			log_sys_err("Ошибка закрытия %s:", path);
 	}
 	return ret;
 }
 
-char getDstChar()
+static char get_dst_char(int dst)
 {
 	char ret ='?';
-	switch (dst()){
-		case ParaDst::scr:
-			ret = x3cmd::common::X_SCR;
+	switch (dst){
+		case dst_text:
+			ret = X_SCR;
 			break;
-		case ParaDst::log:
+		case dst_log:
 			ret = 'E';
 			break;
-		case ParaDst::xprn:
-			ret = x3cmd::common::X_XPRN;
+		case dst_xprn:
+			ret = X_XPRN;
 			break;
-		case ParaDst::kprn:
-			ret = x3cmd::common::X_KPRN;
+		case dst_kprn:
+			ret = X_KPRN;
 			break;
-		case ParaDst::tprn:
-			ret = x3cmd::common::X_TPRN;
+		case dst_lprn:
+			ret = X_TPRN;
 			break;
 	}
 	return ret;
 }
 
-void onXML(uint8_t cmd, const uint8_t *data, uint32_t &idx, size_t len)
+void on_xml(uint8_t cmd, const uint8_t *data, uint32_t &idx, size_t len)
 {
 	if ((idx + 16) >= len)
 		onSyntaxError(E_SHORT, idx);
@@ -617,7 +637,7 @@ void onXML(uint8_t cmd, const uint8_t *data, uint32_t &idx, size_t len)
 			(recode == RECODE_NONE) ? "us-ascii" : "cp866",
 			/*(resp_scr_mode == ScrMode::scr_32x8) ? 8 :*/ 20,
 			/*(resp_scr_mode == ScrMode::scr_32x8) ? 32 :*/ 80,
-			getDstChar());
+			get_dst_char());
 		xml_scr.assign(hdr);
 		xml_scr += xml0;
 		xml_scr += "</A>";
@@ -630,7 +650,7 @@ void onXML(uint8_t cmd, const uint8_t *data, uint32_t &idx, size_t len)
 			(recode == RECODE_NONE) ? "us-ascii" : "cp866",
 			/*(resp_scr_mode == ScrMode::scr_32x8) ? 8 :*/ 20,
 			/*(resp_scr_mode == ScrMode::scr_32x8) ? 32 :*/ 80,
-			getDstChar());
+			get_dst_char());
 		xml_prn.assign(hdr);
 		xml_prn += xml0;
 		xml_prn += "</A>";
@@ -639,12 +659,12 @@ void onXML(uint8_t cmd, const uint8_t *data, uint32_t &idx, size_t len)
 	}
 	const char *scr_xslt_id = NULL, prn_xslt_id = NULL;
 	if (prn_transform == TransformType::Embedded){
-		if (storeEmbeddedXslt(prn_xslt, prn_xslt_len, "pscr"))
+		if (store_embedded_xslt(prn_xslt, prn_xslt_len, "pscr"))
 			prn_xslt_id = "pscr";
 	}else if (prn_transform == TransformType::Explicit)
 		prn_xslt_id = prn_transform_idx;
 	if (scr_transform == TransformType::Embedded){
-		if (storeEmbeddedXslt(scr_xslt, scr_xslt_len, "escr"))
+		if (store_embedded_xslt(scr_xslt, scr_xslt_len, "escr"))
 			scr_xslt_id = "escr";
 	}else if (scr_transform == TransformType::Prn)
 		scr_xslt_id = prn_xslt_id;
