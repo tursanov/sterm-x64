@@ -1,4 +1,4 @@
-/* Интерфейс для работы с шаблонами печати для C. (c) gsr, 2024 */
+/* Интерфейс для работы с шаблонами печати для C. (c) gsr 2024 */
 
 #if !defined X3DATA_PATTERNS_H
 #define X3DATA_PATTERNS_H

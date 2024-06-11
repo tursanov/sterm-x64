@@ -1,4 +1,4 @@
-/* Общие определения для всех файлов. (c) gsr, 2024 */
+/* Общие определения для всех файлов. (c) gsr 2024 */
 
 #if !defined X3DATA_COMMON_H
 #define X3DATA_COMMON_H

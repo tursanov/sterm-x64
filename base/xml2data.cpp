@@ -1,3 +1,5 @@
+#include "xml2data.h"
+
 template <typename T> T &replace(T &s, const T &what, const T &txt)
 {
 	T::size_type l1 = what.size();
@@ -516,18 +518,42 @@ static char get_dst_char(int dst)
 	return ret;
 }
 
-void on_xml(uint8_t cmd, const uint8_t *data, uint32_t &idx, size_t len)
+static const uint8_t RECODE_NONE	= 0x30;
+static const uint8_t RECODE_CP866	= 0x31;
+
+enum class TransformType {
+	None,
+	Embedded,
+	Prn,
+	Explicit,
+};
+
+uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode,
+	uint8_t *data_buf, size_t *data_buf_len, uint8_t *scr_buf, size_t *scr_buf_len)
 {
-	if ((idx + 16) >= len)
-		onSyntaxError(E_SHORT, idx);
-	uint8_t recode = data[idx];
-	if ((recode != RECODE_NONE) && (recode != RECODE_CP866))
-		onSyntaxError(E_KKT_XML_XSLT, idx);
+#define set_ecode(e)		\
+	if (ecode != NULL)	\
+		*ecode = e
+	if (data_buf_len != NULL)
+		*data_buf_len = 0;
+	if (scr_buf_len != NULL)
+		*scr_buf_len = 0;
+	int idx = 0;
+	if (l < 9){
+		set_ecode(E_XML_SHORT);
+		return p + idx;
+	}
+	*ecode = E_OK;
+	uint8_t recode = p[idx];
+	if ((recode != RECODE_NONE) && (recode != RECODE_CP866)){
+		set_ecode(E_XML_RECODE);
+		return p + idx;
+	}
 	idx++;
 	TransformType scr_transform = TransformType::None;
 	char scr_transform_idx[3] = {0, 0, 0};
-	if (data[idx] == 0x2a){
-		switch (data[idx + 1]){
+	if (p[idx] == 0x2a){
+		switch (p[idx + 1]){
 			case 0x2a:
 				scr_transform = TransformType::None;
 				break;
@@ -538,20 +564,23 @@ void on_xml(uint8_t cmd, const uint8_t *data, uint32_t &idx, size_t len)
 				scr_transform = TransformType::Embedded;
 				break;
 			default:
-				onSyntaxError(E_KKT_XML_XSLT, idx);
+				set_ecode(E_XML_SCR_TRANSFORM_TYPE);
+				return p + idx + 1;
 		}
-	}else if (((data[idx] == 0x30) && (data[idx + 1] == 0x30)) || ((data[idx] == 0x5a) && (data[idx + 1] == 0x5a)))
-		onSyntaxError(E_KKT_XML_XSLT, idx);
-	else{
-		scr_transform_idx[0] = data[idx];
-		scr_transform_idx[1] = data[idx + 1];
+	}else if (((p[idx] == 0x30) && (p[idx + 1] == 0x30)) ||
+			((p[idx] == 0x5a) && (p[idx + 1] == 0x5a))){
+		set_ecode(E_XML_SCR_TRANSFORM_TYPE);
+		return p + idx;
+	}else{
+		scr_transform_idx[0] = p[idx];
+		scr_transform_idx[1] = p[idx + 1];
 		scr_transform = TransformType::Explicit;
 	}
 	idx += 2;
 	TransformType prn_transform = TransformType::None;
 	char prn_transform_idx[3] = {0, 0, 0};
-	if (data[idx] == 0x2a){
-		switch (data[idx + 1]){
+	if (p[idx] == 0x2a){
+		switch (p[idx + 1]){
 			case 0x2a:
 			case 0x3f:
 				prn_transform = TransformType::None;
@@ -560,71 +589,90 @@ void on_xml(uint8_t cmd, const uint8_t *data, uint32_t &idx, size_t len)
 				prn_transform = TransformType::Embedded;
 				break;
 			default:
-				onSyntaxError(E_KKT_XML_XSLT, idx);
+				set_ecode(E_XML_PRN_TRANSFORM_TYPE);
+				return p + idx + 1;
 		}
-	}else if (((data[idx] == 0x30) && (data[idx + 1] == 0x30)) || ((data[idx] == 0x5a) && (data[idx + 1] == 0x5a)))
-		onSyntaxError(E_KKT_XML_XSLT, idx);
-	else{
-		prn_transform_idx[0] = data[idx];
-		prn_transform_idx[1] = data[idx + 1];
+	}else if (((p[idx] == 0x30) && (p[idx + 1] == 0x30)) ||
+			((p[idx] == 0x5a) && (p[idx + 1] == 0x5a))){
+		set_ecode(E_XML_SCR_TRANSFORM_TYPE);
+		return p + idx;
+	}else{
+		prn_transform_idx[0] = p[idx];
+		prn_transform_idx[1] = p[idx + 1];
 		prn_transform = TransformType::Explicit;
 	}
 	if ((scr_transform == TransformType::Prn) && (prn_transform == TransformType::None))
 		scr_transform = TransformType::None;
 	idx += 2;
 	uint8_t *scr_xslt = NULL;
-	uint16_t scr_xslt_len = 0;
-	if (!txt::readHexWord(data + idx, scr_xslt_len))
-		onSyntaxError(E_KKT_XML_XSLT, idx);
+	uint16_t scr_xslt_len = read_hex_word(p + idx);
+	if (number_error){
+		set_ecode(E_XML_XSLT_LEN);
+		return p + idx;
+	}else if ((idx + scr_xslt_len) > l){
+		set_ecode(E_XML_XSLT_SHORT);
+		return p + idx;
+	}
 	idx += 4;
 	if (scr_xslt_len > 0){
-		if ((idx + scr_xslt_len) > len)
-			onSyntaxError(E_SHORT, idx);
-		else{
-			scr_xslt = new uint8_t[scr_xslt_len];
-			memcpy(scr_xslt, data + idx, scr_xslt_len);
-		}
+		scr_xslt = new uint8_t[scr_xslt_len];
+		memcpy(scr_xslt, p + idx, scr_xslt_len);
 		idx += scr_xslt_len;
-	}else if (scr_transform == TransformType::Embedded)
-		onSyntaxError(E_KKT_XML_XSLT, idx, 4);
+	}else if (scr_transform == TransformType::Embedded){
+		set_ecode(E_XML_NO_SCR_TRANSFORM);
+		return p + idx;
+	}
 	uint8_t *prn_xslt = NULL;
-	uint16_t prn_xslt_len = 0;
-	if (!txt::readHexWord(data + idx, prn_xslt_len))
-		onSyntaxError(E_KKT_XML_XSLT, idx);
+	uint16_t prn_xslt_len = read_hex_word(p + idx);
+	if (number_error){
+		set_ecode(E_XML_XSLT_LEN);
+		return p + idx;
+	}else if ((idx + prn_xslt_len) > l){
+		set_ecode(E_XML_XSLT_SHORT);
+		return p + idx;
+	}
 	idx += 4;
 	if (prn_xslt_len > 0){
-		if ((idx + prn_xslt_len) > len)
-			onSyntaxError(E_SHORT, idx);
-		else{
-			prn_xslt = new uint8_t[prn_xslt_len];
-			memcpy(prn_xslt, data + idx, prn_xslt_len);
-		}
+		prn_xslt = new uint8_t[prn_xslt_len];
+		memcpy(prn_xslt, p + idx, prn_xslt_len);
 		idx += prn_xslt_len;
-	}else if (prn_transform == TransformType::Embedded)
-		onSyntaxError(E_KKT_XML_XSLT, idx, 4);
-/*	else if ((scr_transform == TransformType::Prn) && (prn_transform == TransformType::Embedded))
-		onSyntaxError(E_KKT_XML_XSLT, idx, 4);*/
+	}else if (prn_transform == TransformType::Embedded){
+		set_ecode(E_XML_NO_PRN_TRANSFORM);
+		return p + idx;
+	}
 	static char xml_hdr[] = "<?XML VERSION=\"1.0\" ENCODING=\"KOI-7\"?>";
 	const uint16_t XML_HDR_LEN = ASIZE(xml_hdr) - 1;
-	uint16_t xml_len = 0;
-	if (!txt::readHexWord(data + idx, xml_len) || (xml_len < XML_HDR_LEN))
-		onSyntaxError(E_KKT_XML_XSLT, idx);
+	uint16_t xml_len = read_hex_word(p + idx);
+	if (number_error){
+		set_ecode(E_XML_LEN);
+		return p + idx;
+	}else if ((xml_len < XML_HDR_LEN) || ((idx + xml_len) > l)){
+		set_ecode(E_XML_SHORT);
+		return p + idx;
+	}
 	idx += 4;
-	if ((idx + xml_len) > len)
-		onSyntaxError(E_KKT_XML_XSLT, idx);
-	ssize_t xml_idx = txt::memfind(data + idx, xml_len, xml_hdr, XML_HDR_LEN);
-	if ((xml_idx == -1) || ((xml_idx + XML_HDR_LEN) >= xml_len))
-		onSyntaxError(E_KKT_XML_XSLT, idx);
-	xml_len -= (uint16_t)xml_idx + XML_HDR_LEN;
+	uint8_t *xml_ptr = memmem(p + idx, xml_len, xml_hdr, XML_HDR_LEN);
+	if (xml_ptr == NULL){
+		set_ecode(E_XML_HDR);
+		return p + idx;
+	}
+	ssize_t xml_offs = xml_ptr - p; xml_idx = xml_offs - idx;
+	if ((xml_idx + XML_HDR_LEN) >= xml_len){
+		set_ecode(E_XML_SHORT);
+		return p + idx;
+	}
+	xml_len -= xml_idx + XML_HDR_LEN;
+	if (xml_len == 0){
+		set_ecode(E_XML_SHORT);
+		return p + idx;
+	}
 	idx += xml_idx + XML_HDR_LEN;
-	if (idx >= len)
-		onSyntaxError(E_KKT_XML_XSLT, idx = len);
 	char *xml0 = new char[xml_len + 1];
-	memcpy(xml0, data + idx, xml_len);
+	memcpy(xml0, p + idx, xml_len);
 	xml0[xml_len] = 0;
 	idx += xml_len;
 	if (recode == RECODE_CP866)
-		txt::recodeData((LPBYTE)xml0, xml_len, txt::CodePage::CP866);
+		recode_str(xml0, -1);
 	xmlDocPtr xml_doc = NULL;
 	uint8_t *out_buf = NULL;
 	size_t out_buf_len = 0;
@@ -632,32 +680,32 @@ void on_xml(uint8_t cmd, const uint8_t *data, uint32_t &idx, size_t len)
 	char hdr[256];
 	string xml_scr, xml_prn;
 	if ((scr_transform != TransformType::None) && (scr_transform != TransformType::Prn)){
-		_snprintf_s(hdr, ASIZE(hdr), _TRUNCATE, "<?xml version=\"1.0\" encoding=\"%s\"?>\r\n"
+		snprintf(hdr, ASIZE(hdr), "<?xml version=\"1.0\" encoding=\"%s\"?>\r\n"
 				"<A H=\"%d\" W=\"%d\" T=\"S%c\" D=\"P\">\r\n",
 			(recode == RECODE_NONE) ? "us-ascii" : "cp866",
-			/*(resp_scr_mode == ScrMode::scr_32x8) ? 8 :*/ 20,
-			/*(resp_scr_mode == ScrMode::scr_32x8) ? 32 :*/ 80,
-			get_dst_char());
+			(scr_mode == m32x8) ? 8  : 20,
+			(scr_mode == m32x8) ? 32 : 80,
+			get_dst_char(dst));
 		xml_scr.assign(hdr);
 		xml_scr += xml0;
 		xml_scr += "</A>";
 		for (const auto &p : pre_subst_tbl)
-			txt::replace(xml_scr, p.first, p.second);
+			replace(xml_scr, p.first, p.second);
 	}
 	if (prn_transform != TransformType::None){
-		_snprintf_s(hdr, ASIZE(hdr), _TRUNCATE, "<?xml version=\"1.0\" encoding=\"%s\"?>\r\n"
+		snprintf(hdr, ASIZE(hdr), "<?xml version=\"1.0\" encoding=\"%s\"?>\r\n"
 				"<A H=\"%d\" W=\"%d\" T=\"P%c\" D=\"P\">\r\n",
 			(recode == RECODE_NONE) ? "us-ascii" : "cp866",
-			/*(resp_scr_mode == ScrMode::scr_32x8) ? 8 :*/ 20,
-			/*(resp_scr_mode == ScrMode::scr_32x8) ? 32 :*/ 80,
-			get_dst_char());
+			(scr_mode == m32x8) ? 8  : 20,
+			(scr_mode == m32x8) ? 32 : 80,
+			get_dst_char(dst));
 		xml_prn.assign(hdr);
 		xml_prn += xml0;
 		xml_prn += "</A>";
 		for (const auto &p : pre_subst_tbl)
 			txt::replace(xml_prn, p.first, p.second);
 	}
-	const char *scr_xslt_id = NULL, prn_xslt_id = NULL;
+	const char *scr_xslt_id = NULL, *prn_xslt_id = NULL;
 	if (prn_transform == TransformType::Embedded){
 		if (store_embedded_xslt(prn_xslt, prn_xslt_len, "pscr"))
 			prn_xslt_id = "pscr";
@@ -670,44 +718,54 @@ void on_xml(uint8_t cmd, const uint8_t *data, uint32_t &idx, size_t len)
 		scr_xslt_id = prn_xslt_id;
 	else if (scr_transform == TransformType::Explicit)
 		scr_xslt_id = scr_transform_idx;
-	if ((scr_xslt_id == NULL) && (scr_transform != TransformType::None))
-		onSyntaxError(E_KKT_XML_XSLT, idx);
-	else if ((prn_xslt_id == NULL) && (prn_transform != TransformType::None))
-		onSyntaxError(E_KKT_XML_XSLT, idx);
+	if ((scr_xslt_id == NULL) && (scr_transform != TransformType::None)){
+		set_ecode(E_XML_SCR_TRANSFORM_TYPE);
+		return p + 1;
+	}else if ((prn_xslt_id == NULL) && (prn_transform != TransformType::None)){
+		set_ecode(E_XML_PRN_TRANSFORM_TYPE);
+		return p + 1;
+	}
 	out_buf = new uint8_t[MAX_DATA_LEN];
 	if (prn_transform == TransformType::None){
-		if (dst() != ParaDst::log)
-			_data_buf.assign(xml0, xml0 + xml_len);
+		if ((data_buf != NULL) && (data_buf_len != NULL) && (dst != dst_log)){
+			if (xml_len < *data_buf_len)
+				*data_buf_len = xml_len;
+			memcpy(data_buf, xml0, *data_buf_len);
+		}
 	}else{
-//		bool prn_dst = (dst() == ParaDst::xprn) || (dst() == ParaDst::kprn) || (dst() == ParaDst::tprn);
 		xml_doc = xmlReadMemory(xml_prn.c_str(), xml_prn.size(), NULL, NULL, XML_PARSE_COMPACT);
 		if (xml_doc != NULL){
 			log_dbg("XML для печати из ответа успешно разобран.");
 			out_buf_len = MAX_DATA_LEN;
 			bool rc = transform_xml(xml_doc, prn_xslt_id, out_buf, out_buf_len, recode);
 			xmlFreeDoc(xml_doc);
-			if (rc)
-				/*_data_buf.assign(out_buf, out_buf + out_buf_len)*/;
-			else
-				onSyntaxError(E_KKT_XML_XSLT, idx);
+			if (!rc){
+				set_ecode(E_XML_PRN_TRANSFORM);
+				return p + xml_offs;
+			}
 		}else{
 			xmlErrorPtr err = xmlGetLastError();
 			log_err("Ошибка разбора XML для печати: %d (%s).", err->code, err->message);
-			onSyntaxError(E_KKT_XML_XSLT, idx);
+			set_ecode(E_XML_PRN_PARSE);
+			return p + xml_offs;
 		}
-		try {
+/*		try {
 			uint32_t dummy_idx = 0;
 			parseInternalRecursive(out_buf, dummy_idx, out_buf_len);
 		} catch (SYNTAX_ERROR err){
 			onSyntaxError(err, idx);
-		}
+		}*/
 	}
-	if (scr_transform == TransformType::None)
-		_scr_data.assign(xml0, xml0 + xml_len);
+	if (scr_transform == TransformType::None){
+		if ((scr_buf != NULL) && (scr_buf_len != NULL)){
+			if (xml_len < *scr_buf_len)
+				*scr_buf_len = xml_len;
+			memcpy(scr_buf, xml0, *scr_buf_len);
+		}
 	else if (scr_transform == TransformType::Prn){
 		log_dbg("На экране будет отображён результат трансформации для принтера.");
-		_scr_data.assign(out_buf, out_buf + out_buf_len);
-		preprocess_data(_scr_data);
+/*		_scr_data.assign(out_buf, out_buf + out_buf_len);
+		preprocess_data(_scr_data);*/
 	}else{
 		xml_doc = xmlReadMemory(xml_scr.c_str(), xml_scr.size(), NULL, NULL, XML_PARSE_COMPACT);
 		if (xml_doc != NULL){
@@ -716,18 +774,26 @@ void on_xml(uint8_t cmd, const uint8_t *data, uint32_t &idx, size_t len)
 			bool rc = transform_xml(xml_doc, scr_xslt_id, out_buf, out_buf_len, recode);
 			xmlFreeDoc(xml_doc);
 			if (rc){
-				_scr_data.assign(out_buf, out_buf + out_buf_len);
-				preprocess_data(_scr_data);
-			}else
-				onSyntaxError(E_KKT_XML_XSLT, idx);
+/*				_scr_data.assign(out_buf, out_buf + out_buf_len);
+				preprocess_data(_scr_data);*/
+			}else{
+				set_ecode(E_XML_SCR_TRANSFORM);
+				return p + xml_offs;
+			}
 		}else{
 			xmlErrorPtr err = xmlGetLastError();
 			log_err("Ошибка разбора XML для экрана: %d (%s).", err->code, err->message);
-			onSyntaxError(E_KKT_XML_XSLT, idx);
+			set_ecode(E_XML_SCR_PARSE);
+			return p + xml_offs;
 		}
 	}
-	if ((prn_transform == TransformType::None) && (dst() == ParaDst::log))
-		_data_buf = _scr_data;
+	if ((data_buf != NULL) && (data_buf_len != NULL) &&
+			(scr_buf != NULL) && (scr_buf_len != NULL) &&
+			(prn_transform == TransformType::None) && (dst() == ParaDst::log)){
+		if (*scr_buf_len < *data_buf_len)
+			*data_buf_len = *scr_buf_len;
+		memcpy(data_buf, scr_buf, *scr_buf_len);
+	}
 	if (scr_xslt != NULL)
 		delete [] scr_xslt;
 	if (prn_xslt != NULL)

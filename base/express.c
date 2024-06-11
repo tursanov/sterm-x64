@@ -1793,7 +1793,7 @@ int handle_para(int n_para)
 								text_buf + i, &ll);
 							i += ll;
 							break;
-						}	/* fall through */
+						}		/* fall through */
 					default:		/* Неизвестная команда */
 						if ((i + 3) > sizeof(text_buf))
 							return 0;

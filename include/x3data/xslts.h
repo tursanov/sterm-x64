@@ -1,4 +1,4 @@
-/* Интерфейс для работы с таблицами XSLT для C. (c) gsr, 2024 */
+/* Интерфейс для работы с таблицами XSLT для C. (c) gsr 2024 */
 
 #if !defined X3DATA_XSLTS_H
 #define X3DATA_XSLTS_H

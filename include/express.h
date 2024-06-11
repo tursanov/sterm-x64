@@ -98,6 +98,19 @@ extern int req_type;
 #define E_KKT_ILL_ATTR	0x95	/* Неверное значение атрибута в XML для ККТ */
 #define E_KKT_NO_ATTR	0x96	/* Отсутствует обязательный атрибут для ККТ */
 #define E_LBL_LEN	0x98	/* В начале абзаца для ДПУ должна стоять команда длины бланка */
+#define E_XML_SHORT			0xa0	/* Слишком короткий абзац с XML */
+#define E_XML_RECODE			0xa1	/* Неверный идентификатор перекодировки */
+#define E_XML_SCR_TRANSFORM_TYPE	0xa2	/* Неверный тип трансформации для экрана */
+#define E_XML_PRN_TRANSFORM_TYPE	0xa3	/* Неверный тип трансформации для печати */
+#define E_XML_XSLT_LEN			0xa4	/* Неверный формат длины встроенной таблицы трансформации */
+#define E_XML_NO_SCR_TRANSFORM		0xa5	/* Отсутствует встроенная таблица трансформации для экрана */
+#define E_XML_NO_PRN_TRANSFORM		0xa6	/* Отсутствует встроенная таблица трансформации для печати */
+#define E_XML_LEN			0xa7	/* Неверный формат длины XML */
+#define E_XML_HDR			0xa8	/* Не найден заголовок XML */
+#define E_XML_PRN_PARSE			0xa9	/* Ошибка разбора XML для печати */
+#define E_XML_PRN_TRANSFORM		0xaa	/* Ошибка преобразования XML для печати */
+#define E_XML_SCR_PARSE			0xab	/* Ошибка разбора XML для экрана */
+#define E_XML_SCR_TRANSFORM		0xac	/* Ошибка преобразования XML для экрана */
 #define E_UNKNOWN	0x99	/* Неизвестная ошибка */
 
 /* Биты возможностей терминала (передаются во втором байте идентификатора) */
