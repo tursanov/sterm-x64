@@ -7,6 +7,7 @@ GUI_OBJS =		\
 	adv_calc	\
 	archivefn	\
 	calc		\
+	cart		\
 	cheque		\
 	cheque_docs \
 	cheque_reissue_docs \

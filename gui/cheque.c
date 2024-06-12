@@ -7,6 +7,7 @@
 #include "gui/forms.h"
 #include "gui/fa.h"
 #include "gui/dialog.h"
+#include "gui/cart.h"
 #include "kkt/fd/ad.h"
 #include <string.h>
 #include <stdlib.h>
@@ -35,31 +36,6 @@ static int draw_flags = 0;
 #define BUTTON_WIDTH	100
 #define BUTTON_HEIGHT	30
 
-
-static const char *cart_get_text(SubCart* sc)
-{
-	switch (sc->type)
-	{
-		case 'A':
-			return "Ž‹€’€ €‹ˆ—";
-		case 'B':
-			return "‚Ž‡‚€’ €‹ˆ—›…/Ž’Œ…€ €‹ˆ—›…/‚Ž‡‚€’ € Š€’“ ‹€’…‹œ™ˆŠ€";
-		case 'C':
-			return "Ž’Œ…€ Š‚ˆ’€–ˆ‰ Ž‹€’›";
-		case 'D':
-			return "Š€’€ Ž‹€’€/„Ž‹€’€";
-		case 'E':
-			return "‘ Ž‹€’€/„Ž‹€’€";
-		case 'F':
-			return "Š€’€ ‚Ž‡‚€’";
-		case 'G':
-			return "Ž’Œ…€ ‚Ž‡‚€’€ € Š€’“";
-		case 'H':
-			return "Ž’Œ…€ …‚Ž‡ŒŽ†€";
-		default:
-			return "Ž˜ˆŠ€";
-	}
-}
 
 static void calc_sum()
 {
@@ -142,8 +118,10 @@ int cheque_init(void) {
 	calc_sum();
 
 	cart_build();
+	ui_cart_create();
+	ui_cart_draw(screen, fnt);
 
-	cheque_draw();
+	//cheque_draw();
 	current_c = NULL;
 
 	return 0;
@@ -162,6 +140,8 @@ void cheque_release(void) {
 		DeleteGC(screen);
 		screen = NULL;
 	}
+
+	ui_cart_destroy();
 }
 
 #define GAP 10
@@ -461,79 +441,46 @@ static int cheque_draw_cashier(int start_y) {
 	return start_y + BUTTON_HEIGHT + 4;
 }
 
-static void subcart_draw(SubCart *sc, int start_y, int draw_flags)
-{
-	const char *sc_title = cart_get_text(sc);
-	char cheque_title[32];
-	char cheque_n[32];
-	int sw;
-	int x, w, w1, h;
-	int y = start_y;
-
-
-	w = TextWidth(fnt, sc_title);
-	h = fnt->max_height + GAP;
-	x = (DISCX - w - GAP*5);
-
-	if (draw_flags == 0)
-	{
-		fill_rect(screen, x - GAP, y, w + GAP*5, h, 2, clGray, clSilver);
-		SetTextColor(screen, clBlack);
-		TextOut(screen, x, y + GAP/2, sc_title);
-		SetBrushColor(screen, clGray);
-		FillBox(screen, DISCX - w1 - GAP * 3, y + GAP/2 - 4, 2, h - 3);
-	}
-}
-
 
 #define MAX_CHEQUE_PER_PAGE	3
 static int cheque_main_draw() {
 	int x;
 	int y = 8;
 
-	for (int i = 0; i < MAX_SUB_CART; i++)
-	{
-		SubCart *sc = &cart.sc[i];
-		if (sc->documents.count > 0)
-		{
-			subcart_draw(sc, y, 0);
+
+	if (first) {
+		char title[256];
+		sprintf(title, "‚á¥£® ç¥ª®¢: %zd â¥ªãé ï áâà ­¨æ  (á %d ¯® %zd ç¥ª)",
+			_ad->clist.count, first_n + 1, MIN(first_n + MAX_CHEQUE_PER_PAGE, _ad->clist.count));
+
+		draw_title(screen, fnt, title);
+
+		y += 20;
+		y = cheque_draw_cashier(y);
+
+		size_t n = 0;
+		for (list_item_t *i1 = first; i1 && n < MAX_CHEQUE_PER_PAGE; i1 = i1->next, n++) {
+			C *c = LIST_ITEM(i1, C);
+			y = cheque_draw_cheque(c, first_n + n, y, true);
 		}
+
+		y = cheque_draw_sum(y);
+
+		x = ((DISCX - (BUTTON_WIDTH*2 + GAP)) / 2);
+		draw_button(screen, x, y, BUTTON_WIDTH, BUTTON_HEIGHT, "¥ç âì", active_button == 0);
+	} else {
+		const char *text = "¥â ¤®ªã¬¥­â®¢ ¤«ï ¯¥ç â¨";
+		SetTextColor(screen, clBlack);
+
+		x = (DISCX - TextWidth(fnt, text)) / 2;
+
+		TextOut(screen, x, y, text);
+
+		x = ((DISCX - BUTTON_WIDTH) / 2) - BUTTON_WIDTH + GAP;
+		y += fnt->max_height + 8;
 	}
 
-	
-//	if (first) {
-//		char title[256];
-//		sprintf(title, "‚á¥£® ç¥ª®¢: %zd â¥ªãé ï áâà ­¨æ  (á %d ¯® %zd ç¥ª)",
-//			_ad->clist.count, first_n + 1, MIN(first_n + MAX_CHEQUE_PER_PAGE, _ad->clist.count));
-//
-//		draw_title(screen, fnt, title);
-//
-//		y += 20;
-//		y = cheque_draw_cashier(y);
-//
-//		size_t n = 0;
-//		for (list_item_t *i1 = first; i1 && n < MAX_CHEQUE_PER_PAGE; i1 = i1->next, n++) {
-//			C *c = LIST_ITEM(i1, C);
-//			y = cheque_draw_cheque(c, first_n + n, y, true);
-//		}
-//
-//		y = cheque_draw_sum(y);
-//
-//		x = ((DISCX - (BUTTON_WIDTH*2 + GAP)) / 2);
-//		draw_button(screen, x, y, BUTTON_WIDTH, BUTTON_HEIGHT, "¥ç âì", active_button == 0);
-//	} else {
-//		const char *text = "¥â ¤®ªã¬¥­â®¢ ¤«ï ¯¥ç â¨";
-//		SetTextColor(screen, clBlack);
-//
-//		x = (DISCX - TextWidth(fnt, text)) / 2;
-//
-//		TextOut(screen, x, y, text);
-//
-//		x = ((DISCX - BUTTON_WIDTH) / 2) - BUTTON_WIDTH + GAP;
-//		y += fnt->max_height + 8;
-//	}
-//
-//	draw_button(screen,  x + BUTTON_WIDTH + GAP, y, BUTTON_WIDTH, BUTTON_HEIGHT, "Žâ¬¥­ ", active_button == 1);
+	draw_button(screen,  x + BUTTON_WIDTH + GAP, y, BUTTON_WIDTH, BUTTON_HEIGHT, "Žâ¬¥­ ", active_button == 1);
 
 	return 0;
 }
