@@ -528,25 +528,20 @@ enum class TransformType {
 	Explicit,
 };
 
-uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode,
-	uint8_t *data_buf, size_t *data_buf_len, uint8_t *scr_buf, size_t *scr_buf_len)
+uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *xml_data)
 {
-#define set_ecode(e)		\
-	if (ecode != NULL)	\
-		*ecode = e
-	if (data_buf_len != NULL)
-		*data_buf_len = 0;
-	if (scr_buf_len != NULL)
-		*scr_buf_len = 0;
+	if ((ecode == NULL) || (xml_data == NULL))
+		return p;
 	int idx = 0;
 	if (l < 9){
-		set_ecode(E_XML_SHORT);
+		*ecode = E_XML_SHORT;
 		return p + idx;
 	}
 	*ecode = E_OK;
+	free_xml_data(xml_data);
 	uint8_t recode = p[idx];
 	if ((recode != RECODE_NONE) && (recode != RECODE_CP866)){
-		set_ecode(E_XML_RECODE);
+		*ecode = E_XML_RECODE;
 		return p + idx;
 	}
 	idx++;
@@ -564,12 +559,12 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode,
 				scr_transform = TransformType::Embedded;
 				break;
 			default:
-				set_ecode(E_XML_SCR_TRANSFORM_TYPE);
+				*ecode = E_XML_SCR_TRANSFORM_TYPE;
 				return p + idx + 1;
 		}
 	}else if (((p[idx] == 0x30) && (p[idx + 1] == 0x30)) ||
 			((p[idx] == 0x5a) && (p[idx + 1] == 0x5a))){
-		set_ecode(E_XML_SCR_TRANSFORM_TYPE);
+		*ecode = E_XML_SCR_TRANSFORM_TYPE;
 		return p + idx;
 	}else{
 		scr_transform_idx[0] = p[idx];
@@ -589,12 +584,12 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode,
 				prn_transform = TransformType::Embedded;
 				break;
 			default:
-				set_ecode(E_XML_PRN_TRANSFORM_TYPE);
+				*ecode = E_XML_PRN_TRANSFORM_TYPE;
 				return p + idx + 1;
 		}
 	}else if (((p[idx] == 0x30) && (p[idx + 1] == 0x30)) ||
 			((p[idx] == 0x5a) && (p[idx + 1] == 0x5a))){
-		set_ecode(E_XML_SCR_TRANSFORM_TYPE);
+		*ecode = E_XML_SCR_TRANSFORM_TYPE;
 		return p + idx;
 	}else{
 		prn_transform_idx[0] = p[idx];
@@ -607,10 +602,10 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode,
 	uint8_t *scr_xslt = NULL;
 	uint16_t scr_xslt_len = read_hex_word(p + idx);
 	if (number_error){
-		set_ecode(E_XML_XSLT_LEN);
+		*ecode = E_XML_XSLT_LEN;
 		return p + idx;
 	}else if ((idx + scr_xslt_len) > l){
-		set_ecode(E_XML_XSLT_SHORT);
+		*ecode = E_XML_XSLT_SHORT;
 		return p + idx;
 	}
 	idx += 4;
@@ -619,16 +614,16 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode,
 		memcpy(scr_xslt, p + idx, scr_xslt_len);
 		idx += scr_xslt_len;
 	}else if (scr_transform == TransformType::Embedded){
-		set_ecode(E_XML_NO_SCR_TRANSFORM);
+		*ecode = E_XML_NO_SCR_TRANSFORM;
 		return p + idx;
 	}
 	uint8_t *prn_xslt = NULL;
 	uint16_t prn_xslt_len = read_hex_word(p + idx);
 	if (number_error){
-		set_ecode(E_XML_XSLT_LEN);
+		*ecode = E_XML_XSLT_LEN;
 		return p + idx;
 	}else if ((idx + prn_xslt_len) > l){
-		set_ecode(E_XML_XSLT_SHORT);
+		*ecode = E_XML_XSLT_SHORT;
 		return p + idx;
 	}
 	idx += 4;
@@ -637,33 +632,33 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode,
 		memcpy(prn_xslt, p + idx, prn_xslt_len);
 		idx += prn_xslt_len;
 	}else if (prn_transform == TransformType::Embedded){
-		set_ecode(E_XML_NO_PRN_TRANSFORM);
+		*ecode = E_XML_NO_PRN_TRANSFORM;
 		return p + idx;
 	}
 	static char xml_hdr[] = "<?XML VERSION=\"1.0\" ENCODING=\"KOI-7\"?>";
 	const uint16_t XML_HDR_LEN = ASIZE(xml_hdr) - 1;
 	uint16_t xml_len = read_hex_word(p + idx);
 	if (number_error){
-		set_ecode(E_XML_LEN);
+		*ecode = E_XML_LEN;
 		return p + idx;
 	}else if ((xml_len < XML_HDR_LEN) || ((idx + xml_len) > l)){
-		set_ecode(E_XML_SHORT);
+		*ecode = E_XML_SHORT;
 		return p + idx;
 	}
 	idx += 4;
 	uint8_t *xml_ptr = memmem(p + idx, xml_len, xml_hdr, XML_HDR_LEN);
 	if (xml_ptr == NULL){
-		set_ecode(E_XML_HDR);
+		*ecode = E_XML_HDR;
 		return p + idx;
 	}
 	ssize_t xml_offs = xml_ptr - p; xml_idx = xml_offs - idx;
 	if ((xml_idx + XML_HDR_LEN) >= xml_len){
-		set_ecode(E_XML_SHORT);
+		*ecode = E_XML_SHORT;
 		return p + idx;
 	}
 	xml_len -= xml_idx + XML_HDR_LEN;
 	if (xml_len == 0){
-		set_ecode(E_XML_SHORT);
+		*ecode = E_XML_SHORT;
 		return p + idx;
 	}
 	idx += xml_idx + XML_HDR_LEN;
@@ -719,18 +714,19 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode,
 	else if (scr_transform == TransformType::Explicit)
 		scr_xslt_id = scr_transform_idx;
 	if ((scr_xslt_id == NULL) && (scr_transform != TransformType::None)){
-		set_ecode(E_XML_SCR_TRANSFORM_TYPE);
+		*ecode = E_XML_SCR_TRANSFORM_TYPE;
 		return p + 1;
 	}else if ((prn_xslt_id == NULL) && (prn_transform != TransformType::None)){
-		set_ecode(E_XML_PRN_TRANSFORM_TYPE);
+		*ecode = E_XML_PRN_TRANSFORM_TYPE;
 		return p + 1;
 	}
 	out_buf = new uint8_t[MAX_DATA_LEN];
 	if (prn_transform == TransformType::None){
-		if ((data_buf != NULL) && (data_buf_len != NULL) && (dst != dst_log)){
-			if (xml_len < *data_buf_len)
-				*data_buf_len = xml_len;
-			memcpy(data_buf, xml0, *data_buf_len);
+		if (dst != dst_log){
+/* Эта функция вызывается из C, поэтому вместо new используем malloc */
+			xml_data->prn_data = malloc(xml_len);
+			memcpy(xml_data->prn_data, xml0, xml_len);
+			xml_data->prn_data_len = xml_len;
 		}
 	}else{
 		xml_doc = xmlReadMemory(xml_prn.c_str(), xml_prn.size(), NULL, NULL, XML_PARSE_COMPACT);
@@ -740,13 +736,15 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode,
 			bool rc = transform_xml(xml_doc, prn_xslt_id, out_buf, out_buf_len, recode);
 			xmlFreeDoc(xml_doc);
 			if (!rc){
-				set_ecode(E_XML_PRN_TRANSFORM);
+				free_xml_data(xml_data);
+				*ecode = E_XML_PRN_TRANSFORM;
 				return p + xml_offs;
 			}
 		}else{
 			xmlErrorPtr err = xmlGetLastError();
 			log_err("Ошибка разбора XML для печати: %d (%s).", err->code, err->message);
-			set_ecode(E_XML_PRN_PARSE);
+			free_xml_data(xml_data);
+			*ecode = E_XML_PRN_PARSE;
 			return p + xml_offs;
 		}
 /*		try {
@@ -757,15 +755,18 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode,
 		}*/
 	}
 	if (scr_transform == TransformType::None){
-		if ((scr_buf != NULL) && (scr_buf_len != NULL)){
-			if (xml_len < *scr_buf_len)
-				*scr_buf_len = xml_len;
-			memcpy(scr_buf, xml0, *scr_buf_len);
-		}
-	else if (scr_transform == TransformType::Prn){
+		xml_data->scr_data = malloc(xml_len);	/* см. выше */
+		memcpy(xml_data->scr_data, xml0, xml_len);
+		xml_data->scr_data_len = xml_len;
+	}else if (scr_transform == TransformType::Prn){
 		log_dbg("На экране будет отображён результат трансформации для принтера.");
-/*		_scr_data.assign(out_buf, out_buf + out_buf_len);
-		preprocess_data(_scr_data);*/
+		vector<uint8_t> scr_data(out_buf, out_buf + out_buf_len);
+		preprocess_data(scr_data);
+		if (!scr_data.empty()){
+			xml_data->scr_data = malloc(scr_data.size());
+			memcpy(xml_data->scr_data, scr_data.data(), scr_data.size());
+			xml_data->scr_data_len = scr_data.size();
+		}
 	}else{
 		xml_doc = xmlReadMemory(xml_scr.c_str(), xml_scr.size(), NULL, NULL, XML_PARSE_COMPACT);
 		if (xml_doc != NULL){
@@ -774,25 +775,28 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode,
 			bool rc = transform_xml(xml_doc, scr_xslt_id, out_buf, out_buf_len, recode);
 			xmlFreeDoc(xml_doc);
 			if (rc){
-/*				_scr_data.assign(out_buf, out_buf + out_buf_len);
-				preprocess_data(_scr_data);*/
+				vector<uint8_t> scr_data(out_buf, out_buf + out_buf_len);
+				preprocess_data(scr_data);
+				if (!scr_data.empty()){
+					xml_data->scr_data = malloc(scr_data.size());
+					memcpy(xml_data->scr_data, scr_data.data(), scr_data.size());
+					xml_data->scr_data_len = scr_data.size();
+				}
 			}else{
-				set_ecode(E_XML_SCR_TRANSFORM);
+				*ecode = E_XML_SCR_TRANSFORM;
 				return p + xml_offs;
 			}
 		}else{
 			xmlErrorPtr err = xmlGetLastError();
 			log_err("Ошибка разбора XML для экрана: %d (%s).", err->code, err->message);
-			set_ecode(E_XML_SCR_PARSE);
+			*ecode = E_XML_SCR_PARSE;
 			return p + xml_offs;
 		}
 	}
-	if ((data_buf != NULL) && (data_buf_len != NULL) &&
-			(scr_buf != NULL) && (scr_buf_len != NULL) &&
-			(prn_transform == TransformType::None) && (dst() == ParaDst::log)){
-		if (*scr_buf_len < *data_buf_len)
-			*data_buf_len = *scr_buf_len;
-		memcpy(data_buf, scr_buf, *scr_buf_len);
+	if ((prn_transform == TransformType::None) && (dst == dst_log)){
+		xml_data->prn_data = xml_data->scr_data_len;
+		memcpy(xml_data->prn_data, xml_data->scr_data, xml_data->scr_data_len);
+		xml_data->prn_data_len = xml_data->scr_data_len;
 	}
 	if (scr_xslt != NULL)
 		delete [] scr_xslt;
