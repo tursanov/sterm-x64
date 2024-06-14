@@ -7,6 +7,9 @@ typedef void (*InitializationNotify_t)(bool done, const char *message);
 #include <boost/container/list.hpp>
 using boost::container::list;
 
+#include <boost/container/map.hpp>
+using boost::container::container_detail::pair;
+
 #include <boost/container/string.hpp>
 using boost::container::string;
 

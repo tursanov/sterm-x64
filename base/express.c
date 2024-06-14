@@ -31,6 +31,7 @@
 #include "termlog.h"
 #include "tki.h"
 #include "transport.h"
+#include "xml2data.h"
 
 /* Тип текущего запроса */
 int req_type = req_regular;
@@ -1276,6 +1277,13 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode)
 						return p - 2;
 					}else
 						has_warray = false;
+					break;
+				case X_XML:
+					pp = check_xml(p, txt + l - p, dst, ecode, get_xml_data(0));
+					if (*ecode != E_OK)
+						return pp;
+					else
+						p = pp;
 					break;
 				default:
 					*ecode = E_UNKNOWN;

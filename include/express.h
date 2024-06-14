@@ -158,16 +158,6 @@ struct para_info{
 	int xml_idx;		/* индекс в таблице XML (-1, если записи для абзаца нет */
 };
 
-/* Преобразованные данные XML */
-struct xml_data {
-	uint8_t *scr_data;
-	size_t scr_data_len;
-	uint8_t *prn_data;
-	size_t prn_data_len;
-}
-
-extern void free_xml_data(struct xml_data *xml_data);
-
 /* Описание кода синтаксической ошибки ответа */
 extern const char *get_syntax_error_txt(uint8_t code);
 
