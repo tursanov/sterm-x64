@@ -13,6 +13,15 @@ struct C;
 struct L;
 struct K;
 
+// сумма
+typedef struct S {
+    int64_t a; // общая сумма
+    int64_t n; // сумма наличных
+    int64_t e; // сумма электронных
+    int64_t p; // сумма в зачет ранее внесенных средств
+    int64_t b; // сумма расчета по всем документам чека встречным предоставлением
+} S;
+
 // составляющая
 typedef struct L {
     char *s;        // Название составляющей
@@ -112,6 +121,9 @@ extern K *K_divide(K *k, uint8_t p, int64_t* sum);
 extern bool K_equalByL(K *k1, K *k2);
 // получить сумму всех узлов L
 extern int64_t K_get_sum(K *k);
+// посчитать сумму для К
+extern void K_calc_sum(K *k, S *s);
+
 
 // установить код подкорзины
 extern void set_k_s(char s, K* k, K* k1, K* k2);
@@ -124,15 +136,6 @@ extern int K_save(int fd, K *k);
 // загрузка документа из файла
 extern K *K_load_v1(int fd);
 extern K *K_load_v2(int fd);
-
-// сумма
-typedef struct S {
-    int64_t a; // общая сумма
-    int64_t n; // сумма наличных
-    int64_t e; // сумма электронных
-    int64_t p; // сумма в зачет ранее внесенных средств
-    int64_t b; // сумма расчета по всем документам чека встречным предоставлением
-} S;
 
 // чек
 typedef struct C {

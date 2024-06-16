@@ -97,7 +97,7 @@ int cheque_init(void) {
 	if (fnt == NULL)
 		fnt = CreateFont(_("fonts/fixedsys8x16.fnt"), false);
 	if (fnt1 == NULL)
-		fnt1 = CreateFont(_("fonts/terminal10x18.fnt"), false);
+		fnt1 = CreateFont(_("fonts/serif11x13.fnt"), false);
 
 	if (screen == NULL)
 	  	screen = CreateGC(0, 0, DISCX, DISCY);
@@ -119,7 +119,7 @@ int cheque_init(void) {
 
 	cart_build();
 	ui_cart_create();
-	ui_cart_draw(screen, fnt);
+	ui_cart_draw(screen, fnt, fnt1);
 
 	//cheque_draw();
 	current_c = NULL;

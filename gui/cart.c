@@ -9,6 +9,7 @@
 
 static GCPtr screen = NULL;
 static FontPtr fnt = NULL;
+static FontPtr sfnt = NULL;
 static ui_cart_t *ui_cart = NULL;
 
 void ui_subcart_init(ui_subcart_t *sc, SubCart *val);
@@ -152,8 +153,175 @@ void ui_subcart_calc_bounds(ui_subcart_t *sc)
 
 	sc->height = h;
 	sc->tab_ofs_x = XGAP;
+}
 
-	printf("sc->height: %d\n", sc->height);
+static int ui_subcart_header_with_box_draw(ui_subcart_t *sc, int x, int y, int w)
+{
+	fill_rect(screen, x, y, w, sc->height, BORDER_WIDTH, clBlack, 0);
+	
+	y += YGAP;
+	SetTextColor(screen, clBlack);
+	TextOut(screen, x + XGAP, y, sc->title);
+	y += YGAP + fnt->max_height;
+
+	return y;
+}
+
+static int ui_subcart_table_header_draw(ui_subcart_t *sc, int x, int y, int col_width)
+{
+	const char **coltext = sc_tab_title[SUB_CART_INDEX(sc->val->type)];
+	for (int i = 0, cx = x; i < MAX_TAB_COL; i++, cx += col_width, coltext++)
+	{
+		const char *text = coltext[0];
+		if (*text)
+			TextOut(screen, cx, y, text);
+	}
+
+	y += fnt->max_height + YGAP;
+
+	return y;
+}
+
+static char *strdatetime(char *buf, size_t max, time_t t)
+{
+	struct tm* tm;
+	tm = localtime(&t);
+	strftime(buf, max, "%d.%m.%y %H:%M:%S", tm);
+
+	return buf;
+}
+
+const char *ui_doc_get_op(ui_subcart_t *sc, ui_doc_t *d, S *s)
+{
+    D* doc = d->val;
+    K *k = d->val->k;
+    char t = sc->val->type;
+	
+	if (k->u.s)
+	{
+		return "…‡€‚…˜…Ž… ……Ž”ŽŒ‹…ˆ…";
+	}
+	else if (s->a == s->p)
+	{
+		return "…‡€‚…˜…Ž… ……Ž”ŽŒ‹…ˆ…";
+	}
+	else if (t == 'A')
+	{
+	    return d->val->k->m == 2 ? "Ž’Œ…€ ‚Ž‡‚‚’‚ € ‘—…’ ‹€’…‹œ™ˆŠ€" : "Ž‹€’€ €‹ˆ—…";
+	}
+	else if (t == 'D' || t == 'E')
+	{
+	    if (k->bank_state == 1)
+	    {
+	        return "…—€’œ —…Š€";
+	    }
+	    else if (doc->related.count == 0)
+	    {
+	        return t == 'D' ? "Š€’€ Ž‹€’€" : "‘ Ž‹€’€";
+	    }
+	    else
+	    {
+	        return t == 'D' ? "Š€’€ „Ž‹€’€" : "‘ „Ž‹€’€";
+	    
+	    }
+	}
+	else if (t == 'C' || t == 'H')
+	{
+	    return k->bank_state == 1 ? "…—€’œ —…Š€" : "Š€’€ Ž’Œ…€";
+	}
+	else if (t == 'B')
+	{
+	    if (k->m == 2)
+	    {
+    	    if (doc->related.count > 0 && k->n.s && !k->a_flag)
+    	    {
+    	        return "‚‹€’€ € Š€’“ ‹€’…‹œ™ˆŠ€";
+    	    }
+    	    else
+    	    {
+    	        return "‚Ž‡‚€’ € Š€’“ ‹€’…‹œ™ˆŠ€";
+    	    }
+	    }
+	    else
+	    {
+	        return "‚Ž‡‚€’/Ž’Œ…€ €‹ˆ—…";
+	    }
+	}
+	else if (t == 'F')
+	{
+	    if (k->v == 1)
+	    {
+	        return k->bank_state == 1 ? "(Ž‘) …—€’œ —…Š€" : "(Ž‘) Š€’€ ‚Ž‡‚€’";
+	    }
+	    else if (k->v == 2)
+	    {
+	        return k->bank_state == 1 ? "(‚„) …—€’œ —…Š€" : "(‚„) Š€’€ ‚Ž‡‚€’";
+	    }
+	    else
+	    {
+	        return k->bank_state == 1 ? "…—€’œ —…Š€" : "Š€’€ ‚Ž‡‚€’";
+	    }
+	}
+	else if (t == 'G')
+	{
+        return k->bank_state == 1 ? "…—€’œ —…Š€" : "Š€’€ Ž’Œ…€ ‚Ž‡‚€’";
+	}
+	else if (t == 'I')
+	{
+	    return "Ž€Ž’Š€ ‡€…™…€";
+	}
+	else
+	{
+	    return "";
+	}
+}
+
+const char *ui_doc_get_n(ui_subcart_t *sc, ui_doc_t *d, char *buf)
+{
+    K *k = d->val->k;
+    char t = sc->val->type;
+    
+    if (k->y && (t == 'D' || t == 'H' || t == 'I' || t == 'E'))
+    {
+        sprintf(buf, "%7d", k->y->id);
+    }
+    else if (t == 'C' || t == 'G')
+    {
+        sprintf(buf, "%d", k->c);
+    }
+    else
+    {
+        buf[0] = 0;
+    }
+    
+    return buf;
+}
+
+const char *printsum(int64_t sum, char *buf)
+{
+    sprintf(buf, "%ld.%.2ld “.", sum / 100, sum % 100);
+    
+    return buf;
+}
+
+
+static int ui_subcart_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width)
+{
+	char buf[32];
+	S s;
+	K_calc_sum(d->val->k, &s);
+
+	TextOut(screen, x, y, d->val->k->d.s);
+	x += col_width;
+	TextOut(screen, x, y, strdatetime(buf, sizeof(buf), d->val->k->dt));
+	x += col_width;
+	TextOut(screen, x, y, ui_doc_get_op(sc, d, &s));
+	x += col_width;
+	TextOut(screen, x, y, ui_doc_get_n(sc, d, buf));
+	x += col_width;
+	TextOut(screen, x, y, printsum(s.a, buf));
+	y += fnt->max_height + YGAP;
+	return y;
 }
 
 void ui_subcart_draw(ui_subcart_t *sc, int y)
@@ -163,22 +331,15 @@ void ui_subcart_draw(ui_subcart_t *sc, int y)
 	int tw = w - sc->tab_ofs_x - XGAP;
 	int tcw = tw / MAX_TAB_COL;
 
-	fill_rect(screen, x, y, w, sc->height, BORDER_WIDTH, clBlack, 0);
+	y = ui_subcart_header_with_box_draw(sc, x, y, w);
+	x += XGAP + sc->tab_ofs_x;
+	y = ui_subcart_table_header_draw(sc, x, y, tcw);
 	
-	y += YGAP;
-	SetTextColor(screen, clBlack);
-	TextOut(screen, x + XGAP, y, sc->title);
-	y += YGAP + fnt->max_height;
-	x += sc->tab_ofs_x;
-	
-	const char **coltext = sc_tab_title[SUB_CART_INDEX(sc->val->type)];
-	for (int i = 0, cx = x; i < MAX_TAB_COL; i++, cx += tcw, coltext++)
+	for (int i = 0; i < sc->doc_count; i++)
 	{
-		const char *text = coltext[0];
-		if (*text)
-			TextOut(screen, cx, y, text);
+		ui_doc_t *d = &sc->docs[i];
+		y = ui_subcart_doc_draw(sc, d, x, y, tcw);
 	}
-
 }
 
 void ui_doc_init(ui_doc_t *d, D *val)
@@ -198,13 +359,14 @@ void ui_doc_calc_bounds(ui_doc_t *d)
 	}
 }
 
-void ui_cart_draw(GCPtr s, FontPtr f)
+void ui_cart_draw(GCPtr s, FontPtr f, FontPtr sf)
 {
 	screen = s;
 	fnt = f;
+	sfnt = sf;
 	ClearGC(screen, clSilver);
-
-	printf("ui_cart_draw\n");
+	
+	SetFont(screen, fnt);
 
 	ui_cart_calc_bounds();
 

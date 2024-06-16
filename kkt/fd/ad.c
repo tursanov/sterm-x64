@@ -382,7 +382,7 @@ K *K_divide(K *k, uint8_t p, int64_t *sum) {
     return k1;
 }
 
-static void K_calc_sum(K *k, S *s) {
+void K_calc_sum(K *k, S *s) {
 	memset(s, 0, sizeof(*s));
 	for (list_item_t *li3 = k->llist.head; li3 != NULL; li3 = li3->next) {
 		L *l = LIST_ITEM(li3, L);

@@ -30,6 +30,6 @@ typedef struct ui_doc_t
 
 extern void ui_cart_create();
 extern void ui_cart_destroy();
-extern void ui_cart_draw();
+extern void ui_cart_draw(GCPtr s, FontPtr f, FontPtr sf);
 
 #endif // UI_CART_H
