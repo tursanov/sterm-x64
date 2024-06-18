@@ -24,6 +24,7 @@
 #include "sterm.h"
 #include "transport.h"
 #include "tki.h"
+#include "xml2data.h"
 
 int s_state = ss_ready;			/* состояние сеансового уровня */
 int session_error = SLAYER_OK;		/* ошибка сеансового уровня */
@@ -319,6 +320,7 @@ bool wrap_text(void)
 	err_ptr = NULL;
 	reset_last_request();
 	if (wrap_text_tcp_ip()){
+		clr_xml_data();
 		begin_transmit();
 		return true;
 	}else

@@ -76,6 +76,16 @@ void clr_xml_data(void)
 		free_xml_data(xml_data + i);
 }
 
+void shr_xml_data(void)
+{
+	if (is_xml_data_valid(ASIZE(xml_data) - 1))
+		free_xml_data(xml_data + ASIZE(xml_data) - 1);
+	for (int i = ASIZE(xml_data) - 1; i > 0; i--)
+		xml_data[i] = xml_data[i - 1];
+	if (is_xml_data_valid(0))
+		free_xml_data(0);
+}
+
 static vector<pair<string, string>> subst_tbl;
 static vector<pair<string, string>> pre_subst_tbl;
 

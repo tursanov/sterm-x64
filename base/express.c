@@ -1093,15 +1093,15 @@ static uint8_t *check_kkt_xml(uint8_t *txt, int l, int *ecode)
 }
 
 /* Проверка абзаца ответа */
-static uint8_t *check_para(uint8_t *txt, int l, int *ecode)
+static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 {
 	uint8_t *p, *pp, *eptr, b;
 	int dst = get_dest(txt[-1]);
 	bool has_warray = false;
-	*ecode = E_OK;
-	if ((txt == NULL) || (l <= 0))
+	if ((txt == NULL) || (l <= 0) || (ecode == NULL) || (n_para < 0) || (n_para >= MAX_PARAS))
 		return NULL;
-	else if (para_len(txt - resp_buf) > TEXT_BUF_LEN){
+	*ecode = E_OK;
+	if (para_len(txt - resp_buf) > TEXT_BUF_LEN){
 		*ecode = E_BIGPARA;
 		return txt;
 	}
@@ -1279,7 +1279,8 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode)
 						has_warray = false;
 					break;
 				case X_XML:
-					pp = check_xml(p, txt + l - p, dst, ecode, get_xml_data(0));
+					printf("%s: n_para = %d\n", __func__, n_para);
+					pp = check_xml(p, txt + l - p, dst, ecode, get_xml_data(n_para));
 					if (*ecode != E_OK)
 						return pp;
 					else
@@ -1301,7 +1302,7 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 {
 	bool keys = false;
 	bool has_dst = false;
-	int n_dsts = 0;
+	int n_dsts = 0, n_para = 0;
 	bool has_clear = false;
 	uint8_t *p = txt, *eptr = txt + l, b;
 	*ecode = E_OK;
@@ -1338,6 +1339,7 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 							*ecode = E_CLEAR;
 							return p - 2;
 						}
+						n_para++;
 					}
 					break;
 				case X_80_20:
@@ -1412,7 +1414,7 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 				case X_OUT:
 				case X_QOUT:
 main_chk:				has_dst = true;
-					p = check_para(p, txt + l - p, ecode);
+					p = check_para(p, txt + l - p, ecode, n_para);
 					if (*ecode != E_OK)
 						return p;
 					n_dsts++;
@@ -1428,6 +1430,7 @@ main_chk:				has_dst = true;
 				case X_PARA_END_N:
 				case X_REQ:
 					has_dst = false;
+					n_para++;
 					break;
 				case X_REPEAT:
 				case X_ATTR:
@@ -1570,7 +1573,10 @@ int make_resp_map(void)
 		pi = map;
 		if ((pi->dst == dst_xprn) || (pi->dst == dst_aprn) ||
 				(pi->dst == dst_lprn) || (pi->dst == dst_kprn)){
-			memmove(map + 1, map, n * sizeof(*map));
+			for (i = n; i > 0; i--)
+				map[i] = map[i - 1];
+			shr_xml_data();
+//			memmove(map + 1, map, n * sizeof(*map));
 			pi->dst = dst_sys;
 			pi->jump_next = false;
 			pi->auto_handle = false;
@@ -1794,6 +1800,31 @@ int handle_para(int n_para)
 						p += 2;
 						n++;
 						break;
+					case X_XML:{
+						struct xml_data *xml_data = get_xml_data(n_para);
+						if (xml_data != NULL){
+							uint8_t *data = NULL;
+							size_t data_len = 0;
+							if (xml_data->scr_data != NULL){
+								data = xml_data->scr_data;
+								data_len = xml_data->scr_data_len;
+							}else if (xml_data->prn_data != NULL){
+								data = xml_data->prn_data;
+								data_len = xml_data->prn_data_len;
+							}
+							if (data == NULL)
+								return 0;
+							else if ((i + data_len) > sizeof(text_buf))
+								return 0;
+							if (data_len > 0){
+								memcpy(text_buf + i, data, data_len);
+								i += data_len;
+								n++;
+							}
+						}else
+							return 0;
+						}
+						break;
 					case LPRN_WR_BCODE2:
 						if (m == 0){	/* штрих-код обрабатывается только один раз */
 							ll = sizeof(text_buf) - i;
@@ -1801,8 +1832,10 @@ int handle_para(int n_para)
 								text_buf + i, &ll);
 							i += ll;
 							break;
-						}		/* fall through */
+						}
+						__fallthrough__;
 					default:		/* Неизвестная команда */
+
 						if ((i + 3) > sizeof(text_buf))
 							return 0;
 						text_buf[i++] = p[-1];

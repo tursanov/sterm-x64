@@ -618,7 +618,6 @@ const char *find_term_astate(intptr_t ast)
 
 bool set_term_astate(intptr_t ast)
 {
-	printf("%s: ast = %ld\n", __func__, ast);
 	const char *str = NULL;
 	if ((str = find_term_astate(ast)) != NULL){
 		_term_aux_state=ast;
@@ -4245,8 +4244,6 @@ static bool process_term(void)
 		for (int i = 0; i < ASIZE(handlers); i++){
 			typeof(*handlers) *p = handlers + i;
 			if (cm == p->cm){
-				if (!p->ret_val)
-					printf("%s: cmd_exit received.\n", __func__);
 				if (p->fn != NULL)
 					p->fn();
 				return p->ret_val;
