@@ -357,7 +357,7 @@ static bool set_term_defaults(void)
 	cfg.color_scheme = 0;
 	translate_color_scheme(cfg.color_scheme,
 		&cfg.rus_color, &cfg.lat_color, &cfg.bg_color);
-	cfg.scr_mode = m32x8;
+	cfg.scr_mode = m80x20;	//m32x8;
 	cfg.has_hint = true;
 	cfg.simple_calc = true;
 

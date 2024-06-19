@@ -57,6 +57,7 @@ bool is_xml_data_valid(int n_para)
 static inline void free_xml_data(struct xml_data *xml_data)
 {
 	if (xml_data != NULL){
+		xml_data->cmd_len = 0;
 		if (xml_data->scr_data != NULL){
 			delete [] xml_data->scr_data;
 			xml_data->scr_data = NULL;
@@ -82,8 +83,13 @@ void shr_xml_data(void)
 		free_xml_data(xml_data + ASIZE(xml_data) - 1);
 	for (int i = ASIZE(xml_data) - 1; i > 0; i--)
 		xml_data[i] = xml_data[i - 1];
-	if (is_xml_data_valid(0))
-		free_xml_data(0);
+	if (is_xml_data_valid(0)){
+		xml_data[0].cmd_len = 0;
+		xml_data[0].scr_data = NULL;
+		xml_data[0].scr_data_len = 0;
+		xml_data[0].prn_data = NULL;
+		xml_data[0].prn_data_len = 0;
+	}
 }
 
 static vector<pair<string, string>> subst_tbl;
@@ -605,7 +611,7 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 		read_subst_tbl("ZZ", pre_subst_tbl);
 	if ((ecode == NULL) || (xml_data == NULL))
 		return p;
-	int idx = 0;
+	size_t idx = 0;
 	if (l < 9){
 		*ecode = E_XML_SHORT;
 		return p + idx;
@@ -739,6 +745,8 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 	memcpy(xml0, p + idx, xml_len);
 	xml0[xml_len] = 0;
 	idx += xml_len;
+	xml_data->cmd_len = idx;
+	log_dbg("cmd_len = %zu.", xml_data->cmd_len);
 	if (recode == RECODE_CP866)
 		recode_str(xml0, -1);
 	xmlDocPtr xml_doc = NULL;

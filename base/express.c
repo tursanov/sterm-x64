@@ -1725,6 +1725,9 @@ bool check_raw_resp(void)
 #define MAX_PARSE_STEPS		100
 int handle_para(int n_para)
 {
+	bool prn_dst = n_para < 0;
+	if (n_para < 0)
+		n_para += MAX_PARAS;
 	static uint8_t buf[TEXT_BUF_LEN];
 	struct para_info *pi = map + n_para;
 	uint8_t *p, *eptr, id;
@@ -1800,31 +1803,32 @@ int handle_para(int n_para)
 						p += 2;
 						n++;
 						break;
-					case X_XML:{
+					case X_XML:
+					{
 						struct xml_data *xml_data = get_xml_data(n_para);
-						if (xml_data != NULL){
-							uint8_t *data = NULL;
-							size_t data_len = 0;
-							if (xml_data->scr_data != NULL){
-								data = xml_data->scr_data;
-								data_len = xml_data->scr_data_len;
-							}else if (xml_data->prn_data != NULL){
-								data = xml_data->prn_data;
-								data_len = xml_data->prn_data_len;
-							}
-							if (data == NULL)
-								return 0;
-							else if ((i + data_len) > sizeof(text_buf))
-								return 0;
-							if (data_len > 0){
-								memcpy(text_buf + i, data, data_len);
-								i += data_len;
-								n++;
-							}
-						}else
+						if (xml_data == NULL)
 							return 0;
+						uint8_t *data = NULL;
+						size_t data_len = 0;
+						if (prn_dst && (xml_data->prn_data != NULL)){
+							data = xml_data->prn_data;
+							data_len = xml_data->prn_data_len;
+						}else if (!prn_dst && (xml_data->scr_data != NULL)){
+							data = xml_data->scr_data;
+							data_len = xml_data->scr_data_len;
+						}
+						if (data == NULL)
+							return 0;
+						else if ((i + data_len) > sizeof(text_buf))
+							return 0;
+						if (data_len > 0){
+							memcpy(text_buf + i, data, data_len);
+							i += data_len;
+							p += xml_data->cmd_len;
+							n++;
 						}
 						break;
+					}
 					case LPRN_WR_BCODE2:
 						if (m == 0){	/* штрих-код обрабатывается только один раз */
 							ll = sizeof(text_buf) - i;
@@ -2456,6 +2460,7 @@ bool execute_resp(void)
 				case dst_kprn:
 					if (p->auto_handle && (next_printable() == cur_para)){
 						if (p->can_print){
+							l = handle_para(n_para - MAX_PARAS);
 							if (execute_prn(p, l, n_para++)){
 								if ((p->dst == dst_xprn) || (p->dst == dst_kprn))
 									resp_printed = true;

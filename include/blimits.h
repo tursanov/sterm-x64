@@ -10,7 +10,7 @@ extern "C" {
 #define OUT_BUF_LEN		2048	/* ОЗУ заказа */
 #define REQ_BUF_LEN		4096	/* буфер для передачи заказа */
 #define RESP_BUF_LEN		65536	/* ОЗУ ответа */
-#define SCR_RESP_BUF_LEN	4096	/* размер в словах экранного буфера ответа */
+#define SCR_RESP_BUF_LEN	65536	/* размер в словах экранного буфера ответа */
 #define TEXT_BUF_LEN		65536	/* буфер абзаца ответа */
 #define KEY_BUF_LEN		16384	/* ОЗУ ключей */
 #define PRN_BUF_LEN		8192	/* ОЗУ печати */

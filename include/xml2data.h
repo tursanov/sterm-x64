@@ -11,6 +11,7 @@ extern "C" {
 
 /* Преобразованные данные XML */
 struct xml_data {
+	size_t cmd_len;		/* длина команды после Ар2 R */
 	uint8_t *scr_data;
 	size_t scr_data_len;
 	uint8_t *prn_data;
