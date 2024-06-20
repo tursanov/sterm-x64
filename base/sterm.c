@@ -78,7 +78,7 @@ uint16_t term_check_sum = 0;	/* контрольная сумма терминала */
 /* Список устройств подключенных к терминалу */
 struct dev_lst *devices = NULL;
 
-char main_title[80];		/* заголовок главного окна терминала */
+char main_title[MAIN_TITLE_LEN];		/* заголовок главного окна терминала */
 
 char *term_string = "Экспресс-2А-К";
 
@@ -857,14 +857,15 @@ void release_garbage(void)
 }
 
 /* Получение заголовка главного окна терминала */
-static char *get_main_title(void)
+char *get_main_title(void)
 {
 	snprintf(main_title, sizeof(main_title), MAIN_TITLE " ("
 		_s(STERM_VERSION_MAJOR) "."
 		_s(STERM_VERSION_MINOR) "."
-		_s(STERM_VERSION_RELEASE) "  %s %s) -- \x01%s РЕЖИМ",
+		_s(STERM_VERSION_RELEASE) "  %s %s) -- \x01%s РЕЖИМ (%s)",
 		__DATE__, __TIME__,
-		(wm == wm_main) ? "ОСНОВНОЙ" : "ПРИГОРОДН\x9bЙ");
+		(wm == wm_main) ? "ОСНОВНОЙ" : "ПРИГОРОДН\x9bЙ",
+		use_integrator ? "ИНТЕГРАТОР" : "ХОСТ");
 	return main_title;
 }
 
@@ -1061,6 +1062,7 @@ static void init_term(bool need_init)
 	rejecting_req = false;
 	c_state = cs_ready;
 	tstack_ptr = 0;
+	use_integrator = false;
 	if (flag)
 		ClearScreen(clBtnFace);
 	reset_scr();

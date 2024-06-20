@@ -14,7 +14,8 @@ extern "C" {
 #include "gui/status.h"
 
 #define MAIN_TITLE	"Экспресс-2А-К  АО НПЦ \"Спектр\""
-extern char main_title[80];
+#define MAIN_TITLE_LEN	100
+extern char main_title[MAIN_TITLE_LEN];
 
 /* Шрифты */
 extern FontPtr font32x8;

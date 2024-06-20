@@ -9,6 +9,9 @@ extern "C" {
 
 #include "genfunc.h"
 
+/* Признак работы терминала через интегратор */
+extern bool use_integrator;
+
 /* Типы запроса */
 enum {
 	req_regular,		/* обычный запрос */

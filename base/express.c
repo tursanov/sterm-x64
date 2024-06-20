@@ -1919,6 +1919,14 @@ static void sync_date(void)
 	}
 }
 
+bool use_integrator = false;
+
+static bool check_integrator(const uint8_t *data, size_t len)
+{
+	const uint8_t integrator[] = "<INTEGRATOR>";
+	return memmem(data, len, integrator, sizeof(integrator) - 1) != NULL;
+}
+
 /* Предварительная обработка ответа */
 static void preexecute_resp(void)
 {
@@ -2002,6 +2010,11 @@ static void preexecute_resp(void)
 				break;
 			case dst_text:
 				if (init){
+					bool old_use_integrator = use_integrator;
+					use_integrator = check_integrator(text_buf, l);
+					if (use_integrator != old_use_integrator)
+						RedrawScr(false, get_main_title());
+					log_dbg("use_integrator = %d.", use_integrator);
 					check_x3_grids(text_buf, l);
 					log_dbg("need_grids_update_xprn = %d; need_grids_update_kkt = %d.",
 						need_grids_update_xprn(), need_grids_update_kkt());
