@@ -165,11 +165,16 @@ struct para_info{
 extern const char *get_syntax_error_txt(uint8_t code);
 
 /* Информация для ИПТ */
+#define BNK_BIN_DOC_NR_LEN	14
 struct bank_info {
-	uint32_t id;
-	char termid[5];
-	uint32_t amount1;
-	uint32_t amount2;
+	uint32_t id;					/* идентификатор платежа */
+	char term_id[7];				/* идентификатор терминала */
+	char op;					/* тип платежа (-;+;*) */
+	char repayment;					/* тип возврата (\x0;0;1) */
+	bool ticket;					/* ОД/ПВД */
+	char blank_nr[BNK_BIN_DOC_NR_LEN + 1];		/* номер документа */
+	char prev_blank_nr[BNK_BIN_DOC_NR_LEN + 1];	/* номер предыдущего документа */
+	uint64_t amount;				/* сумма в копейках */
 };
 
 extern struct bank_info bi;
