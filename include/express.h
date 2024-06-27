@@ -164,30 +164,48 @@ struct para_info{
 /* Описание кода синтаксической ошибки ответа */
 extern const char *get_syntax_error_txt(uint8_t code);
 
-/* Информация для ИПТ */
-#define BNK_BIN_DOC_NR_LEN	14
-struct bank_info {
-	uint32_t id;					/* идентификатор платежа */
-	char term_id[7];				/* идентификатор терминала */
-	char op;					/* тип платежа (-;+;*) */
-	char repayment;					/* тип возврата (\x0;0;1) */
-	bool ticket;					/* ОД/ПВД */
-	char blank_nr[BNK_BIN_DOC_NR_LEN + 1];		/* номер документа */
-	char prev_blank_nr[BNK_BIN_DOC_NR_LEN + 1];	/* номер предыдущего документа */
+/* Информация из абзаца для ИПТ */
+#define BNK_REQ_ID_LEN		7
+#define BNK_TERM_ID_LEN		6
+#define BNK_BLANK_NR_LEN	14
+#define BNK_AMOUNT_MIN_LEN	1
+#define BNK_AMOUNT_MAX_LEN	10
+#define BNK_MAX_DOCS		4
+
+/* Информация о документе в заказе */
+struct bank_doc_info {
+	char blank_nr[BNK_DOC_NR_LEN + 1];		/* номер документа */
 	uint64_t amount;				/* сумма в копейках */
 };
 
-extern struct bank_info bi;
-extern struct bank_info bi_pos;
+/* Информация о банковском абзаце */
+struct bank_info {
+	uint32_t req_id;				/* номер заказа в системе */
+	char term_id[7];				/* технологический номер терминала */
+	char op;					/* тип платежа (-;+;*) */
+	bool ticket;					/* ОД/ПВД */
+	bool reissue;					/* признак переоформления */
+	char prev_blank_nr[BNK_BLANK_NR_LEN + 1];	/* номер предыдущего документа */
+	struct bank_doc_info doc_info[BNK_MAX_DOCS];	/* информация о документах в заказе */
+	size_t nr_docs;					/* количество документов в заказе */
+};
 
-/* Очистка содержимого структуры */
-extern void clear_bank_info(struct bank_info *p, bool full);
-/* Сброс содержимого обеих областей памяти */
-extern void reset_bank_info(void);
-/* Добавление содержимого первой области ко второй */
-extern void add_bank_info(void);
-/* Возврат к предыдущему значению */
-extern void rollback_bank_info(void);
+/* Запись в банковской корзине */
+struct bank_item {
+	uint32_t req_id;				/* номер заказа в системе */
+	char term_id[7];				/* технологический номер терминала */
+	char op;					/* тип платежа (-;+;*) */
+	bool ticket;					/* ОД/ПВД */
+	char blank_nr[BNK_DOC_NR_LEN + 1];		/* номер документа */
+	bool reissue;					/* признак переоформления */
+	char prev_blank_nr[BNK_BLANK_NR_LEN + 1];	/* номер предыдущего документа */
+	uint64_t amount;				/* сумма в копейках */
+};
+
+/* Очистка банковской информации */
+extern void clear_bank_info(void);
+/* Получение информации о банковском абзаце */
+extern ssize_t get_bank_info(struct bank_item *items, size_t nr_items);
 
 /* Номер абзаца ответа на КЛ при обработке ответа */
 extern uint32_t log_para;

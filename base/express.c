@@ -112,46 +112,37 @@ const char *get_syntax_error_txt(uint8_t code)
 }
 
 /* Информация для ИПТ */
-struct bank_info bi;
-struct bank_info bi_pos;
+static struct bank_info bi;
 
-/* Очистка содержимого структуры */
-void clear_bank_info(struct bank_info *p, bool full)
+/* Очистка банковской информации */
+void clear_bank_info(void)
 {
-	if (full){
-		p->id = 0;
-		memset(p->termid, 0x30, sizeof(p->termid));
-/*		memset(&p->dt, 0, sizeof(p->dt));*/
+	memset(bi, 0, sizeof(bi));
+}
+
+/* Получение информации о банковском абзаце */
+ssize_t get_bank_info(struct bank_item *items, size_t nr_items)
+{
+	if ((items == NULL) || (nr_items == 0))
+		return -1;
+	size_t ret = bi.nr_docs;
+	if (ret > nr_items)
+		ret = nr_items;
+	for (size_t i = 0; i < nr_items; i++){
+		struct bank_item *p = items + i;
+		p->req_id = bi.req_id;
+		strncpy(p->term_id, bi.term_id, BNK_TERM_ID_LEN);
+		p->term_id[BNK_TERM_ID_LEN] = 0;
+		p->op = bi.op;
+		p->ticket = bi.ticket;
+		p->reissue = bi.reissue;
+		strncpy(p->prev_blank_nr, bi.prev_blank_nr, BNK_DOC_NR_LEN);
+		p->prev_blank_nr[BNK_DOC_NR_LEN] = 0;
+		strncpy(p->blank_nr, bi.doc_info[i].blank_nr, BNK_BLANK_NR_LEN);
+		p->blank_nr[BNK_BLANK_NR_LEN] = 0;
+		p->amount = bi.doc_info[i].amount;
 	}
-	p->amount1 = p->amount2 = 0;
-}
-
-/* Сброс содержимого обеих областей памяти */
-void reset_bank_info(void)
-{
-	clear_bank_info(&bi, false);
-	clear_bank_info(&bi_pos, false);
-}
-
-/* Добавление содержимого первой области ко второй */
-void add_bank_info(void)
-{
-	bi_pos.id = bi.id;
-	memcpy(bi_pos.termid, bi.termid, sizeof(bi.termid));
-/*	memcpy(&bi_pos.dt, &bi.dt, sizeof(bi.dt));*/
-	bi_pos.amount1 += bi.amount1;
-	bi_pos.amount2 += bi.amount2;
-	while (bi_pos.amount2 > 10){
-		bi_pos.amount1++;
-		bi_pos.amount2 -= 10;
-	}
-}
-
-/* Возврат к предыдущему значению */
-void rollback_bank_info(void)
-{
-	memcpy(&bi, &bi_pos, sizeof(bi));
-	clear_bank_info(&bi_pos, false);
+	return ret;
 }
 
 /* Проверка атрибутов символа (Ар2 V) */
@@ -728,73 +719,172 @@ static uint8_t *check_rom(uint8_t *txt, int l, int *ecode)
 	return p;
 }
 
-/* Проверка абзаца для ИПТ */
+/* Проверка банковского абзаца */
 static uint8_t *check_bank_info(uint8_t *txt, int l, int *ecode)
 {
 	enum {
-		st_id,
-		st_termid,
-		st_amount,
+		st_req_id,
+		st_term_id,
+		st_op_type,
+		st_ticket,
+		st_reissue,
+		st_reissue_nr,
+		st_blank_nr,
+		st_amount_quot,
+		st_amount_rem,
+		st_doc_end,
 		st_stop,
 		st_err,
 	};
-	int i, st = st_id, n = 0;
+	int i, st = st_req_id, n = 0, m = 0;
 	uint8_t b;
-	*ecode = E_OK;
+	*ecode = E_BANK;
 	for (i = 0; (i < l) && (st != st_stop) && (st != st_err); i++){
 		b = txt[i];
 		switch (st){
-			case st_id:
-				if (!isdigit(b))
-					st = st_err;
-				else{
-					n++;
-					if (n == 7){
-						n = 0;
-						st = st_termid;
-					}
-				}
-				break;
-			case st_termid:
-/*				if (n == 2){
-					if (((b < 0x41) || (b > 0x5a)) &&
-							((b < 0x60) || (b > 0x7e)))
+			case st_req_id:
+				if (n < BNK_REQ_ID_LEN){
+					if (!isdigit(b))
 						st = st_err;
-				}else if (!isdigit(b))
-					st = st_err;*/
-				if (st != st_err){
-					n++;
-					if (n == 5){
+				}else if (n == BNK_REQ_ID_LEN){
+					if (b == ';'){
 						n = 0;
-						st = st_amount;
-					}
-				}
-				break;
-			case st_amount:
-				if (n == 7){
-					if (b != '.')
+						st = st_term_id;
+					}else
 						st = st_err;
-				}else if (!isdigit(b))
-					st = st_err;
-				if (st != st_err){
+				}
+				if (st == st_req_id)
 					n++;
-					if (n == 9)
+				break;
+			case st_term_id:
+				if (n == BNK_TERM_ID_LEN){
+					if (b == ';'){
+						n = 0;
+						st = st_op_type;
+					}else
+						st = st_err;
+				}
+				if (st == st_term_id)
+					n++;
+				break;
+			case st_op_type:
+				if (n == 0){
+					if ((b != '+') && (b =! '-') && (b != '*'))
+						st = st_err;
+				}else if (b == ';'){
+					n = 0;
+					st = st_ticket;
+				}else
+					st = st_err;
+				if (st == st_op_type)
+					n++;
+				break;
+			case st_ticket:
+				if (n == 0){
+					if ((b != 'p') && (b != 'u'))
+						st = st_err;
+				}else if (b == ';'){
+					n = 0;
+					st = st_reissue;
+				}
+				if (st == st_ticket)
+					n++;
+				break;
+			case st_reissue:
+				if (n == 0){
+					if (b == '1'){
+						n = 0;
+						st = st_reissue_nr;
+					}else if (b != '0')
+						st = st_err;
+				}else if (b == ';')
+					st = st_blank_nr;
+				else
+					st = st_err;
+				if (st == streissue)
+					n++;
+				break;
+			case st_reissue_nr:
+				if (n == 0){
+					if (b != '(')
+						st = st_err;
+				}else if (n < (BNK_BLANK_NR_LEN + 1)){
+					if (!isdigit(b) && ((i < 2) || (b > 4)))
+						st = st_err;
+				}else if (n == (BNK_BLANK_NR_LEN + 1)){
+					if (b != ')')
+						st = st_err;
+				}else if (b == ';'){
+					n = m = 0;
+					st = st_blank_nr;
+				}else
+					st = st_err;
+				if (st == st_reissue_nr)
+					n++
+				break;
+			case st_blank_nr:
+				if (n < BNK_BLANK_NR_LEN){
+					if (!isdigit(b))
+						st = st_err;
+				}else if (b == '/'){
+					n = 0;
+					st = st_amount_quot;
+				}else
+					st = st_err;
+				if (st == st_blank_nr)
+					n++;
+				break;
+			case st_amount_quot:
+				if (isdigit(b)){
+					if (n == BNK_AMOUNT_MAX_LEN)
+						st = st_err;
+					else if ((i + 1) == l)
 						st = st_stop;
+				}else if (b == '.'){
+					if ((n > 0) && ((n + 1) < BNK_AMOUNT_MAX_LEN))
+						st = st_amount_rem;
+					else
+						st = st_err;
+				}else{
+					i--;
+					st = st_doc_end;
 				}
+				if (st == st_amount_quot)
+					n++;
+				break;
+			case st_amount_rem:
+				if (isdigit(b)){
+					if (n == BNK_AMOUNT_MAX_LEN)
+						st = st_err;
+					else if ((i + 1) == l)
+						st = st_stop;
+				}else{
+					i--;
+					st = st_doc_end;
+				}
+				if (st == st_amount_rem)
+					n++;
+				break;
+			case st_doc_end:
+				if (b == ';'){
+					m++;
+					if (m < BNK_MAX_DOCS){
+						n = 0;
+						st = st_blank_nr;
+					}else
+						st = st_err;
+				}else
+					st = st_err;
 				break;
 		}
 	}
-/*	if (i < l){
-		printf(__func__": i = %d; l = %d\n", i, l);
-		*ecode = E_BANK;
-	}*/
-	if (st != st_stop)
-		*ecode = E_BANK;
+	if (st == st_stop)
+		*ecode = E_OK;
 	return txt + i;
 }
 
-/* Сканирование абзаца для ИПТ */
-static void scan_bank_info(uint8_t *txt)
+/* Сканирование банковского абзаца */
+static void scan_bank_info(uint8_t *data, size_t len)
 {
 /*	time_t t = time(NULL) + time_delta;
 	struct tm *tm = localtime(&t);*/
