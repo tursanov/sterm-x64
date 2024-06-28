@@ -40,10 +40,6 @@ extern struct build_version term_build;
 
 extern char *term_string;	/* название терминала */
 
-/* Информация для ИПТ */
-extern struct bank_info bi;
-extern struct bank_info bi_pos;
-
 extern bool menu_active;
 extern bool optn_active;
 extern bool calc_active;

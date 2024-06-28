@@ -81,6 +81,7 @@ void write_hex_dword(uint8_t *p, uint32_t dw)
 /* Чтение десятичного числа без знака переменной длины */
 bool read_var_uint(const uint8_t *data, size_t *len, size_t max_len, uint32_t *val)
 {
+	number_error = true;
 	if ((data != NULL) && (len != NULL) && (max_len > 0) && (val != NULL)){
 		*len = 0;
 		*val = 0;
@@ -93,8 +94,11 @@ bool read_var_uint(const uint8_t *data, size_t *len, size_t max_len, uint32_t *v
 			*val *= 10;
 			*val += b;
 		}
+		if (*len > 0)
+			number_error = false;
 	}
-	return number_error = (*len > 0);
+
+	return !number_error;
 }
 
 /* Чтение десятичного числа без знака заданной длины */
@@ -107,7 +111,7 @@ bool read_uint(const uint8_t *data, size_t len, uint32_t *val)
 /* Запись десятичного числа без знака */
 bool write_uint(uint8_t *data, uint32_t val, size_t len)
 {
-	bool ret = false;
+	number_error = true;
 	if ((data != NULL) && (len > 0)){
 		for (size_t i = len; i > 0; i--){
 			data[i - 1] = 0x30;
@@ -116,15 +120,16 @@ bool write_uint(uint8_t *data, uint32_t val, size_t len)
 				val /= 10;
 			}
 		}
-		ret = true;
+		number_error = false;
 	}
-	return number_error = ret;
+	return !number_error;
 }
 
 /* Чтение десятичного числа со знаком переменной длины */
 bool read_var_int(const uint8_t *data, size_t *len, size_t max_len, int32_t *val)
 {
 	bool ret = false;
+	number_error = true;
 	if ((data != NULL) && (len != NULL) && (max_len > 0) && (val != NULL)){
 		*len = 0;
 		*val = 0;
@@ -142,28 +147,32 @@ bool read_var_int(const uint8_t *data, size_t *len, size_t max_len, int32_t *val
 		if (ret)
 			*val = sign * tmp;
 	}
-	return number_error = ret;
+	return !number_error;
 }
 
 /* Чтение десятичного числа со знаком заданной длины */
 bool read_int(const uint8_t *data, size_t len, int32_t *val)
 {
 	size_t rd_len = 0;
-	return number_error = (read_var_int(data, &rd_len, len, val) && (rd_len == len));
+	if (read_var_int(data, &rd_len, len, val)){
+		if (rd_len != len)
+			number_error = true;
+	}
+	return !number_error;
 }
 
 /* Запись десятичного числа со знаком */
 bool write_int(uint8_t *data, int32_t val, size_t len)
 {
-	bool ret = false;
+	number_error = true;
 	if ((data != NULL) && (len > 0)){
 		if (val < 0){
 			*data++ = '-';
 			val *= -1;
 		}
-		ret = write_uint(data, val, len);
+		write_uint(data, val, len);
 	}
-	return number_error = ret;
+	return !number_error;
 }
 
 #if 0

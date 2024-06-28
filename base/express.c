@@ -112,35 +112,35 @@ const char *get_syntax_error_txt(uint8_t code)
 }
 
 /* Информация для ИПТ */
-static struct bank_info bi;
+struct bank_data bd;
 
 /* Очистка банковской информации */
 void clear_bank_info(void)
 {
-	memset(bi, 0, sizeof(bi));
+	memset(&bd, 0, sizeof(bd));
 }
 
 /* Получение информации о банковском абзаце */
-ssize_t get_bank_info(struct bank_item *items, size_t nr_items)
+ssize_t get_bank_info(struct bank_info *items, size_t nr_items)
 {
 	if ((items == NULL) || (nr_items == 0))
 		return -1;
-	size_t ret = bi.nr_docs;
+	size_t ret = bd.nr_docs;
 	if (ret > nr_items)
 		ret = nr_items;
 	for (size_t i = 0; i < nr_items; i++){
-		struct bank_item *p = items + i;
-		p->req_id = bi.req_id;
-		strncpy(p->term_id, bi.term_id, BNK_TERM_ID_LEN);
+		struct bank_info *p = items + i;
+		p->req_id = bd.req_id;
+		strncpy(p->term_id, bd.term_id, BNK_TERM_ID_LEN);
 		p->term_id[BNK_TERM_ID_LEN] = 0;
-		p->op = bi.op;
-		p->ticket = bi.ticket;
-		p->reissue = bi.reissue;
-		strncpy(p->prev_blank_nr, bi.prev_blank_nr, BNK_DOC_NR_LEN);
-		p->prev_blank_nr[BNK_DOC_NR_LEN] = 0;
-		strncpy(p->blank_nr, bi.doc_info[i].blank_nr, BNK_BLANK_NR_LEN);
+		p->op = bd.op;
+		p->ticket = bd.ticket;
+		p->repayment = bd.repayment;
+		strncpy(p->prev_blank_nr, bd.prev_blank_nr, BNK_BLANK_NR_LEN);
+		p->prev_blank_nr[BNK_BLANK_NR_LEN] = 0;
+		strncpy(p->blank_nr, bd.doc_info[i].blank_nr, BNK_BLANK_NR_LEN);
 		p->blank_nr[BNK_BLANK_NR_LEN] = 0;
-		p->amount = bi.doc_info[i].amount;
+		p->amount = bd.doc_info[i].amount;
 	}
 	return ret;
 }
@@ -795,13 +795,15 @@ static uint8_t *check_bank_info(uint8_t *txt, int l, int *ecode)
 					if (b == '1'){
 						n = 0;
 						st = st_reissue_nr;
-					}else if (b != '0')
+					}else if (b == ';')
+						st = st_blank_nr;
+					else if (b != '0')
 						st = st_err;
 				}else if (b == ';')
 					st = st_blank_nr;
 				else
 					st = st_err;
-				if (st == streissue)
+				if (st == st_reissue)
 					n++;
 				break;
 			case st_reissue_nr:
@@ -820,7 +822,7 @@ static uint8_t *check_bank_info(uint8_t *txt, int l, int *ecode)
 				}else
 					st = st_err;
 				if (st == st_reissue_nr)
-					n++
+					n++;
 				break;
 			case st_blank_nr:
 				if (n < BNK_BLANK_NR_LEN){
@@ -883,32 +885,71 @@ static uint8_t *check_bank_info(uint8_t *txt, int l, int *ecode)
 	return txt + i;
 }
 
-/* Сканирование банковского абзаца */
-static void scan_bank_info(uint8_t *data, size_t len)
+/* Сканирование банковского абзаца (синтаксис уже проверен) */
+static void scan_bank_info(uint8_t *txt)
 {
-/*	time_t t = time(NULL) + time_delta;
-	struct tm *tm = localtime(&t);*/
-	uint8_t tmp;
-	add_bank_info();
-	tmp = txt[7];
-	txt[7] = 0;
-	bi.id = strtoul((char *)txt, NULL, 10);
-	txt[7] = tmp;
-	memcpy(&bi.termid, txt + 7, 5);
-	tmp = txt[19];
-	txt[19] = 0;
-	bi.amount1 = strtoul((char *)(txt + 12), NULL, 10);
-	txt[19] = tmp;
-	tmp = txt[21];
-	txt[21] = 0;
-	bi.amount2 = strtoul((char *)(txt + 20), NULL, 10);
-	txt[21] = tmp;
-/*	bi.dt.day = tm->tm_mday - 1;
-	bi.dt.mon = tm->tm_mon;
-	bi.dt.year = tm->tm_year % 100;
-	bi.dt.hour = tm->tm_hour;
-	bi.dt.min = tm->tm_min;
-	bi.dt.sec = tm->tm_sec;*/
+	clear_bank_info();
+	int idx = 0;
+/* Номер заказа в системе */
+	size_t len;
+	read_var_uint(txt, &len, BNK_REQ_ID_LEN, &bd.req_id);
+	idx += BNK_REQ_ID_LEN + 1;
+/* Технологический номер терминала */
+	memcpy(bd.term_id, txt + idx, BNK_TERM_ID_LEN);
+	bd.term_id[BNK_TERM_ID_LEN] = 0;
+	idx += BNK_TERM_ID_LEN + 1;
+/* Тип платежа */
+	bd.op = txt[idx];
+	idx += 2;
+/* ОД/ПВД */
+	bd.ticket = txt[idx] == 'p';
+	idx += 2;
+/* Признак переоформления */
+	if (txt[idx] == '0'){
+		bd.repayment = '0';
+		idx += 2;
+	}else if (txt[idx] == '1'){
+		bd.repayment = '1';
+		idx += 2;
+		memcpy(bd.prev_blank_nr, txt + idx, BNK_BLANK_NR_LEN);
+		bd.prev_blank_nr[BNK_BLANK_NR_LEN] = 0;
+		idx += BNK_BLANK_NR_LEN + 2;
+	}else{
+		bd.repayment = 0;
+		idx++;
+	}
+/* Информация о документах в заказе */
+	for (int i = 0; i < BNK_MAX_DOCS; i++){
+		if (!isdigit(txt[idx]))
+			break;
+		struct bank_doc_info *di = bd.doc_info + i;
+		memcpy(di->blank_nr, txt + idx, BNK_BLANK_NR_LEN);
+		di->blank_nr[BNK_BLANK_NR_LEN] = 0;
+		idx += BNK_BLANK_NR_LEN + 1;
+		uint64_t q = 0, r = 0;
+		bool quot = true;
+		for (int j = 0; j < BNK_AMOUNT_MAX_LEN; j++){
+			uint8_t b = txt[idx++];
+			if (isdigit(b)){
+				b -= 0x30;
+				if (quot){
+					q *= 10;
+					q += b;
+				}else{
+					r *= 10;
+					r += b;
+				}
+			}else if (b == '.')
+				quot = false;
+			else if (b == ';')
+				break;
+		}
+		idx++;
+		if (r < 10)
+			r *= 10;
+		di->amount = q * 100 + r;
+		bd.nr_docs++;
+	}
 }
 
 /* Определение назначения абзаца ответа */
@@ -2439,13 +2480,13 @@ static void execute_kkt(struct para_info *pi __attribute__((unused)), int len)
 }
 
 /* Получение информации банковского абзаца во время обработки ответа */
-const struct bank_info *get_bi(void)
+const struct bank_data *get_bi(void)
 {
-	const struct bank_info *ret = NULL;
+	const struct bank_data *ret = NULL;
 	if (resp_executing){
 		for (int i = 0; i < n_paras; i++){
 			if (map[i].dst == dst_bank){
-				ret = &bi;
+				ret = &bd;
 				break;
 			}
 		}

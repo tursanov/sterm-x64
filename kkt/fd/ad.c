@@ -153,7 +153,7 @@ static bool bank_info_compare(struct bank_info *x, struct bank_info *y)
 	if (x != NULL && y != NULL)
 	{
 		return
-			x->id == y->id
+			x->req_id == y->req_id
 			&& x->term_id == y->term_id
 			&& x->op == y->op
 			&& x->repayment == y->repayment
@@ -2433,8 +2433,8 @@ bool AD_get_state(AD_state *s) {
 						: -sum;
 				}
 
-				if (k->y != NULL && k->y->id > order_id)
-					order_id = k->y->id;
+				if (k->y != NULL && k->y->req_id > order_id)
+					order_id = k->y->req_id;
 			}
 		}
 		

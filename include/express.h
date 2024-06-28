@@ -174,38 +174,40 @@ extern const char *get_syntax_error_txt(uint8_t code);
 
 /* Информация о документе в заказе */
 struct bank_doc_info {
-	char blank_nr[BNK_DOC_NR_LEN + 1];		/* номер документа */
+	char blank_nr[BNK_BLANK_NR_LEN + 1];		/* номер документа */
 	uint64_t amount;				/* сумма в копейках */
 };
 
 /* Информация о банковском абзаце */
-struct bank_info {
+struct bank_data {
 	uint32_t req_id;				/* номер заказа в системе */
-	char term_id[7];				/* технологический номер терминала */
+	char term_id[BNK_TERM_ID_LEN + 1];		/* технологический номер терминала */
 	char op;					/* тип платежа (-;+;*) */
 	bool ticket;					/* ОД/ПВД */
-	bool reissue;					/* признак переоформления */
+	char repayment;					/* признак переоформления */
 	char prev_blank_nr[BNK_BLANK_NR_LEN + 1];	/* номер предыдущего документа */
 	struct bank_doc_info doc_info[BNK_MAX_DOCS];	/* информация о документах в заказе */
 	size_t nr_docs;					/* количество документов в заказе */
 };
 
 /* Запись в банковской корзине */
-struct bank_item {
+struct bank_info {
 	uint32_t req_id;				/* номер заказа в системе */
-	char term_id[7];				/* технологический номер терминала */
+	char term_id[BNK_TERM_ID_LEN + 1];		/* технологический номер терминала */
 	char op;					/* тип платежа (-;+;*) */
 	bool ticket;					/* ОД/ПВД */
-	char blank_nr[BNK_DOC_NR_LEN + 1];		/* номер документа */
-	bool reissue;					/* признак переоформления */
+	char blank_nr[BNK_BLANK_NR_LEN + 1];		/* номер документа */
+	char repayment;					/* признак переоформления */
 	char prev_blank_nr[BNK_BLANK_NR_LEN + 1];	/* номер предыдущего документа */
 	uint64_t amount;				/* сумма в копейках */
 };
 
+/* Данные банковского абзаца */
+extern struct bank_data bd;
 /* Очистка банковской информации */
 extern void clear_bank_info(void);
 /* Получение информации о банковском абзаце */
-extern ssize_t get_bank_info(struct bank_item *items, size_t nr_items);
+extern ssize_t get_bank_info(struct bank_info *items, size_t nr_items);
 
 /* Номер абзаца ответа на КЛ при обработке ответа */
 extern uint32_t log_para;
@@ -239,7 +241,7 @@ extern bool check_raw_resp(void);
 extern int handle_para(int n_para);
 
 /* Получение информации банковского абзаца во время обработки ответа */
-extern const struct bank_info *get_bi(void);
+extern const struct bank_data *get_bi(void);
 
 /* Получение данных изображения для БПУ */
 extern bool find_pic_data(int *data, int *req);
