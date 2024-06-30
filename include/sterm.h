@@ -40,10 +40,6 @@ extern struct build_version term_build;
 
 extern char *term_string;	/* название терминала */
 
-/* Информация для ИПТ */
-extern struct bank_info bi;
-extern struct bank_info bi_pos;
-
 extern bool menu_active;
 extern bool optn_active;
 extern bool calc_active;
@@ -218,6 +214,7 @@ extern int	get_key_type(void);
 extern void	flush_home(void);
 extern bool	is_escape(uint8_t c);
 extern bool	set_term_busy(bool busy);
+extern char    *get_main_title(void);
 extern const char *find_term_state(int st);
 extern const char *find_term_astate(intptr_t ast);
 extern bool	set_term_state(int st);

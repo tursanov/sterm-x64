@@ -97,7 +97,7 @@ int cheque_init(void) {
 	if (fnt == NULL)
 		fnt = CreateFont(_("fonts/fixedsys8x16.fnt"), false);
 	if (fnt1 == NULL)
-		fnt1 = CreateFont(_("fonts/serif11x13.fnt"), false);
+		fnt1 = CreateFont(_("fonts/serif11x13.fnt"), true);
 
 	if (screen == NULL)
 	  	screen = CreateGC(0, 0, DISCX, DISCY);

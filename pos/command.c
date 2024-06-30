@@ -286,8 +286,8 @@ bool pos_req_save_command_finish(struct pos_data_buf *buf)
 
 static bool termid_empty()
 {
-	for (size_t i = 0; i < sizeof(bi_pos.termid); i++)
-		if (bi_pos.termid[i] != '0')
+	for (size_t i = 0; i < sizeof(bd.term_id); i++)
+		if (bd.term_id[i] != 0)
 			return false;
 	return true;
 }
@@ -303,10 +303,10 @@ static void normalize_termid()
 		size_t p_len = strlen(_ad->p1->p + 1);
 		size_t t_len = strlen(_ad->p1->t);
 
-		if (p_len + t_len == sizeof(bi_pos.termid)) {
-			memcpy(bi_pos.termid, _ad->p1->p + 1, p_len);
-			memcpy(bi_pos.termid + p_len, _ad->p1->t, t_len);
-			recode_str(bi_pos.termid, sizeof(bi_pos.termid));
+		if (p_len + t_len == sizeof(bd.term_id)) {
+			memcpy(bd.term_id, _ad->p1->p + 1, p_len);
+			memcpy(bd.term_id + p_len, _ad->p1->t, t_len);
+			recode_str(bd.term_id, sizeof(bd.term_id));
 		}
 	}
 }
@@ -322,10 +322,14 @@ static bool pos_write_param(struct pos_data_buf *buf, char *name, int param,
 		return false;
 	switch (param){
 		case POS_PARAM_AMOUNT:
-			sprintf(val, "%u", bi_pos.amount1 * 100 +
-					bi_pos.amount2 * 10);
+		{
+			uint64_t amount = 0;
+			for (size_t i = 0; i < bd.nr_docs; i++)
+				amount += bd.doc_info[i].amount;
+			sprintf(val, "%lu", amount);
 			l = strlen(val);
 			break;
+		}
 		case POS_PARAM_TIME:{
 			time_t t = time(NULL) + time_delta;
 			struct tm *tm = localtime(&t);
@@ -336,13 +340,13 @@ static bool pos_write_param(struct pos_data_buf *buf, char *name, int param,
 			break;
 		}
 		case POS_PARAM_ID:
-			sprintf(val, "%.7u", bi_pos.id);
+			sprintf(val, "%.*u", BNK_REQ_ID_LEN, bd.req_id);
 			l = strlen(val);
 			break;
 		case POS_PARAM_TERMID:
 			normalize_termid();
-			memcpy(val, bi_pos.termid, sizeof(bi_pos.termid));
-			l = sizeof(bi_pos.termid);
+			memcpy(val, bd.term_id, BNK_TERM_ID_LEN);
+			l = BNK_TERM_ID_LEN;
 			write_hex_byte((uint8_t *)(val + l), cfg.gaddr);
 			write_hex_byte((uint8_t *)(val + l + 2), cfg.iaddr);
 			l += 4;

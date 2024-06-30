@@ -1,4 +1,4 @@
-/* Интерфейс для работы с пиктограммами для C. (c) gsr, 2024 */
+/* Интерфейс для работы с пиктограммами для C. (c) gsr 2024 */
 
 #if !defined X3DATA_ICONS_H
 #define X3DATA_ICONS_H
@@ -19,6 +19,9 @@ static inline bool need_icons_update(void)
 extern bool sync_icons_xprn(x3_sync_callback_t cbk);
 extern bool sync_icons_kkt(x3_sync_callback_t cbk);
 extern void on_response_icon(void);
+
+/* Обновление пиктограмм в ККТ */
+extern bool update_kkt_icons(void);
 
 #if defined __cplusplus
 }

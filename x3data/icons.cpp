@@ -1,4 +1,4 @@
-/* Работа с пиктограммами БПУ/ККТ. (c) gsr, 2015-2016, 2019, 2022, 2024 */
+/* Работа с пиктограммами БПУ/ККТ. (c) gsr 2015-2016, 2019, 2022, 2024 */
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -8,6 +8,9 @@
 #include <zlib.h>
 #include "gui/scr.h"
 #include "kkt/cmd.h"
+#include "kkt/fdo.h"
+#include "kkt/io.h"
+#include "kkt/kkt.h"
 #include "x3data/bmp.h"
 #include "x3data/icons.h"
 #include "x3data/icons.hpp"
@@ -144,7 +147,6 @@ static regex_t reg;
 
 static int icon_selector(const struct dirent *entry)
 {
-	log_dbg("d_name = '%s'.", entry->d_name);
 	return regexec(&reg, entry->d_name, 0, NULL, 0) == REG_NOERROR;
 }
 
@@ -310,6 +312,49 @@ static uint8_t icon_auto_req[REQ_BUF_LEN];
 static size_t icon_auto_req_len = 0;
 
 static x3_sync_callback_t icon_sync_cbk = NULL;
+
+/* Минимальная ширина пиктограммы в мм */
+#define ICON_MIN_WIDTH		1
+/* Максимальная ширина пиктограммы в мм */
+#define ICON_MAX_WIDTH		80
+/* Минимальная высота пиктограммы в мм */
+#define ICON_MIN_HEIGHT		1
+/* Максимальная высота пиктограммы в мм */
+#define ICON_MAX_HEIGHT		80
+
+/* Проверка заголовка пиктограммы */
+static bool check_icon_header(const struct pic_header *hdr, uint8_t id)
+{
+	bool ret = false;
+	if (hdr == NULL)
+		log_err("hdr = NULL");
+	else if (hdr->hdr_len != sizeof(*hdr))
+		log_err("len mismatch");
+	else if (hdr->id != id)
+		log_err("id mismatch");
+	else if ((hdr->w < ICON_MIN_WIDTH) || (hdr->w > ICON_MAX_WIDTH))
+		log_err("illegal w");
+	else if ((hdr->h < ICON_MIN_HEIGHT) || (hdr->h > ICON_MAX_HEIGHT))
+		log_err("illegal h");
+	else if (!IconInfo::isIdValid(hdr->id))
+		log_err("illegal id");
+	else if ((hdr->data_len == 0) || (hdr->data_len > MAX_COMPRESSED_ICON_LEN))
+		log_err("illegal data len");
+	else{
+		ret = true;
+		for (size_t i = 0; i < sizeof(hdr->name); i++){
+			char ch = hdr->name[i];
+			if (ch == 0)
+				break;
+			else if (ch < 0x20){
+				log_err("illegal name");
+				ret = false;
+				break;
+			}
+		}
+	}
+	return ret;
+}
 
 /* Отправка начального запроса на получение пиктограммы */
 static void send_icon_request(const IconInfo &icon)
@@ -787,6 +832,7 @@ bool update_xprn_icons(InitializationNotify_t init_notify)
 	}
 	return ret;
 }
+#endif
 
 /* Получение списка пиктограмм из ККТ */
 static bool find_kkt_icons(list<IconInfo> &kkt_icons)
@@ -794,16 +840,30 @@ static bool find_kkt_icons(list<IconInfo> &kkt_icons)
 	bool ret = false;
 	kkt_icons.clear();
 	log_info("Чтение списка пиктограмм из ККТ...");
-	if (kkt->getGridLst()){
-		KktRespGridLst *rsp = dynamic_cast<KktRespGridLst *>(kkt->rsp());
-		if ((rsp != NULL) && rsp->statusOk()){
-			kkt_icons.assign(rsp->icons().cbegin(), rsp->icons().cend());
-			log_info("Найдено пиктограмм в ККТ: %d.", kkt_icons.size());
-			ret = true;
-		}else
-			log_err("Ошибка получения списка пиктограмм из ККТ: 0x%.2hx.", (uint16_t)kkt->status());
+	size_t len = sizeof(icon_buf);
+	uint8_t status = kkt_get_icon_lst(icon_buf, &len);
+	if (status == KKT_STATUS_OK){
+		size_t n = icon_buf[0];
+		log_dbg("n = %zu.", n);
+		const struct pic_header *hdr = (const struct pic_header *)(icon_buf + 1);
+		for (size_t i = 0; i < n; i++, hdr++){
+			if (check_icon_header(hdr, hdr->id)){
+				char name[SPRN_MAX_ICON_NAME_LEN + 1];
+				memcpy(name, hdr->name, sizeof(hdr->name));
+				name[SPRN_MAX_ICON_NAME_LEN] = 0;
+				log_dbg("name = %s", name);
+				IconInfo ii;
+				if (ii.parse(name))
+					kkt_icons.push_back(ii);
+				else
+					log_err("parse error.");
+			}
+		}
+		log_info("Найдено пиктограмм в ККТ: %zu.", kkt_icons.size());
+		ret = true;
 	}else
-		log_err("Невозможно начать получение списка пиктограмм из ККТ: 0x%.2hx.", (uint16_t)kkt->status());
+		log_err("Ошибка получения списка пиктограмм из ККТ: 0x%.2hhx (%s).",
+			status, kkt_status_str(status));
 	return ret;
 }
 
@@ -845,83 +905,120 @@ static void check_kkt_icons(const list<IconInfo> &stored_icons, list<IconInfo> &
 	log_dbg("Найдено пиктограмм: для загрузки: %d; для удаления: %d.", icons_to_load.size(), icons_to_erase.size());
 }
 
-/* Запись заданной пиктограммы в ККТ */
-static bool write_icon_to_kkt(const IconInfo &gi)
+/* Запись пиктограммы в ККТ */
+static bool write_icon_to_kkt(const IconInfo &ii, bool first, bool last)
 {
+	log_dbg("name = %s; first = %d; last = %d.", ii.name().c_str(), first, last);
 	if (kkt == NULL)
 		return false;
 	bool ret = false;
+	size_t len = 0, w = 0, h = 0;
 	static char path[PATH_MAX];
-	snprintf(path, ASIZE(path), "%s\\%s.BMP", icon_folder, gi.name().c_str());
-	log_info("Загружаем в ККТ пиктограмму %s...", path);
-	if (kkt->loadGrid(path, gi.nr())){
-		KktRespGridLoad *rsp = dynamic_cast<KktRespGridLoad *>(kkt->rsp());
-		if ((rsp != NULL) && rsp->statusOk()){
+	snprintf(path, ASIZE(path), ICONS_FOLDER "/%s.BMP", ii.name().c_str());
+	log_info("Загружаем в ККТ разметку %s...", path);
+	const uint8_t *data = read_bmp(path, len, w, h, ICON_MIN_WIDTH, ICON_MAX_WIDTH,
+		ICON_MIN_HEIGHT, ICON_MAX_HEIGHT);
+	log_dbg("w = %zu; h = %zu.", w, h);
+	if (data != NULL){
+		char name[SPRN_MAX_ICON_NAME_LEN + 1];
+		snprintf(name, sizeof(name), "%s.BMP", ii.name().c_str());
+		if (kkt_load_icon(data, len, ii.id(), w, h, name, first, last) == KKT_STATUS_OK){
+			log_info("Разметка %s успешно загружена в ККТ.", path);
 			ret = true;
-			log_info("Пиктограмма %s успешно загружена в ККТ.", path);
 		}else
-			log_err("Ошибка загрузки пиктограммы %s в ККТ: 0x%.2hx.", path, (uint16_t)kkt->status());
-	}else
-		log_err("Невозможно начать загрузку пиктограммы %s в ККТ: 0x%.2hx.", path, (uint16_t)kkt->status());
+			log_err("Ошибка загрузки разметки %s в ККТ: 0x%.2hhx.", path, kkt_status);
+	}
+	return ret;
+}
+
+/* Запись сжатой пиктограммы в ККТ */
+static bool write_icon_to_kkt_new(const IconInfo &ii)
+{
+	log_dbg("name = %s.", ii.name().c_str());
+	if (kkt == NULL)
+		return false;
+	bool ret = false;
+	size_t len = 0, w = 0, h = 0;
+	static char path[PATH_MAX];
+	snprintf(path, ASIZE(path), ICONS_FOLDER "/%s.BMP", ii.name().c_str());
+	log_info("Загружаем в ККТ пиктограмму %s...", path);
+	const uint8_t *data = read_bmp(path, len, w, h, ICON_MIN_WIDTH, ICON_MAX_WIDTH,
+		ICON_MIN_HEIGHT, ICON_MAX_HEIGHT);
+	log_dbg("w = %zu; h = %zu.", w, h);
+	if (data != NULL){
+		vector<uint8_t> cdata;
+		if (compress_picture(data, len, w, h, cdata) && !cdata.empty()){
+			log_dbg("Размер данных после сжатия: %zu байт.", cdata.size());
+			char name[SPRN_MAX_ICON_NAME_LEN + 1];
+			snprintf(name, sizeof(name), "%s.BMP", ii.name().c_str());
+			if (kkt_load_icon_new(data, len, ii.id(), w, h, name) == KKT_STATUS_OK){
+				log_info("Пиктограмма %s успешно загружена в ККТ.", path);
+				ret = true;
+			}else
+				log_err("Ошибка загрузки пиктограммы %s в ККТ: 0x%.2hhx.", path, kkt_status);
+		}else
+			log_err("Ошибка сжатия пиктограммы %s.", path);
+	}
 	return ret;
 }
 
 /* Обновление пиктограмм в ККТ "СПЕКТР-Ф" */
-static bool update_icons_kkt(const list<IconInfo> &stored_icons, list<IconInfo> &icons_failed,
-	InitializationNotify_t init_notify)
+static bool update_icons_kkt(const list<IconInfo> &stored_icons, list<IconInfo> &icons_failed)
 {
+	bool new_icons = kkt_has_param("SUPPORT_COMPRESSED_ICONS");	/* FIXME */
 /* Сначала удаляем все пиктограммы из ККТ */
 	log_info("Удаляем все имеющиеся пиктограммы из ККТ...");
-	init_notify(false, "Удаление пиктограмм из ККТ");
-	if (kkt->eraseAllGrids()){
-		KktRespGridEraseAll *rsp = dynamic_cast<KktRespGridEraseAll *>(kkt->rsp());
-		if ((rsp != NULL) && rsp->statusOk())
-			log_info("Пиктограммы удалены из ККТ.");
-		else{
-			log_err("Ошибка удаления пиктограмм из ККТ: 0x%.2hx.", (uint16_t)kkt->status());
-			return false;
-		}
-	}else{
-		log_err("Невозможно начать удаление пиктограмм из ККТ: 0x%.2hx.", (uint16_t)kkt->status());
+	set_term_state(st_kkt_icons);
+	set_term_astate((intptr_t)"УДАЛЕНИЕ ВСЕХ ПИКТОГРАММ");
+	if (kkt_erase_all_icons() == KKT_STATUS_OK)
+		log_info("Пиктограммы удалены из ККТ.");
+	else{
+		static char txt[MAX_TERM_ASTATE_LEN + 1];
+		log_err("Ошибка удаления пиктограмм из ККТ: 0x%.2hhx.", kkt_status);
+		snprintf(txt, sizeof(txt), "ОШИБКА УДАЛЕНИЯ %.2hhx", kkt_status);
+		set_term_astate((intptr_t)txt);
 		return false;
 	}
 /* Затем загружаем новые пиктограммы */
 	size_t n = 1;
-	kkt->beginBatchMode();
+	kkt_begin_batch_mode();
+	static char txt[MAX_TERM_ASTATE_LEN + 1];
 	for (const auto &p : stored_icons){
-		static char txt[64];
-		snprintf(txt, ASIZE(txt), "Загрузка в ККТ пиктограммы %s (%u из %u)",
-			p.name().c_str(), n++, stored_icons.size());
-		init_notify(false, txt);
-		if (!write_icon_to_kkt(p))
+		log_info("Загрузка в ККТ пиктограммы %s (%zu из %zu)",
+			p.name().c_str(), n, stored_icons.size());
+		snprintf(txt, sizeof(txt), "%s (%zu из %zu)",
+			p.name().c_str(), n, stored_icons.size());
+		set_term_astate((intptr_t)txt);
+		bool rc = false;
+		if (new_icons)
+			rc = write_icon_to_kkt_new(p);
+		else
+			rc = write_icon_to_kkt(p, n == 1, n == stored_icons.size());
+		if (!rc)
 			icons_failed.push_back(p);
+		n++;
 	}
-	kkt->endBatchMode();
+	kkt_end_batch_mode();
 	return true;
 }
 
 /* Обновление пиктограмм в ККТ */
-bool update_kkt_icons(InitializationNotify_t init_notify)
+bool update_kkt_icons()
 {
-	log_info("kkt = %p.", kkt);
-	if (kkt == NULL)
+	if (kkt == NULL){
+		log_err("ККТ не подключена.");
 		return false;
+	}
+	fdo_suspend();
 	bool ret = false;
-	init_notify(false, "Обновление пиктограмм в ККТ");
-	Sleep(100);
 	list<IconInfo> stored_icons, icons_to_load, icons_to_erase;
 	find_stored_icons_kkt(stored_icons);
 	check_kkt_icons(stored_icons, icons_to_load, icons_to_erase);
-	if (!icons_to_load.empty() || !icons_to_erase.empty())
-		ret = update_icons_kkt(stored_icons, icons_failed_kkt, init_notify);
-	else
+	if (!icons_to_load.empty() || !icons_to_erase.empty()){
+		ret = update_icons_kkt(stored_icons, icons_failed_kkt);
+		set_term_state(st_input);
+	}else
 		ret = true;
-	if (!ret && !isTermcoreState(TS_INIT)){
-		static char txt[256];
-		snprintf(txt, ASIZE(txt), "Ошибка обновления пиктограмм в ККТ: 0x%.2hx.",
-			(uint16_t)kkt->status());
-		termcore_callbacks.callMessageBox("ОБНОВЛЕНИЕ РАЗМЕТОК", txt);
-	}
+	fdo_resume();
 	return ret;
 }
-#endif

@@ -31,6 +31,7 @@
 #include "termlog.h"
 #include "tki.h"
 #include "transport.h"
+#include "xml2data.h"
 
 /* Тип текущего запроса */
 int req_type = req_regular;
@@ -111,47 +112,37 @@ const char *get_syntax_error_txt(uint8_t code)
 }
 
 /* Информация для ИПТ */
-struct bank_info bi;
-struct bank_info_ex bi_ex;
-struct bank_info bi_pos;
+struct bank_data bd;
 
-/* Очистка содержимого структуры */
-void clear_bank_info(struct bank_info *p, bool full)
+/* Очистка банковской информации */
+void clear_bank_info(void)
 {
-	if (full){
-		p->id = 0;
-		memset(p->termid, 0x30, sizeof(p->termid));
-/*		memset(&p->dt, 0, sizeof(p->dt));*/
+	memset(&bd, 0, sizeof(bd));
+}
+
+/* Получение информации о банковском абзаце */
+ssize_t get_bank_info(struct bank_info *items, size_t nr_items)
+{
+	if ((items == NULL) || (nr_items == 0))
+		return -1;
+	size_t ret = bd.nr_docs;
+	if (ret > nr_items)
+		ret = nr_items;
+	for (size_t i = 0; i < nr_items; i++){
+		struct bank_info *p = items + i;
+		p->req_id = bd.req_id;
+		strncpy(p->term_id, bd.term_id, BNK_TERM_ID_LEN);
+		p->term_id[BNK_TERM_ID_LEN] = 0;
+		p->op = bd.op;
+		p->ticket = bd.ticket;
+		p->repayment = bd.repayment;
+		strncpy(p->prev_blank_nr, bd.prev_blank_nr, BNK_BLANK_NR_LEN);
+		p->prev_blank_nr[BNK_BLANK_NR_LEN] = 0;
+		strncpy(p->blank_nr, bd.doc_info[i].blank_nr, BNK_BLANK_NR_LEN);
+		p->blank_nr[BNK_BLANK_NR_LEN] = 0;
+		p->amount = bd.doc_info[i].amount;
 	}
-	p->amount1 = p->amount2 = 0;
-}
-
-/* Сброс содержимого обеих областей памяти */
-void reset_bank_info(void)
-{
-	clear_bank_info(&bi, false);
-	clear_bank_info(&bi_pos, false);
-}
-
-/* Добавление содержимого первой области ко второй */
-void add_bank_info(void)
-{
-	bi_pos.id = bi.id;
-	memcpy(bi_pos.termid, bi.termid, sizeof(bi.termid));
-/*	memcpy(&bi_pos.dt, &bi.dt, sizeof(bi.dt));*/
-	bi_pos.amount1 += bi.amount1;
-	bi_pos.amount2 += bi.amount2;
-	while (bi_pos.amount2 > 10){
-		bi_pos.amount1++;
-		bi_pos.amount2 -= 10;
-	}
-}
-
-/* Возврат к предыдущему значению */
-void rollback_bank_info(void)
-{
-	memcpy(&bi, &bi_pos, sizeof(bi));
-	clear_bank_info(&bi_pos, false);
+	return ret;
 }
 
 /* Проверка атрибутов символа (Ар2 V) */
@@ -728,97 +719,237 @@ static uint8_t *check_rom(uint8_t *txt, int l, int *ecode)
 	return p;
 }
 
-/* Проверка абзаца для ИПТ */
+/* Проверка банковского абзаца */
 static uint8_t *check_bank_info(uint8_t *txt, int l, int *ecode)
 {
 	enum {
-		st_id,
-		st_termid,
-		st_amount,
+		st_req_id,
+		st_term_id,
+		st_op_type,
+		st_ticket,
+		st_reissue,
+		st_reissue_nr,
+		st_blank_nr,
+		st_amount_quot,
+		st_amount_rem,
+		st_doc_end,
 		st_stop,
 		st_err,
 	};
-	int i, st = st_id, n = 0;
+	int i, st = st_req_id, n = 0, m = 0;
 	uint8_t b;
-	*ecode = E_OK;
+	*ecode = E_BANK;
 	for (i = 0; (i < l) && (st != st_stop) && (st != st_err); i++){
 		b = txt[i];
 		switch (st){
-			case st_id:
-				if (!isdigit(b))
-					st = st_err;
-				else{
-					n++;
-					if (n == 7){
-						n = 0;
-						st = st_termid;
-					}
-				}
-				break;
-			case st_termid:
-/*				if (n == 2){
-					if (((b < 0x41) || (b > 0x5a)) &&
-							((b < 0x60) || (b > 0x7e)))
+			case st_req_id:
+				if (n < BNK_REQ_ID_LEN){
+					if (!isdigit(b))
 						st = st_err;
-				}else if (!isdigit(b))
-					st = st_err;*/
-				if (st != st_err){
-					n++;
-					if (n == 5){
+				}else if (n == BNK_REQ_ID_LEN){
+					if (b == ';'){
 						n = 0;
-						st = st_amount;
-					}
-				}
-				break;
-			case st_amount:
-				if (n == 7){
-					if (b != '.')
+						st = st_term_id;
+					}else
 						st = st_err;
-				}else if (!isdigit(b))
-					st = st_err;
-				if (st != st_err){
+				}
+				if (st == st_req_id)
 					n++;
-					if (n == 9)
+				break;
+			case st_term_id:
+				if (n == BNK_TERM_ID_LEN){
+					if (b == ';'){
+						n = 0;
+						st = st_op_type;
+					}else
+						st = st_err;
+				}
+				if (st == st_term_id)
+					n++;
+				break;
+			case st_op_type:
+				if (n == 0){
+					if ((b != '+') && (b =! '-') && (b != '*'))
+						st = st_err;
+				}else if (b == ';'){
+					n = 0;
+					st = st_ticket;
+				}else
+					st = st_err;
+				if (st == st_op_type)
+					n++;
+				break;
+			case st_ticket:
+				if (n == 0){
+					if ((b != 'p') && (b != 'u'))
+						st = st_err;
+				}else if (b == ';'){
+					n = 0;
+					st = st_reissue;
+				}
+				if (st == st_ticket)
+					n++;
+				break;
+			case st_reissue:
+				if (n == 0){
+					if (b == '1'){
+						n = 0;
+						st = st_reissue_nr;
+					}else if (b == ';')
+						st = st_blank_nr;
+					else if (b != '0')
+						st = st_err;
+				}else if (b == ';')
+					st = st_blank_nr;
+				else
+					st = st_err;
+				if (st == st_reissue)
+					n++;
+				break;
+			case st_reissue_nr:
+				if (n == 0){
+					if (b != '(')
+						st = st_err;
+				}else if (n < (BNK_BLANK_NR_LEN + 1)){
+					if (!isdigit(b) && ((i < 2) || (b > 4)))
+						st = st_err;
+				}else if (n == (BNK_BLANK_NR_LEN + 1)){
+					if (b != ')')
+						st = st_err;
+				}else if (b == ';'){
+					n = m = 0;
+					st = st_blank_nr;
+				}else
+					st = st_err;
+				if (st == st_reissue_nr)
+					n++;
+				break;
+			case st_blank_nr:
+				if (n < BNK_BLANK_NR_LEN){
+					if (!isdigit(b))
+						st = st_err;
+				}else if (b == '/'){
+					n = 0;
+					st = st_amount_quot;
+				}else
+					st = st_err;
+				if (st == st_blank_nr)
+					n++;
+				break;
+			case st_amount_quot:
+				if (isdigit(b)){
+					if (n == BNK_AMOUNT_MAX_LEN)
+						st = st_err;
+					else if ((i + 1) == l)
 						st = st_stop;
+				}else if (b == '.'){
+					if ((n > 0) && ((n + 1) < BNK_AMOUNT_MAX_LEN))
+						st = st_amount_rem;
+					else
+						st = st_err;
+				}else{
+					i--;
+					st = st_doc_end;
 				}
+				if (st == st_amount_quot)
+					n++;
+				break;
+			case st_amount_rem:
+				if (isdigit(b)){
+					if (n == BNK_AMOUNT_MAX_LEN)
+						st = st_err;
+					else if ((i + 1) == l)
+						st = st_stop;
+				}else{
+					i--;
+					st = st_doc_end;
+				}
+				if (st == st_amount_rem)
+					n++;
+				break;
+			case st_doc_end:
+				if (b == ';'){
+					m++;
+					if (m < BNK_MAX_DOCS){
+						n = 0;
+						st = st_blank_nr;
+					}else
+						st = st_err;
+				}else
+					st = st_err;
 				break;
 		}
 	}
-/*	if (i < l){
-		printf(__func__": i = %d; l = %d\n", i, l);
-		*ecode = E_BANK;
-	}*/
-	if (st != st_stop)
-		*ecode = E_BANK;
+	if (st == st_stop)
+		*ecode = E_OK;
 	return txt + i;
 }
 
-/* Сканирование абзаца для ИПТ */
+/* Сканирование банковского абзаца (синтаксис уже проверен) */
 static void scan_bank_info(uint8_t *txt)
 {
-/*	time_t t = time(NULL) + time_delta;
-	struct tm *tm = localtime(&t);*/
-	uint8_t tmp;
-	add_bank_info();
-	tmp = txt[7];
-	txt[7] = 0;
-	bi.id = strtoul((char *)txt, NULL, 10);
-	txt[7] = tmp;
-	memcpy(&bi.termid, txt + 7, 5);
-	tmp = txt[19];
-	txt[19] = 0;
-	bi.amount1 = strtoul((char *)(txt + 12), NULL, 10);
-	txt[19] = tmp;
-	tmp = txt[21];
-	txt[21] = 0;
-	bi.amount2 = strtoul((char *)(txt + 20), NULL, 10);
-	txt[21] = tmp;
-/*	bi.dt.day = tm->tm_mday - 1;
-	bi.dt.mon = tm->tm_mon;
-	bi.dt.year = tm->tm_year % 100;
-	bi.dt.hour = tm->tm_hour;
-	bi.dt.min = tm->tm_min;
-	bi.dt.sec = tm->tm_sec;*/
+	clear_bank_info();
+	int idx = 0;
+/* Номер заказа в системе */
+	size_t len;
+	read_var_uint(txt, &len, BNK_REQ_ID_LEN, &bd.req_id);
+	idx += BNK_REQ_ID_LEN + 1;
+/* Технологический номер терминала */
+	memcpy(bd.term_id, txt + idx, BNK_TERM_ID_LEN);
+	bd.term_id[BNK_TERM_ID_LEN] = 0;
+	idx += BNK_TERM_ID_LEN + 1;
+/* Тип платежа */
+	bd.op = txt[idx];
+	idx += 2;
+/* ОД/ПВД */
+	bd.ticket = txt[idx] == 'p';
+	idx += 2;
+/* Признак переоформления */
+	if (txt[idx] == '0'){
+		bd.repayment = '0';
+		idx += 2;
+	}else if (txt[idx] == '1'){
+		bd.repayment = '1';
+		idx += 2;
+		memcpy(bd.prev_blank_nr, txt + idx, BNK_BLANK_NR_LEN);
+		bd.prev_blank_nr[BNK_BLANK_NR_LEN] = 0;
+		idx += BNK_BLANK_NR_LEN + 2;
+	}else{
+		bd.repayment = 0;
+		idx++;
+	}
+/* Информация о документах в заказе */
+	for (int i = 0; i < BNK_MAX_DOCS; i++){
+		if (!isdigit(txt[idx]))
+			break;
+		struct bank_doc_info *di = bd.doc_info + i;
+		memcpy(di->blank_nr, txt + idx, BNK_BLANK_NR_LEN);
+		di->blank_nr[BNK_BLANK_NR_LEN] = 0;
+		idx += BNK_BLANK_NR_LEN + 1;
+		uint64_t q = 0, r = 0;
+		bool quot = true;
+		for (int j = 0; j < BNK_AMOUNT_MAX_LEN; j++){
+			uint8_t b = txt[idx++];
+			if (isdigit(b)){
+				b -= 0x30;
+				if (quot){
+					q *= 10;
+					q += b;
+				}else{
+					r *= 10;
+					r += b;
+				}
+			}else if (b == '.')
+				quot = false;
+			else if (b == ';')
+				break;
+		}
+		idx++;
+		if (r < 10)
+			r *= 10;
+		di->amount = q * 100 + r;
+		bd.nr_docs++;
+	}
 }
 
 /* Определение назначения абзаца ответа */
@@ -1093,15 +1224,15 @@ static uint8_t *check_kkt_xml(uint8_t *txt, int l, int *ecode)
 }
 
 /* Проверка абзаца ответа */
-static uint8_t *check_para(uint8_t *txt, int l, int *ecode)
+static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 {
 	uint8_t *p, *pp, *eptr, b;
 	int dst = get_dest(txt[-1]);
 	bool has_warray = false;
-	*ecode = E_OK;
-	if ((txt == NULL) || (l <= 0))
+	if ((txt == NULL) || (l <= 0) || (ecode == NULL) || (n_para < 0) || (n_para >= MAX_PARAS))
 		return NULL;
-	else if (para_len(txt - resp_buf) > TEXT_BUF_LEN){
+	*ecode = E_OK;
+	if (para_len(txt - resp_buf) > TEXT_BUF_LEN){
 		*ecode = E_BIGPARA;
 		return txt;
 	}
@@ -1278,6 +1409,14 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode)
 					}else
 						has_warray = false;
 					break;
+				case X_XML:
+					printf("%s: n_para = %d\n", __func__, n_para);
+					pp = check_xml(p, txt + l - p, dst, ecode, get_xml_data(n_para));
+					if (*ecode != E_OK)
+						return pp;
+					else
+						p = pp;
+					break;
 				default:
 					*ecode = E_UNKNOWN;
 					return p - 1;
@@ -1294,7 +1433,7 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 {
 	bool keys = false;
 	bool has_dst = false;
-	int n_dsts = 0;
+	int n_dsts = 0, n_para = 0;
 	bool has_clear = false;
 	uint8_t *p = txt, *eptr = txt + l, b;
 	*ecode = E_OK;
@@ -1331,6 +1470,7 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 							*ecode = E_CLEAR;
 							return p - 2;
 						}
+						n_para++;
 					}
 					break;
 				case X_80_20:
@@ -1405,7 +1545,7 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 				case X_OUT:
 				case X_QOUT:
 main_chk:				has_dst = true;
-					p = check_para(p, txt + l - p, ecode);
+					p = check_para(p, txt + l - p, ecode, n_para);
 					if (*ecode != E_OK)
 						return p;
 					n_dsts++;
@@ -1421,6 +1561,7 @@ main_chk:				has_dst = true;
 				case X_PARA_END_N:
 				case X_REQ:
 					has_dst = false;
+					n_para++;
 					break;
 				case X_REPEAT:
 				case X_ATTR:
@@ -1563,7 +1704,10 @@ int make_resp_map(void)
 		pi = map;
 		if ((pi->dst == dst_xprn) || (pi->dst == dst_aprn) ||
 				(pi->dst == dst_lprn) || (pi->dst == dst_kprn)){
-			memmove(map + 1, map, n * sizeof(*map));
+			for (i = n; i > 0; i--)
+				map[i] = map[i - 1];
+			shr_xml_data();
+//			memmove(map + 1, map, n * sizeof(*map));
 			pi->dst = dst_sys;
 			pi->jump_next = false;
 			pi->auto_handle = false;
@@ -1712,6 +1856,9 @@ bool check_raw_resp(void)
 #define MAX_PARSE_STEPS		100
 int handle_para(int n_para)
 {
+	bool prn_dst = n_para < 0;
+	if (n_para < 0)
+		n_para += MAX_PARAS;
 	static uint8_t buf[TEXT_BUF_LEN];
 	struct para_info *pi = map + n_para;
 	uint8_t *p, *eptr, id;
@@ -1787,6 +1934,32 @@ int handle_para(int n_para)
 						p += 2;
 						n++;
 						break;
+					case X_XML:
+					{
+						struct xml_data *xml_data = get_xml_data(n_para);
+						if (xml_data == NULL)
+							return 0;
+						uint8_t *data = NULL;
+						size_t data_len = 0;
+						if (prn_dst && (xml_data->prn_data != NULL)){
+							data = xml_data->prn_data;
+							data_len = xml_data->prn_data_len;
+						}else if (!prn_dst && (xml_data->scr_data != NULL)){
+							data = xml_data->scr_data;
+							data_len = xml_data->scr_data_len;
+						}
+						if (data == NULL)
+							return 0;
+						else if ((i + data_len) > sizeof(text_buf))
+							return 0;
+						if (data_len > 0){
+							memcpy(text_buf + i, data, data_len);
+							i += data_len;
+							p += xml_data->cmd_len;
+							n++;
+						}
+						break;
+					}
 					case LPRN_WR_BCODE2:
 						if (m == 0){	/* штрих-код обрабатывается только один раз */
 							ll = sizeof(text_buf) - i;
@@ -1794,8 +1967,10 @@ int handle_para(int n_para)
 								text_buf + i, &ll);
 							i += ll;
 							break;
-						}	/* fall through */
+						}
+						__fallthrough__;
 					default:		/* Неизвестная команда */
+
 						if ((i + 3) > sizeof(text_buf))
 							return 0;
 						text_buf[i++] = p[-1];
@@ -1873,6 +2048,14 @@ static void sync_date(void)
 		resp_executing = false;
 		need_lock_term = true;
 	}
+}
+
+bool use_integrator = false;
+
+static bool check_integrator(const uint8_t *data, size_t len)
+{
+	const uint8_t integrator[] = "<INTEGRATOR>";
+	return memmem(data, len, integrator, sizeof(integrator) - 1) != NULL;
 }
 
 /* Предварительная обработка ответа */
@@ -1958,6 +2141,11 @@ static void preexecute_resp(void)
 				break;
 			case dst_text:
 				if (init){
+					bool old_use_integrator = use_integrator;
+					use_integrator = check_integrator(text_buf, l);
+					if (use_integrator != old_use_integrator)
+						RedrawScr(false, get_main_title());
+					log_dbg("use_integrator = %d.", use_integrator);
 					check_x3_grids(text_buf, l);
 					log_dbg("need_grids_update_xprn = %d; need_grids_update_kkt = %d.",
 						need_grids_update_xprn(), need_grids_update_kkt());
@@ -2292,36 +2480,19 @@ static void execute_kkt(struct para_info *pi __attribute__((unused)), int len)
 }
 
 /* Получение информации банковского абзаца во время обработки ответа */
-const struct bank_info *get_bi(void)
+const struct bank_data *get_bi(void)
 {
-	const struct bank_info *ret = NULL;
+	const struct bank_data *ret = NULL;
 	if (resp_executing){
 		for (int i = 0; i < n_paras; i++){
 			if (map[i].dst == dst_bank){
-				ret = &bi;
+				ret = &bd;
 				break;
 			}
 		}
 	}
 	return ret;
 }
-
-/* Получение информации банковского абзаца во время обработки ответа (новая структура) */
-const struct bank_info_ex *get_bi_ex(void)
-{
-	const struct bank_info_ex *ret = NULL;
-	if (resp_executing){
-		for (int i = 0; i < n_paras; i++){
-			if (map[i].dst == dst_bank){
-				ret = &bi_ex;
-				break;
-			}
-		}
-	}
-	return ret;
-}
-
-
 
 /* Получение данных изображения для БПУ */
 bool find_pic_data(int *data, int *req)
@@ -2433,6 +2604,7 @@ bool execute_resp(void)
 				case dst_kprn:
 					if (p->auto_handle && (next_printable() == cur_para)){
 						if (p->can_print){
+							l = handle_para(n_para - MAX_PARAS);
 							if (execute_prn(p, l, n_para++)){
 								if ((p->dst == dst_xprn) || (p->dst == dst_kprn))
 									resp_printed = true;

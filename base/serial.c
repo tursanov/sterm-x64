@@ -10,8 +10,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "gui/scr.h"
 #include "genfunc.h"
 #include "serial.h"
+
+
+__attribute__((weak)) bool process_scr(void)
+{
+	return true;
+}
 
 /* Определение имени файла по его дескриптору */
 const char *fd2name(int fd)
@@ -200,7 +207,8 @@ ssize_t serial_read(int dev, uint8_t *data, size_t len, uint32_t *timeout)
 			fprintf(stderr, "%s: таймаут чтения из %s; считано %zd байт вместо %zu.\n",
 				__func__, fd2name(dev), rx_len, len);
 			break;
-		}
+		}else
+			process_scr();
 	}
 	if (dt > *timeout)
 		*timeout = 0;

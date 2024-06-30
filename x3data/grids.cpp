@@ -1,4 +1,4 @@
-/* Работа с разметками бланков БПУ/ККТ. (c) gsr, 2015-2016, 2019, 2022, 2024 */
+/* Работа с разметками бланков БПУ/ККТ. (c) gsr 2015-2016, 2019, 2022, 2024 */
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -182,7 +182,6 @@ static regex_t reg;
 
 static int grid_selector(const struct dirent *entry)
 {
-	log_dbg("d_name = '%s'.", entry->d_name);
 	return regexec(&reg, entry->d_name, 0, NULL, 0) == REG_NOERROR;
 }
 
@@ -967,8 +966,7 @@ static bool write_grid_to_kkt(const GridInfo &gi)
 				log_err("Ошибка загрузки разметки %s в ККТ: 0x%.2hhx.", path, kkt_status);
 		}else
 			log_err("Ошибка сжатия разметки %s.", path);
-	}else
-		log_err("Невозможно начать загрузку разметки %s в ККТ: 0x%.2hhx.", path, kkt_status);
+	}
 	return ret;
 }
 
@@ -1008,7 +1006,6 @@ static bool update_grids_kkt(const list<GridInfo> &stored_grids, list<GridInfo> 
 /* Обновление разметок в ККТ */
 bool update_kkt_grids()
 {
-	log_info("kkt = %p.", kkt);
 	if (kkt == NULL){
 		log_err("ККТ не подключена.");
 		return false;

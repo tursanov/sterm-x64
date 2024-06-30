@@ -3,6 +3,12 @@
 
 #include "kkt/fd/ad.h"
 
+typedef struct dim_t
+{
+	int w;
+	int h;
+} dim_t;
+
 typedef struct ui_cart_t
 {
 	size_t subcart_count;

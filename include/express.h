@@ -9,6 +9,9 @@ extern "C" {
 
 #include "genfunc.h"
 
+/* Признак работы терминала через интегратор */
+extern bool use_integrator;
+
 /* Типы запроса */
 enum {
 	req_regular,		/* обычный запрос */
@@ -43,6 +46,7 @@ extern int req_type;
 #define X_QOUT		0x4f	/* O абзац для ОЗУ заказа без отображения на экране */
 #define X_LPRN		0x50	/* P абзац для ППУ */
 #define X_KPRN		0x51	/* Q абзац для печати на ККТ */
+#define X_XML		0x52	/* R данные в формате XML */
 #define X_REPEAT	0x53	/* S автоповтор символа */
 #define X_REQ		0x55	/* U конец абзаца для ОЗУ заказа */
 #define X_ATTR		0x56	/* V атрибут символа для вывода на экран */
@@ -97,6 +101,19 @@ extern int req_type;
 #define E_KKT_ILL_ATTR	0x95	/* Неверное значение атрибута в XML для ККТ */
 #define E_KKT_NO_ATTR	0x96	/* Отсутствует обязательный атрибут для ККТ */
 #define E_LBL_LEN	0x98	/* В начале абзаца для ДПУ должна стоять команда длины бланка */
+#define E_XML_SHORT			0xa0	/* Слишком короткий абзац с XML */
+#define E_XML_RECODE			0xa1	/* Неверный идентификатор перекодировки */
+#define E_XML_SCR_TRANSFORM_TYPE	0xa2	/* Неверный тип трансформации для экрана */
+#define E_XML_PRN_TRANSFORM_TYPE	0xa3	/* Неверный тип трансформации для печати */
+#define E_XML_XSLT_LEN			0xa4	/* Неверный формат длины встроенной таблицы трансформации */
+#define E_XML_NO_SCR_TRANSFORM		0xa5	/* Отсутствует встроенная таблица трансформации для экрана */
+#define E_XML_NO_PRN_TRANSFORM		0xa6	/* Отсутствует встроенная таблица трансформации для печати */
+#define E_XML_LEN			0xa7	/* Неверный формат длины XML */
+#define E_XML_HDR			0xa8	/* Не найден заголовок XML */
+#define E_XML_PRN_PARSE			0xa9	/* Ошибка разбора XML для печати */
+#define E_XML_PRN_TRANSFORM		0xaa	/* Ошибка преобразования XML для печати */
+#define E_XML_SCR_PARSE			0xab	/* Ошибка разбора XML для экрана */
+#define E_XML_SCR_TRANSFORM		0xac	/* Ошибка преобразования XML для экрана */
 #define E_UNKNOWN	0x99	/* Неизвестная ошибка */
 
 /* Биты возможностей терминала (передаются во втором байте идентификатора) */
@@ -141,45 +158,56 @@ struct para_info{
 	bool jit_req;		/* можно ли отправить запрос после обработки данного абзаца */
 	uint8_t delay;		/* пауза при обработке (АрB) */
 	int scr_mode;		/* разрешение экрана (Ар2Ф) */
+	int xml_idx;		/* индекс в таблице XML (-1, если записи для абзаца нет */
 };
 
 /* Описание кода синтаксической ошибки ответа */
 extern const char *get_syntax_error_txt(uint8_t code);
 
+/* Информация из абзаца для ИПТ */
+#define BNK_REQ_ID_LEN		7
+#define BNK_TERM_ID_LEN		6
+#define BNK_BLANK_NR_LEN	14
+#define BNK_AMOUNT_MIN_LEN	1
+#define BNK_AMOUNT_MAX_LEN	10
+#define BNK_MAX_DOCS		4
+
+/* Информация о документе в заказе */
+struct bank_doc_info {
+	char blank_nr[BNK_BLANK_NR_LEN + 1];		/* номер документа */
+	uint64_t amount;				/* сумма в копейках */
+};
+
+/* Информация о банковском абзаце */
+struct bank_data {
+	uint32_t req_id;				/* номер заказа в системе */
+	char term_id[BNK_TERM_ID_LEN + 1];		/* технологический номер терминала */
+	char op;					/* тип платежа (-;+;*) */
+	bool ticket;					/* ОД/ПВД */
+	char repayment;					/* признак переоформления */
+	char prev_blank_nr[BNK_BLANK_NR_LEN + 1];	/* номер предыдущего документа */
+	struct bank_doc_info doc_info[BNK_MAX_DOCS];	/* информация о документах в заказе */
+	size_t nr_docs;					/* количество документов в заказе */
+};
+
+/* Запись в банковской корзине */
 struct bank_info {
-	uint32_t id;								// идентификатор платежа
-	char  termid[5];
-/*	struct date_time dt;*/
-	uint32_t amount1;
-	uint32_t amount2;
+	uint32_t req_id;				/* номер заказа в системе */
+	char term_id[BNK_TERM_ID_LEN + 1];		/* технологический номер терминала */
+	char op;					/* тип платежа (-;+;*) */
+	bool ticket;					/* ОД/ПВД */
+	char blank_nr[BNK_BLANK_NR_LEN + 1];		/* номер документа */
+	char repayment;					/* признак переоформления */
+	char prev_blank_nr[BNK_BLANK_NR_LEN + 1];	/* номер предыдущего документа */
+	uint64_t amount;				/* сумма в копейках */
 };
 
-
-#define BNK_BIN_DOC_NR_LEN		14
-/* Информация для ИПТ (новая структура) */
-struct bank_info_ex {
-	uint32_t id;								// идентификатор платежа
-    char term_id[7];							// номер терминала
-	char op;									// тип платежа (-;+;*)
-	char repayment; 							// тип возврата (\x0;0;1)
-	bool ticket;								// ОД/ПВД
-	char blank_nr[BNK_BIN_DOC_NR_LEN + 1];		// номер документа
-	char prev_blank_nr[BNK_BIN_DOC_NR_LEN + 1];	// номер предыдущего документа
-	uint64_t amount;							// сумма в копейках
-};
-
-extern struct bank_info bi;
-extern struct bank_info_ex bi_ex;
-extern struct bank_info bi_pos;
-
-/* Очистка содержимого структуры */
-extern void clear_bank_info(struct bank_info *p, bool full);
-/* Сброс содержимого обеих областей памяти */
-extern void reset_bank_info(void);
-/* Добавление содержимого первой области ко второй */
-extern void add_bank_info(void);
-/* Возврат к предыдущему значению */
-extern void rollback_bank_info(void);
+/* Данные банковского абзаца */
+extern struct bank_data bd;
+/* Очистка банковской информации */
+extern void clear_bank_info(void);
+/* Получение информации о банковском абзаце */
+extern ssize_t get_bank_info(struct bank_info *items, size_t nr_items);
 
 /* Номер абзаца ответа на КЛ при обработке ответа */
 extern uint32_t log_para;
@@ -213,10 +241,7 @@ extern bool check_raw_resp(void);
 extern int handle_para(int n_para);
 
 /* Получение информации банковского абзаца во время обработки ответа */
-extern const struct bank_info *get_bi(void);
-
-/* Получение информации банковского абзаца во время обработки ответа (в новой структуре) */
-extern const struct bank_info_ex *get_bi_ex(void);
+extern const struct bank_data *get_bi(void);
 
 /* Получение данных изображения для БПУ */
 extern bool find_pic_data(int *data, int *req);

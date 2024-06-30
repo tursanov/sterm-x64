@@ -26,16 +26,18 @@ void ui_doc_calc_bounds(ui_doc_t *d);
 
 static const char* sc_tab_title[MAX_SUB_CART][MAX_TAB_COL] =
 {
-	{ "N документа", "Дата и время", "Операция", "", "Сумма" },
-	{ "N документа", "Дата и время", "Операция", "", "Сумма" },
-	{ "N документа", "Дата и время", "Операция", "N квитанции", "Сумма" },
-	{ "N документа", "Дата и время", "Операция", "N заказа", "Сумма" },
-	{ "N документа", "Дата и время", "Операция", "N заказа", "Сумма" },
-	{ "N документа", "Дата и время", "Операция", "", "Сумма" },
-	{ "N документа", "Дата и время", "Операция", "N квитанции", "Сумма" },
-	{ "N документа", "Дата и время", "Операция", "N заказа", "Сумма" },
-	{ "N документа", "Дата и время", "Операция", "N заказа", "Сумма" },
+	{ "N документа", "Дата и время", "Операция", "", "Сумма " },
+	{ "N документа", "Дата и время", "Операция", "", "Сумма " },
+	{ "N документа", "Дата и время", "Операция", "N квитанции", "Сумма " },
+	{ "N документа", "Дата и время", "Операция", "N заказа", "Сумма " },
+	{ "N документа", "Дата и время", "Операция", "N заказа", "Сумма " },
+	{ "N документа", "Дата и время", "Операция", "", "Сумма " },
+	{ "N документа", "Дата и время", "Операция", "N квитанции", "Сумма " },
+	{ "N документа", "Дата и время", "Операция", "N заказа", "Сумма " },
+	{ "N документа", "Дата и время", "Операция", "N заказа", "Сумма " },
 };
+
+static float tab_fr[MAX_TAB_COL] = { 1, 1, 1.4, 0.6, 1 };
 
 void ui_cart_create()
 {
@@ -120,8 +122,6 @@ void ui_subcart_init(ui_subcart_t *sc, SubCart *val)
 	sc->docs = __calloc(sc->doc_count, ui_doc_t);
 	ui_subcart_set_title(sc);
 
-	printf("sc->type = %c\n", val->type);
-
 	int i = 0;
 	for (list_item_t *li = val->documents.head; li; li = li->next, i++)
 	{
@@ -170,11 +170,22 @@ static int ui_subcart_header_with_box_draw(ui_subcart_t *sc, int x, int y, int w
 static int ui_subcart_table_header_draw(ui_subcart_t *sc, int x, int y, int col_width)
 {
 	const char **coltext = sc_tab_title[SUB_CART_INDEX(sc->val->type)];
-	for (int i = 0, cx = x; i < MAX_TAB_COL; i++, cx += col_width, coltext++)
+	float *fr = tab_fr;
+
+	int flags = DT_LEFT | DT_VCENTER;
+
+	for (int i = 0; i < MAX_TAB_COL; i++, coltext++, fr++)
 	{
+		int w = (float)col_width * fr[0];
+		if (i == MAX_TAB_COL - 1)
+			flags = DT_RIGHT | DT_VCENTER;
+
 		const char *text = coltext[0];
 		if (*text)
-			TextOut(screen, cx, y, text);
+		{
+			DrawText(screen, x, y, w, fnt->max_height, text, flags);
+		}
+		x += w;
 	}
 
 	y += fnt->max_height + YGAP;
@@ -307,19 +318,26 @@ const char *printsum(int64_t sum, char *buf)
 
 static int ui_subcart_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width)
 {
+	float *fr = tab_fr;
 	char buf[32];
 	S s;
 	K_calc_sum(d->val->k, &s);
 
-	TextOut(screen, x, y, d->val->k->d.s);
-	x += col_width;
-	TextOut(screen, x, y, strdatetime(buf, sizeof(buf), d->val->k->dt));
-	x += col_width;
-	TextOut(screen, x, y, ui_doc_get_op(sc, d, &s));
-	x += col_width;
-	TextOut(screen, x, y, ui_doc_get_n(sc, d, buf));
-	x += col_width;
-	TextOut(screen, x, y, printsum(s.a, buf));
+
+	DrawText(screen, x, y, col_width, fnt->max_height, d->val->k->d.s, DT_LEFT | DT_VCENTER);
+	x += (float)col_width * fr[0];
+	DrawText(screen, x, y, col_width, fnt->max_height,
+			strdatetime(buf, sizeof(buf), d->val->k->dt), DT_LEFT | DT_VCENTER);
+	x += (float)col_width * fr[1];
+
+	SetFont(screen, sfnt);
+	DrawText(screen, x, y, col_width, fnt->max_height, ui_doc_get_op(sc, d, &s), DT_LEFT | DT_VCENTER);
+	x += (float)col_width * fr[2];
+
+	SetFont(screen, fnt);
+	DrawText(screen, x, y, col_width, fnt->max_height, ui_doc_get_n(sc, d, buf), DT_LEFT | DT_VCENTER);
+	x += (float)col_width * fr[3];
+	DrawText(screen, x, y, col_width, fnt->max_height, printsum(s.a, buf), DT_RIGHT | DT_VCENTER);
 	y += fnt->max_height + YGAP;
 	return y;
 }
@@ -328,7 +346,7 @@ void ui_subcart_draw(ui_subcart_t *sc, int y)
 {
 	int x = XGAP;
 	int w = DISCX - XGAP * 2;
-	int tw = w - sc->tab_ofs_x - XGAP;
+	int tw = w - sc->tab_ofs_x - XGAP * 2;
 	int tcw = tw / MAX_TAB_COL;
 
 	y = ui_subcart_header_with_box_draw(sc, x, y, w);

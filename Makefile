@@ -29,7 +29,8 @@ BASE_OBJS =		\
 	tki		\
 	transport	\
 	xbase64		\
-	xchange
+	xchange		\
+	xml2data
 
 GUI_OBJS =		\
 	adv_calc	\

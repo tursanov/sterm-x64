@@ -1,4 +1,4 @@
-/* Общие функции. (c) gsr, 2024 */
+/* Общие функции. (c) gsr 2024 */
 
 #include <sys/stat.h>
 #include <sys/types.h>

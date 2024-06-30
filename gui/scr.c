@@ -614,7 +614,7 @@ int set_scr_mode(int m, bool need_redraw, bool is_main)
 void switch_scr_mode(bool need_redraw)
 {
 	if (cur_mode == m80x20)
-		set_scr_mode(m32x8, need_redraw, true);
+		/*set_scr_mode(m32x8, need_redraw, true)*/;
 	else
 		set_scr_mode(m80x20, need_redraw, true);
 	set_resp_mode(cur_mode);

@@ -78,7 +78,7 @@ uint16_t term_check_sum = 0;	/* контрольная сумма терминала */
 /* Список устройств подключенных к терминалу */
 struct dev_lst *devices = NULL;
 
-char main_title[80];		/* заголовок главного окна терминала */
+char main_title[MAIN_TITLE_LEN];		/* заголовок главного окна терминала */
 
 char *term_string = "Экспресс-2А-К";
 
@@ -357,7 +357,7 @@ static bool set_term_defaults(void)
 	cfg.color_scheme = 0;
 	translate_color_scheme(cfg.color_scheme,
 		&cfg.rus_color, &cfg.lat_color, &cfg.bg_color);
-	cfg.scr_mode = m32x8;
+	cfg.scr_mode = m80x20;	//m32x8;
 	cfg.has_hint = true;
 	cfg.simple_calc = true;
 
@@ -618,7 +618,6 @@ const char *find_term_astate(intptr_t ast)
 
 bool set_term_astate(intptr_t ast)
 {
-	printf("%s: ast = %ld\n", __func__, ast);
 	const char *str = NULL;
 	if ((str = find_term_astate(ast)) != NULL){
 		_term_aux_state=ast;
@@ -789,24 +788,17 @@ void redraw_term(bool show_text, const char *title)
 	};
 	int i;
 	bool v=scr_visible;
-	printf("%s #1\n", __func__);
 	scr_visible=true;
 	draw_scr(show_text, title);
-	printf("%s #2\n", __func__);
 	set_term_state(_term_state);
-	printf("%s #3\n", __func__);
 	set_term_astate(_term_aux_state);
-	printf("%s #4\n", __func__);
 	set_term_led(hbyte);
-	printf("%s #5\n", __func__);
 	scr_visible=v;
-	printf("%s #6\n", __func__);
 	for (i=0; i < ASIZE(scr_elems); i++)
 		if (*scr_elems[i].active)
 			scr_elems[i].draw_fn();
 	if (menu_active || lprn_menu_active)
 		draw_menu(mnu);
-	printf("%s #7\n", __func__);
 }
 
 /* Восстановление экрана после гашения */
@@ -865,14 +857,15 @@ void release_garbage(void)
 }
 
 /* Получение заголовка главного окна терминала */
-static char *get_main_title(void)
+char *get_main_title(void)
 {
 	snprintf(main_title, sizeof(main_title), MAIN_TITLE " ("
 		_s(STERM_VERSION_MAJOR) "."
 		_s(STERM_VERSION_MINOR) "."
-		_s(STERM_VERSION_RELEASE) "  %s %s) -- \x01%s РЕЖИМ",
+		_s(STERM_VERSION_RELEASE) "  %s %s) -- \x01%s РЕЖИМ (%s)",
 		__DATE__, __TIME__,
-		(wm == wm_main) ? "ОСНОВНОЙ" : "ПРИГОРОДН\x9bЙ");
+		(wm == wm_main) ? "ОСНОВНОЙ" : "ПРИГОРОДН\x9bЙ",
+		use_integrator ? "ИНТЕГРАТОР" : "ХОСТ");
 	return main_title;
 }
 
@@ -1069,6 +1062,7 @@ static void init_term(bool need_init)
 	rejecting_req = false;
 	c_state = cs_ready;
 	tstack_ptr = 0;
+	use_integrator = false;
 	if (flag)
 		ClearScreen(clBtnFace);
 	reset_scr();
@@ -1103,12 +1097,13 @@ static void init_term(bool need_init)
 	wm_transition = false;
 	if (cfg.bank_system)
 		pos_init_transactions();
-	reset_bank_info();
+	clear_bank_info();
 	lprn_error_shown = false;
 	rollback_keys(true);
 	apc = false;
 	init_devices();
 	update_kkt_grids();
+	update_kkt_icons();
 	if (cfg.use_iplir)
 		iplir_start();
 }
@@ -1264,8 +1259,7 @@ static bool create_term(void)
 		fprintf(stderr, "Ошибка инициализации ИПТ.\n");
 		return false;
 	}
-	clear_bank_info(&bi, true);
-	clear_bank_info(&bi_pos, true);
+	clear_bank_info();
 	init_keys();
 	rom = create_hash(ROM_BUF_LEN);
 	if (rom == NULL){
@@ -1331,12 +1325,9 @@ static bool create_term(void)
 	lprn_create_log();
 #endif
 	init_term(kt == key_reg);
-	printf("%s: #1\n", __func__);
 	redraw_term(true, main_title);
-	printf("%s: #2\n", __func__);
 	if (show_usb_msg())
 		redraw_term(true, main_title);
-	printf("%s: #3\n", __func__);
 	return true;
 }
 
@@ -1929,7 +1920,6 @@ static void on_end_pos(void)
 				apc = fa_active;
 				break;
 			case DLG_BTN_RETRY:
-				rollback_bank_info();
 				reset_bi = false;
 /* FIXME: в этом случае по окончании работы с ИПТ мы не посылаем INIT CHECK (pos_new) */
 				if (pos_get_state() == pos_finish)
@@ -1945,7 +1935,7 @@ static void on_end_pos(void)
 	if (!apc && (pos_err_xdesc != NULL))
 		set_term_astate(ast_pos_error);
 	if (reset_bi)
-		reset_bank_info();
+		clear_bank_info();
 	if (!apc)
 		redraw_term(true, main_title);
 }
@@ -2097,8 +2087,8 @@ void reject_req(void)
 		mark_all();
 		show_req();
 		set_term_astate(ast_none);
-		if (cfg.bank_system)
-			rollback_bank_info();
+/*		if (cfg.bank_system)
+			rollback_bank_info();*/		/* FIXME */
 		reject();
 		if (wm == wm_main)
 			xlog_write_rec(hxlog, NULL, 0, XLRT_REJECT, log_para++);
@@ -2500,7 +2490,6 @@ static void show_pos(void)
 		if (pos_screen_create((DISCX - font32x8->max_width * POS_WIDTH) / 2,
 				44, POS_WIDTH, POS_HEIGHT, 4, 4, font32x8,
 				bmp_up, bmp_down)){
-			add_bank_info();
 			pos_screen_draw();
 			pos_set_state(pos_init);
 		}else{
@@ -3688,11 +3677,11 @@ static int need_pos(void)
 				int64_t s = ads.cashless_total_sum;
 				if (s < 0)
 					s *= -1;
-				bi.amount1 = s / 100;
+/*				bi.amount1 = s / 100;
 				bi.amount2 = ((s % 100) + 5) / 10;
 				if (ads.order_id > 0)
 					bi.id = ads.order_id;
-				clear_bank_info(&bi_pos, true);
+				clear_bank_info(&bi_pos, true);*/	/* FIXME */
 				ret = 1;
 			}
 		}
@@ -4255,8 +4244,6 @@ static bool process_term(void)
 		for (int i = 0; i < ASIZE(handlers); i++){
 			typeof(*handlers) *p = handlers + i;
 			if (cm == p->cm){
-				if (!p->ret_val)
-					printf("%s: cmd_exit received.\n", __func__);
 				if (p->fn != NULL)
 					p->fn();
 				return p->ret_val;
