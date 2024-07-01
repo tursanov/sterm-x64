@@ -12,17 +12,24 @@ static FontPtr fnt = NULL;
 static FontPtr sfnt = NULL;
 static ui_cart_t *ui_cart = NULL;
 
-void ui_subcart_init(ui_subcart_t *sc, SubCart *val);
+void ui_subcart_init(ui_subcart_t *sc, SubCart *val, bool tab_selected);
 void ui_subcart_free(ui_subcart_t *sc);
-void ui_doc_init(ui_doc_t *d, D *val);
+void ui_doc_init(ui_doc_t *d, D *val, bool selected);
 void ui_subcart_calc_bounds(ui_subcart_t *sc);
 void ui_doc_calc_bounds(ui_doc_t *d);
+extern int kbd_lang_ex;
+extern int kbd_get_char_ex(int key);
 
 #define XGAP	5
 #define YGAP	5
 #define YGAP_DOC 5
 #define BORDER_WIDTH 2
 #define MAX_TAB_COL 5
+
+#define BUTTON_WIDTH  150
+#define BUTTON_HEIGHT 30
+
+#define SELECTED_BORDER_COLOR clRopnetDarkBrown
 
 static const char* sc_tab_title[MAX_SUB_CART][MAX_TAB_COL] =
 {
@@ -49,13 +56,17 @@ void ui_cart_create()
 	ui_cart = __new(ui_cart_t);
 	ui_cart->subcarts = __calloc(MAX_SUB_CART, ui_subcart_t);
 
+    bool first = true;
 	for (int i = 0; i < MAX_SUB_CART; i++)
 	{
 		SubCart *val = &cart.sc[i];
 		if (val->documents.count > 0)
 		{
 			ui_subcart_t *sc = &ui_cart->subcarts[ui_cart->subcart_count++];
-			ui_subcart_init(sc, val);
+			
+			ui_subcart_init(sc, val, first);
+			
+			first = false;
 		}
 	}
 }
@@ -115,18 +126,24 @@ static void ui_subcart_set_title(ui_subcart_t* sc)
 	}
 }
 
-void ui_subcart_init(ui_subcart_t *sc, SubCart *val)
+void ui_subcart_init(ui_subcart_t *sc, SubCart *val, bool tab_selected)
 {
 	sc->val = val;
 	sc->doc_count = val->documents.count;
 	sc->docs = __calloc(sc->doc_count, ui_doc_t);
 	ui_subcart_set_title(sc);
+    sc->tab_selected_doc = -1;
+    
+	if (tab_selected)
+	{
+	    sc->tab_selected_flags = TAB_SELECTED_ACTION;
+	}
 
 	int i = 0;
 	for (list_item_t *li = val->documents.head; li; li = li->next, i++)
 	{
 		D *val = LIST_ITEM(li, D);
-		ui_doc_init(&sc->docs[i], val); 
+		ui_doc_init(&sc->docs[i], val, tab_selected);
 	}
 }
 
@@ -151,6 +168,8 @@ void ui_subcart_calc_bounds(ui_subcart_t *sc)
 		h += d->height + YGAP_DOC;
 	}
 
+	h += BUTTON_HEIGHT + YGAP * 3;
+	
 	sc->height = h;
 	sc->tab_ofs_x = XGAP;
 }
@@ -159,10 +178,16 @@ static int ui_subcart_header_with_box_draw(ui_subcart_t *sc, int x, int y, int w
 {
 	fill_rect(screen, x, y, w, sc->height, BORDER_WIDTH, clBlack, 0);
 	
-	y += YGAP;
 	SetTextColor(screen, clBlack);
+	
+	int tw = GetTextWidth(screen, sc->title);
+    DrawBorder(screen, XGAP, y, tw + XGAP * 4, fnt->max_height + YGAP * 2, 2, clBlack, clBlack);
+    
+	y += YGAP;
 	TextOut(screen, x + XGAP, y, sc->title);
-	y += YGAP + fnt->max_height;
+	
+	
+	y += YGAP * 2 + fnt->max_height;
 
 	return y;
 }
@@ -294,7 +319,7 @@ const char *ui_doc_get_n(ui_subcart_t *sc, ui_doc_t *d, char *buf)
     
     if (k->y && (t == 'D' || t == 'H' || t == 'I' || t == 'E'))
     {
-        sprintf(buf, "%7d", k->y->id);
+        sprintf(buf, "%7d", k->y->req_id);
     }
     else if (t == 'C' || t == 'G')
     {
@@ -322,9 +347,20 @@ static int ui_subcart_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int 
 	char buf[32];
 	S s;
 	K_calc_sum(d->val->k, &s);
+	
+	Color borderColor = sc->tab_selected_doc >= 0 && &sc->docs[sc->tab_selected_doc] == d
+	    ? SELECTED_BORDER_COLOR
+	    : clSilver;
+    DrawBorder(screen, x - XGAP - 2, y - 2, DISCX - XGAP * 3, fnt->max_height + 3, 2, borderColor, borderColor);
 
-
-	DrawText(screen, x, y, col_width, fnt->max_height, d->val->k->d.s, DT_LEFT | DT_VCENTER);
+	
+	if (d->selected)
+    {	
+    	DrawText(screen, x, y, 15, 17, "*", DT_CENTER | DT_VCENTER);
+        DrawBorder(screen, x, y, 15, 15, 2, clBlack, clBlack);
+        SetTextColor(screen, clBlack);
+    }
+	DrawText(screen, x + 20, y, col_width, fnt->max_height, d->val->k->d.s, DT_LEFT | DT_VCENTER);
 	x += (float)col_width * fr[0];
 	DrawText(screen, x, y, col_width, fnt->max_height,
 			strdatetime(buf, sizeof(buf), d->val->k->dt), DT_LEFT | DT_VCENTER);
@@ -338,7 +374,10 @@ static int ui_subcart_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int 
 	DrawText(screen, x, y, col_width, fnt->max_height, ui_doc_get_n(sc, d, buf), DT_LEFT | DT_VCENTER);
 	x += (float)col_width * fr[3];
 	DrawText(screen, x, y, col_width, fnt->max_height, printsum(s.a, buf), DT_RIGHT | DT_VCENTER);
+	
+	
 	y += fnt->max_height + YGAP;
+	
 	return y;
 }
 
@@ -358,11 +397,18 @@ void ui_subcart_draw(ui_subcart_t *sc, int y)
 		ui_doc_t *d = &sc->docs[i];
 		y = ui_subcart_doc_draw(sc, d, x, y, tcw);
 	}
+	
+	bool action_selected = sc->tab_selected_flags == TAB_SELECTED_ACTION;
+	bool delete_selected = sc->tab_selected_flags == TAB_SELECTED_DELETE;
+	
+    draw_button(screen, XGAP * 3, y, BUTTON_WIDTH, BUTTON_HEIGHT,  "Печать чека", action_selected);
+    draw_button(screen, x + w - XGAP*4 - BUTTON_WIDTH, y, BUTTON_WIDTH, BUTTON_HEIGHT,  "Удалить", delete_selected);
 }
 
-void ui_doc_init(ui_doc_t *d, D *val)
+void ui_doc_init(ui_doc_t *d, D *val, bool selected)
 {
 	d->val = val;
+    d->selected = selected;
 }
 
 void ui_doc_calc_bounds(ui_doc_t *d)
@@ -395,4 +441,83 @@ void ui_cart_draw(GCPtr s, FontPtr f, FontPtr sf)
 		ui_subcart_draw(sc, y);
 		y += sc->height + YGAP;
 	}
+}
+
+int ui_cart_get_y(ui_subcart_t *sc)
+{
+	int y = YGAP;
+	for (int i = 0; i < ui_cart->subcart_count; i++)
+	{
+		ui_subcart_t *_sc = &ui_cart->subcarts[i];
+		
+		if (_sc == sc)
+		{
+		    return y;
+		}
+		
+		y += sc->height + YGAP;
+	}
+	
+	return 0;
+}
+
+void tab_select_next()
+{
+	for (int i = 0; i < ui_cart->subcart_count; i++)
+	{
+		ui_subcart_t *sc = &ui_cart->subcarts[i];
+		
+		if (sc->tab_selected_doc >= 0)
+		{
+		    sc->tab_selected_doc++;
+		    if (sc->tab_selected_doc >= sc->doc_count)
+		    {
+		        sc->tab_selected_doc = -1;
+		        sc->tab_selected_flags = TAB_SELECTED_ACTION;
+		    }
+        }
+        else if (sc->tab_selected_flags == TAB_SELECTED_ACTION)
+        {
+            sc->tab_selected_flags = TAB_SELECTED_DELETE;
+        }
+        else if (sc->tab_selected_flags == TAB_SELECTED_DELETE)
+        {
+            sc = i == ui_cart->subcart_count - 1
+                ? &ui_cart->subcarts[0]
+                : &ui_cart->subcarts[i + 1];
+            sc->tab_selected_doc = 0;
+            sc->tab_selected_flags = TAB_SELECTED_NONE;
+        }
+        
+        ui_subcart_draw(sc, ui_cart_get_y(sc));
+	}
+}
+
+
+bool cart_process(const struct kbd_event *_e) {
+	struct kbd_event e = *_e;
+
+	if (e.key == KEY_CAPS && e.pressed && !e.repeated) {
+		if (kbd_lang_ex == lng_rus)
+			kbd_lang_ex = lng_lat;
+		else
+			kbd_lang_ex = lng_rus;
+	}
+
+	e.ch = kbd_get_char_ex(e.key);
+
+	if (e.pressed) {
+		switch (e.key) {
+			case KEY_ESCAPE:
+				return 0;
+            case KEY_TAB:
+            case KEY_RIGHT:
+                tab_select_next();
+                break;
+            case KEY_SPACE:
+                break;
+        }
+	}
+
+	return 1;
 }

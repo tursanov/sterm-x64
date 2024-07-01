@@ -2,6 +2,7 @@
 #define UI_CART_H
 
 #include "kkt/fd/ad.h"
+#include "kbd.h"
 
 typedef struct dim_t
 {
@@ -16,6 +17,9 @@ typedef struct ui_cart_t
 } ui_cart_t;
 
 #define MAX_UI_CART_TITLE	64
+#define TAB_SELECTED_NONE 0x0
+#define TAB_SELECTED_ACTION 0x1
+#define TAB_SELECTED_DELETE 0x02
 typedef struct ui_subcart_t
 {
 	SubCart *val;
@@ -24,6 +28,8 @@ typedef struct ui_subcart_t
 	char title[MAX_UI_CART_TITLE];
 	int height;
 	int tab_ofs_x;
+	int tab_selected_flags;
+	int tab_selected_doc;
 } ui_subcart_t;
 
 typedef struct ui_doc_t
@@ -37,5 +43,7 @@ typedef struct ui_doc_t
 extern void ui_cart_create();
 extern void ui_cart_destroy();
 extern void ui_cart_draw(GCPtr s, FontPtr f, FontPtr sf);
+extern bool cart_process(const struct kbd_event *_e);
+
 
 #endif // UI_CART_H

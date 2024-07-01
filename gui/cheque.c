@@ -739,7 +739,7 @@ static void change_cashier() {
 	form_destroy(form);
 }
 
-static bool cheque_process(const struct kbd_event *_e) {
+bool cheque_process(const struct kbd_event *_e) {
 	struct kbd_event e = *_e;
 
 	if (e.key == KEY_CAPS && e.pressed && !e.repeated) {
@@ -851,7 +851,7 @@ bool cheque_execute(void) {
 
 	do {
 		kbd_get_event(&e);
-	} while ((ret = cheque_process(&e)) > 0);
+	} while ((ret = cart_process(&e)) > 0);
 
 	return current_c != NULL;
 }
