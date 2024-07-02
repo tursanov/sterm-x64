@@ -44,7 +44,7 @@ extern int req_type;
 #define X_TPRN		X_XPRN	/* M абзац для ТПУ */
 #define X_ROM		0x4e	/* N абзац для ОЗУ констант (ПЗУ) */
 #define X_QOUT		0x4f	/* O абзац для ОЗУ заказа без отображения на экране */
-#define X_LPRN		0x50	/* P абзац для ППУ */
+#define X_SPRN		0x50	/* P абзац для БПУ */
 #define X_KPRN		0x51	/* Q абзац для печати на ККТ */
 #define X_XML		0x52	/* R данные в формате XML */
 #define X_REPEAT	0x53	/* S автоповтор символа */
@@ -125,7 +125,7 @@ extern int req_type;
 #define TCAP_NO_POS	0x10	/* нет ИПТ */
 #define TCAP_UNIBLANK	0x20	/* печать на универсальном бланке */
 #define TCAP_FPS	0x40	/* система быстрых платежей */
-#define TCAP_MASK	(TCAP_UNIBLANK | TCAP_NO_POS | TCAP_EX_BCODE | TCAP_KKT)
+#define TCAP_MASK	0x7f
 
 /* Устройство для вывода абзаца ответа */
 enum {
@@ -135,7 +135,7 @@ enum {
 	dst_xprn,	/*  3 ОПУ */
 	dst_tprn = dst_xprn,
 	dst_aprn,	/*  4 ДПУ */
-	dst_lprn,	/*  5 ППУ */
+	dst_sprn,	/*  5 БПУ */
 	dst_out,	/*  6 */
 	dst_qout,	/*  7 */
 	dst_hash,	/*  8 */

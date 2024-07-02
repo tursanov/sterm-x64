@@ -1474,22 +1474,19 @@ static bool bad_repeat(struct kbd_event *e)
 	uint16_t ctrl_keys[] = {
 		KEY_LCTRL,
 		KEY_RCTRL,
-		KEY_A,		/* Ctrl+Ф -- формат экрана */
 		KEY_G,		/* Ctrl+П -- печать копии экрана */
 		KEY_I,		/* Ctrl+I -- информация о терминале */
 		KEY_J,		/* Ctrl+О -- просмотр обмена в канале */
-		KEY_K,		/* Ctrl+Л -- ЦКЛ */
+		KEY_K,		/* Ctrl+Л -- КЛ "Экспресс" (КЛ1) */
 		KEY_L,		/* Ctrl+L -- информация о версии VipNet-клиента */
-		KEY_M,		/* Ctrl+Ь -- ПКЛ */
 		KEY_P,		/* Ctrl+P -- ping */
 		KEY_Q,		/* Ctrl+Q -- разрыв соединения PPP */
 		KEY_R,		/* Ctrl+К -- ОЗУ ключей */
 		KEY_S,		/* Ctrl+S -- основной/пригородный режим */
 		KEY_T,		/* Ctrl+Е -- ошибка в тексте ответа */
 		KEY_U,		/* Ctrl+U -- печать сохранённых образов бланков на ППУ */
-		KEY_X,		/* Ctrl+X -- БКЛ */
+		KEY_X,		/* Ctrl+X -- БКЛ (КЛ2) */
 		KEY_Z,		/* Ctrl+Z -- получение номера БСО */
-		KEY_COMMA,	/* Ctrl+Б -- вызов банковского приложения */
 	};
 	uint16_t *pp = single_keys;
 	int l = ASIZE(single_keys), i;
@@ -1514,14 +1511,12 @@ static int handle_kbd(struct kbd_event *e, bool check_scr, bool busy)
 		uint16_t key;
 		int cm;
 	} ctrl_keys[] = {
-		{KEY_A, cmd_switch_res},	/* изменение разрешения экрана */
 		{KEY_G, cmd_snap_shot},		/* печать копии экрана */
 		{KEY_H, cmd_view_klog},		/* просмотр ККЛ */
 		{KEY_I, cmd_term_info},		/* информация о терминале */
 		{KEY_J, cmd_view_xchange},	/* просмотр обмена в канале */
 		{KEY_K, cmd_view_xlog},		/* просмотр ЦКЛ */
 		{KEY_L, cmd_iplir_version},	/* информация о версии VipNet-клиента */
-		{KEY_M, cmd_view_llog},		/* просмотр ПКЛ */
 		{KEY_O, cmd_fa},		/* фискальное приложение */
 		{KEY_P, cmd_ping},		/* ping */
 		{KEY_Q,	cmd_ppp_hangup},	/* разрыв соединения PPP */
@@ -1531,7 +1526,7 @@ static int handle_kbd(struct kbd_event *e, bool check_scr, bool busy)
 		{KEY_U, cmd_lprn_menu},		/* меню работы с образами бланков в ППУ */
 		{KEY_X, cmd_view_plog},		/* просмотр БКЛ */
 		{KEY_Z,	cmd_ticket_number},	/* чтение номера БСО в пригородном режиме */
-		{KEY_COMMA, cmd_pos},		/* вызов POS-терминала */
+//		{KEY_COMMA, cmd_pos},		/* вызов POS-терминала */
 		{KEY_F10, cmd_exit},		/* выход */
 	},
 	keys[] = {
@@ -2342,49 +2337,6 @@ static void show_plog_menu(void)
 				cmd_find_plog_date, plog_can_find(hplog)));
 		add_menu_item(mnu, new_menu_item("Поиск записи по номеру",
 				cmd_find_plog_number, plog_can_find(hplog)));
-		ClearScreen(clBlack);
-		draw_menu(mnu);
-	}
-}
-
-/* Показать ПКЛ */
-void show_llog(void)
-{
-	if (wm != wm_local){
-		set_term_astate(ast_illegal);
-		err_beep();
-	}else if (!llog_active){
-		online = false;
-		guess_term_state();
-		push_term_info();
-		log_init_view(llog_gui_ctx);
-	}
-}
-
-/* Показать меню ПКЛ */
-static void show_llog_menu(void)
-{
-	if (!menu_active){
-		push_term_info();
-		hide_cursor();
-		scr_visible = false;
-		set_term_busy(true);
-		mnu = new_menu(true, false);
-		if (llog_rec_hdr.type == LLRT_EXPRESS)
-			add_menu_item(mnu, new_menu_item("Печать текущей записи (ОПУ)",
-				cmd_print_llog_express, true));
-		else if (llog_rec_hdr.type == LLRT_AUX)
-			add_menu_item(mnu, new_menu_item("Печать текущей записи (ДПУ)",
-				cmd_print_llog_aux, true));
-		else
-			add_menu_item(mnu, new_menu_item("Печать текущей записи (ППУ)",
-				cmd_print_llog_rec, true));
-		add_menu_item(mnu, new_menu_item("Печать диапазона записей",
-				cmd_print_llog_range, llog_can_print_range(hllog)));
-		add_menu_item(mnu, new_menu_item("Поиск записи по дате",
-				cmd_find_llog_date, llog_can_find(hllog)));
-		add_menu_item(mnu, new_menu_item("Поиск записи по номеру",
-				cmd_find_llog_number, llog_can_find(hllog)));
 		ClearScreen(clBlack);
 		draw_menu(mnu);
 	}
@@ -4208,8 +4160,6 @@ static bool process_term(void)
 		{cmd_term_info,		show_term_info,		true},
 		{cmd_iplir_version,	show_iplir_version,	true},
 		{cmd_kkt_info,		show_kkt_info,		true},
-		{cmd_view_llog,		show_llog,		true},
-		{cmd_llog_menu,		show_llog_menu,		true},
 		{cmd_print_llog,	print_llog,		true},
 		{cmd_print_llog_rec,	print_llog_rec,		true},
 		{cmd_print_llog_express,print_llog_express,	true},

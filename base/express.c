@@ -487,11 +487,11 @@ static uint8_t *check_prom(uint8_t *txt, int l, int *ecode, int dst)
 				case X_SWRES:	/* Ар2Ф не подлежит записи в ДЗУ */
 					*ecode = E_MISPLACE;
 					return p - 2;
-				case XPRN_NO_BCODE:
-					if (dst == dst_lprn){
+/*				case XPRN_NO_BCODE:
+					if (dst == dst_sprn){
 						*ecode = E_MISPLACE;
 						return p - 2;
-					}		/* fall through */
+					}*/		/* fall through */
 				case XPRN_FONT:
 				case XPRN_VPOS:
 				case XPRN_PRNOP:
@@ -966,8 +966,8 @@ static int get_dest(uint8_t b)
 		case X_APRN:
 			ret = dst_aprn;
 			break;
-		case X_LPRN:
-			ret = dst_lprn;
+		case X_SPRN:
+			ret = dst_sprn;
 			break;
 		case X_KPRN:
 			ret = dst_kprn;
@@ -1009,7 +1009,7 @@ static int para_len(int offset)
 		X_SCR,
 		X_XPRN,
 		X_APRN,
-		X_LPRN,
+		X_SPRN,
 		X_KPRN,
 		X_OUT,
 		X_QOUT,
@@ -1277,7 +1277,7 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 				case X_SCR:
 				case X_XPRN:
 				case X_APRN:
-				case X_LPRN:
+				case X_SPRN:
 				case X_KPRN:
 				case X_OUT:
 				case X_QOUT:
@@ -1507,12 +1507,6 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 				case X_APRN:
 					if (!cfg.has_aprn /*|| (wm == wm_local)*/){
 						*ecode = E_NODEVICE;
-						return p;
-					}
-					goto main_chk;
-				case X_LPRN:
-					if (wm == wm_main){
-						*ecode=E_NODEVICE;
 						return p;
 					}
 					goto main_chk;
@@ -2034,20 +2028,7 @@ static void sync_date(void)
 			}
 		}
 	}
-	if (wm == wm_main)
-		xlog_write_rec(hxlog, NULL, 0, XLRT_INIT, 0);
-	else if (wm == wm_local)
-		llog_write_rec(hllog, NULL, 0, LLRT_INIT, 0);
-	if (lprn_sync_fail){
-		int i;
-		llog_write_sd_error(hllog, lprn_sd_status, 0);
-		set_term_astate(ast_lprn_sd_err);
-		set_term_led(hbyte = n2hbyte(0));
-		for (i = 0; i < n_paras; i++)
-			map[i].handled = false;
-		resp_executing = false;
-		need_lock_term = true;
-	}
+	xlog_write_rec(hxlog, NULL, 0, XLRT_INIT, 0);
 }
 
 bool use_integrator = false;
@@ -2084,49 +2065,27 @@ static void preexecute_resp(void)
 				break;
 			case dst_xprn:
 			case dst_kprn:
+			case dst_sprn:
 				no_print = false;
 				transition_flag = -1;
-				if (wm == wm_main)
-					log_number = xlog_write_rec(hxlog,
-						text_buf, l, XLRT_NORMAL, log_para++);
-				else
-					log_number = llog_write_rec(hllog,
-						text_buf, l, LLRT_EXPRESS, log_para++);
+				log_number = xlog_write_rec(hxlog,
+					text_buf, l, XLRT_NORMAL, log_para++);
 				break;
 			case dst_aprn:
 				no_print = false;
 				transition_flag = -1;
-				if (wm == wm_main)
-					log_number = xlog_write_rec(hxlog,
-						text_buf, l, XLRT_AUX, log_para++);
-				else
-					log_number = llog_write_rec(hllog,
-						text_buf, l, LLRT_AUX, log_para++);
-				break;
-			case dst_lprn:
-				no_print = false;
-				transition_flag = -1;
-				if (wm == wm_local)
-					log_number = llog_write_rec(hllog,
-						text_buf, l, LLRT_NORMAL, log_para++);
+				log_number = xlog_write_rec(hxlog,
+					text_buf, l, XLRT_AUX, log_para++);
 				break;
 			case dst_bank:
 				scan_bank_info(text_buf);
-				if (wm == wm_main)
-					log_number = xlog_write_rec(hxlog, text_buf, l,
-						XLRT_BANK, log_para++);
-				else	/* wm_local */
-					log_number = llog_write_rec(hllog, text_buf, l,
-						LLRT_BANK, log_para++);
+				log_number = xlog_write_rec(hxlog, text_buf, l,
+					XLRT_BANK, log_para++);
 				break;
 			case dst_log:
 				no_print = false;
-				if (wm == wm_main)
-					log_number = xlog_write_rec(hxlog, text_buf, l,
-						XLRT_NORMAL, log_para++);
-				else	/* wm_local */
-					log_number = llog_write_rec(hllog, text_buf, l,
-						LLRT_NORMAL, log_para++);
+				log_number = xlog_write_rec(hxlog, text_buf, l,
+					XLRT_NORMAL, log_para++);
 				break;
 			case dst_kkt:
 				no_print = false;
@@ -2162,14 +2121,8 @@ static void preexecute_resp(void)
 				break;
 		}
 	}
-	if (no_print && TST_FLAG(ZBp, GDF_REQ_APP)){
-		if (wm == wm_main)
-			log_number = xlog_write_rec(hxlog, NULL, 0,
-				XLRT_NOTIFY, 0);
-		else if (wm == wm_local)
-			log_number = llog_write_rec(hllog, NULL, 0,
-				LLRT_NOTIFY, 0);
-	}
+	if (no_print && TST_FLAG(ZBp, GDF_REQ_APP))
+		log_number = xlog_write_rec(hxlog, NULL, 0, XLRT_NOTIFY, 0);
 	wm_transition_interactive = wm_transition && (transition_flag != 1);
 }
 
@@ -2335,7 +2288,8 @@ static bool execute_prn(struct para_info *p, int l, int n_para)
 	}else if (p->dst == dst_kprn){
 		if (cfg.has_kkt && (kkt != NULL))
 			ret = printed = kprn_print(text_buf, l);
-	}else{		/* dst_lprn */
+	}else{		/* dst_sprn */
+#if defined INSERT_SPRN_CODE_HERE
 		while (true){
 			bool sent_to_prn = false;
 			int lprn_ret = lprn_print_ticket(text_buf, l, &sent_to_prn);
@@ -2399,12 +2353,10 @@ static bool execute_prn(struct para_info *p, int l, int n_para)
 				}
 			}
 		}
+#endif		/* INSERT_SPRN_CODE_HERE */
 	}
-	if (printed){
-		if (wm == wm_main)
-			xlog_set_rec_flags(hxlog, log_number, n_para, XLOG_REC_PRINTED);
-		else
-			llog_mark_rec_printed(hllog, log_number, n_para);
+	if (printed){	/* FIXME */
+		xlog_set_rec_flags(hxlog, log_number, n_para, XLOG_REC_PRINTED);
 	}
 	return ret;
 }
@@ -2436,40 +2388,6 @@ bool is_rstatus_error_msg(void)
 			return true;
 	}
 	return false;
-}
-
-/*
- * Попытка напечатать на ППУ абзац, предназначенный для занесения на контрольную
- * ленту. Возвращает false, если необходимо заершить обработку ответа.
- */
-static bool try_print_llog(const uint8_t *data, size_t len)
-{
-	int ast = ast_none;
-	int lret = lprn_get_status();
-	if ((lret == LPRN_RET_OK) && (lprn_status == 0)){
-		lret = lprn_get_media_type();
-		if ((lret == LPRN_RET_OK) && (lprn_status == 0) &&
-				(lprn_media == LPRN_MEDIA_BOTH))
-			lret = lprn_print_log1(data, len);
-	}
-	if (lret == LPRN_RET_OK){
-		if (lprn_status != 0){
-			llog_write_pr_error(hllog, lprn_status, log_para++);
-			ast = ast_lprn_err;
-		}
-	}else if (lret == LPRN_RET_ERR){
-		if (lprn_timeout)
-			llog_write_error(hllog, LLRT_ERROR_TIMEOUT, log_para++);
-		else
-			llog_write_error(hllog, LLRT_ERROR_GENERIC, log_para++);
-		ast = ast_nolprn;
-	}
-	if (ast != ast_none){
-		set_term_astate(ast);
-		err_beep();
-		lprn_error_shown = true;
-	}
-	return lret != LPRN_RET_RST;
 }
 
 static void execute_kkt(struct para_info *pi __attribute__((unused)), int len)
@@ -2632,15 +2550,9 @@ bool execute_resp(void)
 					}
 					break;
 				case dst_log:
-					if ((wm == wm_main) || try_print_llog(text_buf, l)){
-						p->handled = true;
-						n--;
-						n_para++;
-					}else{
-						lprn_error_shown = false;
-						set_term_led(hbyte = n2hbyte(0));
-						return resp_executing = false;
-					}
+					p->handled = true;
+					n--;
+					n_para++;
 					break;
 				case dst_kkt:{
 					has_kkt_data = true;
@@ -2723,12 +2635,6 @@ bool execute_resp(void)
 			case cmd_continue:
 				set_term_astate(ast_none);
 				lprn_error_shown = false;
-				break;
-			case cmd_view_llog:
-				if ((wm == wm_local) && lprn_error_shown)
-					show_llog();
-				else
-					err_beep();
 				break;
 			default:
 				err_beep();
