@@ -1,4 +1,4 @@
-/* Работа с потоком передачи команд POS-эмулятора. (c) A.Popov, gsr 2004 */
+/* Работа с потоком передачи команд POS-эмулятора. (c) A.Popov, gsr 2004-2005, 2024 */
 
 #if !defined POS_COMMAND_H
 #define POS_COMMAND_H
@@ -53,8 +53,8 @@ enum {
 
 /* Параметры ответа */
 typedef struct {
-	char *name;			/* имя параметра */
-	char *value;			/* значение параметра */
+	const char *name;		/* имя параметра */
+	const char *value;		/* значение параметра */
 } pos_response_param_t;
 
 /* Список параметров ответа */

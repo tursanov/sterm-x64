@@ -6,7 +6,6 @@ LOG_OBJS =		\
 	express		\
 	generic		\
 	kkt		\
-	local		\
 	logdbg		\
 	pos
 

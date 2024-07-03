@@ -13,7 +13,6 @@
 #include "kkt/kkt.h"
 #include "kkt/xml.h"
 #include "log/express.h"
-#include "log/local.h"
 #include "log/pos.h"
 #include "prn/aux.h"
 #include "prn/express.h"
@@ -494,11 +493,16 @@ static uint8_t *check_prom(uint8_t *txt, int l, int *ecode, int dst)
 					}*/		/* fall through */
 				case XPRN_FONT:
 				case XPRN_VPOS:
+					if (dst != dst_xprn){
+						*ecode = E_MISPLACE;
+						return p - 2;
+					}
+					break;
 				case XPRN_PRNOP:
 				case XPRN_WR_BCODE:
 				case XPRN_RD_BCODE:
-					if ((dst != dst_xprn) && (dst != dst_aprn) &&
-							(dst != dst_lprn)){
+					if ((dst != dst_xprn) && (dst != dst_sprn) &&
+							(dst != dst_kprn)){
 						*ecode = E_MISPLACE;
 						return p - 2;
 					}
@@ -511,7 +515,7 @@ static uint8_t *check_prom(uint8_t *txt, int l, int *ecode, int dst)
 					}
 					break;
 				case LPRN_NO_BCODE:
-					if (dst != dst_lprn){
+					if (dst != dst_sprn){
 						*ecode = E_MISPLACE;
 						return p - 2;
 					}
@@ -1085,8 +1089,8 @@ static uint8_t *check_aprn(uint8_t *txt, int l, int *ecode)
 	return txt + i;
 }
 
-/* Проверка абзаца для ППУ */
-static uint8_t *check_lprn(uint8_t *txt, int l, int *ecode)
+/* Проверка абзаца для БПУ */
+static uint8_t *check_sprn(uint8_t *txt, int l, int *ecode)
 {
 	enum {
 		st_start,
@@ -1236,12 +1240,12 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 		*ecode = E_BIGPARA;
 		return txt;
 	}
-	if (dst == dst_aprn)
-		p = check_aprn(txt, l, ecode);
-	else if (dst == dst_lprn)
-		p = check_lprn(txt, l, ecode);
+	if (dst == dst_sprn)
+		p = check_sprn(txt, l, ecode);
 	else if (dst == dst_kprn)
 		return check_kprn(txt, l, ecode);
+	if (dst == dst_aprn)
+		p = check_aprn(txt, l, ecode);
 	else if (dst == dst_kkt)
 		return check_kkt_xml(txt, l, ecode);
 	else
@@ -1362,7 +1366,7 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 				case XPRN_NO_BCODE:
 					if ((dst != dst_xprn) && (dst != dst_aprn)){
 						if ((b == XPRN_NO_BCODE) ||
-								((dst != dst_lprn) &&
+								((dst != dst_sprn) &&
 								 (dst != dst_log))){
 							*ecode = E_MISPLACE;
 							return p - 2;
@@ -1383,7 +1387,7 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 				case LPRN_INTERLINE:
 				case LPRN_NO_BCODE:
 				case LPRN_WR_BCODE2:
-					if ((dst != dst_lprn) && (dst != dst_log)){
+					if ((dst != dst_sprn) && (dst != dst_log)){
 						*ecode = E_MISPLACE;
 						return p - 2;
 					}
@@ -1622,8 +1626,8 @@ int make_resp_map(void)
 	for (i = n = 0; (i <= text_len) && (n < MAX_PARAS); i++){
 		if (next_para){
 			next_para = false;
-			if (((pi->dst == dst_xprn) || (pi->dst == dst_aprn) ||
-					(pi->dst == dst_lprn) || (pi->dst == dst_kprn)) &&
+			if (((pi->dst == dst_xprn) || (pi->dst == dst_sprn) ||
+					(pi->dst == dst_kprn) || (pi->dst == dst_aprn)) &&
 					first_print){
 				first_print = false;
 				pi->auto_handle = false;
@@ -1642,20 +1646,20 @@ int make_resp_map(void)
 			dst = get_dest(p[i]);
 			if (dst != dst_none){
 				if ((dst != dst_sys) && (dst != dst_xprn) &&
-						(dst != dst_aprn) &&
-						(dst != dst_lprn) && (dst != dst_kprn))
+						(dst != dst_sprn) &&
+						(dst != dst_kprn) && (dst != dst_aprn))
 					first_print = false;
 				if (pi->dst == dst_none){
 					pi->dst = dst;
-					if ((dst == dst_xprn) || (dst == dst_aprn) ||
-							(dst == dst_lprn) || (dst == dst_kprn))
+					if ((dst == dst_xprn) || (dst == dst_sprn) ||
+							(dst == dst_kprn) || (dst == dst_aprn))
 						pi->can_print = true;
 					pi->offset = text_offset + i + 1;
 				}else{
 					next_para = true;
 					pi->jump_next = (dst != dst_xprn) &&
-						(dst != dst_aprn) &&
-						(dst != dst_lprn) && (dst != dst_kprn);
+						(dst != dst_sprn) &&
+						(dst != dst_kprn) && (dst != dst_aprn);
 					i -= 2;
 				}
 			}else{
@@ -1696,8 +1700,8 @@ int make_resp_map(void)
 	}
 	if ((n > 0) && (n < MAX_PARAS)){
 		pi = map;
-		if ((pi->dst == dst_xprn) || (pi->dst == dst_aprn) ||
-				(pi->dst == dst_lprn) || (pi->dst == dst_kprn)){
+		if ((pi->dst == dst_xprn) || (pi->dst == dst_sprn) ||
+				(pi->dst == dst_kprn) || (pi->dst == dst_aprn)){
 			for (i = n; i > 0; i--)
 				map[i] = map[i - 1];
 			shr_xml_data();
@@ -1730,8 +1734,8 @@ static void mark_prn(void)
 {
 #if !defined __DEBUG_PRINT__
 	for (int i = 0; i < n_paras; i++)
-		if ((map[i].dst == dst_xprn) || (map[i].dst == dst_aprn) ||
-				(map[i].dst == dst_lprn) || (map[i].dst == dst_kprn))
+		if ((map[i].dst == dst_xprn) || (map[i].dst == dst_sprn) ||
+				(map[i].dst == dst_kprn) || (map[i].dst == dst_aprn))
 			map[i].can_print = false;
 #endif
 }
@@ -1751,7 +1755,7 @@ int n_unhandled(void)
 bool can_show(int dst)
 {
 	return	(dst == dst_text) || (dst == dst_xprn) ||
-		(dst == dst_aprn) || (dst == dst_lprn) || (dst == dst_kprn) ||
+		(dst == dst_sprn) || (dst == dst_kprn) || (dst == dst_aprn) ||
 		(dst == dst_out) || (dst == dst_log);
 }
 
@@ -1759,8 +1763,8 @@ bool can_show(int dst)
 bool can_print(int n)
 {
 	return !map[n].handled && ((map[n].dst == dst_xprn) ||
-			(map[n].dst == dst_aprn) || (map[n].dst == dst_lprn) ||
-			(map[n].dst == dst_kprn));
+			(map[n].dst == dst_sprn) || (map[n].dst == dst_kprn) ||
+			(map[n].dst == dst_aprn));
 }
 
 /* Можно ли остановиться на заданном абзаце */
@@ -1996,7 +2000,6 @@ static void sync_date(void)
 	struct tm tm;
 	time_t t;
 	char dcookie[] = "kl`~i ", *p;
-	bool lprn_sync_fail = false;
 	p = (char *)memfind(resp_buf + text_offset, resp_len,
 		(const uint8_t *)dcookie, sizeof(dcookie) - 1);
 	if (p != NULL){
@@ -2013,14 +2016,14 @@ static void sync_date(void)
 			if (xt > 0){
 				time_delta = xt - time(NULL);
 				kbd_reset_idle_interval();
-				if ((wm == wm_local) && cfg.has_lprn &&
+/*				if ((wm == wm_local) && cfg.has_lprn &&
 						cfg.has_sd_card){
 					int ret = lprn_sync_time();
 					if ((ret == LPRN_RET_ERR) ||
 							((ret == LPRN_RET_OK) &&
 							 (lprn_sd_status > 0x01)))
 						lprn_sync_fail = true;
-				}
+				}*/
 #if defined __SYNC_KKT_RTC__
 				if (cfg.has_kkt && (kkt != NULL))
 					kkt_set_rtc(xt + cfg.tz_offs * 3600);
@@ -2307,19 +2310,10 @@ static bool execute_prn(struct para_info *p, int l, int n_para)
 						set_term_astate(ast_lprn_ch_media);
 				}else{
 					if (sent_to_prn){
-						if (cfg.has_sd_card && (lprn_sd_status > 0x01)){
+						if (cfg.has_sd_card && (lprn_sd_status > 0x01))
 							set_term_astate(ast_lprn_sd_err);
-							llog_write_sd_error(hllog, lprn_sd_status, log_para++);
-						}else{
+						else
 							set_term_astate(ast_lprn_err);
-							if (lprn_has_blank_number)
-								llog_write_pr_error_bcode(hllog,
-									lprn_status, lprn_blank_number,
-									log_para++);
-							else
-								llog_write_pr_error(hllog, lprn_status,
-									log_para++);
-						}
 						err_beep();
 						lprn_error_shown = true;
 						break;
@@ -2327,10 +2321,6 @@ static bool execute_prn(struct para_info *p, int l, int n_para)
 				}
 			}else if (lprn_ret == LPRN_RET_ERR){
 				if (sent_to_prn){
-					if (lprn_timeout)
-						llog_write_error(hllog, LLRT_ERROR_TIMEOUT, log_para++);
-					else
-						llog_write_error(hllog, LLRT_ERROR_GENERIC, log_para++);
 					set_term_astate(ast_nolprn);
 					err_beep();
 					lprn_error_shown = true;
@@ -2517,9 +2507,9 @@ bool execute_resp(void)
 		if (!p->handled && !lprn_error_shown && prev_handled()){
 			switch (p->dst){
 				case dst_xprn:
-				case dst_aprn:
-				case dst_lprn:
+				case dst_sprn:
 				case dst_kprn:
+				case dst_aprn:
 					if (p->auto_handle && (next_printable() == cur_para)){
 						if (p->can_print){
 							l = handle_para(n_para - MAX_PARAS);
@@ -2592,9 +2582,9 @@ bool execute_resp(void)
 				break;
 			case cmd_print:
 				if ((map[next].dst == dst_xprn) ||
-						(map[next].dst == dst_aprn) ||
-						(map[next].dst == dst_lprn) ||
-						(map[next].dst == dst_kprn)){
+						(map[next].dst == dst_sprn) ||
+						(map[next].dst == dst_kprn) ||
+						(map[next].dst == dst_aprn)){
 					cur_para = next;
 					map[cur_para].auto_handle = true;
 					parsed = false;
@@ -2618,9 +2608,6 @@ bool execute_resp(void)
 /*					set_term_astate(ast_illegal);*/
 					err_beep();
 				}
-				break;
-			case cmd_switch_res:
-				switch_term_mode();
 				break;
 			case cmd_pgup:
 				cm_pgup(NULL);

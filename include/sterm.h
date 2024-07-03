@@ -117,13 +117,6 @@ enum {
 	cmd_term_info,
 	cmd_iplir_version,
 	cmd_kkt_info,
-	cmd_print_llog,
-	cmd_print_llog_rec,
-	cmd_print_llog_express,
-	cmd_print_llog_aux,
-	cmd_print_llog_range,
-	cmd_find_llog_date,
-	cmd_find_llog_number,
 	cmd_ticket_number,
 	cmd_lprn_menu,		/* меню работы с образами бланков ППУ */
 	cmd_lprn_snapshots,
@@ -202,7 +195,6 @@ extern void	show_ndest(int n);
 extern bool	term_delay(int d);
 extern void	show_req(void);
 extern void	reject_req(void);
-extern void	switch_term_mode(void);
 extern void	send_request(void);
 extern void	show_llog(void);
 extern bool	push_term_info(void);

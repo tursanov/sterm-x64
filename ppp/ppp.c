@@ -302,7 +302,6 @@ static bool can_draw_hints(void)
 		!calc_active &&
 		!xlog_active &&
 		!plog_active &&
-		!llog_active &&
 		!xchg_active &&
 		!help_active &&
 		!ssaver_active &&

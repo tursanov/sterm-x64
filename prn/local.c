@@ -9,7 +9,6 @@
 #include <string.h>
 #include <unistd.h>
 #include "gui/scr.h"
-#include "log/local.h"
 #include "prn/local.h"
 #include "blimits.h"
 #include "cfg.h"

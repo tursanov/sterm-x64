@@ -11,10 +11,9 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
+#include "gui/scr.h"
 #include "kkt/kkt.h"
 #include "log/express.h"
-#include "log/local.h"
-#include "gui/scr.h"
 #include "prn/express.h"
 #include "prn/local.h"
 #include "cfg.h"
@@ -431,12 +430,8 @@ bool check_crc(void)
 	else{
 		SET_FLAG(ZBp, GDF_REQ_CRC);
 		if ((Ocrc == 0) && (resp_len == 19)){	/* специальный ответ */
-			if (wm == wm_main)
-				xlog_write_rec(hxlog, resp_buf + 13, 2,
-					XLRT_SPECIAL, 0);
-			else if (wm == wm_local)
-				llog_write_rec(hllog, resp_buf + 13, 2,
-					LLRT_SPECIAL, 0);
+			xlog_write_rec(hxlog, resp_buf + 13, 2,
+				XLRT_SPECIAL, 0);
 			slayer_error(SERR_SPECIAL);
 		}else
 			slayer_error(SERR_CHKSUM);
@@ -511,10 +506,7 @@ bool check_gd_rules(void)
 /* Проверка адреса терминала */
 	if ((Ogaddr != cfg.gaddr) || (Oiaddr != cfg.iaddr)){
 		SET_FLAG(ZBp, GDF_REQ_FOREIGN);
-		if (wm == wm_main)
-			xlog_write_foreign(hxlog, Ogaddr, Oiaddr);
-		else if (wm == wm_local)
-			llog_write_foreign(hllog, Ogaddr, Oiaddr);
+		xlog_write_foreign(hxlog, Ogaddr, Oiaddr);
 		slayer_error(SERR_FOREIGN);
 		return false;
 	}

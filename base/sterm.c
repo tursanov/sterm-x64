@@ -24,7 +24,6 @@
 #include "gui/help.h"
 #include "gui/log/express.h"
 #include "gui/log/kkt.h"
-#include "gui/log/local.h"
 #include "gui/log/pos.h"
 #include "gui/fa.h"
 #include "gui/newcheque.h"
@@ -39,7 +38,6 @@
 #include "kkt/fd/ad.h"
 #include "log/express.h"
 #include "log/kkt.h"
-#include "log/local.h"
 #include "log/pos.h"
 #include "pos/error.h"
 #include "pos/pos.h"
@@ -106,7 +104,6 @@ bool optn_active	= false;
 bool calc_active	= false;
 bool xlog_active	= false;
 bool plog_active	= false;
-bool llog_active	= false;
 bool klog_active	= false;
 bool xchg_active	= false;
 bool help_active	= false;
@@ -640,9 +637,9 @@ void show_dest(int dst)
 			set_term_state(st_scr);
 			break;
 		case dst_xprn:
-		case dst_aprn:
-		case dst_lprn:
+		case dst_sprn:
 		case dst_kprn:
+		case dst_aprn:
 			set_term_state(st_prn);
 			break;
 		case dst_out:
@@ -671,9 +668,9 @@ void show_ndest(int n)
 				astate_for_req = ast_resp;
 				break;
 			case dst_xprn:
-			case dst_aprn:
-			case dst_lprn:
+			case dst_sprn:
 			case dst_kprn:
+			case dst_aprn:
 				set_term_astate(ast_prn);
 				astate_for_req = ast_prn;
 				break;
@@ -751,11 +748,6 @@ static bool draw_plog(void)
 	return log_draw(plog_gui_ctx);
 }
 
-static bool draw_llog(void)
-{
-	return log_draw(llog_gui_ctx);
-}
-
 static bool draw_klog(void)
 {
 	return log_draw(klog_gui_ctx);
@@ -778,7 +770,6 @@ void redraw_term(bool show_text, const char *title)
 		{&help_active,	draw_help},
 		{&xlog_active,	draw_xlog},
 		{&plog_active,	draw_plog},
-		{&llog_active,	draw_llog},
 		{&klog_active,	draw_klog},
 		{&xchg_active,	draw_xchange},
 		{&calc_active,	draw_calc},
@@ -829,8 +820,6 @@ void release_garbage(void)
 		log_release_view(xlog_gui_ctx);
 	if (plog_active)
 		log_release_view(plog_gui_ctx);
-	if (llog_active)
-		log_release_view(llog_gui_ctx);
 	if (klog_active)
 		log_release_view(klog_gui_ctx);
 	if (calc_active) {
@@ -897,7 +886,6 @@ static bool init_lprn(void)
 		;
 	else if (cfg.has_sd_card && (lprn_sd_status > 0x01)){
 		set_term_astate(ast_lprn_sd_err);
-		llog_write_sd_error(hllog, lprn_sd_status, 0);
 		need_lock_term = true;
 	}else if (lprn_status != 0)
 		set_term_astate(ast_lprn_err);
@@ -1039,7 +1027,7 @@ static void init_devices(void)
 /* Инициализация терминала */
 static void init_term(bool need_init)
 {
-	bool flag = xlog_active || plog_active || llog_active || klog_active;
+	bool flag = xlog_active || plog_active || klog_active;
 	set_log_lvl(Debug);
 	can_reject = false;
 	err_ptr = NULL;
@@ -1234,8 +1222,7 @@ static bool open_log(struct log_handle *hlog)
 
 static inline bool open_logs(void)
 {
-	return	open_log(hxlog) && (!bank_ok || open_log(hplog)) &&
-		open_log(hllog) && open_log(hklog);
+	return	open_log(hxlog) && (!bank_ok || open_log(hplog)) && open_log(hklog);
 }
 
 static bool create_term(void)
@@ -1343,7 +1330,6 @@ static void release_term(void)
 	release_ppp_ipc();
 	log_close(hxlog);
 	log_close(hplog);
-	log_close(hllog);
 	log_close(hklog);
 	release_keys();
 	release_kbd();
@@ -1610,7 +1596,7 @@ static int handle_menu(struct kbd_event *e)
 		int cm = get_menu_command(mnu);
 		release_menu(mnu,true);
 		mnu = NULL;
-		online = !xlog_active && !plog_active && !llog_active && !klog_active;
+		online = !xlog_active && !plog_active && !klog_active;
 		pop_term_info();
 		ClearScreen(clBtnFace);
 		if (cm == cmd_none){
@@ -1618,8 +1604,6 @@ static int handle_menu(struct kbd_event *e)
 				log_redraw(xlog_gui_ctx);
 			else if (plog_active)
 				log_redraw(plog_gui_ctx);
-			else if (llog_active)
-				log_redraw(llog_gui_ctx);
 			else if (klog_active)
 				log_redraw(klog_gui_ctx);
 			else
@@ -1794,23 +1778,6 @@ static int handle_plog(struct kbd_event *e)
 		ClearScreen(clBtnFace);
 		redraw_term(true, main_title);
 		set_term_astate(ast_none);
-		return cmd_none;
-	}
-	return cm;
-}
-
-/* Обработчик просмотра ПКЛ */
-static int handle_llog(struct kbd_event *e)
-{
-	int cm = log_process(llog_gui_ctx, e);
-	if (cm == cmd_exit){
-		log_release_view(llog_gui_ctx);
-		online = true;
-		pop_term_info();
-		ClearScreen(clBtnFace);
-		redraw_term(true, main_title);
-		if (!resp_executing)
-			set_term_astate(ast_none);
 		return cmd_none;
 	}
 	return cm;
@@ -2005,7 +1972,6 @@ int get_cmd(bool check_scr, bool busy)
 		{&calc_active,		handle_calculator},
 		{&xlog_active,		handle_xlog},
 		{&plog_active,		handle_plog},
-		{&llog_active,		handle_llog},
 		{&klog_active,		handle_klog},
 		{&xchg_active,		handle_xchange},
 		{&help_active,		handle_help},
@@ -2085,10 +2051,7 @@ void reject_req(void)
 /*		if (cfg.bank_system)
 			rollback_bank_info();*/		/* FIXME */
 		reject();
-		if (wm == wm_main)
-			xlog_write_rec(hxlog, NULL, 0, XLRT_REJECT, log_para++);
-		else
-			llog_write_rec(hllog, NULL, 0, LLRT_REJECT, log_para++);
+		xlog_write_rec(hxlog, NULL, 0, XLRT_REJECT, log_para++);
 	}else{
 		set_term_astate(ast_illegal);
 		err_beep();
@@ -2348,7 +2311,7 @@ static void show_klog(void)
 	if (!cfg.has_kkt){
 		set_term_astate(ast_illegal);
 		err_beep();
-	}else if (!llog_active){
+	}{
 		online = false;
 		guess_term_state();
 		push_term_info();
@@ -3025,31 +2988,6 @@ static void show_kkt_info(void)
 	redraw_term(true, main_title);
 }
 
-/* Циклическое переключение разрешеня экрана терминала */
-void switch_term_mode(void)
-{
-	flush_resp_mode();
-	if (scr_is_resp() && resp_handling){
-		int n = cur_para;
-		bool flag = false;
-		switch_scr_mode(false);
-		do{
-			flag = can_show(map[n].dst);
-			if (flag)
-				break;
-			else{
-				n += (n_paras-1);
-				n %= n_paras;
-			}
-		}while (n != cur_para);
-		if (flag){
-			int l = handle_para(n);
-			set_scr_text(text_buf, l, txt_rich, true);
-		}
-	}else
-		switch_scr_mode(true);
-}
-
 /* Преобразование номера необработанных абзацев в H-байт */
 uint8_t n2hbyte(int n)
 {
@@ -3408,49 +3346,6 @@ static void print_plog_rec(void)
 static void print_plog_range(void)
 {
 	do_print_log_range(plog_gui_ctx, plog_print_range);
-}
-
-
-/* Поиск записи ПКЛ по дате её создания */
-static void find_llog_date(void)
-{
-	do_find_log_date(llog_gui_ctx);
-}
-
-/* Поиск записи ПКЛ по номеру */
-static void find_llog_number(void)
-{
-	do_find_log_number(llog_gui_ctx);
-}
-
-/* Печать ПКЛ */
-static void print_llog(void)
-{
-	do_print_log(llog_gui_ctx, llog_print_all, NULL);
-}
-
-/* Печать текущей записи ПКЛ */
-static void print_llog_rec(void)
-{
-	do_print_log_rec(llog_gui_ctx, llog_print_current);
-}
-
-/* Печать текущей записи ПКЛ на ОПУ */
-static void print_llog_express(void)
-{
-	do_print_log_rec(llog_gui_ctx, llog_print_xprn);
-}
-
-/* Печать текущей записи ПКЛ на ДПУ */
-static void print_llog_aux(void)
-{
-	do_print_log_rec(llog_gui_ctx, llog_print_aux);
-}
-
-/* Печать диапазона записей ПКЛ */
-static void print_llog_range(void)
-{
-	do_print_log_range(llog_gui_ctx, llog_print_range);
 }
 
 
@@ -3820,8 +3715,6 @@ static void on_response(void)
 	}else{
 		SET_FLAG(ZBp, GDF_REQ_SYNTAX);
 		resp_handling = false;
-		if (wm == wm_local)
-			llog_write_syntax_error(hllog, ecode);
 		if (s_state == ss_initializing){
 			slayer_error(SERR_SYNTAX);
 			set_term_led(hbyte = HB_INIT);
@@ -3924,10 +3817,9 @@ static void do_ticket_number(void)
 				set_term_astate(ast_lprn_ch_media);
 			else if (lprn_get_blank_number() != LPRN_RET_OK)
 				;
-			else if (lprn_status != 0){
-				llog_write_rd_error(hllog, lprn_status);
+			else if (lprn_status != 0)
 				set_term_astate(ast_lprn_err);
-			}else
+			else
 				need_beep = !input_chars(
 					make_ticket_number(lprn_blank_number),
 					sizeof(lprn_blank_number) + 10);
@@ -4091,10 +3983,8 @@ static void do_lprn_erase_sd(void)
 			if (err)
 				show_lprn_result("Ошибка при стирании копий "
 					"оформленных документов", true);
-			else{
-				llog_write_erase_sd(hllog);
+			else
 				show_lprn_result("Карта памяти очищена", false);
-			}
 		}
 	}else{
 		pop_term_info();
@@ -4116,7 +4006,6 @@ static bool process_term(void)
 		{cmd_help,		show_help,		true},
 		{cmd_exit,		NULL,			false},
 		{cmd_reset,		__reset_term,		true},
-		{cmd_switch_res,	switch_term_mode,	true},
 		{cmd_enter,		send_request,		true},
 		{cmd_print,		print_text,		true},
 		{cmd_view_xlog,		show_xlog,		true},
@@ -4160,13 +4049,6 @@ static bool process_term(void)
 		{cmd_term_info,		show_term_info,		true},
 		{cmd_iplir_version,	show_iplir_version,	true},
 		{cmd_kkt_info,		show_kkt_info,		true},
-		{cmd_print_llog,	print_llog,		true},
-		{cmd_print_llog_rec,	print_llog_rec,		true},
-		{cmd_print_llog_express,print_llog_express,	true},
-		{cmd_print_llog_aux,	print_llog_aux,		true},
-		{cmd_print_llog_range,	print_llog_range,	true},
-		{cmd_find_llog_date,	find_llog_date,		true},
-		{cmd_find_llog_number,	find_llog_number,	true},
 		{cmd_ticket_number,	do_ticket_number,	true},
 		{cmd_lprn_menu,		do_lprn_menu,		true},
 		{cmd_lprn_snapshots,	do_lprn_snapshots,	true},

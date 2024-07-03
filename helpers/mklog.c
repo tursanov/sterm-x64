@@ -1,8 +1,8 @@
 /*
  * Создание контрольной ленты терминала.
- * (c) gsr 2000, 2003, 2004, 2008, 2009, 2018
+ * (c) gsr 2000, 2003, 2004, 2008, 2009, 2018, 2024
  * Параметры командной строки:
- * --type=<type> -- тип контрольной ленты (express, local, pos);
+ * --type=<type> -- тип контрольной ленты (express, pos, kkt);
  * --log=<file>  -- имя файла контрольной ленты;
  * --size=<size> -- размер области данных файла контрольной ленты.
  */
@@ -17,14 +17,14 @@
 #include <string.h>
 #include <unistd.h>
 #include "log/express.h"
-#include "log/local.h"
+#include "log/kkt.h"
 #include "log/pos.h"
 
 /* Тип контрольной ленты */
 enum {
 	lt_express,
-	lt_local,
 	lt_pos,
+	lt_kkt,
 };
 
 static int log_type = lt_express;
@@ -37,7 +37,7 @@ static void usage(void)
 	printf(	"Создание контрольной ленты для терминала.\n"
 		"(c) АО НПЦ \"Спектр\" 2000, 2003, 2004, 2008, 2009, 2018\n"
 		"Использование:\tmklog [options]\n"
-		"--type=<type> -- тип контрольной ленты (express, local, pos);\n"
+		"--type=<type> -- тип контрольной ленты (express, pos, kkt);\n"
 		"--log=<file> -- имя файла контрольной ленты;\n"
 		"--size=<size> -- размер области данных файла контрольной ленты;\n"
 		"--help -- справка по использованию программы.\n");
@@ -49,10 +49,10 @@ static bool get_log_type(const char *type)
 	bool ret = true;
 	if (strcmp(type, "express") == 0)
 		log_type = lt_express;
-	else if (strcmp(type, "local") == 0)
-		log_type = lt_local;
 	else if (strcmp(type, "pos") == 0)
 		log_type = lt_pos;
+	else if (strcmp(type, "kkt") == 0)
+		log_type = lt_kkt;
 	else
 		ret = false;
 	return ret;
@@ -148,11 +148,11 @@ static bool create_log(void)
 		case lt_express:
 			hdr.tag = XLOG_TAG;
 			break;
-		case lt_local:
-			hdr.tag = LLOG_TAG;
-			break;
 		case lt_pos:
 			hdr.tag = PLOG_TAG;
+			break;
+		case lt_kkt:
+			hdr.tag = KLOG_TAG;
 			break;
 		default:
 			return false;

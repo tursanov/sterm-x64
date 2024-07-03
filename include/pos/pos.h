@@ -48,7 +48,7 @@ struct pos_message {
 /* Заголовок сообщения */
 struct pos_message_header {
 	uint8_t version[4];	/* версия протокола */
-	uint32_t length;		/* длина сообщения без учета заголовка */
+	uint32_t length;	/* длина сообщения без учета заголовка */
 	struct pos_message msg;	/* сообщение */
 } __attribute__((__packed__));
 

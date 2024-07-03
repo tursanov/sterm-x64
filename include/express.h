@@ -41,7 +41,6 @@ extern int req_type;
 #define X_SCR		0x49	/* I абзац для отображения на экране */
 #define X_KEY		0x4b	/* K абзац для ОЗУ ключей */
 #define X_XPRN		0x4d	/* M абзац для ОПУ */
-#define X_TPRN		X_XPRN	/* M абзац для ТПУ */
 #define X_ROM		0x4e	/* N абзац для ОЗУ констант (ПЗУ) */
 #define X_QOUT		0x4f	/* O абзац для ОЗУ заказа без отображения на экране */
 #define X_SPRN		0x50	/* P абзац для БПУ */
