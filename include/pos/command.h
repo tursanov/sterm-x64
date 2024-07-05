@@ -21,7 +21,7 @@ extern "C" {
 typedef struct {
 	char *name;			/* имя параметра */
 	int type;			/* тип параметра */
-	uint8_t required;			/* флаг обязательности параметра */
+	uint8_t required;		/* флаг обязательности параметра */
 } pos_request_param_t;
 
 /* Список запрашиваемых параметров */
@@ -38,6 +38,9 @@ typedef struct {
 #define POS_PARAM_CLERKID_STR	"CLERKID"	/* идентификатор кассира */
 #define POS_PARAM_CLERKTYPE_STR	"CLERKTYPE"	/* тип жетона кассира */
 #define POS_PARAM_ORDS_STR	"ORDS"		/* ORDS */
+#define POS_PARAM_UBT_STR	"EBT"		/* поддержка единой банковской транзакции (ЕБТ) */
+#define POS_PARAM_VERSION_STR	"VERSION"	/* версия ПО ИПТ */
+#define POS_PARAM_MTYPE_STR	"MTYPE"		/* пункт меню */
 
 /* Типы параметров */
 enum {
@@ -49,12 +52,15 @@ enum {
 	POS_PARAM_CLERKID,
 	POS_PARAM_CLERKTYPE,
 	POS_PARAM_ORDS,
+	POS_PARAM_UBT,
+	POS_PARAM_VERSION,
+	POS_PARAM_MTYPE,
 };
 
 /* Параметры ответа */
 typedef struct {
-	const char *name;		/* имя параметра */
-	const char *value;		/* значение параметра */
+	char *name;			/* имя параметра */
+	char *value;			/* значение параметра */
 } pos_response_param_t;
 
 /* Список параметров ответа */
@@ -65,6 +71,9 @@ typedef struct {
 
 extern pos_request_param_list_t req_param_list;
 extern pos_response_param_list_t resp_param_list;
+
+/* Поддержка ЕБТ в ИПТ */
+extern bool ubt_supported;
 
 /* Разбор потока команд */
 extern bool pos_parse_command_stream(struct pos_data_buf *buf, bool check_only);
