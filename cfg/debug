@@ -45,7 +45,7 @@ option		__FAKE_REMOUNT__
 option		__SYNC_KKT_RTC__
 
 # Использовать цифровую клавиатуру для ввода цифр
-option		__USE_NUMPAD__
+#option		__USE_NUMPAD__
 
 # Использовать эмуляцию ККТ
 #option		__FAKE_KKT__
