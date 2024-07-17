@@ -7,7 +7,6 @@ GUI_OBJS =		\
 	adv_calc	\
 	archivefn	\
 	calc		\
-	cart		\
 	cheque		\
 	cheque_docs \
 	cheque_reissue_docs \
@@ -30,11 +29,12 @@ GUI_OBJS =		\
 OBJS = $(addsuffix .o, $(GUI_OBJS))
 
 CONTROLS = controls
+CART = cart-ui
 LOG = log
 
-.PHONY:	$(LOG) $(CONTROLS)
+.PHONY:	$(LOG) $(CONTROLS) $(CART)
 
-all:		depend $(OBJS) $(LOG) $(CONTROLS)
+all:		depend $(OBJS) $(LOG) $(CONTROLS) $(CART)
 
 $(LOG):
 		@$(MAKE) -C $@ -I../../
@@ -42,15 +42,20 @@ $(LOG):
 $(CONTROLS):
 		@$(MAKE) -C $@ -I../../
 
+$(CART):
+		@$(MAKE) -C $@ -I../../
+
 depend:
 		@$(CC) $(CFLAGS) -MM $(OBJS:.o=.c) > .depend
 		@$(MAKE) depend -C $(LOG) -I../../
 		@$(MAKE) depend -C $(CONTROLS) -I../../
+		@$(MAKE) depend -C $(CART) -I../../
 
 clean:
 		@rm -f $(BIN_GARBAGE)
 		@$(MAKE) clean -C log -I../../
 		@$(MAKE) clean -C controls -I../../
+		@$(MAKE) clean -C cart-ui -I../../
 
 ifneq ($(wildcard .depend),)
 include .depend

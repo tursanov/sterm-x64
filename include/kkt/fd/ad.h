@@ -109,6 +109,8 @@ typedef struct K {
 // проверка банковского абзаца на соответствие операции и возврата
 #define check_k_y(k, o, r) ((k)->y->op == (o) && (k)->y->repayment == (r))
 
+#define k_lp(k) (LIST_ITEM((k)->llist.head, L)->p)
+
 // создание информации о документе
 extern K *K_create(void);
 // удаление информации о документе
