@@ -137,6 +137,24 @@ enum {
 	pos_ewait,		/* ожидание после вывода на экран сообщения об ошибке */
 };
 
+/* Результат завершения работы с ИПТ */
+struct pos_param {
+        const char *name;
+        const char *val;
+};
+
+struct pos_response{
+        uint8_t res_code;
+        const char *resp_code;
+        const char *id_pos;
+        uint32_t invoice;
+        uint8_t next_mtype;
+        uint8_t nr_params;
+        struct pos_param params[0];
+};
+
+extern struct pos_response pos_response;
+
 extern bool pos_create(void);
 extern void pos_release(void);
 extern int  pos_get_state(void);

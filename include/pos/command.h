@@ -32,29 +32,45 @@ typedef struct {
 
 /* Названия параметров */
 #define POS_PARAM_AMOUNT_STR	"AMOUNT"	/* сумма заказа (коп) */
+#define POS_PARAM_INVOICE	"INVOICE"	/* номер квитанции */
+#define POA_PARAM_ORDS_STR	"ORDS"		/* список номеров и стоимостей документов */
 #define POS_PARAM_TIME_STR	"TIME"		/* время заказа */
 #define POS_PARAM_ID_STR	"ORDERID"	/* идентификатор заказа в системе */
 #define POS_PARAM_TERMID_STR	"TERMID"	/* идентификатор терминала */
 #define POS_PARAM_CLERKID_STR	"CLERKID"	/* идентификатор кассира */
 #define POS_PARAM_CLERKTYPE_STR	"CLERKTYPE"	/* тип жетона кассира */
-#define POS_PARAM_ORDS_STR	"ORDS"		/* ORDS */
 #define POS_PARAM_UBT_STR	"EBT"		/* поддержка единой банковской транзакции (ЕБТ) */
 #define POS_PARAM_VERSION_STR	"VERSION"	/* версия ПО ИПТ */
 #define POS_PARAM_MTYPE_STR	"MTYPE"		/* пункт меню */
+#define POS_PARAM_EDIT_STR	"EDIT"		/* возможность редактирования суммы и номера квитанции */
+#define POS_PARAM_FMENU_STR	"FINISHMENU"	/* завершение работы банковского приложения */
+#define POS_PARAM_RES_CODE_STR	"RESULT_CODE"	/* код возврата */
+#define POS_PARAM_RESP_CODE_STR	"RESPONSE_CODE"	/* код ответа */
+#define POS_PARAM_ID_POS_STR	"ID_POS"	/* идентификатор ИПТ */
+#define POS_PARAM_NMTYPE_STR	"NEXT_MTYPE"	/* следующий пункт меню */
+#define POS_PARAM_NPARAMS_STR	"NPARAMS"	/* количество параметров */
 
 /* Типы параметров */
 enum {
 	POS_PARAM_UNKNOWN	= -1,
 	POS_PARAM_AMOUNT,
+	POS_PARAM_INVOICE,
+	POS_PARAM_ORDS,
 	POS_PARAM_TIME,
 	POS_PARAM_ID,
 	POS_PARAM_TERMID,
 	POS_PARAM_CLERKID,
 	POS_PARAM_CLERKTYPE,
-	POS_PARAM_ORDS,
 	POS_PARAM_UBT,
 	POS_PARAM_VERSION,
 	POS_PARAM_MTYPE,
+	POS_PARAM_EDIT,
+	POS_PARAM_FMENU,
+	POS_PARAM_RES_CODE,
+	POS_PARAM_RESP_CODE,
+	POS_PARAM_ID_POS,
+	POS_PARAM_NMTYPE,
+	POS_PARAM_NPARAMS,
 };
 
 /* Параметры ответа */
@@ -74,6 +90,16 @@ extern pos_response_param_list_t resp_param_list;
 
 /* Поддержка ЕБТ в ИПТ */
 extern bool ubt_supported;
+
+/* Выбранные пункты меню */
+#define MTYPE_PROCESS_INCOMPLETE	0xa0
+#define MTYPE_DAY_OPEN			0xa1
+#define MTYPE_DAY_CLOSE			0xa2
+#define MTYPE_PAYMENT			0xa3
+#define MTYPE_REFUND			0xa4
+#define MTYPE_CANCEL			0xa5
+#define MTYPE_SERVICE			0xa6
+#define MTYPE_UNKNOWN			0xff
 
 /* Разбор потока команд */
 extern bool pos_parse_command_stream(struct pos_data_buf *buf, bool check_only);

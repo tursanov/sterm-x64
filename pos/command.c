@@ -15,6 +15,12 @@
 /* Поддержка ЕБТ в ИПТ */
 bool ubt_supported = false;
 
+/* Выбранный пункт меню */
+static uint8_t pos_menu_item MTYPE_UNKNOWN;
+
+/* Флаг возможности редактирования суммы и номера квитанции в окне банковского приложения */
+static bool pos_can_edit = false;
+
 pos_request_param_list_t req_param_list;
 pos_response_param_list_t resp_param_list;
 
@@ -72,15 +78,23 @@ static int get_param_type(char *name)
 		int type;
 	} map[] = {
 		{POS_PARAM_AMOUNT_STR,		POS_PARAM_AMOUNT},
+		{POS_PARAM_INVOICE_STR,		POS_PARAM_INVOICE},
+		{POS_PARAM_ORDS_STR,		POS_PARAM_ORDS},
 		{POS_PARAM_TIME_STR,		POS_PARAM_TIME},
 		{POS_PARAM_ID_STR,		POS_PARAM_ID},
 		{POS_PARAM_TERMID_STR,		POS_PARAM_TERMID},
 		{POS_PARAM_CLERKID_STR,		POS_PARAM_CLERKID},
 		{POS_PARAM_CLERKTYPE_STR,	POS_PARAM_CLERKTYPE},
-		{POS_PARAM_ORDS_STR,		POS_PARAM_ORDS},
 		{POS_PARAM_UBT_STR,		POS_PARAM_UBT},
 		{POS_PARAM_VERSION_STR,		POS_PARAM_VERSION},
 		{POS_PARAM_MTYPE_STR,		POS_PARAM_MTYPE},
+		{POS_PARAM_EDIT_STR,		POS_PARAM_EDIT},
+		{POS_PARAM_FMENU_STR,		POS_PARAM_FMENU},
+		{POS_PARAM_RES_CODE_STR,	POS_PARAM_RES_CODE},
+		{POS_PARAM_RESP_CODE_STR,	POS_PARAM_RESP_CODE},
+		{POS_PARAM_ID_POS_STR,		POS_PARAM_ID_POS},
+		{POS_PARAM_NMTYPE_STR,		POS_PARAM_NMTYPE},
+		{POS_PARAM_NPARAMS_STR,		POS_PARAM_NPARAMS},
 	};
 	if (name == NULL)
 		return POS_PARAM_UNKNOWN;
@@ -339,7 +353,12 @@ static bool pos_write_param(struct pos_data_buf *buf, const char *name, int para
 			l = strlen(val);
 			break;
 		}
-		case POS_PARAM_TIME:{
+		case POS_PARAM_INVOICE:
+			snprintf(val, sizeof(val), "%.7u", 12345);	/* FIXME */
+			l = strlen(val);
+			break;
+		case POS_PARAM_TIME:
+		{
 			time_t t = time(NULL) + time_delta;
 			struct tm *tm = localtime(&t);
 			sprintf(val, "%.4d%.2d%.2d%.2d%.2d%.2d",
@@ -371,9 +390,21 @@ static bool pos_write_param(struct pos_data_buf *buf, const char *name, int para
 			l = 1;
 			break;
 		case POS_PARAM_ORDS:
-			val[0] = 0;
+			val[0] = 0;	/* FIXME */
 			break;
 		case POS_PARAM_UBT:
+			val[0] = 1;
+			l = 1;
+			break;
+		case POS_PARAM_MTYPE:
+			val[0] = pos_menu_item;
+			l = 1;
+			break;
+		case POS_PARAM_EDIT:
+			val[0] = pos_can_edit;
+			l = 1;
+			break;
+		case POS_PARAM_FMENU:
 			val[0] = 1;
 			l = 1;
 			break;
