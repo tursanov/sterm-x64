@@ -30,10 +30,25 @@ typedef struct {
 	pos_request_param_t *params;	/* параметры */
 } pos_request_param_list_t;
 
+/* Параметры ответа */
+typedef struct {
+	char *name;			/* имя параметра */
+	char *value;			/* значение параметра */
+} pos_response_param_t;
+
+/* Список параметров ответа */
+typedef struct {
+	uint8_t count;			/* число параметров */
+	pos_response_param_t *params;	/* параметры */
+} pos_response_param_list_t;
+
+extern pos_request_param_list_t req_param_list;
+extern pos_response_param_list_t resp_param_list;
+
 /* Названия параметров */
 #define POS_PARAM_AMOUNT_STR	"AMOUNT"	/* сумма заказа (коп) */
-#define POS_PARAM_INVOICE	"INVOICE"	/* номер квитанции */
-#define POA_PARAM_ORDS_STR	"ORDS"		/* список номеров и стоимостей документов */
+#define POS_PARAM_INVOICE_STR	"INVOICE"	/* номер квитанции */
+#define POS_PARAM_ORDS_STR	"ORDS"		/* список номеров и стоимостей документов */
 #define POS_PARAM_TIME_STR	"TIME"		/* время заказа */
 #define POS_PARAM_ID_STR	"ORDERID"	/* идентификатор заказа в системе */
 #define POS_PARAM_TERMID_STR	"TERMID"	/* идентификатор терминала */
@@ -48,7 +63,7 @@ typedef struct {
 #define POS_PARAM_RESP_CODE_STR	"RESPONSE_CODE"	/* код ответа */
 #define POS_PARAM_ID_POS_STR	"ID_POS"	/* идентификатор ИПТ */
 #define POS_PARAM_NMTYPE_STR	"NEXT_MTYPE"	/* следующий пункт меню */
-#define POS_PARAM_NPARAMS_STR	"NPARAMS"	/* количество параметров */
+#define POS_PARAM_PARAMS_STR	"PARAMS"	/* параметры */
 
 /* Типы параметров */
 enum {
@@ -70,23 +85,8 @@ enum {
 	POS_PARAM_RESP_CODE,
 	POS_PARAM_ID_POS,
 	POS_PARAM_NMTYPE,
-	POS_PARAM_NPARAMS,
+	POS_PARAM_PARAMS,
 };
-
-/* Параметры ответа */
-typedef struct {
-	char *name;			/* имя параметра */
-	char *value;			/* значение параметра */
-} pos_response_param_t;
-
-/* Список параметров ответа */
-typedef struct {
-	uint8_t count;			/* число параметров */
-	pos_response_param_t *params;	/* параметры */
-} pos_response_param_list_t;
-
-extern pos_request_param_list_t req_param_list;
-extern pos_response_param_list_t resp_param_list;
 
 /* Поддержка ЕБТ в ИПТ */
 extern bool ubt_supported;
@@ -114,6 +114,8 @@ extern bool pos_req_save_command_request_parameters(struct pos_data_buf *buf);
 extern bool pos_req_save_command_response_parameters(struct pos_data_buf *buf);
 /* Запись команды INIT_CHECK */
 extern bool pos_req_save_command_init_check(struct pos_data_buf *buf);
+/* Подготовка списка параметров для запроса у ИПТ (FINISHMENU) */
+extern bool pos_prepare_request_params(void);
 
 #if defined __cplusplus
 }

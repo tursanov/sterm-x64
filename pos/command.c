@@ -16,7 +16,7 @@
 bool ubt_supported = false;
 
 /* Выбранный пункт меню */
-static uint8_t pos_menu_item MTYPE_UNKNOWN;
+static uint8_t pos_menu_item = MTYPE_UNKNOWN;
 
 /* Флаг возможности редактирования суммы и номера квитанции в окне банковского приложения */
 static bool pos_can_edit = false;
@@ -25,8 +25,7 @@ pos_request_param_list_t req_param_list;
 pos_response_param_list_t resp_param_list;
 
 /* Удаление списка */
-static void pos_request_param_list_free(pos_request_param_list_t *list,
-		bool free_list)
+static void pos_request_param_list_free(pos_request_param_list_t *list)
 {
 	int i;
 	if (list == NULL)
@@ -38,17 +37,12 @@ static void pos_request_param_list_free(pos_request_param_list_t *list,
 		}
 		free(list->params);
 	}
-	if (free_list)
-		free(list);
-	else{
-		list->count = 0;
-		list->params = NULL;
-	}
+	list->count = 0;
+	list->params = NULL;
 }
 
 /* Удаление списка */
-static void pos_response_param_list_free(pos_response_param_list_t *list,
-		bool free_list)
+static void pos_response_param_list_free(pos_response_param_list_t *list)
 {
 	int i; 
 	if (list == NULL)
@@ -62,12 +56,8 @@ static void pos_response_param_list_free(pos_response_param_list_t *list,
 		}
 		free(list->params);
 	}
-	if (free_list)
-		free(list);
-	else{
-		list->count = 0;
-		list->params = NULL;
-	}
+	list->count = 0;
+	list->params = NULL;
 }
 
 /* Определение типа параметра по его имени */
@@ -94,7 +84,7 @@ static int get_param_type(char *name)
 		{POS_PARAM_RESP_CODE_STR,	POS_PARAM_RESP_CODE},
 		{POS_PARAM_ID_POS_STR,		POS_PARAM_ID_POS},
 		{POS_PARAM_NMTYPE_STR,		POS_PARAM_NMTYPE},
-		{POS_PARAM_NPARAMS_STR,		POS_PARAM_NPARAMS},
+		{POS_PARAM_PARAMS_STR,		POS_PARAM_PARAMS},
 	};
 	if (name == NULL)
 		return POS_PARAM_UNKNOWN;
@@ -133,7 +123,7 @@ static bool pos_parse_request_parameters(struct pos_data_buf *buf, bool check_on
 		char name[33];
 		int n = pos_read_array(buf, (uint8_t *)name, 32);
 		if (n <= 0){
-			pos_request_param_list_free(&req_param_list, false);
+			pos_request_param_list_free(&req_param_list);
 			pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
 			return false;
 		}
@@ -141,22 +131,22 @@ static bool pos_parse_request_parameters(struct pos_data_buf *buf, bool check_on
 		p->name = strndup(name, n);
 		if (p->name == NULL){
 			pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
-			pos_request_param_list_free(&req_param_list, false);
+			pos_request_param_list_free(&req_param_list);
 			return false;
 		}
 		p->type = get_param_type(name);
 		if (p->type == POS_PARAM_UBT)
 			ubt_supported = true;
 		if (!pos_read_byte(buf, &p->required)){
-			pos_request_param_list_free(&req_param_list, false);
+			pos_request_param_list_free(&req_param_list);
 			pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
 			return false;
 		}
 	}
 	if (check_only)
-		pos_request_param_list_free(&req_param_list, false);
+		pos_request_param_list_free(&req_param_list);
 	else
-		pos_send_params();
+		pos_send_params_resp();
 	return true;
 }
 
@@ -176,7 +166,7 @@ static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_o
 		pos_response_param_t *p = resp_param_list.params + i;
 		int n = pos_read_array(buf, (uint8_t *)s, 32);
 		if (n <= 0){
-			pos_response_param_list_free(&resp_param_list, false);
+			pos_response_param_list_free(&resp_param_list);
 			pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
 			return false;
 		}
@@ -184,12 +174,12 @@ static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_o
 		p->name = strndup(s, n);
 		if (p->name == NULL){
 			pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
-			pos_response_param_list_free(&resp_param_list, false);
+			pos_response_param_list_free(&resp_param_list);
 			return false;
 		}
 		n = pos_read_array(buf, (uint8_t *)s, 2048);
 		if (n == -1){
-			pos_response_param_list_free(&resp_param_list, false);
+			pos_response_param_list_free(&resp_param_list);
 			pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
 			return false;
 		}
@@ -199,12 +189,12 @@ static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_o
 			ubt_supported = p->value[0] != 0;
 		if (p->value == NULL){
 			pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
-			pos_response_param_list_free(&resp_param_list, false);
+			pos_response_param_list_free(&resp_param_list);
 			return false;
 		}
 	}
 	if (check_only)
-		pos_response_param_list_free(&resp_param_list, false);
+		pos_response_param_list_free(&resp_param_list);
 	return true;
 }
 
@@ -334,8 +324,8 @@ static void normalize_termid(void)
 	}
 }
 
-/* Запись в поток команд заданного параметра */
-static bool pos_write_param(struct pos_data_buf *buf, const char *name, int param,
+/* Запись в поток команд заданного параметра в ответ на запрос ИПТ */
+static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int param,
 		bool required)
 {
 	int l = 0;
@@ -425,6 +415,15 @@ static bool pos_write_param(struct pos_data_buf *buf, const char *name, int para
 	}
 }
 
+/* Запись в поток команд заданного параметра в для запроса ИПТ */
+static bool pos_write_req_param(struct pos_data_buf *buf, const char *name, bool required)
+{
+	if (buf == NULL)
+		return false;
+	return	pos_write_array(buf, (uint8_t *)name, strlen(name)) &&
+		pos_write_byte(buf, required);
+}
+
 /* Запись команды RESPONSE_PARAMETERS на основе req_param_list */
 bool pos_req_save_command_response_parameters(struct pos_data_buf *buf)
 {
@@ -443,7 +442,9 @@ bool pos_req_save_command_response_parameters(struct pos_data_buf *buf)
 	}
 	for (int i = 0; i < req_param_list.count; i++){
 		pos_request_param_t *p = req_param_list.params + i;
-		if (!pos_write_param(buf, p->name, p->type, p->required))
+		if (p->type == POS_PARAM_UNKNOWN)
+			continue;
+		else if (!pos_write_resp_param(buf, p->name, p->type, p->required))
 			return false;
 	}
 	if (pos_req_stream_end(buf))
@@ -452,4 +453,71 @@ bool pos_req_save_command_response_parameters(struct pos_data_buf *buf)
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_SYSTEM, 0);
 		return false;
 	}
+}
+
+/* Запись команды REQUEST_PARAMETERS на основе req_param_list */
+bool pos_req_save_command_request_parameters(struct pos_data_buf *buf)
+{
+	int n = 0;
+	if (req_param_list.count == 0)
+		return true;
+	for (int i = 0; i < req_param_list.count; i++){
+		if (req_param_list.params[i].type != POS_PARAM_UNKNOWN)
+			n++;
+	}
+	if (!pos_req_stream_begin(buf, POS_STREAM_COMMAND) ||
+			!pos_write_byte(buf, POS_COMMAND_REQUEST_PARAMETERS) ||
+			!pos_write_byte(buf, n)){
+		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_SYSTEM, 0);
+		return false;
+	}
+	for (int i = 0; i < req_param_list.count; i++){
+		pos_request_param_t *p = req_param_list.params + i;
+		if (p->type == POS_PARAM_UNKNOWN)
+			continue;
+		if (!pos_write_req_param(buf, p->name, p->required))
+			return false;
+	}
+	if (pos_req_stream_end(buf))
+		return true;
+	else{
+		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_SYSTEM, 0);
+		return false;
+	}
+}
+
+bool pos_prepare_request_params(void)
+{
+	static const struct {
+		const char *name;
+		int type;
+		bool required;
+	} params[] = {
+		{POS_PARAM_RES_CODE_STR,	POS_PARAM_RES_CODE,	true},
+		{POS_PARAM_RESP_CODE_STR,	POS_PARAM_RESP_CODE,	true},
+		{POS_PARAM_ID_POS_STR,		POS_PARAM_ID_POS,	true},
+		{POS_PARAM_INVOICE_STR,		POS_PARAM_INVOICE,	true},
+		{POS_PARAM_NMTYPE_STR,		POS_PARAM_NMTYPE,	true},
+		{POS_PARAM_PARAMS_STR,		POS_PARAM_PARAMS,	true},
+	};
+	pos_request_param_list_free(&req_param_list);
+	req_param_list.count = ASIZE(params);
+	req_param_list.params = calloc(req_param_list.count, sizeof(pos_request_param_t));
+	if (req_param_list.params == NULL){
+		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
+		return false;
+	}
+	for (int i = 0; i < ASIZE(params); i++){
+		const typeof(*params) *param = params + i;
+		pos_request_param_t *p = req_param_list.params + i;
+		p->name = strdup(param->name);
+		if (p->name == NULL){
+			pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
+			pos_request_param_list_free(&req_param_list);
+			return false;
+		}
+		p->type = param->type;
+		p->required = param->required;
+	}
+	return true;
 }

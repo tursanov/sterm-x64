@@ -160,7 +160,8 @@ extern void pos_release(void);
 extern int  pos_get_state(void);
 extern void pos_set_state(int st);
 extern void pos_process(void);
-extern bool pos_send_params(void);
+extern bool pos_send_params_resp(void);
+extern bool pos_send_params_req(void);
 
 #if defined __cplusplus
 }
