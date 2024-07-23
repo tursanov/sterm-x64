@@ -3581,7 +3581,7 @@ static bool x3data_sync_dlg(uint32_t x3data_to_sync)
 		}
 	}
 	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XSLT)){
-		rc = snprintf(msg + offs, sizeof(msg) - offs, "Разметки документов \"Экспресс\";\n");
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "разметки документов \"Экспресс\";\n");
 		if (rc > 0){
 			offs += rc;
 			n++;
