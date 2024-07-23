@@ -33,6 +33,9 @@ static const uint8_t CPIC_REP_CHAR = 0x43;
 /* Повтор предыдущей линии */
 static const uint8_t CPIC_REP_LINE = 0x4c;
 
+/* Проверка существования каталога и создание его при необходимости */
+extern bool create_folder_if_need(const char *path);
+
 /* Сжатие файла изображения (w и h задаются в точках) */
 extern bool compress_picture(const uint8_t *src, size_t len, size_t w, size_t h,
 	vector<uint8_t> &dst);

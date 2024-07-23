@@ -45,6 +45,10 @@ static int pattern_selector(const struct dirent *entry)
 
 static time_t get_local_patterns_date()
 {
+	if (!create_folder_if_need(PATTERNS_FOLDER)){
+		log_err("Каталог " PATTERNS_FOLDER " не существует и не может быть создан.");
+		return -1;
+	}
 	int rc = regcomp(&reg, "^S00[0-9]{5}$", REG_EXTENDED | REG_NOSUB);
 	if (rc != REG_NOERROR){
 		log_err("Ошибка компиляции регулярного выражения для: %d.", rc);
