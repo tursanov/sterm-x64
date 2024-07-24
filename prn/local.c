@@ -841,7 +841,7 @@ static int lprn_wait_op(bool show_status)
 		ret = LPRN_RET_OK;
 	else if (ret != LPRN_RET_RST){
 		if (show_status)
-			set_term_astate(ast_nolprn);
+			set_term_astate(ast_nosprn);
 	}
 	return ret;
 }
@@ -852,12 +852,12 @@ static int lprn_do_cmd(uint8_t cmd)
 	int ret = LPRN_RET_ERR;
 	lprn_status = lprn_sd_status = 0;
 	if ((lprn_dev == -1) && !lprn_open())
-		set_term_astate(ast_nolprn);
+		set_term_astate(ast_nosprn);
 	else{
 		if (lprn_write_cmd(cmd))
 			ret = lprn_wait_op(true);
 		else{
-			set_term_astate(ast_nolprn);
+			set_term_astate(ast_nosprn);
 			lprn_reset();
 		}
 	}
@@ -921,12 +921,12 @@ int lprn_print_log(const uint8_t *data, size_t len)
 {
 	int ret = LPRN_RET_ERR;
 	if ((lprn_dev == -1) && !lprn_open())
-		set_term_astate(ast_nolprn);
+		set_term_astate(ast_nosprn);
 	else{
 		if (lprn_write_text(data, len, true))
 			ret = lprn_wait_op(true);
 		else{
-			set_term_astate(ast_nolprn);
+			set_term_astate(ast_nosprn);
 			lprn_reset();
 		}
 	}
@@ -938,12 +938,12 @@ int lprn_print_log1(const uint8_t *data, size_t len)
 {
 	int ret = LPRN_RET_ERR;
 	if ((lprn_dev == -1) && !lprn_open())
-		set_term_astate(ast_nolprn);
+		set_term_astate(ast_nosprn);
 	else{
 		if (lprn_write_text_log1(data, len))
 			ret = lprn_wait_op(true);
 		else{
-			set_term_astate(ast_nolprn);
+			set_term_astate(ast_nosprn);
 			lprn_reset();
 		}
 	}
@@ -960,8 +960,6 @@ int lprn_print_ticket(const uint8_t *data, size_t len, bool *sent_to_prn)
 	if ((ret = lprn_get_status()) != LPRN_RET_OK)
 		;
 	else if (lprn_status != 0)
-		;
-	else if (cfg.has_sd_card && (lprn_sd_status > 0x01))
 		;
 	else if ((ret = lprn_get_media_type()) != LPRN_RET_OK)
 		;

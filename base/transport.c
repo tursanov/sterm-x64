@@ -496,10 +496,6 @@ bool process_transport(void)
 			set_term_astate(ast_prn_number);
 			err_beep();
 			return false;
-		}else if ((wm == wm_local) && !cfg.has_lprn){
-			s_state = ss_finit;
-			set_term_astate(ast_nolprn);
-			return false;
 		}
 	}
 	if (cfg.use_ppp){

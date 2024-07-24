@@ -2024,10 +2024,9 @@ bool quick_astate(int ast)
 {
 	switch (ast){
 		case ast_noxprn:
-		case ast_nolprn:
-		case ast_lprn_err:
-		case ast_lprn_ch_media:
-		case ast_lprn_sd_err:
+		case ast_nosprn:
+		case ast_sprn_err:
+		case ast_sprn_ch_media:
 		case ast_repeat:
 		case ast_illegal:
 		case ast_rejected:

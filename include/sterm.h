@@ -18,17 +18,6 @@ extern "C" {
 #include "kbd.h"
 #include "gui/gdi.h"
 
-/* Режим работы терминала */
-enum {
-	wm_main,		/* основной */
-	wm_local,		/* пригородный */
-};
-
-extern int wm;
-
-/* Необходима блокировка терминала (ошибка работы с ППУ) */
-extern bool need_lock_term;
-
 /* Версия терминала */
 struct build_version{
 	uint32_t version;
@@ -45,7 +34,6 @@ extern bool optn_active;
 extern bool calc_active;
 extern bool xlog_active;
 extern bool plog_active;
-extern bool llog_active;
 extern bool klog_active;
 extern bool xchg_active;
 extern bool help_active;
@@ -104,7 +92,6 @@ enum {
 	cmd_ppp_hangup,
 	cmd_use_xprn,
 	cmd_use_aprn,
-	cmd_use_lprn,
 	cmd_view_plog,
 	cmd_plog_menu,
 	cmd_print_plog,
@@ -113,15 +100,10 @@ enum {
 	cmd_find_plog_date,
 	cmd_find_plog_number,
 	cmd_pos,
-	cmd_switch_wm,
 	cmd_term_info,
 	cmd_iplir_version,
 	cmd_kkt_info,
 	cmd_ticket_number,
-	cmd_lprn_menu,		/* меню работы с образами бланков ППУ */
-	cmd_lprn_snapshots,
-	cmd_lprn_erase_sd,
-	cmd_continue,		/* используется при показе сообщений об ошибках ППУ */
 	cmd_view_klog,
 	cmd_klog_menu,
 	cmd_print_klog,
@@ -165,8 +147,6 @@ extern bool	full_resp;	/* флаг прихода ответа от хост-ЭВМ */
 extern bool	rejecting_req;	/* был послан запрос с отказом от заказа */
 extern bool	online;		/* флаг возможности гашения экрана */
 extern bool	into_on_response;	/* используется в show_error */
-/* Устанавливается при выводе на экран сообщений об ошибках ППУ */
-extern bool	lprn_error_shown;
 
 extern uint8_t	text_buf[TEXT_BUF_LEN];
 extern uint8_t *err_ptr;
@@ -196,7 +176,6 @@ extern bool	term_delay(int d);
 extern void	show_req(void);
 extern void	reject_req(void);
 extern void	send_request(void);
-extern void	show_llog(void);
 extern bool	push_term_info(void);
 extern bool	pop_term_info(void);
 extern int	get_key_type(void);

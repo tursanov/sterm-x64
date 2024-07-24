@@ -126,7 +126,7 @@ static const char *plog_get_head_line1(char *buf)
 	if (hplog->hdr->n_recs == 0)
 		*buf = 0;
 	else
-		sprintf(buf, "%.2hhx%.2hhx (%u.%u.%u %.4hX %.*s) “=%.*s “=%.*s",
+		sprintf(buf, "%.2hhx%.2hhx (%u.%u.%u %.4hX %.*s) “=%.*s “=%.*s",
 			plog_rec_hdr.addr.gaddr, plog_rec_hdr.addr.iaddr,
 			VERSION_MAJOR(plog_rec_hdr.term_version),
 			VERSION_MINOR(plog_rec_hdr.term_version),

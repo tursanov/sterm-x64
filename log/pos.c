@@ -300,8 +300,7 @@ static void plog_init_rec_hdr(struct log_handle *hlog,
 		sizeof(hdr->xprn_number));
 	fill_prn_number(hdr->aprn_number, cfg.has_aprn ? cfg.aprn_number : "",
 		sizeof(hdr->aprn_number));
-	fill_prn_number(hdr->lprn_number,
-		((wm == wm_local) && cfg.has_lprn) ? (const char *)lprn_number : "",
+	fill_prn_number(hdr->lprn_number, cfg.has_sprn ? (const char *)lprn_number : "",
 		sizeof(hdr->lprn_number));
 	memcpy(hdr->dsn, dsn, DS_NUMBER_LEN);
 	hdr->ds_type = kt;

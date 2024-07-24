@@ -31,8 +31,6 @@ bool delayed_init = false;		/* флаг отложенной инициализации */
 
 uint32_t init_t0 = 0;			/* время начала инициализации */
 static int init_tries;			/* число попыток инициализации */
-bool wm_transition = false;		/* флаг переключения режимов работы терминала */
-bool wm_transition_interactive = false;	/* переключение режима с запросом пользователя */
 
 /* Идентификатор терминала (второй байт изменяется в зависимости от конфигурации) */
 static uint8_t term_id[3] = {0x6c, 0x00, 0x30};
@@ -75,7 +73,6 @@ void init_gd(void)
 	ZBp = GDF_REQ_INIT | GDF_REQ_FIRST;
 	OBp = 0;
 	delayed_init = false;
-	wm_transition = wm_transition_interactive = false;
 	srand(time(NULL));
 }
 
@@ -190,7 +187,7 @@ static uint8_t get_tcap_byte(void)
 		if (kkt_has_param("SUPPORT_ESC_R"))
 			ret |= TCAP_XSLT;
 	}
-	if ((wm == wm_local) && cfg.has_lprn)
+	if (cfg.has_sprn)
 		ret |= TCAP_EX_BCODE;
 	if (!cfg.bank_system)
 		ret |= TCAP_NO_POS;
@@ -239,8 +236,8 @@ static void write_prn_info(void)
 		number = zero_number;
 	for (i = 0; i < PRN_NUMBER_LEN; i++)
 		req_buf[req_len++] = recode(number[i]);
-/* Номер пригородного принтера (ППУ) */
-	if ((cfg.has_lprn) && (wm == wm_local))
+/* Номер билетопечатающего устройства (БПУ) */
+	if (cfg.has_sprn)
 		memcpy(req_buf + req_len, lprn_number, sizeof(lprn_number));
 	else
 		memset(req_buf + req_len, 0x30, sizeof(lprn_number));
@@ -393,7 +390,6 @@ void slayer_error(int e)
 	}
 	if (cfg.tcp_cbt || (gd_error_type(e) == gde_tcp))
 		release_term_socket();
-	wm_transition = false;
 }
 
 /* Начало инициализации */

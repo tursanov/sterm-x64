@@ -62,7 +62,7 @@ enum {
 	optn_str_edit,		/* обычная строка ввода */
 	optn_lstr_edit,		/* строка ввода латинских букв */
 	optn_psw_edit,		/* пароль */
-	optn_static_txt,	/* статический текст (номер ППУ) */
+	optn_static_txt,	/* статический текст (номер БПУ) */
 	optn_delim,		/* разделитель групп */
 };
 
@@ -121,11 +121,11 @@ static bool scheme_shown = false;
 static bool scheme_changed = false;
 
 /*
- * Параметры ППУ при входе в меню "Внешние устройства" должны читаться
+ * Параметры БПУ при входе в меню "Внешние устройства" должны читаться
  * только один раз.
  */
 bool lprn_params_read = false;
-static const char lprn_hdr[] = "ППУ-----------";
+static const char lprn_hdr[] = "БПУ-----------";
 
 /* TCP/IP */
 static const char *optn_use_ppp[] = {"Сетевая карта", "PPP"};
@@ -321,10 +321,6 @@ static struct optn_item sys_optn_items[] = {
 	OPTN_BOOL3("Шифрование VipNet", "Использовать при работе по TCP/IP\r\n"
 		"шифрование данных с помощью пакета VipNet\r\nИнфотекс",
 		use_iplir, on_iplir_change),
-#if 0
-	OPTN_BOOL1("Автозапуск пригород.", "Автоматический запуск пригородного\r\n"
-		"приложения после включения терминала", autorun_local, NULL),
-#endif
 };
 
 /* Внешние устройства */
@@ -339,12 +335,9 @@ static struct optn_item dev_optn_items[] = {
 		"печатающего устройства", PRN_NUMBER_LEN, aprn_number, NULL),
 	OPTN_STR_ENUM("Порт ДПУ", "Последовательный порт, к которому\r\n"
 		"подключается ДПУ", optn_com_port, ini_int, aprn_tty, NULL),
-	OPTN_BOOL2("ППУ", "Наличие в составе терминала принтера\r\nпригородных билетов",
-		has_lprn, NULL),
-	OPTN_STATIC("Номер ППУ", (const char *)lprn_number, sizeof(lprn_number)),
-	OPTN_BOOL2("Карта памяти ППУ",
-		"Наличие в составе ППУ\r\nкарты памяти для хранения\r\n"
-		"образов отпечатанных бланков", has_sd_card, NULL),
+	OPTN_BOOL2("БПУ", "Наличие в составе терминала БПУ",
+		has_sprn, NULL),
+	OPTN_STATIC("Номер БПУ", (const char *)lprn_number, sizeof(lprn_number)),
 	OPTN_STATIC("------Параметры печати", lprn_hdr, sizeof(lprn_hdr) - 1),
 	OPTN_INT_EDIT("Длина бланка", "Длина документа в мм", s0, NULL),
 	OPTN_INT_EDIT("Ширина бланка", "Ширина документа в мм", s1, NULL),
@@ -914,10 +907,10 @@ static bool __optn_set_item_enable(int offset, bool enable)
 #define optn_disable_item(fld) optn_set_item_enable(fld, false)
 
 /*
- * Разрешение/запрещение редактирования параметров БСО ППУ в зависимости
+ * Разрешение/запрещение редактирования параметров БСО БПУ в зависимости
  * от режима работы.
  */
-static void adjust_lprn_params(bool enable)
+static void adjust_sprn_params(bool enable)
 {
 	struct optn_group *grp = optn_groups + OPTN_GROUP_DEVICES;
 	struct optn_item *itm;
@@ -930,10 +923,8 @@ static void adjust_lprn_params(bool enable)
 				grp->n_items++, itm++){
 			if (itm->offset == -1)
 				continue;
-			else /*if (cfg.has_lprn)*/
-				found = itm->offset >= offsetof(struct term_cfg, has_sd_card);
-/*			else
-				found = itm->offset >= offsetof(struct term_cfg, has_lprn);*/
+			else
+				found = itm->offset >= offsetof(struct term_cfg, has_sprn);
 		}
 	}
 }
@@ -2141,25 +2132,28 @@ static bool on_exit_bank_system(const struct optn_group *group)
 	return ret;
 }
 
-/* Получение настроек ППУ */
+/* Получение настроек БПУ */
 static void get_lprn_params(void)
 {
+#if defined INSERT_SPRN_CODE_HERE
 	if ((wm != wm_local) || (kt != key_dbg))
-		adjust_lprn_params(false);
-	else if (lprn_params_read)
-		adjust_lprn_params(true);
+		adjust_sprn_params(false);
+	else
+#endif		/* INSERT_SPRN_CODE_HERE */
+	if (lprn_params_read)
+		adjust_sprn_params(true);
 	else{
 		int ret = lprn_get_params(&cfg);
 		if (ret == LPRN_RET_OK){
 			lprn_params_read = true;
 			optn_read_group(&cfg, OPTN_GROUP_DEVICES);
-			adjust_lprn_params(true);
+			adjust_sprn_params(true);
 		}else if (ret == LPRN_RET_ERR){
 			ClearScreen(clBlack);
 			err_beep();
-			message_box("ОШИБКА ППУ", "Не удалось получить параметры работы ППУ.",
+			message_box("ОШИБКА БПУ", "Не удалось получить параметры работы БПУ.",
 				dlg_yes, DLG_BTN_YES, al_center);
-			adjust_lprn_params(false);
+			adjust_sprn_params(false);
 		}
 	}
 }

@@ -15,7 +15,7 @@ extern "C" {
 #include <errno.h>
 #include "sterm.h"
 
-/* TCP-порт "Экспресс-3" */
+/* TCP-порт "Экспресс" */
 #define EXPRESS_SERVER_PORT	1001
 
 /* Все таймауты в 1/HZ-секундных единицах */
