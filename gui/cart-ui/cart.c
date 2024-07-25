@@ -15,6 +15,10 @@ ui_cart_t *ui_cart = NULL;
 ui_subcart_t *ui_sel_subcart = NULL;
 
 
+void process_docs();
+void print_cheque(list_t *klist);
+
+
 void ui_cart_create()
 {
 	if (ui_cart != NULL)
@@ -147,7 +151,14 @@ void ui_cart_process_enter()
         d->expanded = !d->expanded;
         
         ui_cart_redraw_all();
-    }    
+    }
+    else if (sc->tab_selected_flags == CART_TAB_SELECTED_ACTION)
+    {
+        process_docs();    
+    }
+    else if (sc->tab_selected_flags == CART_TAB_SELECTED_DELETE)
+    {
+    }
 }
 
 void ui_cart_process_space()
@@ -194,4 +205,69 @@ bool cart_process(const struct kbd_event *_e) {
 	}
 
 	return 1;
+}
+
+void get_all_k_from_doc(list_t klist[2])
+{
+    ui_subcart_t *sc = ui_sel_subcart;
+    ui_doc_t *d = sc->docs;
+    uint8_t kp = 255;
+    
+    for (size_t i = 0; i < sc->doc_count; i++, d++)
+    {
+        if (d->selected)
+        {
+            D* doc = d->val;
+            
+            for (list_item_t* li = doc->related.head; li; li = li->next)
+            {
+                K *k = LIST_ITEM(li, K);
+                uint8_t p = LIST_ITEM(k->llist.head, L)->p;
+                int index;
+                
+                if (kp == 255)
+                {
+                    kp = p;
+                    index = 0;
+                }
+                else if (kp == p)
+                {
+                    index = 0;
+                }
+                else
+                {
+                    index = 1;
+                }
+                
+                list_add(&klist[index], k);
+            }
+        }
+    }
+}
+
+void process_docs()
+{
+    list_t klist[2] =
+    {
+        { NULL, NULL, 0, NULL },
+        { NULL, NULL, 0, NULL },
+    };
+    get_all_k_from_doc(klist);
+    
+    for (int i = 0; i < 2; i++)
+    {
+        if (klist->count == 0)
+        {
+            continue;
+        }
+        list_t *list = &klist[i];
+        
+        print_cheque(list);
+    }
+}
+
+void print_cheque(list_t *klist)
+{
+	size_t doc_count = 0;
+    
 }
