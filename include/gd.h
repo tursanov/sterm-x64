@@ -126,14 +126,6 @@ enum {
 	ss_ready,	/* ready to work */
 };
 
-/*
- * Флаг переключения режимов работы терминала. Перед переходом из основного
- * режима в пригородный и наоборот необходимо провести инициализацию и послать
- * в хост-ЭВМ холостой запрос.
- */
-extern bool wm_transition;
-/* Переключение режима с запросом пользователя */
-extern bool wm_transition_interactive;
 extern int s_state;
 extern int session_error;
 extern bool delayed_init;

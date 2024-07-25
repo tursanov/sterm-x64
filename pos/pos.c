@@ -399,7 +399,7 @@ static bool pos_send_kbd(void)
 	}	
 }
 
-bool pos_send_params(void)
+bool pos_send_params_resp(void)
 {
 	static struct pos_data_buf buf;
 /*	int i;*/

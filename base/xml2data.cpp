@@ -581,13 +581,11 @@ static char get_dst_char(int dst)
 			ret = 'E';
 			break;
 		case dst_xprn:
+		case dst_sprn:
 			ret = X_XPRN;
 			break;
 		case dst_kprn:
 			ret = X_KPRN;
-			break;
-		case dst_lprn:
-			ret = X_TPRN;
 			break;
 	}
 	return ret;

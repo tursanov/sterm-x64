@@ -375,15 +375,13 @@ static struct {
 	CFG_ENTRY_UINT32	("watch-interval",	watch_interval),
 #endif
 	CFG_ENTRY_BOOL		("use-iplir",		use_iplir),
-	CFG_ENTRY_BOOL		("autorun-local",	autorun_local),
 /* Внешние устройства */
 	CFG_ENTRY_BOOL		("has-xprn",		has_xprn),
 	CFG_ENTRY_STRING	("xprn-number",		xprn_number),
 	CFG_ENTRY_BOOL		("has-aprn",		has_aprn),
 	CFG_ENTRY_STRING	("aprn-number",		aprn_number),
 	CFG_ENTRY_INT		("aprn-tty",		aprn_tty),
-	CFG_ENTRY_BOOL		("has-lprn",		has_lprn),
-	CFG_ENTRY_BOOL		("sd-card",		has_sd_card),
+	CFG_ENTRY_BOOL		("has-sprn",		has_sprn),
 	CFG_ENTRY_INT		("s0",			s0),
 	CFG_ENTRY_INT		("s1",			s1),
 	CFG_ENTRY_INT		("s2",			s2),

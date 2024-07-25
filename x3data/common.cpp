@@ -10,6 +10,19 @@
 #include "x3data/common.hpp"
 #include "termlog.h"
 
+/* Проверка существования каталога и создание его при необходимости */
+bool create_folder_if_need(const char *path)
+{
+	bool ret = false;
+	struct stat st;
+	if (stat(path, &st) == -1){
+		if (mkdir(path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) == 0)
+			ret = true;
+	}else if (S_ISDIR(st.st_mode))
+		ret = true;
+	return ret;
+}
+
 /* Сжатие файла шаблона (w и h задаются в точках) */
 bool compress_picture(const uint8_t *src, size_t len, size_t w,
 	size_t h __attribute__((unused)), vector<uint8_t> &dst)

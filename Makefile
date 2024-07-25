@@ -59,7 +59,6 @@ GUI_LOG_OBJS =		\
 	express		\
 	generic		\
 	kkt		\
-	local		\
 	pos
 
 GUI_CONTROLS_OBJS =	\
@@ -95,7 +94,6 @@ LOG_OBJS =		\
 	express		\
 	generic		\
 	kkt		\
-	local		\
 	logdbg		\
 	pos
 

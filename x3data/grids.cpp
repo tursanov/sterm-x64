@@ -190,6 +190,10 @@ static bool find_stored_grids(list<GridInfo> &stored_grids, const char *pattern)
 {
 	if (pattern == NULL)
 		return false;
+	else if (!create_folder_if_need(GRIDS_FOLDER)){
+		log_err("Каталог " GRIDS_FOLDER " не существует и не может быть создан.");
+		return false;
+	}
 	int rc = regcomp(&reg, pattern, REG_EXTENDED | REG_NOSUB);
 	if (rc != REG_NOERROR){
 		log_err("Ошибка компиляции регулярного выражения для '%s': %d.", pattern, rc);
@@ -243,7 +247,7 @@ static void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &g
 	bool (*find_fn)(list<GridInfo> &))
 {
 	clr_grid_lists(grids_to_create, grids_to_remove);
-/* Создаём список разметок, хранящихся в ПАК РМК */
+/* Создаём список разметок, хранящихся в терминале */
 	log_dbg("Ищем разметки в каталоге %s...", GRIDS_FOLDER);
 	list<GridInfo> stored_grids;
 	find_fn(stored_grids);
@@ -269,7 +273,7 @@ static void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &g
 		if (found)
 			log_dbg("Разметка %s #%d (%hc) не требует обновления.", p.name().c_str(), p.nr(), p.id());
 		else{
-			log_dbg("Разметка %s #%d (%hc) отсутствует в ПАК РМК и будет загружена из \"Экспресс-3\").",
+			log_dbg("Разметка %s #%d (%hc) отсутствует в терминале и будет загружена из \"Экспресс-3\").",
 				p.name().c_str(), p.nr(), p.id());
 			grids_to_create.push_back(p);
 		}

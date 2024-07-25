@@ -122,6 +122,10 @@ static void check_stored_xslt(const list<XSLTInfo> &x3_xslt)
 	xslt_to_create.clear();
 	xslt_to_remove.clear();
 /* Создаём список таблиц XSLT, хранящихся на диске */
+	if (!create_folder_if_need(XSLT_FOLDER)){
+		log_err("Каталог " XSLT_FOLDER " не существует и не может быть создан.");
+		return;
+	}
 	log_dbg("Ищем таблицы XSLT в каталоге " XSLT_FOLDER "...");
 	int rc = regcomp(&reg, "^T[0-9A-Z]{2}[0-9]{5}\\.[Xx][Ss][Ll]$", REG_EXTENDED | REG_NOSUB);
 	if (rc != REG_NOERROR){
@@ -159,10 +163,12 @@ static void check_stored_xslt(const list<XSLTInfo> &x3_xslt)
 				log_dbg("Таблица XSLT %s #%s старее экспрессовской и будет удалена.",
 					p1.name().c_str(), p1.idx());
 				xslt_to_remove.push_back(p1);
+#if !defined __KEEP_NEWER_XSLT__
 			}else if (p1.isNewer(p)){
 				log_dbg("Таблица XSLT %s #%s новее экспрессовской и будет удалена.",
 					p1.name().c_str(), p1.idx());
 				xslt_to_remove.push_back(p1);
+#endif
 			}else
 				found = true;
 		}

@@ -447,13 +447,9 @@ static char *get_ping_line(int n)
 			ip.s_addr = cfg.gateway;
 			break;
 		case HOST_X3:
-			snprintf(desc, sizeof(desc), "Хост-ЭВМ \"Экспресс-3\"");
+			snprintf(desc, sizeof(desc), "Хост-ЭВМ \"Экспресс\"");
 			ip.s_addr = cfg.x3_p_ip;
 			break;
-/*		case HOST_X3_ALT:
-			snprintf(desc, sizeof(desc), "Хост-ЭВМ-2 \"Экспресс-3\"");
-			ip.s_addr = cfg.x3_s_ip;
-			break;*/
 		case HOST_BANK1:
 			snprintf(desc, sizeof(desc), "Процессинговый центр #1");
 			ip.s_addr = cfg.bank_proc_ip;

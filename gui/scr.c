@@ -115,31 +115,10 @@ static struct hint_entry main_hints[NR_HINTS]={
 /* Вторая строка (7 ячеек) */
 	{"Shift",	"Рус/Лат", 		_("pict/rus-lat.bmp")},
 	{"CapsLock",	"Рус/Лат",		_("pict/rus-lat.bmp")},
-	{"Ctrl+S",	"Приг. реж.",		_("pict/local/exit.bmp")},
 	{"Ctrl+Л",	"КЛ Экспр.",		_("pict/log.bmp")},
 	{"Ctrl+Ч",	"КЛ ИПТ",		_("pict/log.bmp")},
-	{"Ctrl+Б",	"ИПТ",			_("pict/bank.bmp")},
-	{"Ctrl+Щ",		"ККТ",		_("pict/kkt.bmp")},
-};
-
-/* Подсказки пригородного режима */
-static struct hint_entry local_hints[NR_HINTS]={
-/* Первая стока (8 ячеек) */
-	{"F1",		"Помощь", 		_("pict/help.bmp")},
-	{"F2",		"Печать", 		_("pict/print.bmp")},
-	{"F5",		"Отказ", 		_("pict/reject.bmp")},
-	{"F6",		"Очистка", 		_("pict/clear.bmp")},
-	{"F7",		"Просм. зак.",		_("pict/f7.bmp")},
-	{"F8",		"Просм. отв.",		_("pict/resp.bmp")},
-	{"Alt",		"След. ключ", 		_("pict/key.bmp")},
-	{"Enter",	"Заказ", 		_("pict/request.bmp")},
-/* Вторая строка (7 ячеек) */
-	{"Shift",	"Рус/Лат", 		_("pict/rus-lat.bmp")},
-	{"CapsLock",	"Рус/Лат",		_("pict/rus-lat.bmp")},
-	{"Ctrl+S",	"Осн. реж.",		_("pict/local/exit.bmp")},
-	{"Ctrl+Ь",	"КЛ приг.",		_("pict/log.bmp")},
-	{"Ctrl+Г",	"Печ. обр.",		_("pict/local/images.bmp")},
-	{"Ctrl+Я",	"Номер",		_("pict/local/number.bmp")},
+	{"Ctrl+Р",	"КЛ ККТ",		_("pict/log.bmp")},
+	{"Ctrl+Ш",	"Инфо",			_("pict/info.bmp")},
 	{"Ctrl+Щ",		"ККТ",		_("pict/kkt.bmp")},
 };
 
@@ -841,7 +820,7 @@ static uint8_t *buf_ptr(void)
 /* Показать подсказки */
 bool show_hints(void)
 {
-	struct hint_entry *hints = (wm == wm_main) ? main_hints : local_hints;
+	struct hint_entry *hints = main_hints;
 	if (!scr_visible)
 		return false;
 	if (cfg.has_hint) {
@@ -2045,10 +2024,9 @@ bool quick_astate(int ast)
 {
 	switch (ast){
 		case ast_noxprn:
-		case ast_nolprn:
-		case ast_lprn_err:
-		case ast_lprn_ch_media:
-		case ast_lprn_sd_err:
+		case ast_nosprn:
+		case ast_sprn_err:
+		case ast_sprn_ch_media:
 		case ast_repeat:
 		case ast_illegal:
 		case ast_rejected:

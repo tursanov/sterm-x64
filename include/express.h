@@ -1,4 +1,4 @@
-/* Прикладной протокол "Экспресс-3". (c) gsr 2000-2004, 2009, 2018, 2020, 2024 */
+/* Прикладной протокол "Экспресс". (c) gsr 2000-2004, 2009, 2018, 2020, 2024 */
 
 #if !defined EXPRESS_H
 #define EXPRESS_H
@@ -22,12 +22,13 @@ enum {
 	req_icon_kkt,		/* запрос пиктограммы для ККТ */
 	req_patterns,		/* запрос шаблона печати ККТ */
 	req_xslt,		/* запрос таблицы трансформации XML */
+	req_pos,		/* запрос данных для печати квитанции ИПТ */
 };
 
 /* Тип текущего запроса */
 extern int req_type;
 
-/* Команды "Экспресс-3" */
+/* Команды "Экспресс" */
 #define X_DLE		0x1b	/* Esc префикс команды */
 #define X_WRITE		0x31	/* 1 запись */
 #define X_READ_ALL	0x32	/* 2 читать полный буфер */
@@ -41,10 +42,9 @@ extern int req_type;
 #define X_SCR		0x49	/* I абзац для отображения на экране */
 #define X_KEY		0x4b	/* K абзац для ОЗУ ключей */
 #define X_XPRN		0x4d	/* M абзац для ОПУ */
-#define X_TPRN		X_XPRN	/* M абзац для ТПУ */
 #define X_ROM		0x4e	/* N абзац для ОЗУ констант (ПЗУ) */
 #define X_QOUT		0x4f	/* O абзац для ОЗУ заказа без отображения на экране */
-#define X_LPRN		0x50	/* P абзац для ППУ */
+#define X_SPRN		0x50	/* P абзац для БПУ */
 #define X_KPRN		0x51	/* Q абзац для печати на ККТ */
 #define X_XML		0x52	/* R данные в формате XML */
 #define X_REPEAT	0x53	/* S автоповтор символа */
@@ -114,7 +114,7 @@ extern int req_type;
 #define E_XML_PRN_TRANSFORM		0xaa	/* Ошибка преобразования XML для печати */
 #define E_XML_SCR_PARSE			0xab	/* Ошибка разбора XML для экрана */
 #define E_XML_SCR_TRANSFORM		0xac	/* Ошибка преобразования XML для экрана */
-#define E_UNKNOWN	0x99	/* Неизвестная ошибка */
+#define E_UNKNOWN	0xff	/* Неизвестная ошибка */
 
 /* Биты возможностей терминала (передаются во втором байте идентификатора) */
 #define TCAP_TERM	0x00	/* терминал */
@@ -125,7 +125,7 @@ extern int req_type;
 #define TCAP_NO_POS	0x10	/* нет ИПТ */
 #define TCAP_UNIBLANK	0x20	/* печать на универсальном бланке */
 #define TCAP_FPS	0x40	/* система быстрых платежей */
-#define TCAP_MASK	(TCAP_UNIBLANK | TCAP_NO_POS | TCAP_EX_BCODE | TCAP_KKT)
+#define TCAP_MASK	0x7f
 
 /* Устройство для вывода абзаца ответа */
 enum {
@@ -135,7 +135,7 @@ enum {
 	dst_xprn,	/*  3 ОПУ */
 	dst_tprn = dst_xprn,
 	dst_aprn,	/*  4 ДПУ */
-	dst_lprn,	/*  5 ППУ */
+	dst_sprn,	/*  5 БПУ */
 	dst_out,	/*  6 */
 	dst_qout,	/*  7 */
 	dst_hash,	/*  8 */
@@ -160,9 +160,6 @@ struct para_info{
 	int scr_mode;		/* разрешение экрана (Ар2Ф) */
 	int xml_idx;		/* индекс в таблице XML (-1, если записи для абзаца нет */
 };
-
-/* Описание кода синтаксической ошибки ответа */
-extern const char *get_syntax_error_txt(uint8_t code);
 
 /* Информация из абзаца для ИПТ */
 #define BNK_REQ_ID_LEN		7
@@ -246,7 +243,7 @@ extern const struct bank_data *get_bi(void);
 /* Получение данных изображения для БПУ */
 extern bool find_pic_data(int *data, int *req);
 
-/* Категории данных, для которых требуется синхронизация с "Экспресс-3" */
+/* Категории данных, для которых требуется синхронизация с "Экспресс" */
 #define X3_SYNC_NONE			0x00000000	/* синхронизация данных не требуется */
 #define X3_SYNC_XPRN_GRIDS		0x00000001	/* требуется синхронизация разметок бланков БПУ */
 #define X3_SYNC_XPRN_ICONS		0x00000002	/* требуется синхронизация пиктограмм БПУ */
@@ -255,7 +252,7 @@ extern bool find_pic_data(int *data, int *req);
 #define X3_SYNC_KKT_PATTERNS		0x00000010	/* требуется синхронизация шаблонов печати ККТ */
 #define X3_SYNC_XSLT			0x00000020	/* требуется синхронизация таблиц XSLT */
 
-/* Проверка необходимости синхронизация данных с "Экспресс-3" */
+/* Проверка необходимости синхронизация данных с "Экспресс" */
 extern uint32_t need_x3_sync(void);
 
 /* Обработка текста ответа. Возвращает false, если надо перейти к ОЗУ заказа */

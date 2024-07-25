@@ -155,6 +155,10 @@ static bool find_stored_icons(list<IconInfo> &stored_icons, const char *pattern)
 {
 	if (pattern == NULL)
 		return false;
+	else if (!create_folder_if_need(ICONS_FOLDER)){
+		log_err("Каталог " ICONS_FOLDER " не существует и не может быть создан.");
+		return false;
+	}
 	int rc = regcomp(&reg, pattern, REG_EXTENDED | REG_NOSUB);
 	if (rc != REG_NOERROR){
 		log_err("Ошибка компиляции регулярного выражения для '%s': %d.", pattern, rc);
@@ -207,7 +211,7 @@ static void check_stored_icons(const list<IconInfo> &x3_icons, list<IconInfo> &i
 	bool (*find_fn)(list<IconInfo> &))
 {
 	clr_icon_lists(icons_to_create, icons_to_remove);
-/* Создаём список пиктограмм, хранящихся в ПАК РМК */
+/* Создаём список пиктограмм, хранящихся в терминале */
 	log_dbg("Ищем пиктограммы в каталоге %s...", ICONS_FOLDER);
 	list<IconInfo> stored_icons;
 	find_fn(stored_icons);
@@ -233,7 +237,7 @@ static void check_stored_icons(const list<IconInfo> &x3_icons, list<IconInfo> &i
 		if (found)
 			log_dbg("Пиктограмма %s #%d (%hc) не требует обновления.", p.name().c_str(), p.nr(), p.id());
 		else{
-			log_dbg("Пиктограмма %s #%d (%hc) отсутствует в ПАК РМК и будет загружена из \"Экспресс-3\").",
+			log_dbg("Пиктограмма %s #%d (%hc) отсутствует в терминале и будет загружена из \"Экспресс-3\").",
 				p.name().c_str(), p.nr(), p.id());
 			icons_to_create.push_back(p);
 		}
@@ -951,7 +955,7 @@ static bool write_icon_to_kkt_new(const IconInfo &ii)
 			log_dbg("Размер данных после сжатия: %zu байт.", cdata.size());
 			char name[SPRN_MAX_ICON_NAME_LEN + 1];
 			snprintf(name, sizeof(name), "%s.BMP", ii.name().c_str());
-			if (kkt_load_icon_new(data, len, ii.id(), w, h, name) == KKT_STATUS_OK){
+			if (kkt_load_icon_new(cdata.data(), cdata.size(), ii.id(), w, h, name) == KKT_STATUS_OK){
 				log_info("Пиктограмма %s успешно загружена в ККТ.", path);
 				ret = true;
 			}else

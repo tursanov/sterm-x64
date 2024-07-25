@@ -6,7 +6,6 @@ GUI_LOG_OBJS =		\
 	express		\
 	generic		\
 	kkt		\
-	local		\
 	pos
 
 OBJS = $(addsuffix .o, $(GUI_LOG_OBJS))

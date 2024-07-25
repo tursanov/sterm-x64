@@ -24,7 +24,6 @@
 #include "gui/help.h"
 #include "gui/log/express.h"
 #include "gui/log/kkt.h"
-#include "gui/log/local.h"
 #include "gui/log/pos.h"
 #include "gui/fa.h"
 #include "gui/newcheque.h"
@@ -39,7 +38,6 @@
 #include "kkt/fd/ad.h"
 #include "log/express.h"
 #include "log/kkt.h"
-#include "log/local.h"
 #include "log/pos.h"
 #include "pos/error.h"
 #include "pos/pos.h"
@@ -67,11 +65,6 @@
 #include "termlog.h"
 #include "tki.h"
 #include "transport.h"
-
-/* Режим работы терминала */
-int wm = wm_main;
-/* Необходима блокировка терминала (ошибка работы с ППУ) */
-bool need_lock_term = false;
 
 uint16_t term_check_sum = 0;	/* контрольная сумма терминала */
 
@@ -101,12 +94,10 @@ static bool watch_crying;
 
 /* Устанавливаются при выводе соответствующих окон терминала */
 bool menu_active	= false;
-bool lprn_menu_active	= false;
 bool optn_active	= false;
 bool calc_active	= false;
 bool xlog_active	= false;
 bool plog_active	= false;
-bool llog_active	= false;
 bool klog_active	= false;
 bool xchg_active	= false;
 bool help_active	= false;
@@ -154,9 +145,6 @@ bool online = true;			/* флаг возможности гашения экрана */
 static int prev_s_state;		/* используется при работе с окном настроек */
 
 bool into_on_response;			/* используется в show_error */
-
-/* Устанавливается при выводе на экран сообщений об ошибках ППУ */
-bool lprn_error_shown = false;
 
 /* Устанавливается после получения SIGTERM */
 static bool sigterm_caught = false;
@@ -290,14 +278,12 @@ static bool set_term_defaults(void)
 	cfg.watch_interval = 0;
 #endif
 	cfg.use_iplir = false;
-	cfg.autorun_local = false;
 
 	cfg.has_xprn = true;
 	cfg.xprn_number[0] = 0;
 	cfg.has_aprn = false;
 	cfg.aprn_number[0] = 0;
-	cfg.has_lprn = false;
-	cfg.has_sd_card = false;
+	cfg.has_sprn = false;
 	cfg.s0 = 0;
 	cfg.s1 = 0;
 	cfg.s2 = 0;
@@ -509,10 +495,9 @@ const char *find_term_astate(intptr_t ast)
 		{ast_none,		""},
 		{ast_noxprn,		"Нет готовности ОПУ"},
 		{ast_noaprn,		"Нет готовности ДПУ"},
-		{ast_nolprn,		"\x01Нет готовности ППУ"},
-		{ast_lprn_err,		"\x01Ошибка ППУ"},
-		{ast_lprn_ch_media,	"\x01Замените ленту в ППУ"},
-		{ast_lprn_sd_err,	"\x01Ош. карты памяти"},
+		{ast_nosprn,		"Нет готовности БПУ"},
+		{ast_sprn_err,		"Ошибка БПУ"},
+		{ast_sprn_ch_media,	"Замените ленту в БПУ"},
 		{ast_rejected,		"Ответ не принят"},
 		{ast_repeat,		"Повторите заказ"},
 		{ast_resp,		"ПРОСМОТР ОТВЕТА"},
@@ -541,19 +526,11 @@ const char *find_term_astate(intptr_t ast)
 		p = &astates[i];
 		if (ast == p->ast){
 			switch (ast){
-				case ast_lprn_err:
+				case ast_sprn_err:
 					if (lprn_status != 0){
 						snprintf(buf, sizeof(buf),
 							"%s: %.2hhX",
 							p->descr, lprn_status);
-						flag = true;
-					}
-					break;
-				case ast_lprn_sd_err:
-					if (lprn_sd_status > 0x01){
-						snprintf(buf, sizeof(buf),
-							"%s: %.2hhX",
-							p->descr, lprn_sd_status);
 						flag = true;
 					}
 					break;
@@ -640,9 +617,9 @@ void show_dest(int dst)
 			set_term_state(st_scr);
 			break;
 		case dst_xprn:
-		case dst_aprn:
-		case dst_lprn:
+		case dst_sprn:
 		case dst_kprn:
+		case dst_aprn:
 			set_term_state(st_prn);
 			break;
 		case dst_out:
@@ -671,9 +648,9 @@ void show_ndest(int n)
 				astate_for_req = ast_resp;
 				break;
 			case dst_xprn:
-			case dst_aprn:
-			case dst_lprn:
+			case dst_sprn:
 			case dst_kprn:
+			case dst_aprn:
 				set_term_astate(ast_prn);
 				astate_for_req = ast_prn;
 				break;
@@ -751,11 +728,6 @@ static bool draw_plog(void)
 	return log_draw(plog_gui_ctx);
 }
 
-static bool draw_llog(void)
-{
-	return log_draw(llog_gui_ctx);
-}
-
 static bool draw_klog(void)
 {
 	return log_draw(klog_gui_ctx);
@@ -778,7 +750,6 @@ void redraw_term(bool show_text, const char *title)
 		{&help_active,	draw_help},
 		{&xlog_active,	draw_xlog},
 		{&plog_active,	draw_plog},
-		{&llog_active,	draw_llog},
 		{&klog_active,	draw_klog},
 		{&xchg_active,	draw_xchange},
 		{&calc_active,	draw_calc},
@@ -797,7 +768,7 @@ void redraw_term(bool show_text, const char *title)
 	for (i=0; i < ASIZE(scr_elems); i++)
 		if (*scr_elems[i].active)
 			scr_elems[i].draw_fn();
-	if (menu_active || lprn_menu_active)
+	if (menu_active)
 		draw_menu(mnu);
 }
 
@@ -813,10 +784,9 @@ void scr_wakeup(void)
 /* Закрытие ненужных окон при сбросе */
 void release_garbage(void)
 {
-	if (menu_active || lprn_menu_active){
+	if (menu_active){
 		release_menu(mnu, true);
 		mnu = NULL;
-		lprn_menu_active = false;
 		ClearScreen(clBtnFace);
 	}
 	if (xchg_active)
@@ -829,8 +799,6 @@ void release_garbage(void)
 		log_release_view(xlog_gui_ctx);
 	if (plog_active)
 		log_release_view(plog_gui_ctx);
-	if (llog_active)
-		log_release_view(llog_gui_ctx);
 	if (klog_active)
 		log_release_view(klog_gui_ctx);
 	if (calc_active) {
@@ -862,13 +830,13 @@ char *get_main_title(void)
 	snprintf(main_title, sizeof(main_title), MAIN_TITLE " ("
 		_s(STERM_VERSION_MAJOR) "."
 		_s(STERM_VERSION_MINOR) "."
-		_s(STERM_VERSION_RELEASE) "  %s %s) -- \x01%s РЕЖИМ (%s)",
+		_s(STERM_VERSION_RELEASE) "  %s %s) [%s]",
 		__DATE__, __TIME__,
-		(wm == wm_main) ? "ОСНОВНОЙ" : "ПРИГОРОДН\x9bЙ",
 		use_integrator ? "ИНТЕГРАТОР" : "ХОСТ");
 	return main_title;
 }
 
+#if 0
 /* Вывод на экран сообщения об ошибке чтения заводского номера ППУ */
 static void show_lprn_nonumber_error(void)
 {
@@ -897,34 +865,34 @@ static bool init_lprn(void)
 		;
 	else if (cfg.has_sd_card && (lprn_sd_status > 0x01)){
 		set_term_astate(ast_lprn_sd_err);
-		llog_write_sd_error(hllog, lprn_sd_status, 0);
 		need_lock_term = true;
 	}else if (lprn_status != 0)
-		set_term_astate(ast_lprn_err);
+		set_term_astate(ast_sprn_err);
 	else if ((ret = lprn_init()) != LPRN_RET_OK)
 		need_lock_term = ret != LPRN_RET_RST;
 	else if (lprn_status != 0){
-		set_term_astate(ast_lprn_err);
+		set_term_astate(ast_sprn_err);
 		if (lprn_status == 0x01)	/* номер ППУ не прописан в памяти */
 			show_lprn_nonumber_error();
 		need_lock_term = true;
 	}else{
 		flag = true;
-		if (!cfg.has_lprn){
-			cfg.has_lprn = true;
+		if (!cfg.has_sprn){
+			cfg.has_sprn = true;
 			write_cfg();
 		}
 	}
 	lprn_close();
 	if (!flag && (ret != LPRN_RET_RST)){
 		err_beep();
-		if (cfg.has_lprn){
-			cfg.has_lprn = false;
+		if (cfg.has_sprn){
+			cfg.has_sprn = false;
 			write_cfg();
 		}
 	}
 	return flag;
 }
+#endif
 
 static bool is_kkt(const struct dev_info *dev)
 {
@@ -1039,7 +1007,7 @@ static void init_devices(void)
 /* Инициализация терминала */
 static void init_term(bool need_init)
 {
-	bool flag = xlog_active || plog_active || llog_active || klog_active;
+	bool flag = xlog_active || plog_active || klog_active;
 	set_log_lvl(Debug);
 	can_reject = false;
 	err_ptr = NULL;
@@ -1087,18 +1055,14 @@ static void init_term(bool need_init)
 	set_term_state(st_input);
 	show_key_type();
 	set_term_led(hbyte = HB_INIT);
-	if (wm == wm_local)
-		init_lprn();	/* необходимо вызывать ДО reset_gd */
 	reset_gd(need_init);
 	mark_all();
 	xprn_flush();
 	aprn_flush();
 	resp_handling = resp_executing = false;
-	wm_transition = false;
 	if (cfg.bank_system)
 		pos_init_transactions();
 	clear_bank_info();
-	lprn_error_shown = false;
 	rollback_keys(true);
 	apc = false;
 	init_devices();
@@ -1176,48 +1140,6 @@ static void set_timezone(void)
 #pragma GCC diagnostic pop
 #endif
 
-/* Проверка возможности автоматического перехода в пригородный режим */
-static bool can_set_local_wm(void)
-{
-	return false;
-#if 0
-	struct stat st;
-	return	cfg.autorun_local &&
-		(stat(LOCAL_FLAG_NAME, &st) == 0) &&
-		S_ISREG(st.st_mode);
-#endif
-}
-
-/* Создание/удаление файла признака работы в пригородном режиме */
-static bool change_local_flag(void)
-{
-	bool ret = false;
-/*	if (remount_home(true)){*/
-		if (wm == wm_local){
-			int fd = open(LOCAL_FLAG_NAME,
-				O_WRONLY | O_CREAT | O_TRUNC | O_SYNC,
-				S_IRUSR | S_IWUSR);
-			if (fd == -1)
-				fprintf(stderr, "Ошибка создания "
-					LOCAL_FLAG_NAME ": %s.\n",
-					strerror(errno));
-			else{
-				fsync(fd);
-				close(fd);
-				ret = true;
-			}
-		}else if (unlink(LOCAL_FLAG_NAME) == -1)
-			fprintf(stderr, "Ошибка удаления " LOCAL_FLAG_NAME ": %s.\n",
-				strerror(errno));
-		else
-			ret = true;
-/*	}
-	remount_home(false);*/
-	if (ret)
-		flush_home();
-	return ret;
-}
-
 static bool open_log(struct log_handle *hlog)
 {
 	bool ret = true;
@@ -1234,8 +1156,7 @@ static bool open_log(struct log_handle *hlog)
 
 static inline bool open_logs(void)
 {
-	return	open_log(hxlog) && (!bank_ok || open_log(hplog)) &&
-		open_log(hllog) && open_log(hklog);
+	return	open_log(hxlog) && (!bank_ok || open_log(hplog)) && open_log(hklog);
 }
 
 static bool create_term(void)
@@ -1317,9 +1238,6 @@ static bool create_term(void)
 	xprn_init();
 	init_kbd();
 	init_gd();
-	if (can_set_local_wm())
-		wm = wm_local;
-	change_local_flag();
 	get_main_title();
 #if defined __LOG_LPRN__
 	lprn_create_log();
@@ -1343,7 +1261,6 @@ static void release_term(void)
 	release_ppp_ipc();
 	log_close(hxlog);
 	log_close(hplog);
-	log_close(hllog);
 	log_close(hklog);
 	release_keys();
 	release_kbd();
@@ -1474,22 +1391,19 @@ static bool bad_repeat(struct kbd_event *e)
 	uint16_t ctrl_keys[] = {
 		KEY_LCTRL,
 		KEY_RCTRL,
-		KEY_A,		/* Ctrl+Ф -- формат экрана */
 		KEY_G,		/* Ctrl+П -- печать копии экрана */
 		KEY_I,		/* Ctrl+I -- информация о терминале */
 		KEY_J,		/* Ctrl+О -- просмотр обмена в канале */
-		KEY_K,		/* Ctrl+Л -- ЦКЛ */
+		KEY_K,		/* Ctrl+Л -- КЛ "Экспресс" (КЛ1) */
 		KEY_L,		/* Ctrl+L -- информация о версии VipNet-клиента */
-		KEY_M,		/* Ctrl+Ь -- ПКЛ */
 		KEY_P,		/* Ctrl+P -- ping */
 		KEY_Q,		/* Ctrl+Q -- разрыв соединения PPP */
 		KEY_R,		/* Ctrl+К -- ОЗУ ключей */
 		KEY_S,		/* Ctrl+S -- основной/пригородный режим */
 		KEY_T,		/* Ctrl+Е -- ошибка в тексте ответа */
 		KEY_U,		/* Ctrl+U -- печать сохранённых образов бланков на ППУ */
-		KEY_X,		/* Ctrl+X -- БКЛ */
+		KEY_X,		/* Ctrl+X -- БКЛ (КЛ2) */
 		KEY_Z,		/* Ctrl+Z -- получение номера БСО */
-		KEY_COMMA,	/* Ctrl+Б -- вызов банковского приложения */
 	};
 	uint16_t *pp = single_keys;
 	int l = ASIZE(single_keys), i;
@@ -1514,24 +1428,20 @@ static int handle_kbd(struct kbd_event *e, bool check_scr, bool busy)
 		uint16_t key;
 		int cm;
 	} ctrl_keys[] = {
-		{KEY_A, cmd_switch_res},	/* изменение разрешения экрана */
 		{KEY_G, cmd_snap_shot},		/* печать копии экрана */
 		{KEY_H, cmd_view_klog},		/* просмотр ККЛ */
 		{KEY_I, cmd_term_info},		/* информация о терминале */
 		{KEY_J, cmd_view_xchange},	/* просмотр обмена в канале */
 		{KEY_K, cmd_view_xlog},		/* просмотр ЦКЛ */
 		{KEY_L, cmd_iplir_version},	/* информация о версии VipNet-клиента */
-		{KEY_M, cmd_view_llog},		/* просмотр ПКЛ */
 		{KEY_O, cmd_fa},		/* фискальное приложение */
 		{KEY_P, cmd_ping},		/* ping */
 		{KEY_Q,	cmd_ppp_hangup},	/* разрыв соединения PPP */
 		{KEY_R, cmd_view_keys},		/* ключи */
-		{KEY_S, cmd_switch_wm},		/* переключение режимов работы терминала */
 		{KEY_T, cmd_view_error},	/* ошибка в тексте ответа */
-		{KEY_U, cmd_lprn_menu},		/* меню работы с образами бланков в ППУ */
 		{KEY_X, cmd_view_plog},		/* просмотр БКЛ */
 		{KEY_Z,	cmd_ticket_number},	/* чтение номера БСО в пригородном режиме */
-		{KEY_COMMA, cmd_pos},		/* вызов POS-терминала */
+//		{KEY_COMMA, cmd_pos},		/* вызов POS-терминала */
 		{KEY_F10, cmd_exit},		/* выход */
 	},
 	keys[] = {
@@ -1554,9 +1464,6 @@ static int handle_kbd(struct kbd_event *e, bool check_scr, bool busy)
 	int i;
 	if ((e->key == KEY_NONE) || bad_repeat(e))
 		return cmd_none;
-	else if (resp_executing && lprn_error_shown &&
-			e->pressed && !e->repeated && (e->shift_state == 0))
-		return cmd_continue;
 	else if (busy || !kbd_alive(e)){
 		if (e->pressed && !e->repeated)
 			err_beep();
@@ -1615,7 +1522,7 @@ static int handle_menu(struct kbd_event *e)
 		int cm = get_menu_command(mnu);
 		release_menu(mnu,true);
 		mnu = NULL;
-		online = !xlog_active && !plog_active && !llog_active && !klog_active;
+		online = !xlog_active && !plog_active && !klog_active;
 		pop_term_info();
 		ClearScreen(clBtnFace);
 		if (cm == cmd_none){
@@ -1623,8 +1530,6 @@ static int handle_menu(struct kbd_event *e)
 				log_redraw(xlog_gui_ctx);
 			else if (plog_active)
 				log_redraw(plog_gui_ctx);
-			else if (llog_active)
-				log_redraw(llog_gui_ctx);
 			else if (klog_active)
 				log_redraw(klog_gui_ctx);
 			else
@@ -1633,27 +1538,6 @@ static int handle_menu(struct kbd_event *e)
 		return cm;
 	}else
 		return cmd_none;
-}
-
-/* Обработчик меню работы с ППУ */
-static int handle_lprn_menu(struct kbd_event *e)
-{
-	int cm = cmd_none;
-	if ((mnu != NULL) && (process_menu(mnu, e) != cmd_none)){
-		cm = get_menu_command(mnu);
-		release_menu(mnu, false);
-		mnu = NULL;
-		lprn_menu_active = false;
-		if ((cm == cmd_exit) || (cm == cmd_none)){
-			online = true;
-			cm = cmd_none;
-			pop_term_info();
-			ClearScreen(clBtnFace);
-			redraw_term(true, main_title);
-		}else
-			ClearScreen(clBlack);
-	}
-	return cm;
 }
 
 static uint32_t prev_kkt_log_stream = 0;
@@ -1711,6 +1595,7 @@ static int handle_options(struct kbd_event *e)
 		if (optn_cm == cmd_store_optn){
 			optn_get_items(&cfg);
 			cfg.kkt_log_stream = idx_to_kkt_log_stream(cfg.kkt_log_stream);
+#if defined INSERT_SPRN_CODE_HERE
 			if ((wm == wm_local) && lprn_params_read &&
 					(lprn_set_params(&cfg) == LPRN_RET_ERR)){
 				ClearScreen(clBlack);
@@ -1719,6 +1604,7 @@ static int handle_options(struct kbd_event *e)
 					"параметры работы в ППУ.",
 					dlg_yes, DLG_BTN_YES, al_center);
 			}
+#endif		/* INSERT_SPRN_CODE_HERE */
 		}else
 			cfg.kkt_log_stream = idx_to_kkt_log_stream(cfg.kkt_log_stream);
 		release_options(true);
@@ -1799,23 +1685,6 @@ static int handle_plog(struct kbd_event *e)
 		ClearScreen(clBtnFace);
 		redraw_term(true, main_title);
 		set_term_astate(ast_none);
-		return cmd_none;
-	}
-	return cm;
-}
-
-/* Обработчик просмотра ПКЛ */
-static int handle_llog(struct kbd_event *e)
-{
-	int cm = log_process(llog_gui_ctx, e);
-	if (cm == cmd_exit){
-		log_release_view(llog_gui_ctx);
-		online = true;
-		pop_term_info();
-		ClearScreen(clBtnFace);
-		redraw_term(true, main_title);
-		if (!resp_executing)
-			set_term_astate(ast_none);
 		return cmd_none;
 	}
 	return cm;
@@ -2005,12 +1874,10 @@ int get_cmd(bool check_scr, bool busy)
 	} elems[] = {
 		{&ssaver_active,	handle_ssaver},
 		{&menu_active,		handle_menu},
-		{&lprn_menu_active,	handle_lprn_menu},
 		{&optn_active,		handle_options},
 		{&calc_active,		handle_calculator},
 		{&xlog_active,		handle_xlog},
 		{&plog_active,		handle_plog},
-		{&llog_active,		handle_llog},
 		{&klog_active,		handle_klog},
 		{&xchg_active,		handle_xchange},
 		{&help_active,		handle_help},
@@ -2090,10 +1957,7 @@ void reject_req(void)
 /*		if (cfg.bank_system)
 			rollback_bank_info();*/		/* FIXME */
 		reject();
-		if (wm == wm_main)
-			xlog_write_rec(hxlog, NULL, 0, XLRT_REJECT, log_para++);
-		else
-			llog_write_rec(hllog, NULL, 0, LLRT_REJECT, log_para++);
+		xlog_write_rec(hxlog, NULL, 0, XLRT_REJECT, log_para++);
 	}else{
 		set_term_astate(ast_illegal);
 		err_beep();
@@ -2106,10 +1970,7 @@ void send_request(void)
 	if (full_resp || !can_send_request()){
 		err_beep();
 		return;
-	}else if ((wm == wm_local) &&
-			(!cfg.has_lprn || lprn_is_zero_number()) && !init_lprn())
-		return;
-	else if (s_state == ss_finit){
+	}else if (s_state == ss_finit){
 		s_state = ss_new;
 		return;
 	}
@@ -2125,8 +1986,7 @@ void send_request(void)
 		err_beep();
 	}else{
 		req_len = get_req_offset();
-		if (!wm_transition)
-			req_len += get_scr_text(req_buf + req_len, get_max_req_len(req_len));
+		req_len += get_scr_text(req_buf + req_len, get_max_req_len(req_len));
 		wrap_text();
 		set_term_astate(ast_none);
 	}
@@ -2274,10 +2134,7 @@ static void show_calculator(void)
 /* Показать ЦКЛ */
 static void show_xlog(void)
 {
-	if (wm != wm_main){
-		set_term_astate(ast_illegal);
-		err_beep();
-	}else if (!xlog_active){
+	if (!xlog_active){
 		online = false;
 		guess_term_state();
 		push_term_info();
@@ -2347,56 +2204,13 @@ static void show_plog_menu(void)
 	}
 }
 
-/* Показать ПКЛ */
-void show_llog(void)
-{
-	if (wm != wm_local){
-		set_term_astate(ast_illegal);
-		err_beep();
-	}else if (!llog_active){
-		online = false;
-		guess_term_state();
-		push_term_info();
-		log_init_view(llog_gui_ctx);
-	}
-}
-
-/* Показать меню ПКЛ */
-static void show_llog_menu(void)
-{
-	if (!menu_active){
-		push_term_info();
-		hide_cursor();
-		scr_visible = false;
-		set_term_busy(true);
-		mnu = new_menu(true, false);
-		if (llog_rec_hdr.type == LLRT_EXPRESS)
-			add_menu_item(mnu, new_menu_item("Печать текущей записи (ОПУ)",
-				cmd_print_llog_express, true));
-		else if (llog_rec_hdr.type == LLRT_AUX)
-			add_menu_item(mnu, new_menu_item("Печать текущей записи (ДПУ)",
-				cmd_print_llog_aux, true));
-		else
-			add_menu_item(mnu, new_menu_item("Печать текущей записи (ППУ)",
-				cmd_print_llog_rec, true));
-		add_menu_item(mnu, new_menu_item("Печать диапазона записей",
-				cmd_print_llog_range, llog_can_print_range(hllog)));
-		add_menu_item(mnu, new_menu_item("Поиск записи по дате",
-				cmd_find_llog_date, llog_can_find(hllog)));
-		add_menu_item(mnu, new_menu_item("Поиск записи по номеру",
-				cmd_find_llog_number, llog_can_find(hllog)));
-		ClearScreen(clBlack);
-		draw_menu(mnu);
-	}
-}
-
 /* Показать ККЛ */
 static void show_klog(void)
 {
 	if (!cfg.has_kkt){
 		set_term_astate(ast_illegal);
 		err_beep();
-	}else if (!llog_active){
+	}{
 		online = false;
 		guess_term_state();
 		push_term_info();
@@ -3074,31 +2888,6 @@ static void show_kkt_info(void)
 	redraw_term(true, main_title);
 }
 
-/* Циклическое переключение разрешеня экрана терминала */
-void switch_term_mode(void)
-{
-	flush_resp_mode();
-	if (scr_is_resp() && resp_handling){
-		int n = cur_para;
-		bool flag = false;
-		switch_scr_mode(false);
-		do{
-			flag = can_show(map[n].dst);
-			if (flag)
-				break;
-			else{
-				n += (n_paras-1);
-				n %= n_paras;
-			}
-		}while (n != cur_para);
-		if (flag){
-			int l = handle_para(n);
-			set_scr_text(text_buf, l, txt_rich, true);
-		}
-	}else
-		switch_scr_mode(true);
-}
-
 /* Преобразование номера необработанных абзацев в H-байт */
 uint8_t n2hbyte(int n)
 {
@@ -3150,12 +2939,12 @@ void guess_term_state(void)
 #define N_APRN_CHARS		N_XPRN_CHARS
 #define N_LPRN_CHARS		40
 
-/* Печать текста в режиме компостирования (основной режим) */
-static void print_text_main(void)
+/* Печать текста в режиме компостирования */
+static void print_text(void)
 {
 	bool use_xprn = true;
 	if (scr_is_req()){
-		if ((wm != wm_main) || (!cfg.has_xprn && !cfg.has_aprn)){
+		if (!cfg.has_xprn && !cfg.has_aprn){
 			set_term_astate(ast_illegal);
 			err_beep();
 			return;
@@ -3203,80 +2992,6 @@ static void print_text_main(void)
 			show_req();
 	}else
 		err_beep();
-}
-
-/* Печать текста в режиме компостирования (пригородный режим) */
-static void print_text_local(void)
-{
-/* NB: предполагается, что N_LPRN_CHARS >= N_XPRN_CHARS */
-	char buf[N_LPRN_CHARS + 7] = {LPRN_DLE, LPRN_LOG, LPRN_STX};
-	int cmd = cmd_use_xprn, l;
-	if (scr_is_req()){
-		if ((wm != wm_local) || (!cfg.has_xprn && !cfg.has_lprn)){
-			set_term_astate(ast_illegal);
-			err_beep();
-			return;
-		}else{
-			if (!menu_active){
-				push_term_info();
-				mnu = new_menu(true, false);
-				add_menu_item(mnu, new_menu_item("  Печать на ОПУ",
-					cmd_use_xprn, cfg.has_xprn));
-				add_menu_item(mnu, new_menu_item("  Печать на ППУ",
-					cmd_use_lprn, cfg.has_lprn));
-				hide_cursor();
-				set_term_busy(true);
-				draw_menu(mnu);
-				while (menu_active){
-					cmd = get_cmd(false, false);
-					if (cmd == cmd_reset){
-						if (reset_term(false))
-							return;
-						else
-							cmd = cmd_none;
-					}
-				}
-				if (cmd == cmd_none)
-					return;
-			}
-			redraw_term(true, main_title);	/* см. print_text_main */
-			if (cmd == cmd_use_xprn){
-				l = scr_get_24(buf, N_XPRN_CHARS, true);
-				recode_str(buf, l);
-				xprn_print(buf, l);
-			}else{
-				l = scr_get_24(buf + 3, N_LPRN_CHARS, false);
-				recode_str(buf + 3, l);
-				buf[l + 3] = LPRN_FORM_FEED;
-				buf[l + 4] = LPRN_ETX;
-				if (lprn_get_status() != LPRN_RET_OK)
-					;
-				else if (lprn_status != 0)
-					set_term_astate(ast_lprn_err);
-				else if (lprn_get_media_type() != LPRN_RET_OK)
-					;
-				else if (lprn_status != 0)
-					set_term_astate(ast_lprn_err);
-				else if ((lprn_media != LPRN_MEDIA_PAPER) &&
-						(lprn_media != LPRN_MEDIA_BOTH))
-					set_term_astate(ast_lprn_ch_media);
-				else if ((lprn_print_log((const uint8_t *)buf, l + 5) ==
-						LPRN_RET_OK) && (lprn_status != 0))
-					set_term_astate(ast_lprn_err);
-				lprn_close();
-			}
-		}
-	}else
-		err_beep();
-}
-
-/* Печать текста в режиме компостирования */
-static void print_text(void)
-{
-	if (wm == wm_main)
-		print_text_main();
-	else
-		print_text_local();
 }
 
 /* Поиск записи КЛ по дате её создания */
@@ -3460,49 +3175,6 @@ static void print_plog_range(void)
 }
 
 
-/* Поиск записи ПКЛ по дате её создания */
-static void find_llog_date(void)
-{
-	do_find_log_date(llog_gui_ctx);
-}
-
-/* Поиск записи ПКЛ по номеру */
-static void find_llog_number(void)
-{
-	do_find_log_number(llog_gui_ctx);
-}
-
-/* Печать ПКЛ */
-static void print_llog(void)
-{
-	do_print_log(llog_gui_ctx, llog_print_all, NULL);
-}
-
-/* Печать текущей записи ПКЛ */
-static void print_llog_rec(void)
-{
-	do_print_log_rec(llog_gui_ctx, llog_print_current);
-}
-
-/* Печать текущей записи ПКЛ на ОПУ */
-static void print_llog_express(void)
-{
-	do_print_log_rec(llog_gui_ctx, llog_print_xprn);
-}
-
-/* Печать текущей записи ПКЛ на ДПУ */
-static void print_llog_aux(void)
-{
-	do_print_log_rec(llog_gui_ctx, llog_print_aux);
-}
-
-/* Печать диапазона записей ПКЛ */
-static void print_llog_range(void)
-{
-	do_print_log_range(llog_gui_ctx, llog_print_range);
-}
-
-
 /* Поиск записи ККЛ по дате её создания */
 static void find_klog_date(void)
 {
@@ -3591,49 +3263,6 @@ static bool need_handle_resp(void)
 	return flag && (kt != key_none);
 }
 
-#if 0
-/* Запрос пользователя о смене режима работы терминала */
-static bool ask_wm_switch(void)
-{
-	bool ret;
-	char msg[256];
-	snprintf(msg, sizeof(msg), "Убедитесь в исключении возможности "
-		"потери информации при получении повторно предыдущего ответа.\n\n"
-		"Вы действительно хотите перейти в %s режим работы ?",
-		(wm == wm_main) ? "пригородный" : "основной");
-	online = false;
-	set_term_busy(true);
-	ClearScreen(clBlack);
-	ret = message_box(NULL, msg, dlg_yes_no, DLG_BTN_YES, al_center) ==
-		DLG_BTN_YES;
-	online = true;
-	ClearScreen(clBtnFace);
-	set_term_busy(false);
-	redraw_term(true, main_title);
-	return ret;
-}
-#endif
-
-/* Вывод окна с сообщением о синтаксической ошибке */
-static void show_syntax_error_msg(uint8_t code)
-{
-	static struct custom_btn btns[] = {
-		{
-			.text	= "Отказ от заказа",
-			.cmd	= cmd_reject
-		},
-		{
-			.text	= NULL,
-			.cmd	= cmd_none
-		}
-	};
-	static char msg[256];
-	snprintf(msg, sizeof(msg), "В полученном ответе обнаружена "
-		"синтаксическая ошибка (П:%.2hhd).\n"
-		"Нажмите Enter для отказа от заказа.", code);
-	message_box("Ошибка в ответе", msg, (intptr_t)btns, 0, al_center);
-}
-
 static bool need_apc(void)
 {
 	bool ret = false;
@@ -3689,14 +3318,15 @@ static int need_pos(void)
 	return ret;
 }
 
-/* Запрос синхронизации данных с "Экспресс-3" */
+/* Запрос синхронизации данных с "Экспресс" */
 static bool x3data_sync_dlg(uint32_t x3data_to_sync)
 {
 	if (x3data_to_sync == X3_SYNC_NONE)
 		return false;
 	static char msg[1024];
 	int offs = 0, n = 0;
-	int rc = snprintf(msg, sizeof(msg), "Необходимо синхронизировать с \"Экспресс-3\" следующие данные:\n");
+	int rc = snprintf(msg, sizeof(msg), "Необходимо синхронизировать с %s следующие данные:\n",
+		use_integrator ? "\"Интегратором\"" : "\"Экспресс\"");
 	if (rc > 0)
 		offs += rc;
 	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_GRIDS)){
@@ -3735,7 +3365,7 @@ static bool x3data_sync_dlg(uint32_t x3data_to_sync)
 		}
 	}
 	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XSLT)){
-		rc = snprintf(msg + offs, sizeof(msg) - offs, "таблицы трансформации XML для ККТ;\n");
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "разметки документов \"Экспресс\";\n");
 		if (rc > 0){
 			offs += rc;
 			n++;
@@ -3744,7 +3374,7 @@ static bool x3data_sync_dlg(uint32_t x3data_to_sync)
 	if (n > 0)
 		msg[offs - 2] = '.';
 	if (offs < sizeof(msg))
-		snprintf(msg + offs, sizeof(msg) - offs, "Синхронизировать указанные данные с \"Экспресс-3\"?");
+		snprintf(msg + offs, sizeof(msg) - offs, "Синхронизировать указанные данные с \"Экспресс\"?");
 /*	set_term_busy(true);
 	online = false;*/
 	rc = message_box("СИНХРОНИЗАЦИЯ ДАНН\x9bХ", msg, dlg_yes_no, DLG_BTN_YES, al_center);
@@ -3837,53 +3467,14 @@ static void on_response(void)
 			if (!apc)
 				set_term_busy(false);
 		}
-		if (wm_transition){
-			if (TST_FLAG(ZBp, GDF_REQ_FIRST))
-				send_request();
-			else{
-				wm_transition = false;
-				if (!wm_transition_interactive){
-					bool wm_changed = true;
-					if (wm == wm_main){
-						if (init_lprn())
-							wm = wm_local;
-						else
-							wm_changed = false;
-					}else
-						wm = wm_main;
-					if (wm_changed){
-						change_local_flag();
-						init_input_windows();
-						reset_term(true);
-					}
-				}
-			}
-		}/*else if (TST_FLAG(ZBp, GDF_REQ_FIRST) && (wm == wm_main) &&
-				can_set_local_wm()){
-			wm_transition = init_lprn();
-			if (wm_transition)
-				send_request();
-			else
-				change_local_flag();
-		}*/
 	}else{
 		SET_FLAG(ZBp, GDF_REQ_SYNTAX);
 		resp_handling = false;
-		if (wm == wm_local)
-			llog_write_syntax_error(hllog, ecode);
 		if (s_state == ss_initializing){
 			slayer_error(SERR_SYNTAX);
 			set_term_led(hbyte = HB_INIT);
 		}else{
-			if (wm == wm_local){
-				show_req();
-/*				cm_clear();*/
-				show_syntax_error_msg(ecode);
-				can_reject = true;
-				reject_req();
-			}else{
-				show_error();
-			}
+			show_error();
 			set_term_led(hbyte = HB_ERROR);
 		}
 	}
@@ -3893,17 +3484,6 @@ static void on_response(void)
 static void on_shell(void)
 {
 	ret_val = RET_SHELL;
-}
-
-/* Смена режима работы терминала */
-static void switch_wm(void)
-{
-	set_term_astate(ast_illegal);
-	err_beep();
-#if 0
-	wm_transition = true;
-	send_request();
-#endif
 }
 
 /* Формирование номера бланка с контрольной суммой */
@@ -3935,9 +3515,7 @@ static void do_ticket_number(void)
 {
 	bool need_beep = true;
 	set_term_astate(ast_none);
-	if (wm != wm_local)
-		set_term_astate(ast_illegal);
-	else if (hex_input || key_input || wait_key)
+	if (hex_input || key_input || wait_key)
 		;
 	else if (!scr_is_req()){
 		show_req();
@@ -3945,213 +3523,27 @@ static void do_ticket_number(void)
 	}else if (lprn_get_status() != LPRN_RET_OK)
 		;
 	else if (lprn_status != 0)
-		set_term_astate(ast_lprn_err);
-	else if (cfg.has_sd_card && (lprn_sd_status > 0x01))
-		set_term_astate(ast_lprn_sd_err);
-	else/*{
-		if (!cfg.has_lprn){
-			int ret = lprn_init();
-			if (ret == LPRN_RET_OK){
-				if (lprn_status != 0)
-					set_term_astate(ast_lprn_err);
-				else if (cfg.has_sd_card && (lprn_sd_status > 0x01))
-					set_term_astate(ast_lprn_sd_err);
-				else{
-					cfg.has_lprn = true;
-					write_cfg();
-				}
-			}else if (ret != LPRN_RET_RST)
-				set_term_astate(ast_nolprn);
-		}
-		if (cfg.has_lprn){*/
-			if (lprn_get_media_type() != LPRN_RET_OK)
-				;
-			else if (lprn_status != 0)
-				set_term_astate(ast_lprn_err);
-			else if ((lprn_media != LPRN_MEDIA_BLANK) &&
-					(lprn_media != LPRN_MEDIA_BOTH))
-				set_term_astate(ast_lprn_ch_media);
-			else if (lprn_get_blank_number() != LPRN_RET_OK)
-				;
-			else if (lprn_status != 0){
-				llog_write_rd_error(hllog, lprn_status);
-				set_term_astate(ast_lprn_err);
-			}else
-				need_beep = !input_chars(
-					make_ticket_number(lprn_blank_number),
-					sizeof(lprn_blank_number) + 10);
-/*		}
-	}*/
-	lprn_close();
-	if (need_beep)
-		err_beep();
-}
-
-/* Показать меню работы с образами бланков ППУ */
-static void show_lprn_menu(bool can_erase_sd)
-{
-	if (!lprn_menu_active){
-		if (!can_erase_sd){	/* функция вызвана в первый раз */
-			push_term_info();
-			hide_cursor();
-			scr_visible = false;
-			set_term_busy(true);
-		}
-		mnu = new_menu(false, true);
-		lprn_menu_active = true;
-		add_menu_item(mnu, new_menu_item("Печать копий оформленных документов",
-			cmd_lprn_snapshots, true));
-		add_menu_item(mnu, new_menu_item("Очистка карты памяти, "
-				"содержащей изображения оформленных документов",
-			cmd_lprn_erase_sd, can_erase_sd));
-		add_menu_item(mnu, new_menu_item("Выход", cmd_exit, true));
-		ClearScreen(clBlack);
-		draw_menu(mnu);
-	}
-}
-
-/* Обёртка для show_lprn_menu, вызываемая из process_term */
-static void do_lprn_menu(void)
-{
-	set_term_astate(ast_none);
-	if (wm != wm_local || !cfg.has_lprn || !cfg.has_sd_card)
-		set_term_astate(ast_illegal);
-	else if (hex_input || key_input || wait_key)
-		;
-	else if (lprn_get_status() == LPRN_RET_OK){
-		if (lprn_status != 0)
-			set_term_astate(ast_lprn_err);
-		else if (lprn_sd_status > 0x01)
-			set_term_astate(ast_lprn_sd_err);
-		else if (lprn_get_media_type() == LPRN_RET_OK){
-			if (lprn_status != 0)
-				set_term_astate(ast_lprn_err);
-			else if ((lprn_media != LPRN_MEDIA_PAPER) &&
-					(lprn_media != LPRN_MEDIA_BOTH))
-				set_term_astate(ast_lprn_ch_media);
-			else
-				show_lprn_menu(false);
-		}
-	}
-	if (!lprn_menu_active)
-		err_beep();
-}
-
-/* Вывод сообщения о результате работы с ППУ */
-static void show_lprn_result(const char *msg, bool need_beep)
-{
-	if (need_beep)
-		err_beep();
-	ClearScreen(clBlack);
-	message_box(NULL, msg, dlg_yes, 0, al_center);
-	pop_term_info();
-	show_cursor();
-	ClearScreen(clBtnFace);
-	redraw_term(true, main_title);
-	if (lprn_status != 0)
-		set_term_astate(ast_lprn_err);
-	else if (cfg.has_sd_card && (lprn_sd_status > 0x01))
-		set_term_astate(ast_lprn_sd_err);
-	else
-		set_term_astate(ast_none);
-	online = true;
-}
-
-/* Печать сохранённых изображений на сплошной ленте ППУ */
-static void do_lprn_snapshots(void)
-{
-	bool err = true;
-	int ret = LPRN_RET_ERR;
-	ClearScreen(clBlack);	/* необходимо после работы с меню */
-	online = false;
-	begin_message_box("ППУ", "Печать копий оформленных документов...",
-		al_center);
-	if ((ret = lprn_get_status()) != LPRN_RET_OK){
-/*		fprintf(stderr, "%s: lprn_get_status failed.\n", __func__);*/
-	}else if (lprn_status != 0){
-/*		fprintf(stderr, "%s: lprn_status after lprn_get_status = 0x%.2hhx.\n",
-			__func__, lprn_status);*/
-		set_term_astate(ast_lprn_err);
-	}else if (lprn_sd_status > 0x01)
-		set_term_astate(ast_lprn_sd_err);
-	else if ((ret = lprn_get_media_type()) != LPRN_RET_OK){
-/*		fprintf(stderr, "%s: lprn_get_media failed.\n", __func__);*/
-	}else if (lprn_status != 0){
-/*		fprintf(stderr, "%s: lprn_status after lprn_get_media_type = 0x%.2hhx.\n",
-			__func__, lprn_status);*/
-		set_term_astate(ast_lprn_err);
-	}else if ((lprn_media != LPRN_MEDIA_PAPER) &&
-			(lprn_media != LPRN_MEDIA_BOTH)){
-/*		fprintf(stderr, "%s: lprn_media = 0x%.2hhx.\n", __func__, lprn_media);*/
-		set_term_astate(ast_lprn_ch_media);
-	}else{
-	       	if ((ret = lprn_snapshots()) != LPRN_RET_OK){
-/*			fprintf(stderr, "%s: lprn_snapshots failed.\n", __func__);*/
-		}else if (lprn_status != 0){
-/*			fprintf(stderr, "%s: lprn_status after lprn_snapshots = 0x%.2hhx.\n",
-				__func__, lprn_status);*/
-			set_term_astate(ast_lprn_err);
-		}else if (lprn_sd_status > 0x01){
-/*			fprintf(stderr, "%s: lprn_sd_status after lprn_snapshots = 0x%.2hhx.\n",
-				__func__, lprn_sd_status);*/
-			set_term_astate(ast_lprn_sd_err);
-		}else
-			err = false;
-	}
-	lprn_close();
-	end_message_box();
-	if (ret != LPRN_RET_RST){
-		if (err)
-			show_lprn_result("Ошибка ППУ при печати изображений",
-				true);
-		else if (lprn_sd_status == 0x01)
-			show_lprn_result("Карта памяти пуста", false);
+		set_term_astate(ast_sprn_err);
+	else{
+		if (lprn_get_media_type() != LPRN_RET_OK)
+			;
+		else if (lprn_status != 0)
+			set_term_astate(ast_sprn_err);
+		else if ((lprn_media != LPRN_MEDIA_BLANK) &&
+				(lprn_media != LPRN_MEDIA_BOTH))
+			set_term_astate(ast_sprn_ch_media);
+		else if (lprn_get_blank_number() != LPRN_RET_OK)
+			;
+		else if (lprn_status != 0)
+			set_term_astate(ast_sprn_err);
 		else
-			show_lprn_menu(true);
+			need_beep = !input_chars(
+				make_ticket_number(lprn_blank_number),
+				sizeof(lprn_blank_number) + 10);
 	}
-}
-
-/* Очистка SD-карты ППУ */
-static void do_lprn_erase_sd(void)
-{
-	bool err = true;
-	int ret = LPRN_RET_ERR;
-	ClearScreen(clBlack);	/* необходимо после работы с меню */
-	online = false;
-	if (message_box(NULL, "Вы действительно отпечатали копии оформленных "
-			"документов и хотите очистить память ?",
-			dlg_yes_no, DLG_BTN_NO, al_center) == DLG_BTN_YES){
-		begin_message_box("ППУ", "Очистка памяти, содержащей копии "
-			"оформленных документов...", al_center);
-		if ((ret = lprn_erase_sd()) == LPRN_RET_OK){
-			if (lprn_sd_status > 0x01){
-				set_term_astate(ast_lprn_sd_err);
-				err_beep();
-			}else if (lprn_status != 0){
-				set_term_astate(ast_lprn_err);
-				err_beep();
-			}else
-				err = false;
-		}
-		lprn_close();
-		end_message_box();
-		if (ret != LPRN_RET_RST){
-			ClearScreen(clBlack);
-			if (err)
-				show_lprn_result("Ошибка при стирании копий "
-					"оформленных документов", true);
-			else{
-				llog_write_erase_sd(hllog);
-				show_lprn_result("Карта памяти очищена", false);
-			}
-		}
-	}else{
-		pop_term_info();
-		show_cursor();
-		ClearScreen(clBtnFace);
-		redraw_term(true, main_title);
-	}
-	online = true;
+	lprn_close();
+	if (need_beep)
+		err_beep();
 }
 
 /* Основной обработчик команд терминала */
@@ -4165,7 +3557,6 @@ static bool process_term(void)
 		{cmd_help,		show_help,		true},
 		{cmd_exit,		NULL,			false},
 		{cmd_reset,		__reset_term,		true},
-		{cmd_switch_res,	switch_term_mode,	true},
 		{cmd_enter,		send_request,		true},
 		{cmd_print,		print_text,		true},
 		{cmd_view_xlog,		show_xlog,		true},
@@ -4205,23 +3596,10 @@ static bool process_term(void)
 		{cmd_find_plog_date,	find_plog_date,		true},
 		{cmd_find_plog_number,	find_plog_number,	true},
 		{cmd_pos,		show_pos,		true},
-		{cmd_switch_wm,		switch_wm,		true},
 		{cmd_term_info,		show_term_info,		true},
 		{cmd_iplir_version,	show_iplir_version,	true},
 		{cmd_kkt_info,		show_kkt_info,		true},
-		{cmd_view_llog,		show_llog,		true},
-		{cmd_llog_menu,		show_llog_menu,		true},
-		{cmd_print_llog,	print_llog,		true},
-		{cmd_print_llog_rec,	print_llog_rec,		true},
-		{cmd_print_llog_express,print_llog_express,	true},
-		{cmd_print_llog_aux,	print_llog_aux,		true},
-		{cmd_print_llog_range,	print_llog_range,	true},
-		{cmd_find_llog_date,	find_llog_date,		true},
-		{cmd_find_llog_number,	find_llog_number,	true},
 		{cmd_ticket_number,	do_ticket_number,	true},
-		{cmd_lprn_menu,		do_lprn_menu,		true},
-		{cmd_lprn_snapshots,	do_lprn_snapshots,	true},
-		{cmd_lprn_erase_sd,	do_lprn_erase_sd,	true},
 		{cmd_view_klog,		show_klog,		true},
 		{cmd_klog_menu,		show_klog_menu,		true},
 		{cmd_print_klog,	print_klog,		true},
@@ -4230,30 +3608,19 @@ static bool process_term(void)
 		{cmd_find_klog_date,	find_klog_date,		true},
 		{cmd_find_klog_number,	find_klog_number,	true},
 	};
-/*	static int n = 0;
-	if (n < 10){
-		printf("%s\n", __func__);
-		n++;
-	}*/
-	if (need_lock_term){
-		need_lock_term = false;
-		if ((wm == wm_local) && (kt == key_reg))
-			term_delay(-1);
-	}else{
-		int cm = get_cmd(true, false);
-		for (int i = 0; i < ASIZE(handlers); i++){
-			typeof(*handlers) *p = handlers + i;
-			if (cm == p->cm){
-				if (p->fn != NULL)
-					p->fn();
-				return p->ret_val;
-			}
+	int cm = get_cmd(true, false);
+	for (int i = 0; i < ASIZE(handlers); i++){
+		typeof(*handlers) *p = handlers + i;
+		if (cm == p->cm){
+			if (p->fn != NULL)
+				p->fn();
+			return p->ret_val;
 		}
-		if (need_handle_resp())
-			on_response();
+	}
+	if (need_handle_resp())
+		on_response();
 /*		else
 			usleep(1000);*/
-	}
 	return true;
 }
 

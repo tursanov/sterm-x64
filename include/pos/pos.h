@@ -48,7 +48,7 @@ struct pos_message {
 /* Заголовок сообщения */
 struct pos_message_header {
 	uint8_t version[4];	/* версия протокола */
-	uint32_t length;		/* длина сообщения без учета заголовка */
+	uint32_t length;	/* длина сообщения без учета заголовка */
 	struct pos_message msg;	/* сообщение */
 } __attribute__((__packed__));
 
@@ -137,12 +137,31 @@ enum {
 	pos_ewait,		/* ожидание после вывода на экран сообщения об ошибке */
 };
 
+/* Результат завершения работы с ИПТ */
+struct pos_param {
+        const char *name;
+        const char *val;
+};
+
+struct pos_response{
+        uint8_t res_code;
+        const char *resp_code;
+        const char *id_pos;
+        uint32_t invoice;
+        uint8_t next_mtype;
+        uint8_t nr_params;
+        struct pos_param params[0];
+};
+
+extern struct pos_response pos_response;
+
 extern bool pos_create(void);
 extern void pos_release(void);
 extern int  pos_get_state(void);
 extern void pos_set_state(int st);
 extern void pos_process(void);
-extern bool pos_send_params(void);
+extern bool pos_send_params_resp(void);
+extern bool pos_send_params_req(void);
 
 #if defined __cplusplus
 }
