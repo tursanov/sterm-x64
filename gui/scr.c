@@ -2602,8 +2602,6 @@ static uint8_t *skip_icons(uint8_t *p, int l)
 /* Установка текста на экране */
 int set_scr_text(uint8_t *s, int l, int t, bool need_redraw)
 {
-	int n;
-	uint8_t *ss = s;
 	if (scr_is_req())
 		sync_input_window(cur_window);
 	txt_type = t;
@@ -2618,7 +2616,7 @@ int set_scr_text(uint8_t *s, int l, int t, bool need_redraw)
 		cur_buf = s;
 		cur_buf_len = l;
 	}else{		/* Обработка ОЗУ ответа */
-		uint8_t bg, fg, *p;
+		uint8_t *ss = s, bg, fg, *p;
 		uint16_t attr = 0;
 		bool dle = false, dle2 = false;
 		cur_buf = (uint8_t *)scr_resp_buf;
@@ -2626,7 +2624,8 @@ int set_scr_text(uint8_t *s, int l, int t, bool need_redraw)
 		clear_scr_buf(false);
 		hide_cursor();
 		adjust_scr_mode();
-		for (n = 0; (s - ss) < l; s++){
+		bool wrap = false;
+		for (int n = 0; (s - ss) < l; s++){
 			if (is_escape(*s))
 				dle = true;
 			else if (*s == APRN_DLE)
@@ -2714,14 +2713,20 @@ int set_scr_text(uint8_t *s, int l, int t, bool need_redraw)
 			}else{
 				switch (*s){
 					case '\r':
-						n = sg->w*(n/sg->w);
+						if (wrap){
+							n--;
+							wrap = false;
+						}
+						n = (n / sg->w) * sg->w;
 						break;
 					case '\n':
 						n += sg->w;
 						break;
 					default:
-						if (*s >= 0x20)
-							set_elem(n++,(attr << 8) | *s);
+						if (*s >= 0x20){
+							set_elem(n++, (attr << 8) | *s);
+							wrap = (n % sg->w) == 0;
+						}
 				}
 			}
 		}

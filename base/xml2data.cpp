@@ -813,7 +813,11 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 			out_buf_len = MAX_DATA_LEN;
 			bool rc = transform_xml(xml_doc, prn_xslt_id, out_buf, out_buf_len);
 			xmlFreeDoc(xml_doc);
-			if (!rc){
+			if (rc){
+				xml_data->prn_data = new uint8_t[out_buf_len];
+				memcpy(xml_data->prn_data, out_buf, out_buf_len);
+				xml_data->prn_data_len = out_buf_len;
+			}else{
 				free_xml_data(xml_data);
 				*ecode = E_XML_PRN_TRANSFORM;
 				return p + xml_offs;
@@ -861,6 +865,7 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 					xml_data->scr_data_len = scr_data.size();
 				}
 			}else{
+				free_xml_data(xml_data);
 				*ecode = E_XML_SCR_TRANSFORM;
 				return p + xml_offs;
 			}

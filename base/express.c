@@ -1076,7 +1076,7 @@ static uint8_t *check_sprn(uint8_t *txt, int l, int *ecode)
 }
 
 /* Проверка абзаца для ККТ */
-static uint8_t *check_kprn(uint8_t *txt, int l, int *ecode)
+static uint8_t *check_kprn(uint8_t *txt, int l, int n_para, int *ecode)
 {
 	enum {
 		st_data,
@@ -1098,9 +1098,18 @@ static uint8_t *check_kprn(uint8_t *txt, int l, int *ecode)
 					b1 = b;
 				break;
 			case st_dle:
-				if (b == X_XML)
+				if (b == X_XML){
+					struct xml_data *xd = get_xml_data(n_para);
+					check_xml(txt, l - 1, dst_kprn, ecode, xd);
+					printf("%s: cmd_len = %zu; scr_data = %p; scr_data_len = %zu; "
+							"prn_data = %p; prn_data_len = %zu\n",
+						__func__, xd->cmd_len,
+						xd->scr_data, xd->scr_data_len,
+						xd->prn_data, xd->prn_data_len);
 					xml = true;
-				else if ((b == X_PARA_END_N) || (b == X_PARA_END)){
+					txt += xd->cmd_len;
+					st = st_data;
+				}else if ((b == X_PARA_END_N) || (b == X_PARA_END)){
 					if (xml || (b1 == KKT_FF) || (b1 == KKT_END_BLOCK))
 						st = st_ok;
 					else{
@@ -1174,7 +1183,7 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 	if (dst == dst_sprn)
 		p = check_sprn(txt, l, ecode);
 	else if (dst == dst_kprn)
-		return check_kprn(txt, l, ecode);
+		return check_kprn(txt, l, n_para, ecode);
 	if (dst == dst_aprn)
 		p = check_aprn(txt, l, ecode);
 	else if (dst == dst_kkt)
@@ -1779,29 +1788,27 @@ bool check_raw_resp(void)
 #define MAX_PARSE_STEPS		100
 int handle_para(int n_para)
 {
-	bool prn_dst = n_para < 0;
-	if (n_para < 0)
-		n_para += MAX_PARAS;
 	static uint8_t buf[TEXT_BUF_LEN];
 	struct para_info *pi = map + n_para;
-	uint8_t *p, *eptr, id;
-	uint32_t i, n, m = 0, l = 0, ll;
-	bool dle = false;
+	bool prn_dst = (pi->dst == dst_xprn) || (pi->dst == dst_sprn) || (pi->dst == dst_kprn) ||
+		(pi->dst == dst_aprn);
 	if ((pi == NULL) || (pi->offset == -1))
 		return 0;
 	else if (pi->dst == dst_sys)
 		return 0;
-	l = para_len(pi->offset);
+	uint32_t l = para_len(pi->offset);
 	if ((l + 1) > TEXT_BUF_LEN)
 		return 0;
+	uint8_t *eptr = buf + l;
 	memset(buf, 0, TEXT_BUF_LEN);
 	memcpy(buf, resp_buf + pi->offset, l);
 	memset(text_buf, 0, sizeof(text_buf));
-	eptr = buf + l;
+	uint32_t n, m = 0, ll;
 	do {
 		n = 0;
-		p = buf;
-		i = 0;
+		uint8_t *p = buf;
+		uint32_t i = 0, id;
+		bool dle = false;
 		while (p < eptr){
 			if (is_escape(*p))
 				dle = true;
@@ -1862,6 +1869,12 @@ int handle_para(int n_para)
 						struct xml_data *xml_data = get_xml_data(n_para);
 						if (xml_data == NULL)
 							return 0;
+						printf("%s: cmd_len = %zu; scr_data = %p; scr_data_len = %zu; "
+								"prn_data = %p; prn_data_len = %zu\n",
+							__func__, xml_data->cmd_len,
+							xml_data->scr_data, xml_data->scr_data_len,
+							xml_data->prn_data, xml_data->prn_data_len);
+						printf("%s: prn_dst = %d\n", __func__, prn_dst);
 						uint8_t *data = NULL;
 						size_t data_len = 0;
 						if (prn_dst && (xml_data->prn_data != NULL)){
@@ -1871,6 +1884,8 @@ int handle_para(int n_para)
 							data = xml_data->scr_data;
 							data_len = xml_data->scr_data_len;
 						}
+						printf("%s: data = %p; data_len = %zu\n",
+							__func__, data, data_len);
 						if (data == NULL)
 							return 0;
 						else if ((i + data_len) > sizeof(text_buf))
@@ -2395,11 +2410,27 @@ bool execute_resp(void)
 			p = map + cur_para;
 			l = handle_para(cur_para);
 			if (can_show(p->dst)){
+				bool xml_flag = false;
+				int dst0 = p->dst;
+				bool prn_dst = (p->dst == dst_xprn) || (p->dst == dst_sprn) ||
+					(p->dst == dst_kprn) || (p->dst == dst_aprn);
+				if (prn_dst){
+					struct xml_data *xml_data = get_xml_data(cur_para);
+					if ((xml_data != NULL) && (xml_data->scr_data != NULL)){
+						xml_flag = true;
+						p->dst = dst_text;
+						l = handle_para(cur_para);
+					}
+				}
 				if (p->scr_mode == m_undef)
 					set_scr_text(text_buf, l, txt_rich, true);
 				else{
 					set_scr_text(text_buf, l, txt_rich, false);
 					set_scr_mode(p->scr_mode, true, false);
+				}
+				if (xml_flag){
+					p->dst = dst0;
+					l = handle_para(cur_para);
 				}
 				show_dest(p->dst);
 			}
@@ -2415,7 +2446,6 @@ bool execute_resp(void)
 				case dst_aprn:
 					if (p->auto_handle && (next_printable() == cur_para)){
 						if (p->can_print){
-							l = handle_para(n_para - MAX_PARAS);
 							if (execute_prn(p, l, n_para++)){
 								if ((p->dst == dst_xprn) || (p->dst == dst_kprn))
 									resp_printed = true;
