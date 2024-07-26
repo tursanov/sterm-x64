@@ -2768,6 +2768,7 @@ static void show_kkt_info(void)
 		show_no_kkt();
 		return;
 	}
+	fa_get_reregistration_data();
 	static char txt[4096];
 	snprintf(txt, sizeof(txt),
 			"%29s: \"%s\"\n"	/* ККТ */
@@ -2781,7 +2782,7 @@ static void show_kkt_info(void)
 			"%29s:  %s\n"		/* Фаза жизни ФН */
 			"%29s:  %s\n"		/* Текущий документ */
 			"%29s:  %s (%u)\n"	/* Смена */
-			"%29s:  %s\n"		/* ИНН кассира */
+			"%29s:  %lu\n"		/* ИНН кассира */
 			"%29s:  %s\n"		/* Предупреждения */
 			"%29s:  %u (%s %s)\n"	/* Последний сформ. документ */
 			"%29s:  %s\n"		/* Без квитанции ОФД */
@@ -2818,7 +2819,7 @@ static void show_kkt_info(void)
 		"Текуший документ", fs_status_ok ? fs_doc_type_str(fs_status.current_doc) : "НЕТ",
 		"Смена", fs_shift_ok ? (fs_shift_state.opened ? "Открыта" : "Закрыта") : "НЕТ",
 		fs_shift_ok ? fs_shift_state.shift_nr : 0,
-		"ИНН кассира", cashier_get_inn(),
+		"ИНН пользователя", user_inn,
 		"Предупреждения", fs_status_ok ? fs_alert_str(fs_status.alert_flags) : "НЕТ",
 		"Последний сформ. документ", fs_status_ok ? fs_status.last_doc_nr : 0,
 		fs_status_ok ? fs_date_str(&fs_status.dt.date) : "00.00.0000",
