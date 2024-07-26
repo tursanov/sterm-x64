@@ -1008,7 +1008,7 @@ static void init_devices(void)
 static void init_term(bool need_init)
 {
 	bool flag = xlog_active || plog_active || klog_active;
-	set_log_lvl(Debug);
+	set_log_lvl(Info);
 	can_reject = false;
 	err_ptr = NULL;
 	set_term_state(st_stop_iplir);
@@ -1112,34 +1112,6 @@ static bool show_usb_msg(void)
 		return false;
 }
 
-/* Установка интерпретации времени в BIOS как московского */
-#if defined __GNUC__ && (__GNUC__ > 3)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wnonnull"
-#endif
-static void set_timezone(void)
-{
-#if 0
-	struct timezone tz = {
-		.tz_minuteswest	= -180,	/* GMT+3 */
-		.tz_dsttime	= 0,
-	};
-	settimeofday(NULL, &tz);
-#endif
-	time_t t = time(NULL);
-	struct tm *tm = localtime(&t);
-	printf("localtime:\t%.2d.%.2d.%.2d %.2d:%.2d:%.2d\n",
-			tm->tm_mday, tm->tm_mon + 1, tm->tm_year % 100,
-			tm->tm_hour, tm->tm_min, tm->tm_sec);
-	tm = gmtime(&t);
-	printf("gmtime:\t\t%.2d.%.2d.%.2d %.2d:%.2d:%.2d\n",
-			tm->tm_mday, tm->tm_mon + 1, tm->tm_year % 100,
-			tm->tm_hour, tm->tm_min, tm->tm_sec);
-}
-#if defined __GNUC__ && (__GNUC__ > 3)
-#pragma GCC diagnostic pop
-#endif
-
 static bool open_log(struct log_handle *hlog)
 {
 	bool ret = true;
@@ -1163,7 +1135,6 @@ static bool create_term(void)
 {
 	if (!read_tki(STERM_TKI_NAME, false))
 		return false;
-	set_timezone();
 	set_sigterm_handler();
 	load_term_props();
 #if defined __REAL_KEYS__
@@ -1211,9 +1182,6 @@ static bool create_term(void)
 		);
 	get_dallas_keys();
 	kt = get_key_type();
-/* FIXME: закомментировать в release */
-/*	printf("%s: tki_ok = %d; usb_ok = %d; iplir_ok = %d\n",
-		__func__, tki_ok, usb_ok, iplir_ok);*/
 /* Для корректной выгрузки drviplir.o должен быть запущен iplircfg */
 /*	start_iplir();*/
 	check_bank_license();
@@ -2814,6 +2782,7 @@ static void show_kkt_info(void)
 			"%29s:  %s\n"		/* Фаза жизни ФН */
 			"%29s:  %s\n"		/* Текущий документ */
 			"%29s:  %s (%u)\n"	/* Смена */
+			"%29s:  %s\n"		/* ИНН кассира */
 			"%29s:  %s\n"		/* Предупреждения */
 			"%29s:  %u (%s %s)\n"	/* Последний сформ. документ */
 			"%29s:  %s\n"		/* Без квитанции ОФД */
@@ -2835,7 +2804,10 @@ static void show_kkt_info(void)
 			"%29s:  %hu\n"		/* TCP-порт ОФД */
 
 			"%29s:  %s\n"		/* SUPPORT_1222_1224_1225 */
-			"%29s:  %s",		/* COMP1057WO1171 */
+			"%29s:  %s\n"		/* COMP1057WO1171 */
+			"%29s:  %s\n"		/* SUPPORT_NULL_IN_TEMPLATE */
+			"%29s:  %s\n"		/* SUPPORT_FRAGMENTATION */
+			"%29s:  %s\n",		/* SUPPORT_ESC_R */
 		"ККТ", kkt->name,
 		"Заводской номер ККТ", (kkt_nr == NULL) ? "НЕ УСТАНОВЛЕН" : kkt_nr,
 		"Версия ПО", (kkt_ver == NULL) ? "НЕИЗВЕСТНО" : kkt_ver,
@@ -2847,6 +2819,7 @@ static void show_kkt_info(void)
 		"Текуший документ", fs_status_ok ? fs_doc_type_str(fs_status.current_doc) : "НЕТ",
 		"Смена", fs_shift_ok ? (fs_shift_state.opened ? "Открыта" : "Закрыта") : "НЕТ",
 		fs_shift_ok ? fs_shift_state.shift_nr : 0,
+		"ИНН кассира", cashier_get_inn(),
 		"Предупреждения", fs_status_ok ? fs_alert_str(fs_status.alert_flags) : "НЕТ",
 		"Последний сформ. документ", fs_status_ok ? fs_status.last_doc_nr : 0,
 		fs_status_ok ? fs_date_str(&fs_status.dt.date) : "00.00.0000",
@@ -2872,7 +2845,10 @@ static void show_kkt_info(void)
 		(cfg.fdo_ip >> 16) & 0xff, cfg.fdo_ip >> 24,
 		"TCP-порт ОФД", cfg.fdo_port,
 		"Теги ФФД 1222 и 1224", kkt_has_param("SUPPORT_1222_1224_1225") ? "да" : "нет",
-		"Теги ФФД 1057 без 1171", kkt_has_param("COMP1057WO1171") ? "да" : "нет"
+		"Теги ФФД 1057 без 1171", kkt_has_param("COMP1057WO1171") ? "да" : "нет",
+		"Отказ от печати ФД", kkt_has_param("SUPPORT_NULL_IN_TEMPLATE") ? "да" : "нет",
+		"Печать фрагментами", kkt_has_param("SUPPORT_FRAGMENTATION") ? "да" : "нет",
+		"Печать шаблонами", kkt_has_param("SUPPORT_ESC_R") ? "да" : "нет"
 	);
 	online = false;
 	guess_term_state();
@@ -3325,8 +3301,7 @@ static bool x3data_sync_dlg(uint32_t x3data_to_sync)
 		return false;
 	static char msg[1024];
 	int offs = 0, n = 0;
-	int rc = snprintf(msg, sizeof(msg), "Необходимо синхронизировать с %s следующие данные:\n",
-		use_integrator ? "\"Интегратором\"" : "\"Экспресс\"");
+	int rc = snprintf(msg, sizeof(msg), "Необходимо синхронизировать с \"Экспресс\" следующие данные:\n");
 	if (rc > 0)
 		offs += rc;
 	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_GRIDS)){
@@ -3403,10 +3378,10 @@ static bool begin_x3data_sync(uint32_t x3data_to_sync)
 }
 
 /* Вызывается при приходе ответа */
-static void on_response(void)
+static void on_response(bool *need_sync_dev_data)
 {
-	printf("%s: req_type = %d\n", __func__, req_type);
 	into_on_response = true;
+	*need_sync_dev_data = false;
 #if defined __WATCH_EXPRESS__
 	watch_transaction = false;
 #endif
@@ -3433,15 +3408,19 @@ static void on_response(void)
 		}else{
 			set_term_busy(true);
 			set_term_state(st_resp);
-			if ((req_type == req_grid_xprn) || (req_type == req_grid_kkt))
+			if ((req_type == req_grid_xprn) || (req_type == req_grid_kkt)){
 				on_response_grid();
-			else if ((req_type == req_icon_xprn) || (req_type == req_icon_kkt))
+				*need_sync_dev_data = c_state != cs_hasreq;
+			}else if ((req_type == req_icon_xprn) || (req_type == req_icon_kkt)){
 				on_response_icon();
-			else if (req_type == req_patterns)
+				*need_sync_dev_data = c_state != cs_hasreq;
+			}else if (req_type == req_patterns){
 				on_response_patterns();
-			else if (req_type == req_xslt)
+				*need_sync_dev_data = c_state != cs_hasreq;
+			}else if (req_type == req_xslt){
 				on_response_xslt();
-			else if (!execute_resp() && !rejecting_req)
+				*need_sync_dev_data = c_state != cs_hasreq;
+			}else if (!execute_resp() && !rejecting_req)
 				show_req();
 			if ((req_type == req_regular) && (c_state != cs_hasreq)){
 				if (need_apc()){
@@ -3617,10 +3596,16 @@ static bool process_term(void)
 			return p->ret_val;
 		}
 	}
-	if (need_handle_resp())
-		on_response();
-/*		else
-			usleep(1000);*/
+	if (need_handle_resp()){
+		bool need_sync_dev_data = false;
+		on_response(&need_sync_dev_data);
+		if (need_sync_dev_data){
+			if (need_grids_update_kkt())
+				update_kkt_grids();
+			if (need_icons_update_kkt())
+				update_kkt_icons();
+		}
+	}
 	return true;
 }
 

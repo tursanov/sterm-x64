@@ -34,7 +34,7 @@
 /* Максимальная длина строки текста в окне */
 #define DLG_MAX_STR_LEN		80	//60
 /* Максимальное число строк в диалоговом окне */
-#define DLG_MAX_LINES		30
+#define DLG_MAX_LINES		35
 /* Горизонтальный размер диалогового окна */
 #define DLG_WIDTH		(DLG_MAX_STR_LEN + 2 * DLG_HMARGIN)
 /* Минимальная высота диалогового окна */
