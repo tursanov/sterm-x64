@@ -1101,11 +1101,6 @@ static uint8_t *check_kprn(uint8_t *txt, int l, int n_para, int *ecode)
 				if (b == X_XML){
 					struct xml_data *xd = get_xml_data(n_para);
 					check_xml(txt, l - 1, dst_kprn, ecode, xd);
-					printf("%s: cmd_len = %zu; scr_data = %p; scr_data_len = %zu; "
-							"prn_data = %p; prn_data_len = %zu\n",
-						__func__, xd->cmd_len,
-						xd->scr_data, xd->scr_data_len,
-						xd->prn_data, xd->prn_data_len);
 					xml = true;
 					txt += xd->cmd_len;
 					st = st_data;
@@ -1159,7 +1154,6 @@ static uint8_t *check_kkt_xml(uint8_t *txt, int l, int *ecode)
 	memcpy(text_buf, txt, len);
 	text_buf[len] = 0;
 	parse_kkt_xml((const char *)text_buf, true, kkt_xml_callback, ecode);
-	printf("%s: ecode = %.2x\n", __func__, *ecode);
 	if (*ecode == E_OK)
 		ret = txt + len + 2;
 	else
@@ -1354,7 +1348,6 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 						has_warray = false;
 					break;
 				case X_XML:
-					printf("%s: n_para = %d\n", __func__, n_para);
 					pp = check_xml(p, txt + l - p, dst, ecode, get_xml_data(n_para));
 					if (*ecode != E_OK)
 						return pp;
@@ -1869,23 +1862,20 @@ int handle_para(int n_para)
 						struct xml_data *xml_data = get_xml_data(n_para);
 						if (xml_data == NULL)
 							return 0;
-						printf("%s: cmd_len = %zu; scr_data = %p; scr_data_len = %zu; "
-								"prn_data = %p; prn_data_len = %zu\n",
-							__func__, xml_data->cmd_len,
-							xml_data->scr_data, xml_data->scr_data_len,
-							xml_data->prn_data, xml_data->prn_data_len);
-						printf("%s: prn_dst = %d\n", __func__, prn_dst);
 						uint8_t *data = NULL;
 						size_t data_len = 0;
-						if (prn_dst && (xml_data->prn_data != NULL)){
-							data = xml_data->prn_data;
-							data_len = xml_data->prn_data_len;
-						}else if (!prn_dst && (xml_data->scr_data != NULL)){
+						if (resp_executing){
+							if (prn_dst && (xml_data->prn_data != NULL)){
+								data = xml_data->prn_data;
+								data_len = xml_data->prn_data_len;
+							}else if (!prn_dst && (xml_data->scr_data != NULL)){
+								data = xml_data->scr_data;
+								data_len = xml_data->scr_data_len;
+							}
+						}else if (xml_data->scr_data != NULL){
 							data = xml_data->scr_data;
 							data_len = xml_data->scr_data_len;
 						}
-						printf("%s: data = %p; data_len = %zu\n",
-							__func__, data, data_len);
 						if (data == NULL)
 							return 0;
 						else if ((i + data_len) > sizeof(text_buf))

@@ -21,6 +21,9 @@ static uint8_t pos_menu_item = MTYPE_UNKNOWN;
 /* Флаг возможности редактирования суммы и номера квитанции в окне банковского приложения */
 static bool pos_can_edit = false;
 
+/* Список номеров документов и их стоимостей */
+static char *pos_ords = NULL;
+
 pos_request_param_list_t req_param_list;
 pos_response_param_list_t resp_param_list;
 
@@ -380,7 +383,8 @@ static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int
 			l = 1;
 			break;
 		case POS_PARAM_ORDS:
-			val[0] = 0;	/* FIXME */
+			snprintf(val, sizeof(val), "%s", pos_ords);
+			l = strlen(val);
 			break;
 		case POS_PARAM_UBT:
 			val[0] = 1;

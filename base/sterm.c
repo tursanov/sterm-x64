@@ -1112,34 +1112,6 @@ static bool show_usb_msg(void)
 		return false;
 }
 
-/* Установка интерпретации времени в BIOS как московского */
-#if defined __GNUC__ && (__GNUC__ > 3)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wnonnull"
-#endif
-static void set_timezone(void)
-{
-#if 0
-	struct timezone tz = {
-		.tz_minuteswest	= -180,	/* GMT+3 */
-		.tz_dsttime	= 0,
-	};
-	settimeofday(NULL, &tz);
-#endif
-	time_t t = time(NULL);
-	struct tm *tm = localtime(&t);
-	printf("localtime:\t%.2d.%.2d.%.2d %.2d:%.2d:%.2d\n",
-			tm->tm_mday, tm->tm_mon + 1, tm->tm_year % 100,
-			tm->tm_hour, tm->tm_min, tm->tm_sec);
-	tm = gmtime(&t);
-	printf("gmtime:\t\t%.2d.%.2d.%.2d %.2d:%.2d:%.2d\n",
-			tm->tm_mday, tm->tm_mon + 1, tm->tm_year % 100,
-			tm->tm_hour, tm->tm_min, tm->tm_sec);
-}
-#if defined __GNUC__ && (__GNUC__ > 3)
-#pragma GCC diagnostic pop
-#endif
-
 static bool open_log(struct log_handle *hlog)
 {
 	bool ret = true;
@@ -1163,7 +1135,6 @@ static bool create_term(void)
 {
 	if (!read_tki(STERM_TKI_NAME, false))
 		return false;
-	set_timezone();
 	set_sigterm_handler();
 	load_term_props();
 #if defined __REAL_KEYS__
@@ -1211,9 +1182,6 @@ static bool create_term(void)
 		);
 	get_dallas_keys();
 	kt = get_key_type();
-/* FIXME: закомментировать в release */
-/*	printf("%s: tki_ok = %d; usb_ok = %d; iplir_ok = %d\n",
-		__func__, tki_ok, usb_ok, iplir_ok);*/
 /* Для корректной выгрузки drviplir.o должен быть запущен iplircfg */
 /*	start_iplir();*/
 	check_bank_license();
@@ -3332,8 +3300,7 @@ static bool x3data_sync_dlg(uint32_t x3data_to_sync)
 		return false;
 	static char msg[1024];
 	int offs = 0, n = 0;
-	int rc = snprintf(msg, sizeof(msg), "Необходимо синхронизировать с %s следующие данные:\n",
-		use_integrator ? "\"Интегратором\"" : "\"Экспресс\"");
+	int rc = snprintf(msg, sizeof(msg), "Необходимо синхронизировать с \"Экспресс\" следующие данные:\n");
 	if (rc > 0)
 		offs += rc;
 	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_GRIDS)){
@@ -3412,7 +3379,6 @@ static bool begin_x3data_sync(uint32_t x3data_to_sync)
 /* Вызывается при приходе ответа */
 static void on_response(bool *need_sync_dev_data)
 {
-	printf("%s: req_type = %d\n", __func__, req_type);
 	into_on_response = true;
 	*need_sync_dev_data = false;
 #if defined __WATCH_EXPRESS__
@@ -3447,11 +3413,13 @@ static void on_response(bool *need_sync_dev_data)
 			}else if ((req_type == req_icon_xprn) || (req_type == req_icon_kkt)){
 				on_response_icon();
 				*need_sync_dev_data = c_state != cs_hasreq;
-			}else if (req_type == req_patterns)
+			}else if (req_type == req_patterns){
 				on_response_patterns();
-			else if (req_type == req_xslt)
+				*need_sync_dev_data = c_state != cs_hasreq;
+			}else if (req_type == req_xslt){
 				on_response_xslt();
-			else if (!execute_resp() && !rejecting_req)
+				*need_sync_dev_data = c_state != cs_hasreq;
+			}else if (!execute_resp() && !rejecting_req)
 				show_req();
 			if ((req_type == req_regular) && (c_state != cs_hasreq)){
 				if (need_apc()){
