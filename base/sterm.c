@@ -676,7 +676,7 @@ bool set_term_busy(bool busy)
 /* Информация о текущем состоянии терминала */
 struct term_info{
 	int st;		/* st_* */
-	int ast;	/* ast_* */
+	intptr_t ast;	/* ast_* */
 	int m;
 	bool scr_visible;
 	bool cursor_visible;
