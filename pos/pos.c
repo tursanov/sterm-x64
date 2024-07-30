@@ -422,6 +422,22 @@ bool pos_send_params_resp(void)
 	}	
 }
 
+bool pos_send_params_req(void)
+{
+	static struct pos_data_buf buf;
+	if (req_param_list.count == 0)
+		return true;
+	pos_req_begin(&buf);
+	pos_req_save_command_request_parameters(&buf);
+	pos_req_end(&buf);
+	if (pos_serial_send_msg(&buf))
+		return true;
+	else{
+		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_SYSTEM, 0);
+		return false;
+	}	
+}
+
 static bool pos_send_finish(void)
 {
 	pos_req_begin(&pos_buf);
@@ -574,6 +590,11 @@ static void on_pos_init(uint32_t t __attribute__((unused)))
 	}else
 		pos_set_error(POS_ERROR_CLASS_SYSTEM,
 			POS_ERR_SYSTEM, 0);
+}
+
+static bool is_empty_msg(const struct pos_data_buf *buf)
+{
+	return (buf->un.hdr.length == 1) && (buf->un.hdr.msg.nr_blocks == 0);
 }
 
 static void on_pos_ready(uint32_t t)

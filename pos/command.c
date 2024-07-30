@@ -24,6 +24,9 @@ static bool pos_can_edit = false;
 /* Список номеров документов и их стоимостей */
 static char *pos_ords = NULL;
 
+/* Запущен сценарий FINISHMENU */
+bool finish_menu = false;
+
 pos_request_param_list_t req_param_list;
 pos_response_param_list_t resp_param_list;
 
@@ -399,6 +402,7 @@ static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int
 			l = 1;
 			break;
 		case POS_PARAM_FMENU:
+			finish_menu = true;
 			val[0] = 1;
 			l = 1;
 			break;

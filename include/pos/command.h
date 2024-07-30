@@ -91,6 +91,9 @@ enum {
 /* Поддержка ЕБТ в ИПТ */
 extern bool ubt_supported;
 
+/* Запущен сценарий FINISHMENU */
+extern bool finish_menu;
+
 /* Выбранные пункты меню */
 #define MTYPE_PROCESS_INCOMPLETE	0xa0
 #define MTYPE_DAY_OPEN			0xa1
