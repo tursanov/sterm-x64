@@ -1250,20 +1250,25 @@ uint8_t kkt_reset_fs(uint8_t b)
 	return kkt_status;
 }
 
-/* Напечатать проездной документ */
+/*
+ * Напечатать проездной документ.
+ * NB: команда Ар2 Q уже стоит в начале каждого фрагмента, поэтому не вставляется.
+ */
 uint8_t kkt_print_vf(const uint8_t *data, size_t len)
 {
 	printf("%s: data = %p; len = %zu\n", __func__, data, len);
 	assert(data != NULL);
 	assert(len > 0);
 	if (kkt_lock()){
+		tx_prefix = KKT_NUL;
+		tx_cmd = KKT_VF;
 		for (int i = 0, offs = 0, l = 0; i < len; i++, l++){
 			uint8_t b = data[i];
 			if ((b == KKT_END_BLOCK) || (b == KKT_FF)){
 				if ((b == KKT_END_BLOCK) && !kkt_has_param("SUPPORT_FRAGMENTATION"))
 					b = KKT_FF;
-				if (prepare_cmd(KKT_NUL, KKT_VF) &&
-						write_data(data + offs, l) && write_byte(b) &&
+				kkt_tx_len = 0;
+				if (write_data(data + offs, l) && write_byte(b) &&
 						kkt_open_dev_if_need()){
 					printf("%s: begin printing: offs = %d; l = %d\n",
 						__func__, offs, l);

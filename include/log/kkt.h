@@ -77,7 +77,7 @@ extern struct log_handle *hklog;
 
 /* Данные текущей записи контрольной ленты */
 /* NB: данный буфер используется как для чтения, так и для записи */
-extern uint8_t klog_data[LOG_BUF_LEN];
+extern uint8_t klog_data[KLOG_BUF_LEN];
 /* Длина данных */
 extern uint32_t klog_data_len;
 /* Индекс текущего обрабатываемого байта в log_data */

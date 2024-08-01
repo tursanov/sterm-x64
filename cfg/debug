@@ -21,7 +21,7 @@ option		__USE_NFSROOT__
 option		__DEBUG_PRINT__
 
 # Запись сообщений о работе с КЛ в специальный файл
-#option		__LOGDBG__
+option		__LOGDBG__
 
 # Запись обмена с ППУ в специальный файл
 #option		__LOG_LPRN__
