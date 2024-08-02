@@ -1,4 +1,4 @@
-/* Работа с потоком передачи команд POS-эмулятора. (c) A.Popov, gsr 2004-2005, 2024 */
+/* Работа с потоком передачи команд POS-эмулятора. (c) A.Popov, gsr 2004 */
 
 #if !defined POS_COMMAND_H
 #define POS_COMMAND_H
@@ -21,7 +21,7 @@ extern "C" {
 typedef struct {
 	char *name;			/* имя параметра */
 	int type;			/* тип параметра */
-	uint8_t required;		/* флаг обязательности параметра */
+	uint8_t required;			/* флаг обязательности параметра */
 } pos_request_param_t;
 
 /* Список запрашиваемых параметров */
@@ -29,6 +29,27 @@ typedef struct {
 	uint8_t count;			/* число параметров */
 	pos_request_param_t *params;	/* параметры */
 } pos_request_param_list_t;
+
+/* Названия параметров */
+#define POS_PARAM_AMOUNT_STR	"AMOUNT"	/* сумма заказа (коп) */
+#define POS_PARAM_TIME_STR	"TIME"		/* время заказа */
+#define POS_PARAM_ID_STR	"ORDERID"	/* идентификатор заказа в системе */
+#define POS_PARAM_TERMID_STR	"TERMID"	/* идентификатор терминала */
+#define POS_PARAM_CLERKID_STR	"CLERKID"	/* идентификатор кассира */
+#define POS_PARAM_CLERKTYPE_STR	"CLERKTYPE"	/* тип жетона кассира */
+#define POS_PARAM_ORDS_STR	"ORDS"		/* ORDS */
+
+/* Типы параметров */
+enum {
+	POS_PARAM_UNKNOWN	= -1,
+	POS_PARAM_AMOUNT,
+	POS_PARAM_TIME,
+	POS_PARAM_ID,
+	POS_PARAM_TERMID,
+	POS_PARAM_CLERKID,
+	POS_PARAM_CLERKTYPE,
+	POS_PARAM_ORDS,
+};
 
 /* Параметры ответа */
 typedef struct {
@@ -45,65 +66,6 @@ typedef struct {
 extern pos_request_param_list_t req_param_list;
 extern pos_response_param_list_t resp_param_list;
 
-/* Названия параметров */
-#define POS_PARAM_AMOUNT_STR	"AMOUNT"	/* сумма заказа (коп) */
-#define POS_PARAM_INVOICE_STR	"INVOICE"	/* номер квитанции */
-#define POS_PARAM_ORDS_STR	"ORDS"		/* список номеров и стоимостей документов */
-#define POS_PARAM_TIME_STR	"TIME"		/* время заказа */
-#define POS_PARAM_ID_STR	"ORDERID"	/* идентификатор заказа в системе */
-#define POS_PARAM_TERMID_STR	"TERMID"	/* идентификатор терминала */
-#define POS_PARAM_CLERKID_STR	"CLERKID"	/* идентификатор кассира */
-#define POS_PARAM_CLERKTYPE_STR	"CLERKTYPE"	/* тип жетона кассира */
-#define POS_PARAM_UBT_STR	"EBT"		/* поддержка единой банковской транзакции (ЕБТ) */
-#define POS_PARAM_VERSION_STR	"VERSION"	/* версия ПО ИПТ */
-#define POS_PARAM_MTYPE_STR	"MTYPE"		/* пункт меню */
-#define POS_PARAM_EDIT_STR	"EDIT"		/* возможность редактирования суммы и номера квитанции */
-#define POS_PARAM_FMENU_STR	"FINISHMENU"	/* завершение работы банковского приложения */
-#define POS_PARAM_RES_CODE_STR	"RESULT_CODE"	/* код возврата */
-#define POS_PARAM_RESP_CODE_STR	"RESPONSE_CODE"	/* код ответа */
-#define POS_PARAM_ID_POS_STR	"ID_POS"	/* идентификатор ИПТ */
-#define POS_PARAM_NMTYPE_STR	"NEXT_MTYPE"	/* следующий пункт меню */
-#define POS_PARAM_PARAMS_STR	"PARAMS"	/* параметры */
-
-/* Типы параметров */
-enum {
-	POS_PARAM_UNKNOWN	= -1,
-	POS_PARAM_AMOUNT,
-	POS_PARAM_INVOICE,
-	POS_PARAM_ORDS,
-	POS_PARAM_TIME,
-	POS_PARAM_ID,
-	POS_PARAM_TERMID,
-	POS_PARAM_CLERKID,
-	POS_PARAM_CLERKTYPE,
-	POS_PARAM_UBT,
-	POS_PARAM_VERSION,
-	POS_PARAM_MTYPE,
-	POS_PARAM_EDIT,
-	POS_PARAM_FMENU,
-	POS_PARAM_RES_CODE,
-	POS_PARAM_RESP_CODE,
-	POS_PARAM_ID_POS,
-	POS_PARAM_NMTYPE,
-	POS_PARAM_PARAMS,
-};
-
-/* Поддержка ЕБТ в ИПТ */
-extern bool ubt_supported;
-
-/* Запущен сценарий FINISHMENU */
-extern bool finish_menu;
-
-/* Выбранные пункты меню */
-#define MTYPE_PROCESS_INCOMPLETE	0xa0
-#define MTYPE_DAY_OPEN			0xa1
-#define MTYPE_DAY_CLOSE			0xa2
-#define MTYPE_PAYMENT			0xa3
-#define MTYPE_REFUND			0xa4
-#define MTYPE_CANCEL			0xa5
-#define MTYPE_SERVICE			0xa6
-#define MTYPE_UNKNOWN			0xff
-
 /* Разбор потока команд */
 extern bool pos_parse_command_stream(struct pos_data_buf *buf, bool check_only);
 
@@ -117,8 +79,6 @@ extern bool pos_req_save_command_request_parameters(struct pos_data_buf *buf);
 extern bool pos_req_save_command_response_parameters(struct pos_data_buf *buf);
 /* Запись команды INIT_CHECK */
 extern bool pos_req_save_command_init_check(struct pos_data_buf *buf);
-/* Подготовка списка параметров для запроса у ИПТ (FINISHMENU) */
-extern bool pos_prepare_request_params(void);
 
 #if defined __cplusplus
 }
