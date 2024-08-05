@@ -28,6 +28,7 @@ void ui_cart_create()
 
 	ui_cart = __new(ui_cart_t);
 	ui_cart->subcarts = __calloc(MAX_SUB_CART, ui_subcart_t);
+	ui_sel_subcart = NULL;
 
     bool first = true;
 	for (int i = 0; i < MAX_SUB_CART; i++)
@@ -83,6 +84,15 @@ void ui_cart_redraw_all()
 		ui_subcart_draw(sc, y);
 		y += sc->height + CART_YGAP;
 	}
+	
+	if (ui_cart->subcart_count == 0)
+	{
+        draw_button(cart_screen,
+            CART_XGAP * 3, CART_YGAP,
+            DISCX - CART_XGAP * 6, CART_BUTTON_HEIGHT,
+            "Нет документов для обработки",
+            true);
+	}
 }
 
 void ui_cart_draw(GCPtr s, FontPtr f, FontPtr sf)
@@ -118,6 +128,11 @@ int ui_cart_get_y(ui_subcart_t *sc)
 static void ui_cart_tab_select_next()
 {
     ui_subcart_t *sc = ui_sel_subcart;
+    
+    if (sc == NULL)
+    {
+        return;
+    }
 
     if (sc->tab_selected_doc >= 0)
     {
@@ -144,6 +159,10 @@ static void ui_cart_tab_select_next()
 void ui_cart_process_enter()
 {
     ui_subcart_t *sc = ui_sel_subcart;
+    if (sc == NULL)
+    {
+        return;
+    }
     
     if (sc->tab_selected_doc >= 0)
     {
@@ -164,6 +183,10 @@ void ui_cart_process_enter()
 void ui_cart_process_space()
 {
     ui_subcart_t *sc = ui_sel_subcart;
+    if (sc == NULL)
+    {
+        return;
+    }
     
     if (sc->tab_selected_doc >= 0)
     {
@@ -210,8 +233,14 @@ bool cart_process(const struct kbd_event *_e) {
 void get_all_k_from_doc(list_t klist[2])
 {
     ui_subcart_t *sc = ui_sel_subcart;
+    if (sc == NULL)
+    {
+        return;
+    }
+    
     ui_doc_t *d = sc->docs;
     uint8_t kp = 255;
+
     
     for (size_t i = 0; i < sc->doc_count; i++, d++)
     {
