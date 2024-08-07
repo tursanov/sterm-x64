@@ -160,6 +160,7 @@ struct para_info{
 	int xml_idx;		/* индекс в таблице XML (-1, если записи для абзаца нет */
 };
 
+#if 0
 /* Информация из абзаца для ИПТ */
 #define BNK_REQ_ID_LEN		7
 #define BNK_TERM_ID_LEN		6
@@ -204,6 +205,27 @@ extern struct bank_data bd;
 extern void clear_bank_info(void);
 /* Получение информации о банковском абзаце */
 extern ssize_t get_bank_info(struct bank_info *items, size_t nr_items);
+#endif
+
+/* Информация для ИПТ */
+struct bank_info {
+	uint32_t id;
+	char termid[5];
+	uint32_t amount1;
+	uint32_t amount2;
+};
+
+extern struct bank_info bi;
+extern struct bank_info bi_pos;
+
+/* Очистка содержимого структуры */
+extern void clear_bank_info(struct bank_info *p, bool full);
+/* Сброс содержимого обеих областей памяти */
+extern void reset_bank_info(void);
+/* Добавление содержимого первой области ко второй */
+extern void add_bank_info(void);
+/* Возврат к предыдущему значению */
+extern void rollback_bank_info(void);
 
 /* Номер абзаца ответа на КЛ при обработке ответа */
 extern uint32_t log_para;
@@ -237,7 +259,8 @@ extern bool check_raw_resp(void);
 extern int handle_para(int n_para);
 
 /* Получение информации банковского абзаца во время обработки ответа */
-extern const struct bank_data *get_bi(void);
+//extern const struct bank_data *get_bi(void);
+extern const struct bank_info *get_bi(void);
 
 /* Получение данных изображения для БПУ */
 extern bool find_pic_data(int *data, int *req);

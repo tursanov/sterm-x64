@@ -38,6 +38,7 @@ int req_type = req_regular;
 static uint32_t log_number;		/* номер текущей записи на КЛ при обработке ответа */
 uint32_t log_para = 0;			/* номер абзаца ответа на ЦКЛ при обработке ответа */
 
+#if 0
 /* Информация для ИПТ */
 struct bank_data bd;
 
@@ -71,6 +72,51 @@ ssize_t get_bank_info(struct bank_info *items, size_t nr_items)
 	}
 	return ret;
 }
+#endif
+
+/* Информация для ИПТ */
+struct bank_info bi;
+struct bank_info bi_pos;
+
+/* Очистка содержимого структуры */
+void clear_bank_info(struct bank_info *p, bool full)
+{
+	if (full){
+		p->id = 0;
+		memset(p->termid, 0x30, sizeof(p->termid));
+/*		memset(&p->dt, 0, sizeof(p->dt));*/
+	}
+	p->amount1 = p->amount2 = 0;
+}
+
+/* Сброс содержимого обеих областей памяти */
+void reset_bank_info(void)
+{
+	clear_bank_info(&bi, false);
+	clear_bank_info(&bi_pos, false);
+}
+
+/* Добавление содержимого первой области ко второй */
+void add_bank_info(void)
+{
+	bi_pos.id = bi.id;
+	memcpy(bi_pos.termid, bi.termid, sizeof(bi.termid));
+/*	memcpy(&bi_pos.dt, &bi.dt, sizeof(bi.dt));*/
+	bi_pos.amount1 += bi.amount1;
+	bi_pos.amount2 += bi.amount2;
+	while (bi_pos.amount2 > 10){
+		bi_pos.amount1++;
+		bi_pos.amount2 -= 10;
+	}
+}
+
+/* Возврат к предыдущему значению */
+void rollback_bank_info(void)
+{
+	memcpy(&bi, &bi_pos, sizeof(bi));
+	clear_bank_info(&bi_pos, false);
+}
+
 
 /* Проверка атрибутов символа (Ар2 V) */
 static bool check_attr(uint8_t bg, uint8_t fg)
@@ -651,6 +697,7 @@ static uint8_t *check_rom(uint8_t *txt, int l, int *ecode)
 	return p;
 }
 
+#if 0
 /* Проверка банковского абзаца */
 static uint8_t *check_bank_info(uint8_t *txt, int l, int *ecode)
 {
@@ -882,6 +929,100 @@ static void scan_bank_info(uint8_t *txt)
 		di->amount = q * 100 + r;
 		bd.nr_docs++;
 	}
+}
+#endif
+
+/* Проверка абзаца для ИПТ */
+static uint8_t *check_bank_info(uint8_t *txt, int l, int *ecode)
+{
+	enum {
+		st_id,
+		st_termid,
+		st_amount,
+		st_stop,
+		st_err,
+	};
+	int i, st = st_id, n = 0;
+	uint8_t b;
+	*ecode = E_OK;
+	for (i = 0; (i < l) && (st != st_stop) && (st != st_err); i++){
+		b = txt[i];
+		switch (st){
+			case st_id:
+				if (!isdigit(b))
+					st = st_err;
+				else{
+					n++;
+					if (n == 7){
+						n = 0;
+						st = st_termid;
+					}
+				}
+				break;
+			case st_termid:
+/*				if (n == 2){
+					if (((b < 0x41) || (b > 0x5a)) &&
+							((b < 0x60) || (b > 0x7e)))
+						st = st_err;
+				}else if (!isdigit(b))
+					st = st_err;*/
+				if (st != st_err){
+					n++;
+					if (n == 5){
+						n = 0;
+						st = st_amount;
+					}
+				}
+				break;
+			case st_amount:
+				if (n == 7){
+					if (b != '.')
+						st = st_err;
+				}else if (!isdigit(b))
+					st = st_err;
+				if (st != st_err){
+					n++;
+					if (n == 9)
+						st = st_stop;
+				}
+				break;
+		}
+	}
+/*	if (i < l){
+		printf(__func__": i = %d; l = %d\n", i, l);
+		*ecode = E_BANK;
+	}*/
+	if (st != st_stop)
+		*ecode = E_BANK;
+	return txt + i;
+}
+
+/* Сканирование абзаца для ИПТ */
+static void scan_bank_info(uint8_t *txt)
+{
+/*	time_t t = time(NULL) + time_delta;
+	struct tm *tm = localtime(&t);*/
+	uint8_t tmp;
+	add_bank_info();
+	tmp = txt[7];
+	txt[7] = 0;
+	bi.id = strtoul((char *)txt, NULL, 10);
+	txt[7] = tmp;
+	memcpy(&bi.termid, txt + 7, 5);
+	tmp = txt[19];
+	txt[19] = 0;
+	bi.amount1 = strtoul((char *)(txt + 12), NULL, 10);
+	txt[19] = tmp;
+	tmp = txt[21];
+	txt[21] = 0;
+	bi.amount2 = strtoul((char *)(txt + 20), NULL, 10);
+	txt[21] = tmp;
+/*	bi.dt.day = tm->tm_mday - 1;
+	bi.dt.mon = tm->tm_mon;
+	bi.dt.year = tm->tm_year % 100;
+	bi.dt.hour = tm->tm_hour;
+	bi.dt.min = tm->tm_min;
+	bi.dt.sec = tm->tm_sec;*/
 }
 
 /* Определение назначения абзаца ответа */
@@ -2298,6 +2439,7 @@ static void execute_kkt(struct para_info *pi __attribute__((unused)), int len)
 	parse_kkt_xml((const char *)text_buf, false, kkt_xml_callback, &err);
 }
 
+#if 0
 /* Получение информации банковского абзаца во время обработки ответа */
 const struct bank_data *get_bi(void)
 {
@@ -2306,6 +2448,22 @@ const struct bank_data *get_bi(void)
 		for (int i = 0; i < n_paras; i++){
 			if (map[i].dst == dst_bank){
 				ret = &bd;
+				break;
+			}
+		}
+	}
+	return ret;
+}
+#endif
+
+/* Получение информации банковского абзаца во время обработки ответа */
+const struct bank_info *get_bi(void)
+{
+	const struct bank_info *ret = NULL;
+	if (resp_executing){
+		for (int i = 0; i < n_paras; i++){
+			if (map[i].dst == dst_bank){
+				ret = &bi;
 				break;
 			}
 		}
