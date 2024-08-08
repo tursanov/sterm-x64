@@ -7,6 +7,7 @@
 #include "gui/forms.h"
 #include "gui/fa.h"
 #include "gui/dialog.h"
+#include "gui/cart.h"
 #include "kkt/fd/ad.h"
 #include <string.h>
 #include <stdlib.h>
@@ -34,6 +35,7 @@ static int draw_flags = 0;
 
 #define BUTTON_WIDTH	100
 #define BUTTON_HEIGHT	30
+
 
 static void calc_sum()
 {
@@ -95,7 +97,7 @@ int cheque_init(void) {
 	if (fnt == NULL)
 		fnt = CreateFont(_("fonts/fixedsys8x16.fnt"), false);
 	if (fnt1 == NULL)
-		fnt1 = CreateFont(_("fonts/terminal10x18.fnt"), false);
+		fnt1 = CreateFont(_("fonts/serif11x13.fnt"), true);
 
 	if (screen == NULL)
 	  	screen = CreateGC(0, 0, DISCX, DISCY);
@@ -115,7 +117,11 @@ int cheque_init(void) {
 
 	calc_sum();
 
-	cheque_draw();
+	cart_build();
+	ui_cart_create();
+	ui_cart_draw(screen, fnt, fnt1);
+
+	//cheque_draw();
 	current_c = NULL;
 
 	return 0;
@@ -134,6 +140,8 @@ void cheque_release(void) {
 		DeleteGC(screen);
 		screen = NULL;
 	}
+
+	ui_cart_destroy();
 }
 
 #define GAP 10
@@ -438,6 +446,8 @@ static int cheque_draw_cashier(int start_y) {
 static int cheque_main_draw() {
 	int x;
 	int y = 8;
+
+
 	if (first) {
 		char title[256];
 		sprintf(title, "Всего чеков: %zd текущая страница (с %d по %zd чек)",
@@ -729,7 +739,7 @@ static void change_cashier() {
 	form_destroy(form);
 }
 
-static bool cheque_process(const struct kbd_event *_e) {
+bool cheque_process(const struct kbd_event *_e) {
 	struct kbd_event e = *_e;
 
 	if (e.key == KEY_CAPS && e.pressed && !e.repeated) {
@@ -841,7 +851,7 @@ bool cheque_execute(void) {
 
 	do {
 		kbd_get_event(&e);
-	} while ((ret = cheque_process(&e)) > 0);
+	} while ((ret = cart_process(&e)) > 0);
 
 	return current_c != NULL;
 }

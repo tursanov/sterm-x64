@@ -1,4 +1,6 @@
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
@@ -8,14 +10,17 @@
 #if defined WIN32 || defined __APPLE__
 #include "ad.h"
 #include "express.h"
-void cashier_set_name(const char *name) {
+bool cashier_set_name(const char *name) {
 }
 #define E_KKT_ILL_ATTR	0x95
 #define E_KKT_NO_ATTR	0x96
 #else
 #include "express.h"
 #include "kkt/fd/ad.h"
-#include "gui/fa.h"
+
+extern bool cashier_set_name(const char *name);
+
+
 #endif
 
 #ifdef WIN32
@@ -24,6 +29,14 @@ void cashier_set_name(const char *name) {
 #endif
 
 extern void cart_init();
+
+static int dump_file_pos(const char *prefix, int fd)
+{
+	int position = lseek(fd, 0, SEEK_CUR);
+	printf("%s: file pos: %d\n", prefix, position);
+
+	return 0;
+}
 
 static int strcmp2(const char *s1, const char *s2) {
     if (s1 == NULL && s2 == NULL)
@@ -134,13 +147,18 @@ static struct bank_info *bank_info_clone(const struct bank_info *v)
 static int bank_info_save(int fd, struct bank_info *v)
 {
 	size_t size = v != NULL ? sizeof(struct bank_info) : 0;
-	return save_data(fd, &v, size);
+	return save_data(fd, v, size);
 }
 
 static int bank_info_load(int fd, struct bank_info **v)
 {
+	dump_file_pos("bank_info_load", fd);
 	size_t size;
-	return load_data(fd, (void **)v, &size);
+	int ret = load_data(fd, (void **)v, &size);
+
+	printf("bank_info_load: ret: %d, size: %ld\n", ret, size);
+
+    return ret;
 }
 
 static bool bank_info_compare(struct bank_info *x, struct bank_info *y)
@@ -236,6 +254,9 @@ L *L_load_v2(int fd) {
         L_destroy(l);
         return NULL;
     }
+
+	dump_file_pos("L_load_v2", fd);
+
     return l;
 }
 
@@ -249,13 +270,21 @@ K *K_create(void) {
 void K_destroy(K *k) {
     list_clear(&k->llist);
     if (k->h)
+    {
         free(k->h);
+    }
     if (k->t)
+    {
         free(k->t);
+    }
     if (k->e)
+    {
         free(k->e);
+    }
     if (k->z)
+    {
         free(k->z);
+    }
 
 	doc_no_free(&k->d);
 	doc_no_free(&k->r);
@@ -366,7 +395,7 @@ K *K_divide(K *k, uint8_t p, int64_t *sum) {
     return k1;
 }
 
-static void K_calc_sum(K *k, S *s) {
+void K_calc_sum(K *k, S *s) {
 	memset(s, 0, sizeof(*s));
 	for (list_item_t *li3 = k->llist.head; li3 != NULL; li3 = li3->next) {
 		L *l = LIST_ITEM(li3, L);
@@ -404,7 +433,7 @@ static int64_t K_calc_total_sum_by_P(K *k, int p) {
 	return sum;
 }
 
-static int L_compare(void *arg, L *l1, L *l2) {
+static int L_compare(__attribute__((unused)) void *arg, L *l1, L *l2) {
 	if (strcmp2(l1->s, l2->s) == 0 &&
 		l1->r == l2->r &&
 		l1->t == l2->t &&
@@ -488,8 +517,17 @@ static void K_preprocess_L(K *k)
 
 static void K_set_pos_data(K *k)
 {
-	const struct bank_info *b = get_bi();
-	k->y = bank_info_clone(b);
+    struct bank_info b;
+    ssize_t ret = get_bank_info(&b, 1);
+    
+    if (ret == 1)
+    {
+    	k->y = bank_info_clone(&b);
+    }
+    else
+    {
+        k->y = NULL;
+    }
 }
 
 K *K_load_v1(int fd) {
@@ -520,7 +558,9 @@ K *K_load_v1(int fd) {
 K *K_load_v2(int fd) {
     K *k = K_create();
 
-	if (load_list(fd, &k->llist, (load_item_func_t)L_load_v1) < 0 ||
+	dump_file_pos("K_load_v2", fd);
+
+	if (load_list(fd, &k->llist, (load_item_func_t)L_load_v2) < 0 ||
 		LOAD_INT(fd, k->o) < 0 ||
 		LOAD_INT(fd, k->a) < 0 ||
 		doc_no_load(fd, &k->d) < 0 ||
@@ -539,6 +579,7 @@ K *K_load_v2(int fd) {
 		load_string(fd, &k->e) < 0 ||
 		// v2
 		load_string(fd, &k->z) < 0 ||
+		dump_file_pos("K_load_v2: before load y2", fd) < 0 ||
 		LOAD_INT(fd, k->a_flag) < 0 ||
 		bank_info_load(fd, &k->y) < 0 ||
 		LOAD_INT(fd, k->s) < 0 ||
@@ -614,9 +655,13 @@ C* C_create(void) {
 void C_destroy(C *c) {
     list_clear(&c->klist);
     if (c->h != NULL)
+    {
         free(c->h);
+    }
     if (c->pe != NULL)
+    {
         free(c->pe);
+    }
 
 	int64_array_clear(&_ad->docs);
 	string_array_clear(&_ad->phones);
@@ -991,14 +1036,20 @@ int AD_archive_save()
 
 int AD_load(uint8_t t1055, bool clear) {
     if (_ad != NULL)
+    {
         AD_destroy();
+    }
     if (AD_create(t1055) < 0)
+    {
         return -1;
+    }
 
 	cart_init();
 
 	if (clear)
+	{
 		return 0;
+    }
 
     int fd = s_open(FILE_NAME, false);
     if (fd == -1)
@@ -1109,7 +1160,9 @@ int AD_delete_doc(int64_t doc) {
 	AD_calc_sum();
 
     if (count)
+    {
     	AD_save();
+    }
    	return count;
 }
 
@@ -1236,7 +1289,7 @@ int find_annul_k(struct find_annul *f, K *x)
 	return 1;
 }
 
-int change_lp(void *arg, L* l)
+int change_lp(__attribute__((unused)) void *arg, L* l)
 {
 	l->p = 3 - l->p;
 	return 0;
@@ -2125,7 +2178,7 @@ int check_str_len(const char *tag, const char *name, const char *val,
 }
 
 // обработка XML
-int kkt_xml_callback(uint32_t check, int evt, const char *name, const char *val)
+int kkt_xml_callback(bool check, int evt, const char *name, const char *val)
 {
 	int64_t v64;
 	int ret;
@@ -2434,7 +2487,9 @@ bool AD_get_state(AD_state *s) {
 				}
 
 				if (k->y != NULL && k->y->req_id > order_id)
+				{
 					order_id = k->y->req_id;
+                }
 			}
 		}
 		
@@ -2716,7 +2771,6 @@ void cart_build()
 		C *c = LIST_ITEM(li1, C);
 		for (list_item_t *li2 = c->klist.head; li2; li2 = li2->next) {
 			K *k = LIST_ITEM(li2, K);
-			SubCart *sc = &cart.sc[SUB_CART_INDEX(k->s)];
 
 			add_k_to_sub_cart(k);
 		}

@@ -2288,9 +2288,10 @@ static inline void show_no_kkt(void){
 
 /* Показать окно фискального приложения */
 static void show_fa_with_arg(int arg) {
-	if (!cfg.has_kkt || (kkt == NULL))
-		show_no_kkt();
-	else if (!fa_active){
+//	if (!cfg.has_kkt || (kkt == NULL))
+//		show_no_kkt();
+//	else 
+if (!fa_active){
 		online = false;
 		guess_term_state();
 		push_term_info();

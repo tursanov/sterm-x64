@@ -72,6 +72,11 @@ GUI_CONTROLS_OBJS =	\
 	listview	\
 	window
 
+GUI_CART_OBJS =		\
+	cart		\
+	subcart		\
+	document		\
+
 KKT_OBJS =		\
 	fdo		\
 	io		\
@@ -125,6 +130,7 @@ OBJS =			\
 	$(addprefix gui/,	$(addsuffix .o, $(GUI_OBJS)))		\
 	$(addprefix gui/log/,	$(addsuffix .o, $(GUI_LOG_OBJS)))	\
 	$(addprefix gui/controls/,	$(addsuffix .o, $(GUI_CONTROLS_OBJS)))	\
+	$(addprefix gui/cart-ui/,	$(addsuffix .o, $(GUI_CART_OBJS)))	\
 	$(addprefix pos/,	$(addsuffix .o, $(POS_OBJS)))		\
 	$(addprefix ppp/,	$(addsuffix .o, $(PPP_OBJS)))		\
 	$(addprefix prn/,	$(addsuffix .o, $(PRN_OBJS)))		\

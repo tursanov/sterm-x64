@@ -1,13 +1,10 @@
 #ifndef AD_H
 #define AD_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include <stdint.h>
 #include <stdio.h>
-#include "express.h"
+#include <express.h>
+#include "sysdefs.h"
 #include "list.h"
 
 #define AD_VERSION	2
@@ -15,6 +12,15 @@ extern "C" {
 struct C;
 struct L;
 struct K;
+
+// сумма
+typedef struct S {
+    int64_t a; // общая сумма
+    int64_t n; // сумма наличных
+    int64_t e; // сумма электронных
+    int64_t p; // сумма в зачет ранее внесенных средств
+    int64_t b; // сумма расчета по всем документам чека встречным предоставлением
+} S;
 
 // составляющая
 typedef struct L {
@@ -103,6 +109,8 @@ typedef struct K {
 // проверка банковского абзаца на соответствие операции и возврата
 #define check_k_y(k, o, r) ((k)->y->op == (o) && (k)->y->repayment == (r))
 
+#define k_lp(k) (LIST_ITEM((k)->llist.head, L)->p)
+
 // создание информации о документе
 extern K *K_create(void);
 // удаление информации о документе
@@ -115,6 +123,9 @@ extern K *K_divide(K *k, uint8_t p, int64_t* sum);
 extern bool K_equalByL(K *k1, K *k2);
 // получить сумму всех узлов L
 extern int64_t K_get_sum(K *k);
+// посчитать сумму для К
+extern void K_calc_sum(K *k, S *s);
+
 
 // установить код подкорзины
 extern void set_k_s(char s, K* k, K* k1, K* k2);
@@ -127,15 +138,6 @@ extern int K_save(int fd, K *k);
 // загрузка документа из файла
 extern K *K_load_v1(int fd);
 extern K *K_load_v2(int fd);
-
-// сумма
-typedef struct S {
-    int64_t a; // общая сумма
-    int64_t n; // сумма наличных
-    int64_t e; // сумма электронных
-    int64_t p; // сумма в зачет ранее внесенных средств
-    int64_t b; // сумма расчета по всем документам чека встречным предоставлением
-} S;
 
 // чек
 typedef struct C {
@@ -293,11 +295,10 @@ extern void AD_print(FILE *f);
 extern void cart_print(FILE *fd);
 #endif
 
+// callback для обработки XML
+extern int kkt_xml_callback(bool check, int evt, const char *name, const char *val);
+
 extern void get_subcart_documents(char type, list_t *documents, const char *doc_no);
 extern void process_non_cash_documents(list_t *documents, int invoice);
-
-#if defined __cplusplus
-}
-#endif
 
 #endif // AD_H

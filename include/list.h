@@ -1,10 +1,6 @@
 #ifndef list_h
 #define list_h
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "sysdefs.h"
 
 typedef struct list_item_t {
@@ -59,9 +55,5 @@ list_item_t *list_item_at(list_t *list, int index);
 //#define LIST_IT_OBJ(it, type) ((type *)((it).i->obj))
 //void list_it_next(list_it_t *it);
 //void list_it_remove(list_it_t *it);
-
-#if defined __cplusplus
-}
-#endif
 
 #endif /* list_h */
