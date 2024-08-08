@@ -1040,7 +1040,7 @@ static int get_dest(uint8_t b)
 			ret = dst_aprn;
 			break;
 		case X_SPRN:
-			ret = dst_sprn;
+			ret = dst_log;
 			break;
 		case X_KPRN:
 			ret = dst_kprn;
@@ -1607,6 +1607,7 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 					}
 					__fallthrough__;
 				case X_WR_LOG:
+				case X_SPRN:
 				case X_SCR:
 				case X_OUT:
 				case X_QOUT:
