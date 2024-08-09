@@ -1256,7 +1256,6 @@ uint8_t kkt_reset_fs(uint8_t b)
  */
 uint8_t kkt_print_vf(const uint8_t *data, size_t len)
 {
-	printf("%s: data = %p; len = %zu\n", __func__, data, len);
 	assert(data != NULL);
 	assert(len > 0);
 	if (kkt_lock()){
@@ -1270,13 +1269,11 @@ uint8_t kkt_print_vf(const uint8_t *data, size_t len)
 				kkt_tx_len = 0;
 				if (write_data(data + offs, l) && write_byte(b) &&
 						kkt_open_dev_if_need()){
-					printf("%s: begin printing: offs = %d; l = %d\n",
-						__func__, offs, l);
-					FILE *f = fopen("kkt.bin", "wb");
+/*					FILE *f = fopen("kkt.bin", "wb");
 					if (f != NULL){
 						fwrite(kkt_tx, kkt_tx_len, 1, f);
 						fclose(f);
-					}
+					}*/
 					do_transaction(KKT_NUL, KKT_VF, NULL);
 					printf("%s: end printing; kkt_status = 0x%.2hhx\n", __func__, kkt_status);
 					if (kkt_status != KKT_STATUS_OK)

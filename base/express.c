@@ -1040,7 +1040,7 @@ static int get_dest(uint8_t b)
 			ret = dst_aprn;
 			break;
 		case X_SPRN:
-			ret = dst_log;
+			ret = dst_sprn;
 			break;
 		case X_KPRN:
 			ret = dst_kprn;
@@ -1452,6 +1452,8 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 							*ecode = E_LCODEINBODY;
 							return p - 2;
 						}
+					}
+					if ((b == XPRN_WR_BCODE) || (b == XPRN_RD_BCODE)){
 						pp = check_bcode(p, txt + l - p, ecode);
 						if (*ecode != E_OK)
 							return pp;
@@ -2320,7 +2322,7 @@ static bool kprn_print(const uint8_t *data, size_t len)
 		}else{
 			set_term_astate(ast_no_kkt);
 			err_beep();
-			int cmd = show_kprn_error(kkt_status, can_reject);
+			int cmd = show_kprn_error(status, can_reject);
 			if (cmd == cmd_reject){
 				reject_req();
 				break;

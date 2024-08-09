@@ -40,10 +40,10 @@ extern int req_type;
 #define X_RD_ROM	0x48	/* H чтение из ОЗУ констант (ПЗУ) */
 #define X_SCR		0x49	/* I абзац для отображения на экране */
 #define X_KEY		0x4b	/* K абзац для ОЗУ ключей */
-#define X_SPRN		0x4d	/* M абзац для технологического принтера */
+#define X_XPRN		0x4d	/* M абзац для ОПУ */
 #define X_ROM		0x4e	/* N абзац для ОЗУ констант (ПЗУ) */
 #define X_QOUT		0x4f	/* O абзац для ОЗУ заказа без отображения на экране */
-#define X_XPRN		0x50	/* P абзац для ОПУ/БПУ */
+#define X_SPRN		0x50	/* P абзац для БПУ */
 #define X_KPRN		0x51	/* Q абзац для печати на ККТ */
 #define X_XML		0x52	/* R данные в формате XML */
 #define X_REPEAT	0x53	/* S автоповтор символа */
