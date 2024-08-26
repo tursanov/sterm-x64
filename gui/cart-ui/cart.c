@@ -52,6 +52,11 @@ void ui_cart_create()
 
 void ui_cart_destroy()
 {
+    if (!ui_cart)
+    {
+        return;
+    }
+
 	for (int i = 0; i < ui_cart->subcart_count; i++)
 	{
 		ui_subcart_free(&ui_cart->subcarts[i]);
@@ -64,6 +69,11 @@ void ui_cart_destroy()
 
 void ui_cart_calc_bounds()
 {
+    if (!ui_cart)
+    {
+        return;
+    }
+    
 	for (int i = 0; i < ui_cart->subcart_count; i++)
 	{
 		ui_subcart_t *sc = &ui_cart->subcarts[i];
