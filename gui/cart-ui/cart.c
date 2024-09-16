@@ -14,7 +14,6 @@ FontPtr cart_sfnt = NULL;
 ui_cart_t *ui_cart = NULL;
 ui_subcart_t *ui_sel_subcart = NULL;
 
-
 void process_docs();
 void print_cheque(list_t *klist);
 
