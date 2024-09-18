@@ -1571,7 +1571,7 @@ int kkt_xml_callback(bool check, int evt, const char *name, const char *val)
                                                  &_lMask, 0x08, &_l->t)) != 0)
                         return ret;
                 } else if (strcmp(name, "N") == 0) {
-                    if ((ret = process_int_value("L", name, val, 0, 5,
+                    if ((ret = process_int_value("L", name, val, 0, 6,
                                                  &_lMask, 0x10, &v64)) != 0)
                         return ret;
 					_l->n = (uint8_t)v64;

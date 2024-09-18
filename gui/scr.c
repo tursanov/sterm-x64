@@ -846,6 +846,8 @@ bool show_hints(void)
 					glyph = NULL;
 				else if (kkt == NULL)
 					glyph = _("pict/kkt_err.bmp");
+				else if (!kkt_has_param("SUPPORT_ESC_R"))
+					glyph = _("pict/kkt_warn.bmp");
 			}
 			glyphs[i] = glyph ? CreateBitmap(glyph) : NULL;
 		}
