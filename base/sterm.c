@@ -1904,7 +1904,7 @@ int get_cmd(bool check_scr, bool busy)
 /* Показать ОЗУ заказа */
 void show_req(void)
 {
-	set_scr_text(NULL, 1600, txt_plain, true);
+	set_scr_text(NULL, OUT_BUF_LEN, txt_plain, true);
 	if (resp_executing){
 		set_term_state(st_ireq);
 		if (quick_astate(_term_aux_state))
@@ -3362,9 +3362,19 @@ static bool x3data_sync_dlg(uint32_t x3data_to_sync)
 	return rc == DLG_BTN_YES;
 }
 
+static void x3data_nosync_dlg(void)
+{
+	message_box("ВНИМАНИЕ", "Вы отказались от синхронизации данных с \"Экспресс\". "
+		"Повторная попытка синхронизации произойдёт при следующей инициализации терминала.",
+		dlg_yes, DLG_BTN_YES, al_center);
+	redraw_term(true, main_title);
+}
+
 static bool begin_x3data_sync(uint32_t x3data_to_sync)
 {
 	bool ret = false;
+	store_orig_scr_text();
+	reset_x3data_flags();
 	if (x3data_to_sync && X3_SYNC_XPRN_GRIDS)
 		ret = sync_grids_xprn(NULL);
 	else if (x3data_to_sync && X3_SYNC_KKT_GRIDS)
@@ -3443,6 +3453,8 @@ static void on_response(bool *need_sync_dev_data)
 					if (x3data_to_sync != X3_SYNC_NONE){
 						if (x3data_sync_dlg(x3data_to_sync))
 							begin_x3data_sync(x3data_to_sync);
+						else
+							x3data_nosync_dlg();
 					}
 				}
 			}
@@ -3603,6 +3615,7 @@ static bool process_term(void)
 		bool need_sync_dev_data = false;
 		on_response(&need_sync_dev_data);
 		if (need_sync_dev_data){
+			restore_orig_scr_text();
 			if (need_grids_update_kkt())
 				update_kkt_grids();
 			if (need_icons_update_kkt())

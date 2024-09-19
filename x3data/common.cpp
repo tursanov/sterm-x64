@@ -10,6 +10,14 @@
 #include "x3data/common.hpp"
 #include "termlog.h"
 
+uint32_t x3data_sync_ok = 0;
+uint32_t x3data_sync_fail = 0;
+
+void reset_x3data_flags(void)
+{
+	x3data_sync_ok = x3data_sync_fail = 0;
+}
+
 /* Проверка существования каталога и создание его при необходимости */
 bool create_folder_if_need(const char *path)
 {

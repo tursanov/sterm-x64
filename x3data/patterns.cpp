@@ -343,6 +343,7 @@ void on_response_patterns(void)
 				}
 			}else{
 				log_info("Шаблоны печати получены полностью. Сохраняем на диск...");
+				x3data_sync_ok |= X3_SYNC_KKT_PATTERNS;
 				store_patterns();
 				sync_xslt(NULL);
 			}
@@ -354,11 +355,13 @@ void on_response_patterns(void)
 		snprintf(err_msg, ASIZE(err_msg), "Не найдены данные шаблонов печати.");
 		non_patterns_resp = 2;
 	}
+	if ((err_msg[0] != 0) || (non_patterns_resp != 0))
+		x3data_sync_fail |= X3_SYNC_KKT_PATTERNS;
 	if (err_msg[0] != 0){
 		log_err(err_msg);
 		patterns_buf_idx = 0;
 	}
-	if (non_patterns_resp){
+	if (non_patterns_resp != 0){
 		if (patterns_sync_cbk != NULL)
 			patterns_sync_cbk(true, NULL);
 		if (non_patterns_resp == 2)

@@ -9,6 +9,11 @@
 extern "C" {
 #endif
 
+extern uint32_t x3data_sync_ok;
+extern uint32_t x3data_sync_fail;
+
+extern void reset_x3data_flags(void);
+
 typedef void (*x3_sync_callback_t)(bool done, const char *message);
 
 /* Заголовок изображения в БПУ/ККТ */

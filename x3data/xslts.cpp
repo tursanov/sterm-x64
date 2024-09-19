@@ -343,9 +343,10 @@ void on_response_xslt(void)
 					xslt_to_create_ptr->name().c_str());
 				store_xslt(*xslt_to_create_ptr++);
 				xslt_buf_idx = 0;
-				if (xslt_to_create_ptr == xslt_to_create.cend())
+				if (xslt_to_create_ptr == xslt_to_create.cend()){
 					log_info("Загрузка таблиц XSLT завершена.");
-				else
+					x3data_sync_ok |= X3_SYNC_XSLT;
+				}else
 					send_xslt_request(*xslt_to_create_ptr);
 			}
 		}else{
@@ -360,7 +361,9 @@ void on_response_xslt(void)
 		log_err(err_msg);
 		xslt_buf_idx = 0;
 	}
-	if (non_xslt_resp){
+	if ((err_msg[0] != 0) || (non_xslt_resp != 0))
+		x3data_sync_fail |= X3_SYNC_XSLT;
+	if (non_xslt_resp != 0){
 		if (xslt_sync_cbk != NULL)
 			xslt_sync_cbk(true, NULL);
 		if (non_xslt_resp == 2)

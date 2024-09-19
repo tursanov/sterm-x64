@@ -79,7 +79,7 @@ int input_mode;			/* режим вставки/замены */
 static struct input_window inp_buf[MAX_WINDOWS];
 /* ОЗУ ответа */
 static uint16_t scr_resp_buf[SCR_RESP_BUF_LEN];
-uint8_t *cur_buf;			/* текущий буфер для отображения на экране */
+uint8_t *cur_buf;		/* текущий буфер для отображения на экране */
 static int cur_buf_len;		/* длина текущего буфера */
 static int txt_type;		/* тип текста в буфере (txt_plain/txt_rich) */
 bool scr_text_modified;		/* флаг модификации текста в буфере */
@@ -2206,6 +2206,26 @@ int scr_handle_kbd(struct kbd_event *e)
 	return cmd_none;
 }
 
+/* Сохранение текущего ОЗУ заказа (используется при синхронизации данных) */
+static uint8_t orig_scr_text[OUT_BUF_LEN];
+static bool orig_scr_text_stored = false;
+
+void store_orig_scr_text(void)
+{
+	memcpy(orig_scr_text, inp_buf[cur_window].buf, sizeof(orig_scr_text));
+	recode_str((char *)orig_scr_text, sizeof(orig_scr_text));
+	orig_scr_text_stored = true;
+}
+
+void restore_orig_scr_text(void)
+{
+	if (orig_scr_text_stored){
+		memcpy(inp_buf[cur_window].buf, orig_scr_text, sizeof(orig_scr_text));
+		set_scr_request(orig_scr_text, sizeof(orig_scr_text), true);
+		orig_scr_text_stored = false;
+	}
+}
+
 /* Получение текста для ОЗУ заказа */
 #define HBYTE_MARK	0x48
 int get_scr_text(uint8_t *buf, int len)
@@ -2742,25 +2762,26 @@ int set_scr_text(uint8_t *s, int l, int t, bool need_redraw)
 }
 
 /* Установка текста запроса (автозапрос) */
-int set_scr_request(uint8_t *s,int req_len,bool show)
+int set_scr_request(uint8_t *s, int req_len, bool show)
 {
-	uint8_t *_cur_buf=cur_buf;
-	uint16_t _cur_buf_len=cur_buf_len;
-	int t=txt_type;
+	uint8_t *_cur_buf = cur_buf;
+	uint16_t _cur_buf_len = cur_buf_len;
+	int t = txt_type;
 	uint16_t i;
-	if (s == NULL) return 0;
+	if (s == NULL)
+		return 0;
 	set_input_window(cur_window);
 	clear_scr_buf(show);
-	for (i=0; i < req_len; i++)
-		set_elem(i,recode(s[i]));
+	for (i = 0; i < req_len; i++)
+		set_elem(i, recode(s[i]));
 	adjust_scr_mode();
 	if (show){
 		draw_scr_text();
 		set_term_state(st_input);
 	}else{
-		cur_buf=_cur_buf;
-		cur_buf_len=_cur_buf_len;
-		txt_type=t;
+		cur_buf = _cur_buf;
+		cur_buf_len = _cur_buf_len;
+		txt_type = t;
 	}
 	return req_len;
 }

@@ -48,24 +48,6 @@ static uint16_t Ocrc;
 static uint8_t Ogaddr;
 static uint8_t Oiaddr;
 
-/*
- * Код синтаксической ошибки ответа и последний переданный запрос.
- * Используется при формировании записи ПКЛ типа LLRT_SYNTAX_ERROR
- */
-static struct {
-	uint8_t err;
-	char req[OUT_BUF_LEN + 1];
-} __attribute__((__packed__)) _last_request;
-
-char *last_request = _last_request.req;
-
-/* Сброс буфера последнего ответа */
-static void reset_last_request(void)
-{
-	_last_request.err = 0;
-	_last_request.req[0] = 0;
-}
-
 /* Инициализация уровня гарантированной доставки */
 void init_gd(void)
 {
@@ -132,7 +114,7 @@ uint16_t x3_crc(uint8_t *p, int l)
 /* Определение смещения начала запроса (длины заголовка) */
 int get_req_offset(void)
 {
-	return 6;
+	return REQ_PREFIX_LEN;
 }
 
 /* Определение максимальной длины запроса */
@@ -270,28 +252,12 @@ static void write_crc(void)
 	req_len += 4;
 }
 
-/* Сохранение передаваемого запроса в буфере */
-static bool store_text_tcpip(void)
-{
-	size_t txt_len;
-	if (req_len < REQ_PREFIX_LEN)
-		return false;
-	txt_len = req_len - REQ_PREFIX_LEN;
-	if ((txt_len + 1) > sizeof(_last_request.req))
-		txt_len = sizeof(_last_request.req) - 1;
-	if (txt_len > 0)
-		memcpy(_last_request.req, req_buf + REQ_PREFIX_LEN, txt_len);
-	_last_request.req[txt_len] = 0;
-	return true;
-}
-
-static bool wrap_text_tcp_ip(void)
+static bool wrap_text_tcpip(void)
 {
 	int l;
 	l = sizeof(req_buf) - req_len;
 	if (l < REQ_SUFFIX_LEN)
 		return false;
-	store_text_tcpip();
 	req_buf[4] = cfg.gaddr;
 	req_buf[5] = cfg.iaddr;
 	write_prn_info();
@@ -314,8 +280,7 @@ extern uint8_t *err_ptr;
 bool wrap_text(void)
 {
 	err_ptr = NULL;
-	reset_last_request();
-	if (wrap_text_tcp_ip()){
+	if (wrap_text_tcpip()){
 		clr_xml_data();
 		begin_transmit();
 		return true;

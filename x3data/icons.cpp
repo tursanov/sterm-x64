@@ -490,6 +490,7 @@ void on_response_icon(void)
 				icon_buf_idx = 0;
 				if (icons_to_create_xprn_ptr == icons_to_create_xprn.cend()){
 					log_info("Загрузка пиктограмм для БПУ завершена.");
+					x3data_sync_ok |= X3_SYNC_XPRN_ICONS;
 					sync_icons_kkt(NULL);
 				}else
 					send_icon_request(*icons_to_create_xprn_ptr);
@@ -500,6 +501,7 @@ void on_response_icon(void)
 				icon_buf_idx = 0;
 				if (icons_to_create_kkt_ptr == icons_to_create_kkt.cend()){
 					log_info("Загрузка пиктограмм для ККТ завершена.");
+					x3data_sync_ok |= X3_SYNC_KKT_ICONS;
 					sync_patterns(NULL);
 				}else
 					send_icon_request(*icons_to_create_kkt_ptr);
@@ -512,12 +514,18 @@ void on_response_icon(void)
 		snprintf(err_msg, ASIZE(err_msg), "Не найдены данные пиктограммы.");
 		non_icon_resp = 2;
 	}
+	if ((err_msg[0] != 0) || (non_icon_resp != 0)){
+		if (req_type == req_icon_xprn)
+			x3data_sync_fail |= X3_SYNC_XPRN_ICONS;
+		else if (req_type == req_icon_kkt)
+			x3data_sync_fail |= X3_SYNC_KKT_ICONS;
+	}
 	if (err_msg[0] != 0){
 		log_err(err_msg);
 		icon_buf_idx = 0;
 //		termcore_callbacks.callMessageBox("ОШИБКА", err_msg);
 	}
-	if (non_icon_resp){
+	if (non_icon_resp != 0){
 		if (icon_sync_cbk != NULL)
 			icon_sync_cbk(true, NULL);
 		if (non_icon_resp == 2)

@@ -525,6 +525,7 @@ void on_response_grid(void)
 				grid_buf_idx = 0;
 				if (grids_to_create_xprn_ptr == grids_to_create_xprn.cend()){
 					log_info("Загрузка разметок для БПУ завершена.");
+					x3data_sync_ok |= X3_SYNC_XPRN_GRIDS;
 					sync_grids_kkt(NULL);
 				}else
 					send_grid_request(*grids_to_create_xprn_ptr);
@@ -535,6 +536,7 @@ void on_response_grid(void)
 				grid_buf_idx = 0;
 				if (grids_to_create_kkt_ptr == grids_to_create_kkt.cend()){
 					log_info("Загрузка разметок для ККТ завершена.");
+					x3data_sync_ok |= X3_SYNC_KKT_GRIDS;
 					sync_icons_xprn(NULL);
 				}else
 					send_grid_request(*grids_to_create_kkt_ptr);
@@ -547,12 +549,18 @@ void on_response_grid(void)
 		snprintf(err_msg, ASIZE(err_msg), "Не найдены данные разметки.");
 		non_grid_resp = 2;
 	}
+	if ((err_msg[0] != 0) || (non_grid_resp != 0)){
+		if (req_type == req_grid_xprn)
+			x3data_sync_fail |= X3_SYNC_XPRN_GRIDS;
+		else if (req_type == req_grid_kkt)
+			x3data_sync_fail |= X3_SYNC_KKT_GRIDS;
+	}
 	if (err_msg[0] != 0){
 		log_err(err_msg);
 		grid_buf_idx = 0;
 //		termcore_callbacks.callMessageBox("ОШИБКА", err_msg);
 	}
-	if (non_grid_resp){
+	if (non_grid_resp != 0){
 		if (grid_sync_cbk != NULL)
 			grid_sync_cbk(true, NULL);
 		if (non_grid_resp == 2)
