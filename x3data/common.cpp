@@ -10,12 +10,52 @@
 #include "x3data/common.hpp"
 #include "termlog.h"
 
-uint32_t x3data_sync_ok = 0;
-uint32_t x3data_sync_fail = 0;
+uint32_t x3data_to_sync = X3_SYNC_NONE;
+uint32_t x3data_sync_ok = X3_SYNC_NONE;
+uint32_t x3data_sync_fail = X3_SYNC_NONE;
 
 void reset_x3data_flags(void)
 {
 	x3data_sync_ok = x3data_sync_fail = 0;
+}
+
+const char *get_x3data_sync_name(uint32_t what)
+{
+	static struct {
+		uint32_t what;
+		const char *name;
+	} map[] = {
+		{X3_SYNC_XPRN_GRIDS,	"разметки бланков БПУ"},
+		{X3_SYNC_XPRN_ICONS,	"пиктограмммы БПУ"},
+		{X3_SYNC_KKT_GRIDS,	"разметки бланков ККТ"},
+		{X3_SYNC_KKT_ICONS,	"пиктограмммы ККТ"},
+		{X3_SYNC_KKT_PATTERNS,	"шаблоны печати ККТ"},
+		{X3_SYNC_XSLT,		"разметки документов \"Экспресс\""},
+	};
+	const char *ret = NULL;
+	for (int i = 0; i < ASIZE(map); i++){
+		const typeof(*map) *p = map + i;
+		if (p->what == what){
+			ret = p->name;
+			break;
+		}
+	}
+	return ret;
+}
+
+const char *get_x3data_sync_result(uint32_t what)
+{
+	const char *ret = NULL;
+	if (x3data_to_sync & what){
+		if (x3data_sync_ok & what)
+			ret = "УСПЕХ";
+		else if (x3data_sync_fail & what)
+			ret = "ОШИБКА";
+		else
+			ret = "НЕ ПРОВОДИЛАСЬ";
+	}else
+		ret = "НЕИЗВЕСТНО";
+	return ret;
 }
 
 /* Проверка существования каталога и создание его при необходимости */

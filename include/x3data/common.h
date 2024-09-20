@@ -4,15 +4,19 @@
 #define X3DATA_COMMON_H
 
 #include "kkt/cmd.h"
+#include "express.h"
 
 #if defined __cplusplus
 extern "C" {
 #endif
 
+extern uint32_t x3data_to_sync;
 extern uint32_t x3data_sync_ok;
 extern uint32_t x3data_sync_fail;
 
 extern void reset_x3data_flags(void);
+extern const char *get_x3data_sync_name(uint32_t what);
+extern const char *get_x3data_sync_result(uint32_t what);
 
 typedef void (*x3_sync_callback_t)(bool done, const char *message);
 

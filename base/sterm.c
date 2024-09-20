@@ -3298,7 +3298,7 @@ static int need_pos(void)
 }
 
 /* Запрос синхронизации данных с "Экспресс" */
-static bool x3data_sync_dlg(uint32_t x3data_to_sync)
+static bool x3data_sync_dlg(void)
 {
 	if (x3data_to_sync == X3_SYNC_NONE)
 		return false;
@@ -3308,42 +3308,48 @@ static bool x3data_sync_dlg(uint32_t x3data_to_sync)
 	if (rc > 0)
 		offs += rc;
 	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_GRIDS)){
-		rc = snprintf(msg + offs, sizeof(msg) - offs, "разметки бланков БПУ;\n");
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%s;\n",
+			get_x3data_sync_name(X3_SYNC_XPRN_GRIDS));
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
 	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_ICONS)){
-		rc = snprintf(msg + offs, sizeof(msg) - offs, "пиктограмммы БПУ;\n");
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%s;\n",
+			get_x3data_sync_name(X3_SYNC_XPRN_ICONS));
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
 	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_GRIDS)){
-		rc = snprintf(msg + offs, sizeof(msg) - offs, "разметки бланков ККТ;\n");
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%s;\n",
+			get_x3data_sync_name(X3_SYNC_KKT_GRIDS));
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
 	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_ICONS)){
-		rc = snprintf(msg + offs, sizeof(msg) - offs, "пиктограмммы ККТ;\n");
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%s;\n",
+			get_x3data_sync_name(X3_SYNC_KKT_ICONS));
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
 	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_PATTERNS)){
-		rc = snprintf(msg + offs, sizeof(msg) - offs, "шаблоны печати ККТ;\n");
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%s;\n",
+			get_x3data_sync_name(X3_SYNC_KKT_PATTERNS));
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
 	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XSLT)){
-		rc = snprintf(msg + offs, sizeof(msg) - offs, "разметки документов \"Экспресс\";\n");
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%s;\n",
+			get_x3data_sync_name(X3_SYNC_XSLT));
 		if (rc > 0){
 			offs += rc;
 			n++;
@@ -3370,7 +3376,66 @@ static void x3data_nosync_dlg(void)
 	redraw_term(true, main_title);
 }
 
-static bool begin_x3data_sync(uint32_t x3data_to_sync)
+static void x3data_sync_report_dlg(void)
+{
+	static char msg[1024];
+	int offs = 0, n = 0;
+	int rc = snprintf(msg, sizeof(msg), "Результаты синхронизации данных с \"Экспресс\":\n");
+	if (rc > 0)
+		offs += rc;
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_GRIDS)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%20s : %-20s\n",
+			get_x3data_sync_name(X3_SYNC_XPRN_GRIDS), get_x3data_sync_result(X3_SYNC_XPRN_GRIDS));
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_ICONS)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%20s : %-20s\n",
+			get_x3data_sync_name(X3_SYNC_XPRN_ICONS), get_x3data_sync_result(X3_SYNC_XPRN_ICONS));
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_GRIDS)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%20s : %-20s\n",
+			get_x3data_sync_name(X3_SYNC_KKT_GRIDS), get_x3data_sync_result(X3_SYNC_KKT_GRIDS));
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_ICONS)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%20s : %-20s\n",
+			get_x3data_sync_name(X3_SYNC_KKT_ICONS), get_x3data_sync_result(X3_SYNC_KKT_ICONS));
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_PATTERNS)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%20s : %-20s\n",
+			get_x3data_sync_name(X3_SYNC_KKT_PATTERNS), get_x3data_sync_result(X3_SYNC_KKT_PATTERNS));
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XSLT)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%20s : %-20s\n",
+			get_x3data_sync_name(X3_SYNC_XSLT), get_x3data_sync_result(X3_SYNC_XSLT));
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	rc = message_box("СИНХРОНИЗАЦИЯ ДАНН\x9bХ", msg, dlg_yes, DLG_BTN_YES, al_center);
+	redraw_term(true, main_title);
+}
+
+static bool begin_x3data_sync(void)
 {
 	bool ret = false;
 	store_orig_scr_text();
@@ -3449,10 +3514,10 @@ static void on_response(bool *need_sync_dev_data)
 					}else
 						apc = false;
 				}else if (TST_FLAG(OBp, GDF_RESP_INIT)){
-					uint32_t x3data_to_sync = need_x3_sync();
+					x3data_to_sync = need_x3_sync();
 					if (x3data_to_sync != X3_SYNC_NONE){
-						if (x3data_sync_dlg(x3data_to_sync))
-							begin_x3data_sync(x3data_to_sync);
+						if (x3data_sync_dlg())
+							begin_x3data_sync();
 						else
 							x3data_nosync_dlg();
 					}
@@ -3616,6 +3681,7 @@ static bool process_term(void)
 		on_response(&need_sync_dev_data);
 		if (need_sync_dev_data){
 			restore_orig_scr_text();
+			x3data_sync_report_dlg();
 			if (need_grids_update_kkt())
 				update_kkt_grids();
 			if (need_icons_update_kkt())
