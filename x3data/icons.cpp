@@ -526,10 +526,14 @@ void on_response_icon(void)
 //		termcore_callbacks.callMessageBox("ОШИБКА", err_msg);
 	}
 	if (non_icon_resp != 0){
+		req_type = req_regular;
 		if (icon_sync_cbk != NULL)
 			icon_sync_cbk(true, NULL);
-		if (non_icon_resp == 2)
+		x3data_sync_report_dlg();
+		if (non_icon_resp == 2){
+			log_dbg("Переходим к обработке ответа.");
 			execute_resp();
+		}
 	}
 }
 

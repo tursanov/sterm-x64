@@ -3376,7 +3376,7 @@ static void x3data_nosync_dlg(void)
 	redraw_term(true, main_title);
 }
 
-static void x3data_sync_report_dlg(void)
+void x3data_sync_report_dlg(void)
 {
 	static char msg[1024];
 	int offs = 0, n = 0;
@@ -3679,7 +3679,7 @@ static bool process_term(void)
 	if (need_handle_resp()){
 		bool need_sync_dev_data = false;
 		on_response(&need_sync_dev_data);
-		if (need_sync_dev_data){
+		if ((req_type != req_regular) && need_sync_dev_data){
 			restore_orig_scr_text();
 			x3data_sync_report_dlg();
 			if (need_grids_update_kkt())

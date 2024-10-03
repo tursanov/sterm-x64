@@ -196,6 +196,7 @@ extern bool	kbd_alive(struct kbd_event *e);
 extern int	get_cmd(bool check_scr, bool busy);
 extern bool	reset_term(bool force);
 extern void	hangup_ppp(void);
+extern void	x3data_sync_report_dlg(void);
 
 #define RET_NORMAL		0
 #define RET_SHELL		20
