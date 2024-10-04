@@ -586,6 +586,28 @@ const char *find_term_astate(intptr_t ast, bool *x3_err)
 		ret = buf;
 		break;
 	}
+	if ((x3_err != NULL) && *x3_err){
+		switch (req_type){
+			case req_grid_xprn:
+				x3data_sync_fail |= X3_SYNC_XPRN_GRIDS;
+				break;
+			case req_grid_kkt:
+				x3data_sync_fail |= X3_SYNC_KKT_GRIDS;
+				break;
+			case req_icon_xprn:
+				x3data_sync_fail |= X3_SYNC_XPRN_ICONS;
+				break;
+			case req_icon_kkt:
+				x3data_sync_fail |= X3_SYNC_KKT_ICONS;
+				break;
+			case req_patterns:
+				x3data_sync_fail |= X3_SYNC_KKT_PATTERNS;
+				break;
+			case req_xslt:
+				x3data_sync_fail |= X3_SYNC_XSLT;
+				break;
+		}
+	}
 	if ((ret == NULL) && (ast > ast_max)){
 		snprintf(buf, sizeof(buf), "%s", (const char *)ast);
 		ret = buf;
