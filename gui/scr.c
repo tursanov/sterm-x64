@@ -2364,7 +2364,7 @@ static char *scr_status_sshot(void)
 	if (kt != key_none)	/* если нет ключа, то кто нажал Ctrl+П ? */
 		*p = ds_key_char(kt);
 	p += 2;
-	str = find_term_astate(_term_aux_state);
+	str = find_term_astate(_term_aux_state, NULL);
 	if (str != NULL)
 		memcpy(p, str, strlen(str));
 	p += MAX_TERM_ASTATE_LEN;

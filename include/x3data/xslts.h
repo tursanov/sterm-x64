@@ -11,7 +11,7 @@ extern "C" {
 
 extern bool check_x3_xslt(const uint8_t *data, size_t len);
 extern bool need_xslt_update(void);
-extern bool sync_xslt(x3_sync_callback_t cbk);
+extern bool sync_xslt(void);
 extern void on_response_xslt(void);
 
 #if defined __cplusplus

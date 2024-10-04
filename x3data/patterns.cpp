@@ -163,8 +163,6 @@ static uint8_t patterns_auto_req[REQ_BUF_LEN];
 /* Длина автозапроса */
 static size_t patterns_auto_req_len = 0;
 
-static x3_sync_callback_t patterns_sync_cbk = NULL;
-
 /* Отправка начального запроса на получение шаблонов печати */
 static void send_patterns_request(const string &version)
 {
@@ -345,7 +343,7 @@ void on_response_patterns(void)
 				log_info("Шаблоны печати получены полностью. Сохраняем на диск...");
 				x3data_sync_ok |= X3_SYNC_KKT_PATTERNS;
 				store_patterns();
-				sync_xslt(NULL);
+				sync_xslt();
 			}
 		}else{
 			snprintf(err_msg, ASIZE(err_msg), "Получены данные шаблонов печати нулевой длины.");
@@ -362,30 +360,31 @@ void on_response_patterns(void)
 		patterns_buf_idx = 0;
 	}
 	if (non_patterns_resp != 0){
-		if (patterns_sync_cbk != NULL)
-			patterns_sync_cbk(true, NULL);
-		if (non_patterns_resp == 2)
+		req_type = req_regular;
+		x3data_sync_report_dlg();
+		if (non_patterns_resp == 2){
+			log_dbg("Переходим к обработке ответа.");
 			execute_resp();
+		}
 	}
 }
 
-static bool download_patterns(x3_sync_callback_t cbk)
+static bool download_patterns()
 {
-	patterns_sync_cbk = cbk;
 	patterns_buf_idx = 0;
 	log_info("Начинаем загрузку шаблонов печати ККТ.");
 	send_patterns_request(x3_kkt_patterns_version);
 	return true;
 }
 
-bool sync_patterns(x3_sync_callback_t cbk)
+bool sync_patterns()
 {
 	log_dbg("");
 	bool ret = true;
 	if (need_patterns_update(x3_kkt_patterns_version)){
 		req_type = req_patterns;
-		ret = download_patterns(cbk);
+		ret = download_patterns();
 	}else
-		ret = sync_xslt(cbk);
+		ret = sync_xslt();
 	return ret;
 }

@@ -11,7 +11,7 @@ extern "C" {
 
 extern bool check_x3_kkt_patterns(const uint8_t *data, size_t len);
 extern bool need_patterns_update(void);
-extern bool sync_patterns(x3_sync_callback_t cbk);
+extern bool sync_patterns(void);
 extern void on_response_patterns(void);
 
 #if defined __cplusplus

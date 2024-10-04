@@ -350,8 +350,6 @@ static uint8_t grid_auto_req[REQ_BUF_LEN];
 /* Длина автозапроса */
 static size_t grid_auto_req_len = 0;
 
-static x3_sync_callback_t grid_sync_cbk = NULL;
-
 /* Минимальная ширина разметки бланка в мм */
 #define GRID_MIN_WIDTH		1
 /* Максимальная ширина разметки бланка в мм */
@@ -526,7 +524,7 @@ void on_response_grid(void)
 				if (grids_to_create_xprn_ptr == grids_to_create_xprn.cend()){
 					log_info("Загрузка разметок для БПУ завершена.");
 					x3data_sync_ok |= X3_SYNC_XPRN_GRIDS;
-					sync_grids_kkt(NULL);
+					sync_grids_kkt();
 				}else
 					send_grid_request(*grids_to_create_xprn_ptr);
 			}else if (req_type == req_grid_kkt){
@@ -537,7 +535,7 @@ void on_response_grid(void)
 				if (grids_to_create_kkt_ptr == grids_to_create_kkt.cend()){
 					log_info("Загрузка разметок для ККТ завершена.");
 					x3data_sync_ok |= X3_SYNC_KKT_GRIDS;
-					sync_icons_xprn(NULL);
+					sync_icons_xprn();
 				}else
 					send_grid_request(*grids_to_create_kkt_ptr);
 			}
@@ -558,30 +556,25 @@ void on_response_grid(void)
 	if (err_msg[0] != 0){
 		log_err(err_msg);
 		grid_buf_idx = 0;
-//		termcore_callbacks.callMessageBox("ОШИБКА", err_msg);
 	}
 	if (non_grid_resp != 0){
-		if (grid_sync_cbk != NULL)
-			grid_sync_cbk(true, NULL);
-		if (non_grid_resp == 2)
+		req_type = req_regular;
+		x3data_sync_report_dlg();
+		if (non_grid_resp == 2){
+			log_dbg("Переходим к обработке ответа.");
 			execute_resp();
+		}
 	}
 }
 
 /* Начало синхронизации разметок с "Экспресс" */
-static bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, list<GridInfo> &grids_failed,
-       x3_sync_callback_t cbk)
+static bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, list<GridInfo> &grids_failed)
 {
 	if (!need_grids_update()){
 		log_info("Обновление разметок не требуется.");
 		return true;
 	}
-	bool ok = true;
-	char txt[256];
 	size_t n = 0;
-	grid_sync_cbk = cbk;
-	if (cbk != NULL)
-		cbk(false, "Загрузка разметок из \"Экспресс-3\"");
 	grids_failed.clear();
 	list<GridInfo> _grids_to_create, _grids_to_remove;
 /* Сначала удаляем старые разметки */
@@ -593,61 +586,35 @@ static bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to
 	}
 	grids_to_remove.assign(_grids_to_remove.cbegin(), _grids_to_remove.cend());
 /* Затем закачиваем новые */
-	for (const auto &p : grids_to_create){
-		snprintf(txt, ASIZE(txt), "Загрузка разметки %s (%zu из %zu)",
-			p.name().c_str(), (n + 1), grids_to_create.size());
-		if (cbk != NULL)
-			cbk(false, txt);
-		log_dbg(txt);
-		send_grid_request(p);
-		break;
-/*		int rc = download_grid(p);
-		if (rc == TC_OK)
-			n++;
-		else if (inquirer->first_req()){
-			ok = false;
-			break;
-		}else{
-			_grids_to_create.push_back(p);
-			grids_failed.push_back(p);
-		}*/
+	if (!grids_to_create.empty()){
+		log_dbg("Начинаем загрузку разметок.");
+		send_grid_request(grids_to_create.front());
 	}
-/*	if (ok){
-		grids_to_create.assign(_grids_to_create.cbegin(), _grids_to_create.cend());
-	}
-	if (ok && (n > 0))
-		ok = update_xprn_grids(cbk) && update_kkt_grids(cbk);*/
-	if (ok){
-		if (cbk != NULL)
-			cbk(false, "Разметки успешно загружены");
-	}/*else
-		showXPrnPicSyncError(grids_failed_xprn, grids_failed_kkt, icons_failed_xprn, icons_failed_kkt);*/
-	grid_sync_cbk = NULL;
-	return ok;
+	return true;
 }
 
-bool sync_grids_xprn(x3_sync_callback_t cbk)
+bool sync_grids_xprn()
 {
 	log_dbg("");
 	bool ret = true;
 	if (need_grids_update_xprn()){
 		req_type = req_grid_xprn;
 		grids_to_create_xprn_ptr = grids_to_create_xprn.cbegin();
-		ret = sync_grids(grids_to_create_xprn, grids_to_remove_xprn, grids_failed_xprn, cbk);
+		ret = sync_grids(grids_to_create_xprn, grids_to_remove_xprn, grids_failed_xprn);
 	}else
-		ret = sync_grids_kkt(cbk);
+		ret = sync_grids_kkt();
 	return ret;
 }
 
-bool sync_grids_kkt(x3_sync_callback_t cbk)
+bool sync_grids_kkt()
 {
 	bool ret = true;
 	if (need_grids_update_kkt()){
 		req_type = req_grid_kkt;
 		grids_to_create_kkt_ptr = grids_to_create_kkt.cbegin();
-		ret = sync_grids(grids_to_create_kkt, grids_to_remove_kkt, grids_failed_kkt, cbk);
+		ret = sync_grids(grids_to_create_kkt, grids_to_remove_kkt, grids_failed_kkt);
 	}else
-		ret = sync_icons_xprn(cbk);
+		ret = sync_icons_xprn();
 	return ret;
 }
 

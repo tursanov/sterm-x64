@@ -18,8 +18,6 @@ extern void reset_x3data_flags(void);
 extern const char *get_x3data_sync_name(uint32_t what);
 extern const char *get_x3data_sync_result(uint32_t what);
 
-typedef void (*x3_sync_callback_t)(bool done, const char *message);
-
 /* Заголовок изображения в БПУ/ККТ */
 struct pic_header {
 	uint8_t hdr_len;	/* длина заголовка */

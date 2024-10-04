@@ -224,8 +224,6 @@ static uint8_t xslt_auto_req[REQ_BUF_LEN];
 /* Длина автозапроса */
 static size_t xslt_auto_req_len = 0;
 
-static x3_sync_callback_t xslt_sync_cbk = NULL;
-
 /* Отправка начального запроса на получение таблицы XSLT */
 static void send_xslt_request(const XSLTInfo &xslt)
 {
@@ -364,16 +362,17 @@ void on_response_xslt(void)
 	if ((err_msg[0] != 0) || (non_xslt_resp != 0))
 		x3data_sync_fail |= X3_SYNC_XSLT;
 	if (non_xslt_resp != 0){
-		if (xslt_sync_cbk != NULL)
-			xslt_sync_cbk(true, NULL);
-		if (non_xslt_resp == 2)
+		req_type = req_regular;
+		x3data_sync_report_dlg();
+		if (non_xslt_resp == 2){
+			log_dbg("Переходим к обработке ответа.");
 			execute_resp();
+		}
 	}
 }
 
 /* Начало синхронизации таблиц XSLT с "Экспресс" */
-static bool sync_xslt(list<XSLTInfo> &xslt_to_create, list<XSLTInfo> &xslt_to_remove, list<XSLTInfo> &xslt_failed,
-       x3_sync_callback_t cbk)
+static bool sync_xslt(list<XSLTInfo> &xslt_to_create, list<XSLTInfo> &xslt_to_remove, list<XSLTInfo> &xslt_failed)
 {
 	if (!need_xslt_update()){
 		log_info("Обновление таблиц XSLT не требуется.");
@@ -382,9 +381,6 @@ static bool sync_xslt(list<XSLTInfo> &xslt_to_create, list<XSLTInfo> &xslt_to_re
 	bool ok = true;
 	char txt[256];
 	size_t n = 0;
-	xslt_sync_cbk = cbk;
-	if (cbk != NULL)
-		cbk(false, "Загрузка таблиц XSLT из \"Экспресс-3\"");
 	xslt_failed.clear();
 	list<XSLTInfo> _xslt_to_create, _xslt_to_remove;
 /* Сначала удаляем старые таблицы XSLT */
@@ -403,18 +399,17 @@ static bool sync_xslt(list<XSLTInfo> &xslt_to_create, list<XSLTInfo> &xslt_to_re
 		send_xslt_request(p);
 		break;
 	}
-	xslt_sync_cbk = NULL;
 	return ok;
 }
 
-bool sync_xslt(x3_sync_callback_t cbk)
+bool sync_xslt()
 {
 	log_dbg("");
 	bool ret = true;
 	if (need_xslt_update()){
 		req_type = req_xslt;
 		xslt_to_create_ptr = xslt_to_create.cbegin();
-		ret = sync_xslt(xslt_to_create, xslt_to_remove, xslt_failed, cbk);
+		ret = sync_xslt(xslt_to_create, xslt_to_remove, xslt_failed);
 	}
 	return ret;
 }

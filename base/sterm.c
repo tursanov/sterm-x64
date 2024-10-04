@@ -486,12 +486,12 @@ bool set_term_state(int st)
 		return false;
 }
 
-const char *find_term_astate(intptr_t ast)
+const char *find_term_astate(intptr_t ast, bool *x3_err)
 {
-	static struct astate_entry {
+	static const struct {
 		intptr_t ast;
-		char *descr;
-	} astates[] = {
+		const char *descr;
+	} map[] = {
 		{ast_none,		""},
 		{ast_noxprn,		"Нет готовности ОПУ"},
 		{ast_noaprn,		"Нет готовности ДПУ"},
@@ -517,74 +517,74 @@ const char *find_term_astate(intptr_t ast)
 		{ast_pos_need_init,	"Проинициализируйте ИПТ"},
 		{ast_no_kkt,		"ККТ не обнаружена"},
 	};
-	struct astate_entry *p;
-	int i;
 	static char buf[MAX_TERM_ASTATE_LEN + 2];	/* для учёта 0x01 */
 	const char *ret = NULL;
-	bool flag = false;
-	for (i = 0; i < ASIZE(astates); i++){
-		p = &astates[i];
-		if (ast == p->ast){
-			switch (ast){
-				case ast_sprn_err:
-					if (lprn_status != 0){
-						snprintf(buf, sizeof(buf),
-							"%s: %.2hhX",
-							p->descr, lprn_status);
-						flag = true;
-					}
+	inline void set_if_not_null(bool *p, bool v)
+	{
+		if (p != NULL)
+			*p = v;
+	}
+	set_if_not_null(x3_err, false);
+	for (int i = 0; i < ASIZE(map); i++){
+		typeof(*map) *p = map + i;
+		if (ast != p->ast)
+			continue;
+		bool flag = false;
+		switch (ast){
+			case ast_sprn_err:
+				if (lprn_status != 0){
+					snprintf(buf, sizeof(buf), "%s: %.2hhX",
+						p->descr, lprn_status);
+					flag = true;
+				}
+				break;
+			case ast_rejected:
+				if (ecode != E_OK){
+					snprintf(buf, sizeof(buf), "%s П:%.2X",
+						p->descr, ecode);
+					set_if_not_null(x3_err, true);
+					flag = true;
 					break;
-				case ast_rejected:
-					if (ecode != E_OK){
+				}		/* fall through */
+			case ast_repeat:
+			case ast_finit:
+				if (session_error != SLAYER_OK){
+					if (session_error >= PPPERR_BASE)
+						snprintf(buf, sizeof(buf), "%s К:%.2d",
+							p->descr, session_error);
+					else if (session_error >= TCPERR_BASE)
+						snprintf(buf, sizeof(buf), "%s Т:%.2d",
+							p->descr, session_error);
+					else if (session_error == SERR_SPECIAL)
 						snprintf(buf, sizeof(buf),
-							"%s П:%.2X",
-							p->descr, ecode);
-						flag = true;
-						break;
-					}		/* fall through */
-				case ast_repeat:
-				case ast_finit:
-					if (session_error != SLAYER_OK){
-						if (session_error >= PPPERR_BASE)
-							snprintf(buf, sizeof(buf),
-								"%s К:%.2d",
-								p->descr, session_error);
-						else if (session_error >= TCPERR_BASE)
-							snprintf(buf, sizeof(buf),
-								"%s Т:%.2d",
-								p->descr, session_error);
-						else if (session_error == SERR_SPECIAL)
-							snprintf(buf, sizeof(buf),
-								"%s С:%.2s",
-								p->descr, resp_buf + 13);
-						else
-							snprintf(buf, sizeof(buf),
-								"%s С:%.2d",
-								p->descr, session_error);
-						flag = true;
-					}
-					break;
-				case ast_error:
-					if (ecode != E_OK){
-						snprintf(buf, sizeof(buf),
-							"%s П:%.2X",
-							p->descr, ecode);
-						flag = true;
-					}
-					break;
-				case ast_pos_error:
-					if (pos_err_xdesc != NULL){
-						snprintf(buf, sizeof(buf),
-							"%s %s",
-							p->descr, pos_err_xdesc);
-						flag = true;
-					}
-					break;
-			}
-			if (!flag)
-				snprintf(buf, sizeof(buf), "%s", p->descr);
-			ret = buf;
+							"%s С:%.2s", p->descr, resp_buf + 13);
+					else
+						snprintf(buf, sizeof(buf), "%s С:%.2d",
+							p->descr, session_error);
+					set_if_not_null(x3_err, true);
+					flag = true;
+				}
+				break;
+			case ast_error:
+				if (ecode != E_OK){
+					snprintf(buf, sizeof(buf), "%s П:%.2X",
+						p->descr, ecode);
+					set_if_not_null(x3_err, true);
+					flag = true;
+				}
+				break;
+			case ast_pos_error:
+				if (pos_err_xdesc != NULL){
+					snprintf(buf, sizeof(buf), "%s %s",
+						p->descr, pos_err_xdesc);
+					flag = true;
+				}
+				break;
 		}
+		if (!flag)
+			snprintf(buf, sizeof(buf), "%s", p->descr);
+		ret = buf;
+		break;
 	}
 	if ((ret == NULL) && (ast > ast_max)){
 		snprintf(buf, sizeof(buf), "%s", (const char *)ast);
@@ -595,13 +595,17 @@ const char *find_term_astate(intptr_t ast)
 
 bool set_term_astate(intptr_t ast)
 {
+	bool ret = false;
 	const char *str = NULL;
-	if ((str = find_term_astate(ast)) != NULL){
-		_term_aux_state=ast;
+	bool x3_err = false;
+	if ((str = find_term_astate(ast, &x3_err)) != NULL){
+		_term_aux_state = ast;
 		scr_set_rstatus(str);
-		return true;
-	}else
-		return false;
+		if (x3_err && (req_type != req_regular))
+			x3data_sync_report_dlg();
+		ret = true;
+	}
+	return ret;
 }
 
 bool set_term_led(char c)
@@ -3431,6 +3435,10 @@ void x3data_sync_report_dlg(void)
 			n++;
 		}
 	}
+	req_type = req_regular;
+	restore_orig_scr_text();
+	if (err_ptr != NULL)
+		show_error();
 	rc = message_box("СИНХРОНИЗАЦИЯ ДАНН\x9bХ", msg, dlg_yes, DLG_BTN_YES, al_center);
 	redraw_term(true, main_title);
 }
@@ -3441,17 +3449,17 @@ static bool begin_x3data_sync(void)
 	store_orig_scr_text();
 	reset_x3data_flags();
 	if (x3data_to_sync && X3_SYNC_XPRN_GRIDS)
-		ret = sync_grids_xprn(NULL);
+		ret = sync_grids_xprn();
 	else if (x3data_to_sync && X3_SYNC_KKT_GRIDS)
-		ret = sync_grids_kkt(NULL);
+		ret = sync_grids_kkt();
 	else if (x3data_to_sync && X3_SYNC_XPRN_ICONS)
-		ret = sync_icons_xprn(NULL);
+		ret = sync_icons_xprn();
 	else if (x3data_to_sync && X3_SYNC_KKT_ICONS)
-		ret = sync_icons_kkt(NULL);
+		ret = sync_icons_kkt();
 	else if (x3data_to_sync && X3_SYNC_KKT_PATTERNS)
-		ret = sync_patterns(NULL);
+		ret = sync_patterns();
 	else if (x3data_to_sync && X3_SYNC_XSLT)
-		ret = sync_xslt(NULL);
+		ret = sync_xslt();
 	return ret;
 }
 
@@ -3680,7 +3688,7 @@ static bool process_term(void)
 		bool need_sync_dev_data = false;
 		on_response(&need_sync_dev_data);
 		if ((req_type != req_regular) && need_sync_dev_data){
-			restore_orig_scr_text();
+			resp_handling = false;
 			x3data_sync_report_dlg();
 			if (need_grids_update_kkt())
 				update_kkt_grids();

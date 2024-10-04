@@ -315,8 +315,6 @@ static uint8_t icon_auto_req[REQ_BUF_LEN];
 /* Длина автозапроса */
 static size_t icon_auto_req_len = 0;
 
-static x3_sync_callback_t icon_sync_cbk = NULL;
-
 /* Минимальная ширина пиктограммы в мм */
 #define ICON_MIN_WIDTH		1
 /* Максимальная ширина пиктограммы в мм */
@@ -491,7 +489,7 @@ void on_response_icon(void)
 				if (icons_to_create_xprn_ptr == icons_to_create_xprn.cend()){
 					log_info("Загрузка пиктограмм для БПУ завершена.");
 					x3data_sync_ok |= X3_SYNC_XPRN_ICONS;
-					sync_icons_kkt(NULL);
+					sync_icons_kkt();
 				}else
 					send_icon_request(*icons_to_create_xprn_ptr);
 			}else if (req_type == req_icon_kkt){
@@ -502,7 +500,7 @@ void on_response_icon(void)
 				if (icons_to_create_kkt_ptr == icons_to_create_kkt.cend()){
 					log_info("Загрузка пиктограмм для ККТ завершена.");
 					x3data_sync_ok |= X3_SYNC_KKT_ICONS;
-					sync_patterns(NULL);
+					sync_patterns();
 				}else
 					send_icon_request(*icons_to_create_kkt_ptr);
 			}
@@ -523,12 +521,9 @@ void on_response_icon(void)
 	if (err_msg[0] != 0){
 		log_err(err_msg);
 		icon_buf_idx = 0;
-//		termcore_callbacks.callMessageBox("ОШИБКА", err_msg);
 	}
 	if (non_icon_resp != 0){
 		req_type = req_regular;
-		if (icon_sync_cbk != NULL)
-			icon_sync_cbk(true, NULL);
 		x3data_sync_report_dlg();
 		if (non_icon_resp == 2){
 			log_dbg("Переходим к обработке ответа.");
@@ -538,19 +533,13 @@ void on_response_icon(void)
 }
 
 /* Начало синхронизации пиктограмм с "Экспресс" */
-static bool sync_icons(list<IconInfo> &icons_to_create, list<IconInfo> &icons_to_remove, list<IconInfo> &icons_failed,
-       x3_sync_callback_t cbk)
+static bool sync_icons(list<IconInfo> &icons_to_create, list<IconInfo> &icons_to_remove, list<IconInfo> &icons_failed)
 {
 	if (!need_icons_update()){
 		log_info("Обновление пиктограмм не требуется.");
 		return true;
 	}
-	bool ok = true;
-	char txt[256];
 	size_t n = 0;
-	icon_sync_cbk = cbk;
-	if (cbk != NULL)
-		cbk(false, "Загрузка пиктограмм из \"Экспресс-3\"");
 	icons_failed.clear();
 	list<IconInfo> _icons_to_create, _icons_to_remove;
 /* Сначала удаляем старые пиктограммы */
@@ -562,61 +551,35 @@ static bool sync_icons(list<IconInfo> &icons_to_create, list<IconInfo> &icons_to
 	}
 	icons_to_remove.assign(_icons_to_remove.cbegin(), _icons_to_remove.cend());
 /* Затем закачиваем новые */
-	for (const auto &p : icons_to_create){
-		snprintf(txt, ASIZE(txt), "Загрузка пиктограммы %s (%zu из %zu)",
-			p.name().c_str(), (n + 1), icons_to_create.size());
-		if (cbk != NULL)
-			cbk(false, txt);
-		log_dbg(txt);
-		send_icon_request(p);
-		break;
-/*		int rc = download_icon(p);
-		if (rc == TC_OK)
-			n++;
-		else if (inquirer->first_req()){
-			ok = false;
-			break;
-		}else{
-			_icons_to_create.push_back(p);
-			icons_failed.push_back(p);
-		}*/
+	if (!icons_to_create.empty()){
+		log_dbg("Начинаем загрузку пиктограмм.");
+		send_icon_request(icons_to_create.front());
 	}
-/*	if (ok){
-		icons_to_create.assign(_icons_to_create.cbegin(), _icons_to_create.cend());
-	}
-	if (ok && (n > 0))
-		ok = update_xprn_icons(cbk) && update_kkt_icons(cbk);*/
-	if (ok){
-		if (cbk != NULL)
-			cbk(false, "Пиктограммы успешно загружены");
-	}/*else
-		showXPrnPicSyncError(icons_failed_xprn, icons_failed_kkt, icons_failed_xprn, icons_failed_kkt);*/
-	icon_sync_cbk = NULL;
-	return ok;
+	return true;
 }
 
-bool sync_icons_xprn(x3_sync_callback_t cbk)
+bool sync_icons_xprn()
 {
 	log_dbg("");
 	bool ret = true;
 	if (need_icons_update_xprn()){
 		req_type = req_icon_xprn;
 		icons_to_create_xprn_ptr = icons_to_create_xprn.cbegin();
-		ret = sync_icons(icons_to_create_xprn, icons_to_remove_xprn, icons_failed_xprn, cbk);
+		ret = sync_icons(icons_to_create_xprn, icons_to_remove_xprn, icons_failed_xprn);
 	}else
-		ret = sync_icons_kkt(cbk);
+		ret = sync_icons_kkt();
 	return ret;
 }
 
-bool sync_icons_kkt(x3_sync_callback_t cbk)
+bool sync_icons_kkt()
 {
 	bool ret = true;
 	if (need_icons_update_kkt()){
 		req_type = req_icon_kkt;
 		icons_to_create_kkt_ptr = icons_to_create_kkt.cbegin();
-		ret = sync_icons(icons_to_create_kkt, icons_to_remove_kkt, icons_failed_kkt, cbk);
+		ret = sync_icons(icons_to_create_kkt, icons_to_remove_kkt, icons_failed_kkt);
 	}else
-		ret = sync_patterns(cbk);
+		ret = sync_patterns();
 	return ret;
 }
 
