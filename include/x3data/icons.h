@@ -16,8 +16,8 @@ static inline bool need_icons_update(void)
 {
 	return need_icons_update_xprn() || need_icons_update_kkt();
 }
-extern bool sync_icons_xprn(x3_sync_callback_t cbk);
-extern bool sync_icons_kkt(x3_sync_callback_t cbk);
+extern bool sync_icons_xprn(void);
+extern bool sync_icons_kkt(void);
 extern void on_response_icon(void);
 
 /* Обновление пиктограмм в ККТ */

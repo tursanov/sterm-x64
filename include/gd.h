@@ -143,12 +143,6 @@ extern uint16_t ONpo;
 extern uint16_t ONtz;
 extern uint8_t OBp;
 
-/*
- * Последний переданный запрос. Непосредственно перед ним расположен байт
- * с кодом синтаксической ошибки ответа.
- */
-extern char *last_request;
-
 extern void init_gd(void);
 extern void release_gd(void);
 extern void reset_gd(bool need_init);

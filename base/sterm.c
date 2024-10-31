@@ -486,12 +486,12 @@ bool set_term_state(int st)
 		return false;
 }
 
-const char *find_term_astate(intptr_t ast)
+const char *find_term_astate(intptr_t ast, bool *x3_err)
 {
-	static struct astate_entry {
+	static const struct {
 		intptr_t ast;
-		char *descr;
-	} astates[] = {
+		const char *descr;
+	} map[] = {
 		{ast_none,		""},
 		{ast_noxprn,		"Нет готовности ОПУ"},
 		{ast_noaprn,		"Нет готовности ДПУ"},
@@ -517,73 +517,95 @@ const char *find_term_astate(intptr_t ast)
 		{ast_pos_need_init,	"Проинициализируйте ИПТ"},
 		{ast_no_kkt,		"ККТ не обнаружена"},
 	};
-	struct astate_entry *p;
-	int i;
 	static char buf[MAX_TERM_ASTATE_LEN + 2];	/* для учёта 0x01 */
 	const char *ret = NULL;
-	bool flag = false;
-	for (i = 0; i < ASIZE(astates); i++){
-		p = &astates[i];
-		if (ast == p->ast){
-			switch (ast){
-				case ast_sprn_err:
-					if (lprn_status != 0){
-						snprintf(buf, sizeof(buf),
-							"%s: %.2hhX",
-							p->descr, lprn_status);
-						flag = true;
-					}
+	inline void set_if_not_null(bool *p, bool v)
+	{
+		if (p != NULL)
+			*p = v;
+	}
+	set_if_not_null(x3_err, false);
+	for (int i = 0; i < ASIZE(map); i++){
+		typeof(*map) *p = map + i;
+		if (ast != p->ast)
+			continue;
+		bool flag = false;
+		switch (ast){
+			case ast_sprn_err:
+				if (lprn_status != 0){
+					snprintf(buf, sizeof(buf), "%s: %.2hhX",
+						p->descr, lprn_status);
+					flag = true;
+				}
+				break;
+			case ast_rejected:
+				if (ecode != E_OK){
+					snprintf(buf, sizeof(buf), "%s П:%.2X",
+						p->descr, ecode);
+					set_if_not_null(x3_err, true);
+					flag = true;
 					break;
-				case ast_rejected:
-					if (ecode != E_OK){
+				}		/* fall through */
+			case ast_repeat:
+			case ast_finit:
+				if (session_error != SLAYER_OK){
+					if (session_error >= PPPERR_BASE)
+						snprintf(buf, sizeof(buf), "%s К:%.2d",
+							p->descr, session_error);
+					else if (session_error >= TCPERR_BASE)
+						snprintf(buf, sizeof(buf), "%s Т:%.2d",
+							p->descr, session_error);
+					else if (session_error == SERR_SPECIAL)
 						snprintf(buf, sizeof(buf),
-							"%s П:%.2X",
-							p->descr, ecode);
-						flag = true;
-						break;
-					}		/* fall through */
-				case ast_repeat:
-				case ast_finit:
-					if (session_error != SLAYER_OK){
-						if (session_error >= PPPERR_BASE)
-							snprintf(buf, sizeof(buf),
-								"%s К:%.2d",
-								p->descr, session_error);
-						else if (session_error >= TCPERR_BASE)
-							snprintf(buf, sizeof(buf),
-								"%s Т:%.2d",
-								p->descr, session_error);
-						else if (session_error == SERR_SPECIAL)
-							snprintf(buf, sizeof(buf),
-								"%s С:%.2s",
-								p->descr, resp_buf + 13);
-						else
-							snprintf(buf, sizeof(buf),
-								"%s С:%.2d",
-								p->descr, session_error);
-						flag = true;
-					}
-					break;
-				case ast_error:
-					if (ecode != E_OK){
-						snprintf(buf, sizeof(buf),
-							"%s П:%.2X",
-							p->descr, ecode);
-						flag = true;
-					}
-					break;
-				case ast_pos_error:
-					if (pos_err_xdesc != NULL){
-						snprintf(buf, sizeof(buf),
-							"%s %s",
-							p->descr, pos_err_xdesc);
-						flag = true;
-					}
-					break;
-			}
-			if (!flag)
-				snprintf(buf, sizeof(buf), "%s", p->descr);
-			ret = buf;
+							"%s С:%.2s", p->descr, resp_buf + 13);
+					else
+						snprintf(buf, sizeof(buf), "%s С:%.2d",
+							p->descr, session_error);
+					set_if_not_null(x3_err, true);
+					flag = true;
+				}
+				break;
+			case ast_error:
+				if (ecode != E_OK){
+					snprintf(buf, sizeof(buf), "%s П:%.2X",
+						p->descr, ecode);
+					set_if_not_null(x3_err, true);
+					flag = true;
+				}
+				break;
+			case ast_pos_error:
+				if (pos_err_xdesc != NULL){
+					snprintf(buf, sizeof(buf), "%s %s",
+						p->descr, pos_err_xdesc);
+					flag = true;
+				}
+				break;
+		}
+		if (!flag)
+			snprintf(buf, sizeof(buf), "%s", p->descr);
+		ret = buf;
+		break;
+	}
+	if ((x3_err != NULL) && *x3_err){
+		switch (req_type){
+			case req_grid_xprn:
+				x3data_sync_fail |= X3_SYNC_XPRN_GRIDS;
+				break;
+			case req_grid_kkt:
+				x3data_sync_fail |= X3_SYNC_KKT_GRIDS;
+				break;
+			case req_icon_xprn:
+				x3data_sync_fail |= X3_SYNC_XPRN_ICONS;
+				break;
+			case req_icon_kkt:
+				x3data_sync_fail |= X3_SYNC_KKT_ICONS;
+				break;
+			case req_patterns:
+				x3data_sync_fail |= X3_SYNC_KKT_PATTERNS;
+				break;
+			case req_xslt:
+				x3data_sync_fail |= X3_SYNC_XSLT;
+				break;
 		}
 	}
 	if ((ret == NULL) && (ast > ast_max)){
@@ -595,13 +617,17 @@ const char *find_term_astate(intptr_t ast)
 
 bool set_term_astate(intptr_t ast)
 {
+	bool ret = false;
 	const char *str = NULL;
-	if ((str = find_term_astate(ast)) != NULL){
-		_term_aux_state=ast;
+	bool x3_err = false;
+	if ((str = find_term_astate(ast, &x3_err)) != NULL){
+		_term_aux_state = ast;
 		scr_set_rstatus(str);
-		return true;
-	}else
-		return false;
+		if (x3_err && (req_type != req_regular))
+			x3data_sync_report_dlg();
+		ret = true;
+	}
+	return ret;
 }
 
 bool set_term_led(char c)
@@ -1902,7 +1928,7 @@ int get_cmd(bool check_scr, bool busy)
 /* Показать ОЗУ заказа */
 void show_req(void)
 {
-	set_scr_text(NULL, 1600, txt_plain, true);
+	set_scr_text(NULL, OUT_BUF_LEN, txt_plain, true);
 	if (resp_executing){
 		set_term_state(st_ireq);
 		if (quick_astate(_term_aux_state))
@@ -3295,7 +3321,7 @@ static int need_pos(void)
 }
 
 /* Запрос синхронизации данных с "Экспресс" */
-static bool x3data_sync_dlg(uint32_t x3data_to_sync)
+static bool x3data_sync_dlg(void)
 {
 	if (x3data_to_sync == X3_SYNC_NONE)
 		return false;
@@ -3305,42 +3331,48 @@ static bool x3data_sync_dlg(uint32_t x3data_to_sync)
 	if (rc > 0)
 		offs += rc;
 	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_GRIDS)){
-		rc = snprintf(msg + offs, sizeof(msg) - offs, "разметки бланков БПУ;\n");
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%s;\n",
+			get_x3data_sync_name(X3_SYNC_XPRN_GRIDS));
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
 	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_ICONS)){
-		rc = snprintf(msg + offs, sizeof(msg) - offs, "пиктограмммы БПУ;\n");
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%s;\n",
+			get_x3data_sync_name(X3_SYNC_XPRN_ICONS));
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
 	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_GRIDS)){
-		rc = snprintf(msg + offs, sizeof(msg) - offs, "разметки бланков ККТ;\n");
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%s;\n",
+			get_x3data_sync_name(X3_SYNC_KKT_GRIDS));
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
 	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_ICONS)){
-		rc = snprintf(msg + offs, sizeof(msg) - offs, "пиктограмммы ККТ;\n");
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%s;\n",
+			get_x3data_sync_name(X3_SYNC_KKT_ICONS));
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
 	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_PATTERNS)){
-		rc = snprintf(msg + offs, sizeof(msg) - offs, "шаблоны печати ККТ;\n");
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%s;\n",
+			get_x3data_sync_name(X3_SYNC_KKT_PATTERNS));
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
 	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XSLT)){
-		rc = snprintf(msg + offs, sizeof(msg) - offs, "разметки документов \"Экспресс\";\n");
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%s;\n",
+			get_x3data_sync_name(X3_SYNC_XSLT));
 		if (rc > 0){
 			offs += rc;
 			n++;
@@ -3359,21 +3391,94 @@ static bool x3data_sync_dlg(uint32_t x3data_to_sync)
 	return rc == DLG_BTN_YES;
 }
 
-static bool begin_x3data_sync(uint32_t x3data_to_sync)
+static void x3data_nosync_dlg(void)
+{
+	message_box("ВНИМАНИЕ", "Вы отказались от синхронизации данных с \"Экспресс\". "
+		"Повторная попытка синхронизации произойдёт при следующей инициализации терминала.",
+		dlg_yes, DLG_BTN_YES, al_center);
+	redraw_term(true, main_title);
+}
+
+void x3data_sync_report_dlg(void)
+{
+	static char msg[1024];
+	int offs = 0, n = 0;
+	int rc = snprintf(msg, sizeof(msg), "Результаты синхронизации данных с \"Экспресс\":\n");
+	if (rc > 0)
+		offs += rc;
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_GRIDS)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%20s : %-20s\n",
+			get_x3data_sync_name(X3_SYNC_XPRN_GRIDS), get_x3data_sync_result(X3_SYNC_XPRN_GRIDS));
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_ICONS)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%20s : %-20s\n",
+			get_x3data_sync_name(X3_SYNC_XPRN_ICONS), get_x3data_sync_result(X3_SYNC_XPRN_ICONS));
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_GRIDS)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%20s : %-20s\n",
+			get_x3data_sync_name(X3_SYNC_KKT_GRIDS), get_x3data_sync_result(X3_SYNC_KKT_GRIDS));
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_ICONS)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%20s : %-20s\n",
+			get_x3data_sync_name(X3_SYNC_KKT_ICONS), get_x3data_sync_result(X3_SYNC_KKT_ICONS));
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_KKT_PATTERNS)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%20s : %-20s\n",
+			get_x3data_sync_name(X3_SYNC_KKT_PATTERNS), get_x3data_sync_result(X3_SYNC_KKT_PATTERNS));
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XSLT)){
+		rc = snprintf(msg + offs, sizeof(msg) - offs, "%20s : %-20s\n",
+			get_x3data_sync_name(X3_SYNC_XSLT), get_x3data_sync_result(X3_SYNC_XSLT));
+		if (rc > 0){
+			offs += rc;
+			n++;
+		}
+	}
+	req_type = req_regular;
+	restore_orig_scr_text();
+	if (err_ptr != NULL)
+		show_error();
+	rc = message_box("СИНХРОНИЗАЦИЯ ДАНН\x9bХ", msg, dlg_yes, DLG_BTN_YES, al_center);
+	redraw_term(true, main_title);
+}
+
+static bool begin_x3data_sync(void)
 {
 	bool ret = false;
+	store_orig_scr_text();
+	reset_x3data_flags();
 	if (x3data_to_sync && X3_SYNC_XPRN_GRIDS)
-		ret = sync_grids_xprn(NULL);
+		ret = sync_grids_xprn();
 	else if (x3data_to_sync && X3_SYNC_KKT_GRIDS)
-		ret = sync_grids_kkt(NULL);
+		ret = sync_grids_kkt();
 	else if (x3data_to_sync && X3_SYNC_XPRN_ICONS)
-		ret = sync_icons_xprn(NULL);
+		ret = sync_icons_xprn();
 	else if (x3data_to_sync && X3_SYNC_KKT_ICONS)
-		ret = sync_icons_kkt(NULL);
+		ret = sync_icons_kkt();
 	else if (x3data_to_sync && X3_SYNC_KKT_PATTERNS)
-		ret = sync_patterns(NULL);
+		ret = sync_patterns();
 	else if (x3data_to_sync && X3_SYNC_XSLT)
-		ret = sync_xslt(NULL);
+		ret = sync_xslt();
 	return ret;
 }
 
@@ -3436,10 +3541,12 @@ static void on_response(bool *need_sync_dev_data)
 					}else
 						apc = false;
 				}else if (TST_FLAG(OBp, GDF_RESP_INIT)){
-					uint32_t x3data_to_sync = need_x3_sync();
+					x3data_to_sync = need_x3_sync();
 					if (x3data_to_sync != X3_SYNC_NONE){
-						if (x3data_sync_dlg(x3data_to_sync))
-							begin_x3data_sync(x3data_to_sync);
+						if (x3data_sync_dlg())
+							begin_x3data_sync();
+						else
+							x3data_nosync_dlg();
 					}
 				}
 			}
@@ -3599,7 +3706,9 @@ static bool process_term(void)
 	if (need_handle_resp()){
 		bool need_sync_dev_data = false;
 		on_response(&need_sync_dev_data);
-		if (need_sync_dev_data){
+		if ((req_type != req_regular) && need_sync_dev_data){
+			resp_handling = false;
+			x3data_sync_report_dlg();
 			if (need_grids_update_kkt())
 				update_kkt_grids();
 			if (need_icons_update_kkt())

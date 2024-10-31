@@ -87,6 +87,8 @@ extern bool		scr_goto_char(uint8_t *p);
 extern bool		draw_scr_bevel(void);
 extern bool		draw_scr(bool show_text, const char *title);
 extern int		scr_handle_kbd(struct kbd_event *e);
+extern void		store_orig_scr_text(void);
+extern void		restore_orig_scr_text(void);
 extern int		get_scr_text(uint8_t *buf, int len);
 extern int		scr_get_24(char *buf,int l,bool strip);
 extern int		scr_snap_shot(uint8_t *buf,int l);

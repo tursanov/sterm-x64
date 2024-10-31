@@ -16,8 +16,8 @@ static inline bool need_grids_update(void)
 {
 	return need_grids_update_xprn() || need_grids_update_kkt();
 }
-extern bool sync_grids_xprn(x3_sync_callback_t cbk);
-extern bool sync_grids_kkt(x3_sync_callback_t cbk);
+extern bool sync_grids_xprn(void);
+extern bool sync_grids_kkt(void);
 extern void on_response_grid(void);
 
 /* Обновление разметок в ККТ */

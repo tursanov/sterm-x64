@@ -184,7 +184,7 @@ extern bool	is_escape(uint8_t c);
 extern bool	set_term_busy(bool busy);
 extern char    *get_main_title(void);
 extern const char *find_term_state(int st);
-extern const char *find_term_astate(intptr_t ast);
+extern const char *find_term_astate(intptr_t ast, bool *x3_err);
 extern bool	set_term_state(int st);
 extern bool	set_term_astate(intptr_t ast);
 extern bool	set_term_led(char c);
@@ -196,6 +196,7 @@ extern bool	kbd_alive(struct kbd_event *e);
 extern int	get_cmd(bool check_scr, bool busy);
 extern bool	reset_term(bool force);
 extern void	hangup_ppp(void);
+extern void	x3data_sync_report_dlg(void);
 
 #define RET_NORMAL		0
 #define RET_SHELL		20
