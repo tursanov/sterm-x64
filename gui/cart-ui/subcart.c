@@ -58,7 +58,6 @@ static void ui_subcart_set_title(ui_subcart_t* sc)
 }
 
 
-
 void ui_subcart_init(ui_subcart_t *sc, SubCart *val, bool tab_selected)
 {
 	sc->val = val;

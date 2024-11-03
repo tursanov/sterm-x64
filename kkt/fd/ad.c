@@ -2530,7 +2530,7 @@ size_t AD_get_reissue_docs(int64_array_t* docs) {
 void bank_info_print(FILE *fd, struct bank_info *b)
 {
 	fprintf(fd, "%.7d;%s;%c;%s;",
-		b->id,
+		b->req_id,
 		b->term_id,
 		b->op,
 		b->ticket ? "П" : "У");
@@ -2548,7 +2548,7 @@ void bank_info_print(FILE *fd, struct bank_info *b)
 		fprintf(fd, "1(%s);", b->prev_blank_nr);
 	}
 
-	fprintf(fd, "%s/%llu.%llu", b->blank_nr, b->amount/100, b->amount % 100);
+	fprintf(fd, "%s/%lu.%lu", b->blank_nr, b->amount/100, b->amount % 100);
 }
 
 void AD_print(FILE *fd) {
@@ -2557,28 +2557,28 @@ void AD_print(FILE *fd) {
 	const char *s_title[] = { "Приход", "Возврат прихода", "Расход", "Возврат расхода" };
 	for(size_t i = 0; i < 4; i++, s++) {
 		fprintf(fd, "  SUM[%s]\n", s_title[i]);
-		fprintf(fd, "    N = %lld\n", s->n);
-		fprintf(fd, "    E = %lld\n", s->e);
-		fprintf(fd, "    P = %lld\n", s->p);
-		fprintf(fd, "    B = %lld\n", s->b);
-		fprintf(fd, "    A = %lld\n", s->a);
+		fprintf(fd, "    N = %ld\n", s->n);
+		fprintf(fd, "    E = %ld\n", s->e);
+		fprintf(fd, "    P = %ld\n", s->p);
+		fprintf(fd, "    B = %ld\n", s->b);
+		fprintf(fd, "    A = %ld\n", s->a);
 	}
 
 	for (list_item_t *li1 = _ad->clist.head; li1; li1 = li1->next) {
 		C *c = LIST_ITEM(li1, C);
-		fprintf(fd, "C (P=%llu, H=%s, T1054=%d, T1055=%d, PE=%s)\n", c->p, c->h, c->t1054, c->t1055, CN(c->pe));
+		fprintf(fd, "C (P=%lu, H=%s, T1054=%d, T1055=%d, PE=%s)\n", c->p, c->h, c->t1054, c->t1055, CN(c->pe));
 		fprintf(fd, "  SUM\n");
-		fprintf(fd, "    N = %lld\n", c->sum.n);
-		fprintf(fd, "    E = %lld\n", c->sum.e);
-		fprintf(fd, "    P = %lld\n", c->sum.p);
-		fprintf(fd, "    B = %lld\n", c->sum.b);
-		fprintf(fd, "    A = %lld\n", c->sum.a);
+		fprintf(fd, "    N = %ld\n", c->sum.n);
+		fprintf(fd, "    E = %ld\n", c->sum.e);
+		fprintf(fd, "    P = %ld\n", c->sum.p);
+		fprintf(fd, "    B = %ld\n", c->sum.b);
+		fprintf(fd, "    A = %ld\n", c->sum.a);
 		for (list_item_t *li2 = c->klist.head; li2; li2 = li2->next) {
 			K *k = LIST_ITEM(li2, K);
-			fprintf(fd, "  K (P=%lld, H=%s, M=%d, ", k->p, k->h, k->m);
+			fprintf(fd, "  K (P=%ld, H=%s, M=%d, ", k->p, k->h, k->m);
 			fprintf(fd, "D=%s, R=%s, \n     N=%s, ", CN(k->d.s), CN(k->r.s), CN(k->n.s));
 			fprintf(fd, "I1=%s, I2=%s, I21=%s, ", CN(k->i1.s), CN(k->i2.s), CN(k->i21.s)); 
-			fprintf(fd, "U=%s, A=%lld,\n     ", CN(k->u.s), k->a);
+			fprintf(fd, "U=%s, A=%ld,\n     ", CN(k->u.s), k->a);
 			fprintf(fd, "B=%s, ", CN(k->b.s));
 			fprintf(fd, "T=%s, E=%s\n     ", CN(k->t), CN(k->e));
 			fprintf(fd, "S=%c\n     ", k->s);
@@ -2591,7 +2591,7 @@ void AD_print(FILE *fd) {
 			for (list_item_t *li3 = k->llist.head; li3; li3 = li3->next) {
 				L *l = LIST_ITEM(li3, L);
 				fprintf(fd, "       L (S=%s, P=%d, R=%d, ", l->s, l->p, l->r);
-				fprintf(fd, "T=%lld, N=%d, C=%lld)\n", l->t, l->n, l->c);
+				fprintf(fd, "T=%ld, N=%d, C=%ld)\n", l->t, l->n, l->c);
 			}
 		}
 	}
@@ -2599,10 +2599,10 @@ void AD_print(FILE *fd) {
 
 void K_print(FILE *fd, K *k, int indent)
 {
-	fprintf(fd, "%*s (P=%lld, H=%s, M=%d, ", indent + 1, "K", k->p, k->h, k->m);
+	fprintf(fd, "%*s (P=%ld, H=%s, M=%d, ", indent + 1, "K", k->p, k->h, k->m);
 	fprintf(fd, "D=%s, R=%s, N=%s, ", CN(k->d.s), CN(k->r.s), CN(k->n.s));
 	fprintf(fd, "I1=%s, I2=%s, I21=%s, ", CN(k->i1.s), CN(k->i2.s), CN(k->i21.s));
-	fprintf(fd, "U=%s, A=%lld,", CN(k->u.s), k->a);
+	fprintf(fd, "U=%s, A=%ld,", CN(k->u.s), k->a);
 	fprintf(fd, "B=%s, ", CN(k->b.s));
 	fprintf(fd, "T=%s, E=%s, ", CN(k->t), CN(k->e));
 	fprintf(fd, "S=%c, ", k->s);
@@ -2614,7 +2614,7 @@ void K_print(FILE *fd, K *k, int indent)
 	fprintf(fd, ")\n");
 	for (list_item_t *li3 = k->llist.head; li3; li3 = li3->next) {
 		L *l = LIST_ITEM(li3, L);
-		fprintf(fd, "%*s (S=%s, P=%d, R=%d, T=%lld, N=%d, C=%lld)\n", indent + 3, "L", l->s, l->p, l->r, l->t, l->n, l->c);
+		fprintf(fd, "%*s (S=%s, P=%d, R=%d, T=%ld, N=%d, C=%ld)\n", indent + 3, "L", l->s, l->p, l->r, l->t, l->n, l->c);
 	}
 }
 

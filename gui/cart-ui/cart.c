@@ -13,6 +13,7 @@ FontPtr cart_fnt = NULL;
 FontPtr cart_sfnt = NULL;
 ui_cart_t *ui_cart = NULL;
 ui_subcart_t *ui_sel_subcart = NULL;
+int ui_sel_subcart_index = -1;
 
 void process_docs();
 void print_cheque(list_t *klist);
@@ -28,6 +29,7 @@ void ui_cart_create()
 	ui_cart = __new(ui_cart_t);
 	ui_cart->subcarts = __calloc(MAX_SUB_CART, ui_subcart_t);
 	ui_sel_subcart = NULL;
+	ui_sel_subcart_index = -1;
 
     bool first = true;
 	for (int i = 0; i < MAX_SUB_CART; i++)
@@ -35,16 +37,20 @@ void ui_cart_create()
 		SubCart *val = &cart.sc[i];
 		if (val->documents.count > 0)
 		{
-			ui_subcart_t *sc = &ui_cart->subcarts[ui_cart->subcart_count++];
+		    int n = ui_cart->subcart_count;
+			ui_subcart_t *sc = &ui_cart->subcarts[n];
 			
 			if (first)
 			{
 			    ui_sel_subcart = sc;
+			    ui_sel_subcart_index = n;
 			}
 			
 			ui_subcart_init(sc, val, first);
 			
 			first = false;
+			
+			ui_cart->subcart_count++;
 		}
 	}
 }
@@ -90,6 +96,7 @@ void ui_cart_redraw_all()
 	for (int i = 0; i < ui_cart->subcart_count; i++)
 	{
 		ui_subcart_t *sc = &ui_cart->subcarts[i];
+		printf("ui_cart_redraw_all: i: %d, y: %d, sc->height: %d\n", i, y, sc->height);
 		ui_subcart_draw(sc, y);
 		y += sc->height + CART_YGAP;
 	}
@@ -124,10 +131,12 @@ int ui_cart_get_y(ui_subcart_t *sc)
 		
 		if (_sc == sc)
 		{
+    		printf("ui_cart_get_y: i: %d, y: %d\n", i, y);
 		    return y;
 		}
 		
-		y += sc->height + CART_YGAP;
+		y += _sc->height + CART_YGAP;
+   		printf("ui_cart_get_y: sc->height: %d\n", _sc->height);
 	}
 	
 	return 0;
@@ -206,6 +215,31 @@ void ui_cart_process_space()
     }    
 }
 
+void ui_select_next_subcart()
+{
+    if (ui_cart->subcart_count == 0)
+    {
+        return;
+    }
+    
+    ui_subcart_t *sc = ui_sel_subcart;
+
+    ui_sel_subcart_index += 1;
+    if (ui_sel_subcart_index >= ui_cart->subcart_count)
+        ui_sel_subcart_index = 0;
+        
+    sc->tab_selected_doc = -1;
+    sc->tab_selected_flags = 0;
+
+    ui_sel_subcart = &ui_cart->subcarts[ui_sel_subcart_index];
+    ui_sel_subcart->tab_selected_flags = 0;
+    ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_ACTION;
+    
+    ui_cart_redraw_all();
+    
+    printf("ui_sel_subcart_index = %d\n", ui_sel_subcart_index);
+}
+
 
 bool cart_process(const struct kbd_event *_e) {
 	struct kbd_event e = *_e;
@@ -232,6 +266,9 @@ bool cart_process(const struct kbd_event *_e) {
                 break;
             case KEY_ENTER:
                 ui_cart_process_enter();
+                break;
+            case KEY_DOWN:
+                ui_select_next_subcart();
                 break;
         }
 	}
@@ -306,6 +343,6 @@ void process_docs()
 
 void print_cheque(list_t *klist)
 {
-	size_t doc_count = 0;
+	//size_t doc_count = 0;
     
 }

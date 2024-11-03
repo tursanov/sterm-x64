@@ -172,7 +172,7 @@ static uint8_t *check_bcode(uint8_t *p, int l, int *ecode)
 }
 
 /* Проверка команды нанесения штрихового кода для ППУ (Ар2 0x1a) */
-static uint8_t *check_bcode2(uint8_t *p, int l, int *ecode)
+ __attribute__((unused)) static uint8_t *check_bcode2(uint8_t *p, int l, int *ecode)
 {
 	enum {
 		st_type,
