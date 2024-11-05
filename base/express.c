@@ -57,6 +57,7 @@ ssize_t get_bank_info(struct bank_info *items, size_t nr_items)
 		ret = nr_items;
 	for (size_t i = 0; i < nr_items; i++){
 		struct bank_info *p = items + i;
+		p->t0 = time(NULL);
 		p->req_id = bd.req_id;
 		strncpy(p->term_id, bd.term_id, BNK_TERM_ID_LEN);
 		p->term_id[BNK_TERM_ID_LEN] = 0;
