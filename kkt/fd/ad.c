@@ -2674,12 +2674,14 @@ Cart cart;
 void sub_cart_init(SubCart *sc, char type)
 {
 	sc->type = type;
+	sc->c = NULL;
 	sc->documents.delete_func = (list_item_delete_func_t)D_destroy;
 }
 
 void sub_cart_clear(SubCart *sc)
 {
 	list_clear(&sc->documents);
+	sc->c = NULL;
 }
 
 void cart_init()
@@ -2714,7 +2716,7 @@ D *find_d_for_g(SubCart *sc, K* k)
 	return NULL;
 }
 
-D *add_k_to_sub_cart(K* k)
+D *add_k_to_sub_cart(C* c, K* k)
 {
 	if (k->s == 0)
 	{
@@ -2724,6 +2726,13 @@ D *add_k_to_sub_cart(K* k)
 	int index = SUB_CART_INDEX(k->s);
 	SubCart *sc = &cart.sc[index];
 	D* d;
+	
+	// инифиализируем чек для корзины
+	if (sc->c == NULL)
+	{
+	    sc->c = c;
+	}
+	
 
 	// если нет g, то сразу добавляем в подкорзину
 	if (doc_no_is_empty(&k->g))
@@ -2772,7 +2781,7 @@ void cart_build()
 		for (list_item_t *li2 = c->klist.head; li2; li2 = li2->next) {
 			K *k = LIST_ITEM(li2, K);
 
-			add_k_to_sub_cart(k);
+			add_k_to_sub_cart(c, k);
 		}
 	}
 }

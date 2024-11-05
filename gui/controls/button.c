@@ -60,7 +60,15 @@ void button_destroy(button_t *button) {
 }
 
 void draw_button(GCPtr gc, int x, int y, int width, int height, 
-		const char *text, bool focused) {
+		const char *text, bool focused)
+{
+    draw_button_ex(gc, x, y, width, height, text, focused, true);
+}
+
+
+void draw_button_ex(GCPtr gc, int x, int y, int width, int height, 
+		const char *text, bool focused, bool enabled)
+{
 	Color borderColor;
 	Color bgColor;
 	Color fgColor;
@@ -68,11 +76,11 @@ void draw_button(GCPtr gc, int x, int y, int width, int height,
 	if (focused) {
 		borderColor = clRopnetDarkBrown;
 		bgColor = clRopnetBrown;
-		fgColor = clBlack;
+		fgColor = enabled ? clBlack : RGB(184, 184, 184);
 	} else {
 		borderColor = RGB(184, 184, 184);
 		bgColor = RGB(200, 200, 200);
-		fgColor = RGB(32, 32, 32);
+		fgColor = enabled ? RGB(32, 32, 32) : RGB(184, 184, 184);
 	}
 
 	fill_rect(gc, x, y, width, height, 2, borderColor, bgColor);
@@ -86,7 +94,6 @@ void draw_button(GCPtr gc, int x, int y, int width, int height,
 		TextOut(gc, x, y, text);
 	}
 }
-
 
 void button_draw(button_t *button) {
 	draw_button(screen, button->control.x, button->control.y,

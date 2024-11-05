@@ -6,6 +6,7 @@
 #include "gui/gdi.h"
 #include "gui/cart.h"
 #include "gui/forms.h"
+#include "gui/controls/button.h"
 
 static const char* sc_tab_title[MAX_SUB_CART][CART_MAX_TAB_COL] =
 {
@@ -65,10 +66,22 @@ void ui_subcart_init(ui_subcart_t *sc, SubCart *val, bool tab_selected)
 	sc->docs = __calloc(sc->doc_count, ui_doc_t);
 	ui_subcart_set_title(sc);
     sc->tab_selected_doc = -1;
+    sc->enabled_flags = 3;
     
 	if (tab_selected)
 	{
-	    sc->tab_selected_flags = CART_TAB_SELECTED_ACTION;
+	    if (sc_action_enabled(sc))
+	    {
+    	    sc->tab_selected_flags = CART_TAB_SELECTED_ACTION;
+        }
+        else if (sc_delete_enabled(sc))
+	    {
+    	    sc->tab_selected_flags = CART_TAB_SELECTED_DELETE;
+        }
+        else
+        {
+            sc->tab_selected_doc = 0;
+        }
 	}
 
 	int i = 0;
@@ -105,7 +118,6 @@ void ui_subcart_calc_bounds(ui_subcart_t *sc)
 	sc->height = h;
 	sc->tab_ofs_x = CART_XGAP;
 }
-
 
 
 static int ui_subcart_header_with_box_draw(ui_subcart_t *sc, int x, int y, int w)
@@ -172,8 +184,10 @@ void ui_subcart_draw(ui_subcart_t *sc, int y)
 	
 	bool action_selected = sc->tab_selected_flags == CART_TAB_SELECTED_ACTION;
 	bool delete_selected = sc->tab_selected_flags == CART_TAB_SELECTED_DELETE;
-	
-    draw_button(cart_screen, CART_XGAP * 3, y, CART_BUTTON_WIDTH, CART_BUTTON_HEIGHT,  "Печать чека", action_selected);
-    draw_button(cart_screen, x + w - CART_XGAP*4 - CART_BUTTON_WIDTH, y, CART_BUTTON_WIDTH, CART_BUTTON_HEIGHT,  "Удалить", delete_selected);
+	bool action_enabled = sc_action_enabled(sc);
+	bool delete_enabled = sc_delete_enabled(sc);
+
+    draw_button_ex(cart_screen, CART_XGAP * 3, y, CART_BUTTON_WIDTH, CART_BUTTON_HEIGHT,  "Печать чека", action_selected && action_enabled, action_enabled);
+    draw_button_ex(cart_screen, x + w - CART_XGAP*4 - CART_BUTTON_WIDTH, y, CART_BUTTON_WIDTH, CART_BUTTON_HEIGHT,  "Удалить", delete_selected && delete_enabled, delete_enabled);
 }
 
