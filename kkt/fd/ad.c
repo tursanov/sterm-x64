@@ -875,9 +875,8 @@ extern void D_destroy(D *d)
 	        d->group = NULL;
 	    }
 	    
-	    list_clear(d->group);
+	    list_clear(list);
 	    free(list);
-	    d->group = NULL;
     }
 }
 
