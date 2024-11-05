@@ -18,6 +18,20 @@ int list_add_item(list_t *list, list_item_t *item) {
 	return 0;
 }
 
+int list_add_if_not_exist(list_t *list, void *obj)
+{
+    for (list_item_t* li = list->head; li != NULL; li = li->next)
+    {
+        if (li->obj == obj)
+        {
+            return -1;
+        }
+    }
+    
+    return list_add(list, obj);
+}
+
+
 int list_add_item_head(list_t *list, list_item_t *item) {
 	item->next = list->head;
 	item->prev = NULL;
@@ -327,4 +341,15 @@ list_item_t *list_item_at(list_t *list, int index) {
 
 	for (int i = 0; i < index && li; li = li->next, i++);
 	return li;
+}
+
+list_t *list_create(list_item_delete_func_t delete_func)
+{
+    list_t *list = malloc(sizeof(list_t));
+    
+    list->head = list->tail = NULL;
+    list->count = 0;
+    list->delete_func = delete_func;
+    
+    return list;
 }

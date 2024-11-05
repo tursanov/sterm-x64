@@ -91,6 +91,33 @@ int doc_no_compare(doc_no_t *d1, doc_no_t *d2) {
 	return strcmp2(d1->s, d2->s);
 }
 
+int str_no_special_compare(const char *n, const char *d) {
+	if (n == NULL && d == NULL)
+		return 0;
+	else if (n == NULL && d != NULL)
+		return -1;
+	else if (n != NULL && d == NULL)
+		return 1;
+	else {
+		size_t i = 0;
+		for (const char *s1 = n, *s2 = d; 1; s1++, s2++, i++) {
+			char ch1 = *s1;
+			char ch2 = *s2;
+			if (!ch1 && ch2)
+				return 1;
+			else if (ch1 && !ch2)
+				return -1;
+			else if (!ch1 && !ch2)
+				return 0;
+
+			//((i >= 1 && i <= 3 && ch1 == '*') || ch1 == ch2
+			if ((i < 1 || i > 3 || ch1 != '*') && ch1 != ch2)
+				return -1;
+		}
+	}
+}
+
+
 int doc_no_special_compare(doc_no_t *n, doc_no_t *d) {
 	if (n == NULL && d == NULL)
 		return 0;
@@ -838,7 +865,20 @@ extern void D_destroy(D *d)
 	if (d->name)
 		free(d->name);
 	list_clear(&d->related);
-	list_clear(&d->group);
+	
+	if (d->group != NULL)
+	{
+	    list_t *list = d->group;
+	    for (list_item_t* li = d->group->head; li != NULL; li = li->next)
+	    {
+	        D *d = LIST_ITEM(li, D);
+	        d->group = NULL;
+	    }
+	    
+	    list_clear(d->group);
+	    free(list);
+	    d->group = NULL;
+    }
 }
 
 
@@ -2732,7 +2772,6 @@ D *add_k_to_sub_cart(C* c, K* k)
 	{
 	    sc->c = c;
 	}
-	
 
 	// •·´® ≠•‚ g, ‚Æ ·‡†ß„ §Æ°†¢´Ô•¨ ¢ ØÆ§™Æ‡ß®≠„
 	if (doc_no_is_empty(&k->g))
@@ -2773,6 +2812,205 @@ D *add_k_to_sub_cart(C* c, K* k)
 	return d;
 }
 
+typedef bool (*doc_func_t)(void *obj, SubCart *sc, D *d);
+
+D* cart_get_first_document(void *obj, doc_func_t predicate)
+{
+	for (int i = 0; i < MAX_SUB_CART; i++)
+	{
+		SubCart *sc = &cart.sc[i];
+		if (sc->documents.count > 0)
+		{
+		    for (list_item_t* li = sc->documents.head; li != NULL; li = li->next)
+		    {
+		        D* v = LIST_ITEM(li, D);
+		        
+		        if (predicate(obj, sc, v))
+		        {
+		            return v;
+		        }
+		    }
+        }
+    }    
+    
+    return NULL;
+}
+
+void cart_foreach_document(void *obj, doc_func_t action)
+{
+	for (int i = 0; i < MAX_SUB_CART; i++)
+	{
+		SubCart *sc = &cart.sc[i];
+		if (sc->documents.count > 0)
+		{
+		    for (list_item_t* li = sc->documents.head; li != NULL; li = li->next)
+		    {
+		        D* v = LIST_ITEM(li, D);
+		                
+		        action(obj, sc, v);
+		    }
+        }
+    }    
+}
+
+bool pair_predicate(D *item, __attribute__((unused)) SubCart *sc, D* v)
+{
+    return v->k->y->op == '-'
+        && v->k->y->repayment != '\x0'
+        && str_no_special_compare(v->k->y->prev_blank_nr, item->k->y->blank_nr);
+}
+
+typedef struct
+{
+    SubCart *sc;
+    D *d;
+} refund_arg_t;
+
+bool refund_action(refund_arg_t* obj, SubCart *vsc, D* v)
+{
+    if (v->k->c == obj->d->k->c && obj->sc == vsc)
+    {
+        v->group = obj->d->group;
+        list_add_if_not_exist(obj->d->group, v);
+    }
+    
+    return true;
+}
+
+bool other_action(D* d, __attribute__((unused)) SubCart *vsc, D* v)
+{
+    if (v->group == NULL
+        && ((d->name && v->name && strcmp(d->name, v->name) == 0) || d->name == v->name)
+        && (v->name && strcmp(v->name, "ÇéáÇêÄí") == 0 ? v->k->v == d->k->v : true)
+        && v->k->y->t0 == d->k->y->t0)
+    {
+        v->group = d->group;
+        list_add_if_not_exist(d->group, v);
+    }
+    
+    return true;
+}
+
+
+void cart_set_groups()
+{
+	for (int i = 0; i < MAX_SUB_CART; i++)
+	{
+		SubCart *val = &cart.sc[i];
+		if (val->documents.count > 0)
+		{
+		    for (list_item_t* li = val->documents.head; li != NULL; li = li->next)
+		    {
+		        D* d = LIST_ITEM(li, D);
+		        
+		        if (d->k->y != NULL)
+		        {
+    		        if (d->k->c != 0)
+    		        {
+    		            if (d->group == NULL)
+    		            {
+    		                d->group = list_create(NULL);
+    		                list_add(d->group, d);
+    		            }
+		            
+		                refund_arg_t arg = { .sc = val, .d = d };
+    		            cart_foreach_document(&arg, (doc_func_t)refund_action);
+    		        }
+    		        
+    		        if (d->k->y->op != '-')
+		            {
+		                D *pair = cart_get_first_document(d, (doc_func_t)pair_predicate);
+		                if (pair != NULL)
+		                {
+		                    d->name = strdup("éëèè");
+		                    long long sum = d->k->y->amount - pair->k->y->amount;
+                    
+		                    if (sum > 0)
+		                    {
+		                        asprintf(&d->description, "ÑéèãÄíÄ (%lld.%lld)", sum / 100, sum % 100);
+		                    }
+		                    else if (sum < 0)
+		                    {
+		                        asprintf(&d->description, "ÇèãÄíÄ (%lld.%lld)", sum / 100, sum % 100);
+		                    }
+		                    else
+		                    {
+		                        asprintf(&d->description, "èÖêÖéîéêåãÖçàÖ (0.0)");
+		                    }
+                    
+                            if (pair->description == NULL)
+                            {
+		                        pair->description = strdup(d->description);
+                            }
+                            
+		                    if (pair->group != NULL)
+		                    {
+		                        list_add_if_not_exist(pair->group, d);
+		                        d->group = pair->group;
+		                    }
+		                    else
+		                    {
+		                        if (d->group == NULL)
+		                        {
+    		                        d->group = list_create(NULL);
+                                    list_add(d->group, d);
+                                }
+                                list_add_if_not_exist(d->group, pair);
+                                pair->group = d->group;
+		                    }
+		                }
+		                else
+		                {
+		                    if (d->k->y->repayment != '\x0' && d->k->y->prev_blank_nr[0] == 0)
+		                    {
+		                        d->name = strdup("ÉÄòÖçàÖ ÇéáÇêÄíÄ");
+		                    }
+		                    else
+		                    {
+		                        d->name = strdup("éîéêåãÖçàÖ");
+		                    }
+		                }
+		            }
+		            else
+		            {
+		                if (d->k->y->repayment != '\x0')
+		                {
+		                    d->name = d->k->y->prev_blank_nr[0] == 0
+		                        ? strdup("ÇéáÇêÄí")
+                                : strdup("Çëèè");
+		                }
+		                else
+		                {
+		                    d->name = strdup("ÉÄòÖçàÖ");
+		                }
+		            }
+                }
+    	    }
+        }
+    }
+    
+	for (int i = 0; i < MAX_SUB_CART; i++)
+	{
+		SubCart *val = &cart.sc[i];
+		if (val->documents.count > 0)
+		{
+		    for (list_item_t* li = val->documents.head; li != NULL; li = li->next)
+		    {
+		        D* d = LIST_ITEM(li, D);
+		        
+		        if (d->k->y != NULL)
+		        {
+    		        if (d->group == NULL)
+    		        {
+    		            d->group = list_create(NULL);
+       		            cart_foreach_document(d, (doc_func_t)other_action);
+    		        }
+		        }
+            }
+        }
+    }    
+}
+
 void cart_build()
 {
 	cart_clear();
@@ -2784,6 +3022,8 @@ void cart_build()
 			add_k_to_sub_cart(c, k);
 		}
 	}
+	
+    cart_set_groups();
 }
 
 void get_subcart_documents(char type, list_t *documents, const char *doc_no)

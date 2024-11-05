@@ -88,7 +88,7 @@ void ui_subcart_init(ui_subcart_t *sc, SubCart *val, bool tab_selected)
 	for (list_item_t *li = val->documents.head; li; li = li->next, i++)
 	{
 		D *val = LIST_ITEM(li, D);
-		ui_doc_init(&sc->docs[i], val, tab_selected);
+		ui_doc_init(&sc->docs[i], val, false);
 	}
 }
 

@@ -73,6 +73,15 @@ typedef struct {
 	char *s;
 } op_doc_no_t;
 
+#define PRINT_STATE_NONE 0
+#define PRINT_STATE_PRINTING 1
+
+#define BANK_STATE_NONE 0x00
+#define BANK_STATE_SUCCESS 0x01
+#define BANK_STATE_PAYMENT 0xa3
+#define BANK_STATE_REFUND 0xa4
+#define BANK_STATE_CANCEL 0xa5
+
 // документ
 typedef struct K {
 	struct list_t llist;    // список составляющих
@@ -185,7 +194,7 @@ typedef struct D {
 	S sum;          	// сумма
 	K *k;				// документ
 	list_t related; 	// связанные документы
-	list_t group; 		// группа документов
+	list_t *group; 		// группа документов
 	char *description; // описание
 	char *name; // наименование
 } D;

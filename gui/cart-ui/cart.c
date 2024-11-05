@@ -99,6 +99,8 @@ static size_t get_phone(char *src, char *dst) {
 }
 
 
+
+
 GCPtr cart_screen = NULL;
 FontPtr cart_fnt = NULL;
 FontPtr cart_sfnt = NULL;
@@ -109,6 +111,8 @@ int ui_sel_subcart_index = -1;
 void process_docs();
 void print_cheque(SubCart *sc, list_t *klist);
 void ui_select_next_subcart();
+void get_doc_selection(list_t* sel);
+void ui_cart_select_documents();
 
 
 void ui_cart_create()
@@ -148,6 +152,35 @@ void ui_cart_create()
 			ui_cart->subcart_count++;
 		}
 	}
+	
+	ui_cart_select_documents();
+}
+
+void ui_cart_select_documents()
+{
+	LIST_INIT(sel, NULL);
+	get_doc_selection(&sel);
+
+    for (int i = 0; i < ui_cart->subcart_count; i++)
+    {
+		ui_subcart_t *sc = &ui_cart->subcarts[i];
+		
+		for (int j = 0; j < sc->doc_count; j++)
+		{
+            ui_doc_t *d = &sc->docs[j];
+            
+            for (list_item_t *li = sel.head; li != NULL; li = li->next)
+            {
+                D *x = LIST_ITEM(li, D);
+                if (d->val == x)
+                {
+                    d->selected = true;
+                }
+            }
+        }
+    }
+    
+    list_clear(&sel);
 }
 
 void ui_cart_destroy()
@@ -383,6 +416,108 @@ bool cart_process(const struct kbd_event *_e) {
 	return 1;
 }
 
+static bool in_print_state(D *d)
+{
+    for (list_item_t *li = d->related.head; li != NULL; li = li->next)
+    {
+        K *k = LIST_ITEM(li, K);
+        
+        if (k->print_state == PRINT_STATE_PRINTING)
+        {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+static bool in_bank_process_state(D *d)
+{
+    return d->k->bank_state != BANK_STATE_NONE;
+}
+
+static bool in_check_state(D *d)
+{
+    return d->k->check_state;
+}
+
+
+void get_doc_selection(list_t* sel)
+{
+    for (int i = 0; i < ui_cart->subcart_count; i++)
+    {
+		ui_subcart_t *sc = &ui_cart->subcarts[i];
+		
+		for (int j = 0; j < sc->doc_count; j++)
+		{
+            ui_doc_t *d = &sc->docs[j];
+            
+            if (in_print_state(d->val))
+            {
+                list_add(sel, d);
+            }
+        }
+        
+        if (sel->count > 0)
+        {
+            return;
+        }
+        
+		for (int j = 0; j < sc->doc_count; j++)
+		{
+            ui_doc_t *d = &sc->docs[j];
+            
+            if (in_bank_process_state(d->val) || in_check_state(d->val))
+            {
+                list_add(sel, d);
+            }
+        }
+        
+        if (sel->count > 0)
+        {
+            return;
+        }
+        
+		for (int j = 0; j < sc->doc_count; j++)
+		{
+            ui_doc_t *d = &sc->docs[j];
+            
+            if (d->val->k->u.s != NULL)
+            {
+                continue;
+            }
+            
+            if (d->val->group != NULL)
+            {
+                if (sel->count + d->val->group->count > MAX_DOCS)
+                {
+                    break;
+                }
+                
+                for (list_item_t *li = d->val->group->head; li != NULL; li = li->next)
+                {
+                    D *x = LIST_ITEM(li, D);
+                    list_add_if_not_exist(sel, x);
+                }
+            }
+            else
+            {
+                if (sel->count > MAX_DOCS)
+                {
+                    break;
+                }
+                
+                list_add_if_not_exist(sel, d->val);
+            }
+            
+            if (d->val->k->c != 0 || sc->val->type == 'F')
+            {
+                break;
+            }
+		}
+    }
+}
+
 void get_all_k_from_doc(list_t klist[2])
 {
     ui_subcart_t *sc = ui_sel_subcart;
@@ -511,7 +646,6 @@ static bool fa_create_doc(uint16_t doc_type, const uint8_t *pattern_footer,
 	}
 	return true;
 }
-
 
 void print_cheque(SubCart *sc, list_t *klist)
 {

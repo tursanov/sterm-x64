@@ -4,6 +4,8 @@
 #include "kkt/fd/ad.h"
 #include "kbd.h"
 
+#define MAX_DOCS    35
+
 #define CART_XGAP	5
 #define CART_YGAP	5
 #define CART_YGAP_DOC 5

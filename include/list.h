@@ -22,8 +22,11 @@ typedef struct list_t {
 
 #define LIST_INIT(name, delete_func) \
 	list_t name = { NULL, NULL, 0, (list_item_delete_func_t)(delete_func) }
+	
+list_t *list_create();	
 
 int list_add(list_t *list, void *obj);
+int list_add_if_not_exist(list_t *list, void *obj);
 int list_add_head(list_t *list, void *obj);
 int list_add_item(list_t *list, list_item_t *item);
 int list_remove_item(list_t *list, list_item_t *item);
@@ -55,5 +58,6 @@ list_item_t *list_item_at(list_t *list, int index);
 //#define LIST_IT_OBJ(it, type) ((type *)((it).i->obj))
 //void list_it_next(list_it_t *it);
 //void list_it_remove(list_it_t *it);
+
 
 #endif /* list_h */
