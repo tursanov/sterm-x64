@@ -20,6 +20,8 @@
 #define CART_TAB_SELECTED_ACTION 0x1
 #define CART_TAB_SELECTED_DELETE 0x02
 
+#define CART_ACTION_ENABLED 0x01
+#define CART_DELETE_ENABLED 0x02
 
 typedef struct dim_t
 {
@@ -33,7 +35,6 @@ typedef struct ui_cart_t
 	struct ui_subcart_t* subcarts;
 } ui_cart_t;
 
-
 typedef struct ui_subcart_t
 {
 	SubCart *val;
@@ -44,7 +45,11 @@ typedef struct ui_subcart_t
 	int tab_ofs_x;
 	int tab_selected_flags;
 	int tab_selected_doc;
+	int enabled_flags;
 } ui_subcart_t;
+
+#define sc_action_enabled(sc) (((sc)->enabled_flags & CART_ACTION_ENABLED) != 0)
+#define sc_delete_enabled(sc) (((sc)->enabled_flags & CART_DELETE_ENABLED) != 0)
 
 typedef struct ui_doc_t
 {

@@ -14,5 +14,7 @@ control_t* button_create(int id, GCPtr gc, int x, int y, int width, int height,
 
 void draw_button(GCPtr screen, int x, int y, int width, int height, 
 		const char *text, bool focused);
+void draw_button_ex(GCPtr screen, int x, int y, int width, int height, 
+		const char *text, bool focused, bool enabled);
 
 #endif

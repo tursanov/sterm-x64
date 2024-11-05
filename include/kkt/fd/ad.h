@@ -197,6 +197,7 @@ extern void D_destroy(D *d);
 typedef struct SubCart {
 	list_t documents; // документы
 	char type; // тип подкорзины
+	C* c; // чек
 } SubCart;
 
 #define MAX_SUB_CART	9
