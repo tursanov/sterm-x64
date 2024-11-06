@@ -1743,7 +1743,6 @@ static int handle_ping(struct kbd_event *e)
 	return cmd_none;
 }
 
-static void show_pos(void);
 static void show_cheque_fa(void);
 
 /* Завершение работы банковского приложения */
@@ -2271,7 +2270,7 @@ static void show_ping(void)
 }
 
 /* Показать окно POS-терминала */
-static void show_pos(void)
+void show_pos(void)
 {
 #define POS_WIDTH		32
 #define POS_HEIGHT		8

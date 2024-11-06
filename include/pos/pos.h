@@ -36,7 +36,7 @@ extern uint32_t stream_flags;
 
 /* Сообщение для обмена с POS-эмулятором */
 struct pos_message {
-	uint8_t nr_blocks;		/* число блоков в сообщении [0 ... POS_MAX_BLOCKS] */
+	uint8_t nr_blocks;			/* число блоков в сообщении [0 ... POS_MAX_BLOCKS] */
 	struct pos_message_block data[0];	/* блоки данных [0 ... nr_blocks] */
 } __attribute__((__packed__));
 
@@ -65,7 +65,7 @@ struct pos_data_buf
 {
 	union {
 		uint8_t data[POS_MAX_MESSAGE_LEN];	/* данные */
-		struct pos_message_header hdr;	/* заголовок сообщения */
+		struct pos_message_header hdr;		/* заголовок сообщения */
 	} un;
 	int data_len;		/* текущая длина данных */
 	int data_index;		/* индекс при чтении/записи */
@@ -137,6 +137,8 @@ enum {
 	pos_ewait,		/* ожидание после вывода на экран сообщения об ошибке */
 };
 
+extern int pos_state;
+
 /* Результат завершения работы с ИПТ */
 struct pos_param {
         const char *name;
@@ -150,18 +152,18 @@ struct pos_response{
         uint32_t invoice;
         uint8_t next_mtype;
         uint8_t nr_params;
-        struct pos_param params[0];
+        struct pos_param params[255];
 };
-
-extern struct pos_response pos_response;
 
 extern bool pos_create(void);
 extern void pos_release(void);
 extern int  pos_get_state(void);
 extern void pos_set_state(int st);
 extern void pos_process(void);
+extern bool pos_send_empty(void);
 extern bool pos_send_params_resp(void);
 extern bool pos_send_params_req(void);
+extern struct pos_response *pos_query(uint8_t menu_item, bool can_edit, const char *ords);
 
 #if defined __cplusplus
 }

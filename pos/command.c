@@ -22,7 +22,10 @@ static uint8_t pos_menu_item = MTYPE_UNKNOWN;
 static bool pos_can_edit = false;
 
 /* Список номеров документов и их стоимостей */
-static char *pos_ords = NULL;
+static const char *pos_ords = NULL;
+
+/* Получена команда FINISHMENU */
+bool fmenu = false;
 
 pos_request_param_list_t req_param_list;
 pos_response_param_list_t resp_param_list;
@@ -153,6 +156,64 @@ static bool pos_parse_request_parameters(struct pos_data_buf *buf, bool check_on
 	return true;
 }
 
+static struct pos_response pos_resp;
+
+static void clr_pos_resp(struct pos_response *pos_resp)
+{
+	pos_resp->res_code = 0;
+	if (pos_resp->resp_code != NULL){
+		free((void *)pos_resp->resp_code);
+		pos_resp->resp_code = NULL;
+	}
+	if (pos_resp->id_pos != NULL){
+		free((void *)pos_resp->id_pos);
+		pos_resp->id_pos = NULL;
+	}
+	pos_resp->invoice = 0;
+	pos_resp->next_mtype = MTYPE_UNKNOWN;
+	pos_resp->nr_params = 0;
+	for (int i = 0; i < ASIZE(pos_resp->params); i++){
+		struct pos_param *p = pos_resp->params + i;
+		if (p->name != NULL){
+			free((void *)p->name);
+			p->name = NULL;
+		}
+		if (p->val != NULL){
+			free((void *)p->val);
+			p->val = NULL;
+		}
+	}
+}
+
+static void make_pos_resp(struct pos_response *pos_resp)
+{
+	clr_pos_resp(pos_resp);
+	for (int i = 0; i < resp_param_list.count; i++){
+		pos_response_param_t *p = resp_param_list.params + i;
+		switch (get_param_type(p->name)){
+			case POS_PARAM_RES_CODE:
+				pos_resp->res_code = p->value[0];
+				break;
+			case POS_PARAM_RESP_CODE:
+				pos_resp->resp_code = strdup(p->value);
+				break;
+			case POS_PARAM_ID_POS:
+				pos_resp->id_pos = strdup(p->value);
+				break;
+			case POS_PARAM_INVOICE: {
+				char *ep = NULL;
+				uint32_t v = strtoul(p->value, &ep, 10);
+				if (*ep == 0)
+					pos_resp->invoice = v;
+				}
+				break;
+			case POS_PARAM_NMTYPE:
+				pos_resp->next_mtype = p->value[0];
+				break;
+		}
+	}
+}
+
 static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_only)
 {
 	static char s[2049];
@@ -198,6 +259,10 @@ static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_o
 	}
 	if (check_only)
 		pos_response_param_list_free(&resp_param_list);
+	else if (fmenu){
+		make_pos_resp(&pos_resp);
+		pos_send_empty();
+	}
 	return true;
 }
 
@@ -524,4 +589,21 @@ bool pos_prepare_request_params(void)
 		p->required = param->required;
 	}
 	return true;
+}
+
+struct pos_response *pos_query(uint8_t menu_item, bool can_edit, const char *ords)
+{
+	if (ords == NULL)
+		return NULL;
+	pos_menu_item = menu_item;
+	pos_can_edit = can_edit;
+	if (pos_ords != NULL)
+		free((void *)pos_ords);
+	pos_ords = strdup(ords);
+	show_pos();
+	if (pos_state == pos_new)
+		return NULL;
+	while (pos_state != pos_new)
+		pos_process();
+	return &pos_resp;
 }

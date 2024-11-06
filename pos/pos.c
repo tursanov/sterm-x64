@@ -167,7 +167,7 @@ bool pos_write_array(struct pos_data_buf *buf, uint8_t *data, int len)
 }
 
 /* Проверка и установка бита. Возвращает true, если бит уже установлен */
-#define bts(b,mask) ((b & mask) || (b |= mask, false))
+#define bts(b, mask) ((b & mask) || (b |= mask, false))
 
 /* Проверка синтаксиса сообщения от POS-эмулятора */
 static bool pos_check_resp(struct pos_data_buf *buf)
@@ -177,26 +177,18 @@ static bool pos_check_resp(struct pos_data_buf *buf)
 		int mask;
 		bool (*parser)(struct pos_data_buf *, bool);
 	} parsers[] = {
-		{POS_STREAM_SCREEN,	POS_HAS_STREAM_SCREEN,
-			pos_parse_screen_stream},
-		{POS_STREAM_PRINTER,	POS_HAS_STREAM_PRINTER,
-			pos_parse_printer_stream},
-		{POS_STREAM_TCP,	POS_HAS_STREAM_TCP,
-			pos_parse_tcp_stream},
-		{POS_STREAM_ERROR,	POS_HAS_STREAM_ERROR,
-			pos_parse_error_stream},
-		{POS_STREAM_COMMAND,	POS_HAS_STREAM_COMMAND,
-			pos_parse_command_stream},
+		{POS_STREAM_SCREEN,	POS_HAS_STREAM_SCREEN,	pos_parse_screen_stream},
+		{POS_STREAM_PRINTER,	POS_HAS_STREAM_PRINTER,	pos_parse_printer_stream},
+		{POS_STREAM_TCP,	POS_HAS_STREAM_TCP,	pos_parse_tcp_stream},
+		{POS_STREAM_ERROR,	POS_HAS_STREAM_ERROR,	pos_parse_error_stream},
+		{POS_STREAM_COMMAND,	POS_HAS_STREAM_COMMAND,	pos_parse_command_stream},
 	};
-	uint8_t b;
-	uint16_t w;
-	uint32_t dw;
-	int i, j, n_blocks;
 	stream_flags = 0;
 	if (buf == NULL)
 		return false;
 	buf->data_index = 0;
 /* Проверка версии протокола */
+	uint32_t dw;
 	if (!pos_read_dword(buf, &dw) || (dw != POS_CURRENT_VERSION)){
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
 		return false;
@@ -207,19 +199,22 @@ static bool pos_check_resp(struct pos_data_buf *buf)
 		return false;
 	}
 /* Проверка числа блоков */
+	uint8_t b;
 	if (!pos_read_byte(buf, &b) || (b > POS_MAX_BLOCKS)){
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
 		return false;
 	}
-	n_blocks = b;
+	int n_blocks = b;
 /* Поблочная проверка */
-	for (i = 0; i < n_blocks; i++){
+	for (int i = 0; i < n_blocks; i++){
 /* Проверка потока, для которого предназначен блок */
+		uint16_t w;
 		if (!pos_read_word(buf, &w)){
 			pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
 			return false;
 		}
 /* Для каждого потока вызываем соответствующий обработчик */
+		int j;
 		for (j = 0; j < ASIZE(parsers); j++){
 			if (w == parsers[j].stream){
 /* Поток сообщений об ошибках должен быть единственным в сообщении */
@@ -338,13 +333,13 @@ bool pos_req_stream_end(struct pos_data_buf *buf)
 	return true;
 }
 
-static int pos_state = pos_new;
+int pos_state = pos_new;
 /* Используется для периодического опроса POS-эмулятора */
 uint32_t pos_t0 = 0;
 /* На пустой запрос пришел ответ в течение заданного таймаута */
 bool poll_ok = true;
 
-static bool pos_send_empty(void)
+bool pos_send_empty(void)
 {
 	pos_req_begin(&pos_buf);
 	pos_req_end(&pos_buf);
@@ -421,6 +416,23 @@ bool pos_send_params_resp(void)
 		return false;
 	}	
 }
+
+bool pos_send_params_req(void)
+{
+	static struct pos_data_buf buf;
+	if (req_param_list.count == 0)
+		return true;
+	pos_req_begin(&buf);
+	pos_req_save_command_request_parameters(&buf);
+	pos_req_end(&buf);
+	if (pos_serial_send_msg(&buf))
+		return true;
+	else{
+		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_SYSTEM, 0);
+		return false;
+	}	
+}
+
 
 static bool pos_send_finish(void)
 {
@@ -585,6 +597,10 @@ static void on_pos_ready(uint32_t t)
 	else if (pos_serial_peek_msg()){
 		pos_serial_get_msg(&pos_buf);
 		pos_parse_resp(&pos_buf);
+		if (fmenu && (pos_buf.un.hdr.msg.nr_blocks == 0)){
+			pos_prepare_request_params();
+			pos_send_params_req();
+		}
 	}else if (dt > POS_TIMEOUT){
 		if (!poll_ok){
 			if (dt > MAX_POS_TIMEOUT)

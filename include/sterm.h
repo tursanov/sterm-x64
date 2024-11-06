@@ -197,6 +197,7 @@ extern int	get_cmd(bool check_scr, bool busy);
 extern bool	reset_term(bool force);
 extern void	hangup_ppp(void);
 extern void	x3data_sync_report_dlg(void);
+extern void	show_pos(void);
 
 #define RET_NORMAL		0
 #define RET_SHELL		20
