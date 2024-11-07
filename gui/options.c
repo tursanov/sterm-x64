@@ -457,6 +457,26 @@ static struct optn_item kkt_optn_items[] = {
 #pragma GCC diagnostic pop
 #endif
 
+/* Документы ККТ */
+static struct optn_item kkt_doc_items[] = {
+	OPTN_BOOL3("Кассовый чек", "Печать кассовых чеков",
+		kkt_print_cheque, NULL),
+	OPTN_BOOL3("Открытие смены", "Печать отчета об открытии смены",
+		kkt_print_shift_open, NULL),
+	OPTN_BOOL3("Закрытие смены", "Печать отчета о закрытии смены",
+		kkt_print_shift_close, NULL),
+	OPTN_BOOL3("Отчет о регистрации", "Печать отчета о регистрации",
+		kkt_print_reg, NULL),
+	OPTN_BOOL3("Отчет о перерегистрации", "Печать отчета о перерегистрации",
+		kkt_print_rereg, NULL),
+	OPTN_BOOL3("Отчет о закрытии ФН", "Печать отчета о закрытии ФН",
+		kkt_print_fs_close, NULL),
+	OPTN_BOOL3("Состояние расчетов", "Печать отчета о состоянии расчетов",
+		kkt_print_calc_state, NULL),
+	OPTN_BOOL3("Чек коррекции", "Печать чеков коррекции",
+		kkt_print_correction_cheque, NULL),
+};
+
 /* Экран */
 static struct optn_item scr_optn_items[] = {
 	OPTN_INT_ENUM("Выключение экрана", "Время неактивности перед гашением\r\nэкрана (мин)",
@@ -490,6 +510,7 @@ enum {
 	OPTN_GROUP_PPP,
 	OPTN_GROUP_BANK,
 	OPTN_GROUP_KKT,
+	OPTN_GROUP_KKT_DOCS,
 	OPTN_GROUP_SCR,
 	OPTN_GROUP_KBD,
 };
@@ -505,6 +526,7 @@ static struct optn_group optn_groups[] = {
 	{"ИПТ \"Экспресс\"", bank_optn_items, ASIZE(bank_optn_items),
 		on_exit_bank_system},
 	{"ККТ", kkt_optn_items, ASIZE(kkt_optn_items), NULL},
+	{"Документы ККТ", kkt_doc_items, ASIZE(kkt_doc_items), NULL},
 	{"Экран", scr_optn_items, ASIZE(scr_optn_items), NULL},
 	{"Клавиатура", kbd_optn_items, ASIZE(kbd_optn_items), NULL},
 };
@@ -939,6 +961,7 @@ static bool optn_create_menu(void)
 	add_menu_item(optn_menu, new_menu_item("Настройки PPP", cmd_ppp_optn, true));
 	add_menu_item(optn_menu, new_menu_item("ИПТ \"Экспресс\"", cmd_bank_optn, bank_ok));
 	add_menu_item(optn_menu, new_menu_item("ККТ", cmd_kkt_optn, true));
+	add_menu_item(optn_menu, new_menu_item("Документы ККТ", cmd_kkt_docs_optn, true));
 	add_menu_item(optn_menu, new_menu_item("Настройки экрана", cmd_scr_optn, true));
 	add_menu_item(optn_menu, new_menu_item("Настройки клавиатуры", cmd_kbd_optn, true));
 	add_menu_item(optn_menu, new_menu_item("Сохранить настройки", cmd_store_optn, true));
@@ -2185,6 +2208,9 @@ bool process_options(const struct kbd_event *e)
 					break;
 				case cmd_kkt_optn:
 					optn_set_group(OPTN_GROUP_KKT);
+					break;
+				case cmd_kkt_docs_optn:
+					optn_set_group(OPTN_GROUP_KKT_DOCS);
 					break;
 				case cmd_scr_optn:
 					optn_set_group(OPTN_GROUP_SCR);
