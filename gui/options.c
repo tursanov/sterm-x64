@@ -467,7 +467,7 @@ static struct optn_item kkt_doc_items[] = {
 		kkt_print_shift_close, NULL),
 	OPTN_BOOL3("Отчет о регистрации", "Печать отчета о регистрации",
 		kkt_print_reg, NULL),
-	OPTN_BOOL3("Отчет о перерегистрации", "Печать отчета о перерегистрации",
+	OPTN_BOOL3("Отчет о перерегистр.", "Печать отчета о перерегистрации",
 		kkt_print_rereg, NULL),
 	OPTN_BOOL3("Отчет о закрытии ФН", "Печать отчета о закрытии ФН",
 		kkt_print_fs_close, NULL),
