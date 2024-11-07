@@ -164,6 +164,7 @@ extern bool pos_send_empty(void);
 extern bool pos_send_params_resp(void);
 extern bool pos_send_params_req(void);
 extern struct pos_response *pos_query(uint8_t menu_item, bool can_edit, const char *ords);
+extern void on_response_pos(void);
 
 #if defined __cplusplus
 }
