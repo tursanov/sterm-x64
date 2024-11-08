@@ -441,6 +441,46 @@ void K_calc_sum(K *k, S *s) {
 	}
 }
 
+void K_add_sum(uint8_t p, K *k, S *s)
+{
+    S sk;
+    
+    memset(&sk, 0, sizeof(sk));
+    
+    if (k->u.s)
+    {
+        return;
+    }
+    
+    K_calc_sum(k, &sk);
+    
+    if (k->a > 0)
+    {
+        s->b = k->a;
+        switch (k->m)
+        {
+        case 1:
+            s->n -= k->a;
+            break;
+        case 2:
+            s->e -= k->a;
+            break;
+        case 3:
+            s->p -= k->a;
+            break;
+        }
+    }
+    
+    if (K_lp(k) == p)
+    {
+        S_add(s, &sk);
+    }
+    else
+    {
+        S_subtract(s, &sk);
+    }
+}
+
 static int64_t K_calc_total_sum(K *k) {
 	int64_t sum = 0;
 	for (list_item_t *li3 = k->llist.head; li3 != NULL; li3 = li3->next) {
@@ -880,7 +920,6 @@ extern void D_destroy(D *d)
     }
 }
 
-
 int int64_array_init(int64_array_t *array) {
 #define DEFAULT_CAPACITY	32
 	array->capacity = DEFAULT_CAPACITY;
@@ -980,6 +1019,25 @@ int string_array_add(string_array_t *array, const char *v, bool unique, int cnv)
 	array->count++;
 	return 1;
 }
+
+void S_add(S *dst, S *src)
+{
+    dst->a += src->a;
+    dst->n += src->n;
+    dst->e += src->e;
+    dst->p += src->p;
+    dst->b += src->b;
+}
+
+void S_subtract(S *dst, S *src)
+{
+    dst->a -= src->a;
+    dst->n -= src->n;
+    dst->e -= src->e;
+    dst->p -= src->p;
+    dst->b -= src->b;
+}
+
 
 AD* _ad = NULL;
 

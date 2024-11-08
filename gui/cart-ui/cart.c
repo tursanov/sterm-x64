@@ -18,6 +18,8 @@
 #include "kkt/kkt.h"
 #include "kkt/fdo.h"
 
+bool has_unprocessed_operations = false;
+
 static char cashier_name[64+1] = {0};
 static char cashier_post[64+1] = {0};
 static char cashier_inn[12+1] = {0};

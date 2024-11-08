@@ -22,6 +22,9 @@ typedef struct S {
     int64_t b; // сумма расчета по всем документам чека встречным предоставлением
 } S;
 
+void S_add(S *dst, S *src);
+void S_subtract(S *dst, S *src);
+
 // составляющая
 typedef struct L {
     char *s;        // Название составляющей
@@ -118,7 +121,7 @@ typedef struct K {
 // проверка банковского абзаца на соответствие операции и возврата
 #define check_k_y(k, o, r) ((k)->y->op == (o) && (k)->y->repayment == (r))
 
-#define k_lp(k) (LIST_ITEM((k)->llist.head, L)->p)
+uint8_t K_lp(K *k);
 
 // создание информации о документе
 extern K *K_create(void);
@@ -134,6 +137,8 @@ extern bool K_equalByL(K *k1, K *k2);
 extern int64_t K_get_sum(K *k);
 // посчитать сумму для К
 extern void K_calc_sum(K *k, S *s);
+// добавить сумму, учитывая p
+void K_add_sum(uint8_t p, K *k, S *s);
 
 
 // установить код подкорзины
@@ -201,6 +206,16 @@ typedef struct D {
 
 extern D *D_create(void);
 extern void D_destroy(D *d);
+
+#define CASH_ITEMS                      'A'
+#define REFUND_CASH_ITEMS               'B'
+#define CANCEL_NON_CASH_ITEMS           'C'
+#define NON_CASH_ITEMS                  'D'
+#define FAST_PAYMENT_ITEMS              'E'
+#define REFUND_NON_CASH_ITEMS           'F'
+#define CANCEL_REFUND_NON_CASH_ITEMS    'G'
+#define OTHER_ITEMS                     'H'
+#define ERROR_ITEMS                     'I'
 
 // подкорзина
 typedef struct SubCart {

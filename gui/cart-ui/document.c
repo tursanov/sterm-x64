@@ -238,7 +238,7 @@ int ui_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width)
 			
 			if (k != d->val->k)
 			{
-    			char sign = k_lp(d->val->k) == k_lp(k) ? '+' : '-';
+    			char sign = K_lp(d->val->k) == K_lp(k) ? '+' : '-';
       			sprintf(buf, "(%c) %s", sign, k->d.s);
       			DrawText(cart_screen, x, y, DISCX, cart_fnt->max_height, buf, DT_LEFT | DT_VCENTER);
   			

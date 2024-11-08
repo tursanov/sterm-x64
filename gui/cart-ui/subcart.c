@@ -8,6 +8,9 @@
 #include "gui/forms.h"
 #include "gui/controls/button.h"
 
+extern bool has_unprocessed_operations;
+
+
 static const char* sc_tab_title[MAX_SUB_CART][CART_MAX_TAB_COL] =
 {
 	{ "N §Æ™„¨•≠‚†", "Ñ†‚† ® ¢‡•¨Ô", "éØ•‡†Ê®Ô", "", "ë„¨¨† " },
@@ -165,6 +168,145 @@ static int ui_subcart_table_header_draw(ui_subcart_t *sc, int x, int y, int col_
 	return y;
 }
 
+typedef void (*doc_func_t)(void* obj, ui_subcart_t *sc, ui_doc_t *doc);
+
+void foreach_selected_documents(ui_subcart_t *sc, void *obj, doc_func_t func)
+{
+    for (int i = 0; i < sc->doc_count; i++)
+    {
+        ui_doc_t *doc = &sc->docs[i];
+        
+        if (doc->selected)
+        {
+            func(obj, sc, doc);
+        }
+    }
+}
+
+typedef struct {
+    bool in_processing_state_initialized;
+    bool check_state_initialized;
+    bool default_in_processing_state;
+    bool default_check_state;
+    bool same_processing_state;
+    bool same_check_state;
+    bool non_finished_bank_state;
+    bool has_items;
+    bool has_unformed;
+    bool in_check_state;
+    uint8_t p;
+    S sum;
+} doc_params_t;
+
+void doc_get_params(doc_params_t *p, ui_subcart_t *sc, ui_doc_t *d)
+{
+    p->has_items = true;
+    
+    if (p->p == 0xff)
+    {
+        p->p = K_lp(d->val->k);
+    }
+    
+    for (list_item_t *li = d->val->related.head; li != NULL; li = li->next)
+    {
+        K *k = LIST_ITEM(li, K);
+        if (d->val->k->u.s != NULL)
+        {
+            p->has_unformed = true;
+        }
+        
+        if (!p->in_processing_state_initialized)
+        {
+            p->default_in_processing_state = k->bank_state != BANK_STATE_NONE
+                || k->print_state != PRINT_STATE_NONE;
+            p->in_processing_state_initialized = true;
+        }
+
+        if (!p->check_state_initialized)
+        {
+            p->default_check_state = k->check_state;
+            p->check_state_initialized = true;
+        }
+        
+        if (k->check_state)
+        {
+            p->in_check_state = true;
+        }
+        
+        if (k->check_state != p->default_check_state)
+        {
+            p->same_check_state = false;
+        }
+        
+        bool in_processing_state =
+            k->bank_state != BANK_STATE_NONE
+            || k->print_state != PRINT_STATE_NONE;
+        if (in_processing_state != p->default_in_processing_state)
+        {
+            p->same_check_state = false;
+        }
+        
+        if (k->bank_state != BANK_STATE_SUCCESS)
+        {
+            p->non_finished_bank_state = true;
+        }
+        
+        K_add_sum(p->p, k, &p->sum);
+    }
+}
+
+const char *get_action_text(ui_subcart_t *sc, bool *is_enabled)
+{
+    doc_params_t p;
+    
+    memset(&p, 0, sizeof(p));
+    
+    p.same_processing_state = true;
+    p.same_check_state = true;
+    p.p = 0xff;
+    
+    foreach_selected_documents(sc, &p, (doc_func_t)doc_get_params);
+    
+    bool first_sc = &ui_cart->subcarts[0] == sc;
+    
+    *is_enabled = p.has_items
+        && !has_unprocessed_operations
+        && !p.has_unformed
+        && p.same_processing_state
+        && p.same_check_state
+        && first_sc;
+        
+    if ((sc->val->type == NON_CASH_ITEMS
+        || sc->val->type == CANCEL_NON_CASH_ITEMS
+        || sc->val->type == CANCEL_REFUND_NON_CASH_ITEMS
+        || sc->val->type == REFUND_NON_CASH_ITEMS
+        || sc->val->type == FAST_PAYMENT_ITEMS)
+        && (!p.has_items || p.non_finished_bank_state))
+    {
+        if (p.sum.e > 0 || !p.has_items || !*is_enabled)
+        {
+            switch (sc->val->type)
+            {
+            case NON_CASH_ITEMS:
+                return "äÄêíÄ éèãÄíÄ";
+            case CANCEL_NON_CASH_ITEMS:
+            case CANCEL_REFUND_NON_CASH_ITEMS:
+                return "äÄêíÄ éíåÖçÄ";
+            case REFUND_NON_CASH_ITEMS:
+                return "äÄêíÄ ÇéáÇêÄí";
+            case FAST_PAYMENT_ITEMS:
+                return p.in_check_state ? "ëÅè èêéÇÖêäÄ" : "ëÅè éèãÄíÄ";
+            }
+        }
+    }
+    else if (sc->val->type == OTHER_ITEMS || sc->val->type == ERROR_ITEMS)
+    {
+        return "ìÑÄãàíú";
+    }
+    
+    return "èÖóÄíú óÖäÄ";
+}
+
 void ui_subcart_draw(ui_subcart_t *sc, int y)
 {
 	int x = CART_XGAP;
@@ -182,12 +324,24 @@ void ui_subcart_draw(ui_subcart_t *sc, int y)
 		y = ui_doc_draw(sc, d, x, y, tcw);
 	}
 	
+	bool is_enabled = false;
+	const char *text = get_action_text(sc, &is_enabled);
+	
+	if (is_enabled)
+	{
+        sc->enabled_flags |= CART_ACTION_ENABLED;
+	}
+	else
+	{
+        sc->enabled_flags &= ~CART_ACTION_ENABLED;
+	}
+	
 	bool action_selected = sc->tab_selected_flags == CART_TAB_SELECTED_ACTION;
 	bool delete_selected = sc->tab_selected_flags == CART_TAB_SELECTED_DELETE;
 	bool action_enabled = sc_action_enabled(sc);
 	bool delete_enabled = sc_delete_enabled(sc);
 
-    draw_button_ex(cart_screen, CART_XGAP * 3, y, CART_BUTTON_WIDTH, CART_BUTTON_HEIGHT,  "è•Á†‚Ï Á•™†", action_selected && action_enabled, action_enabled);
+    draw_button_ex(cart_screen, CART_XGAP * 3, y, CART_BUTTON_WIDTH, CART_BUTTON_HEIGHT,  text, action_selected && action_enabled, action_enabled);
     draw_button_ex(cart_screen, x + w - CART_XGAP*4 - CART_BUTTON_WIDTH, y, CART_BUTTON_WIDTH, CART_BUTTON_HEIGHT,  "ì§†´®‚Ï", delete_selected && delete_enabled, delete_enabled);
 }
 
