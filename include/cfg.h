@@ -105,6 +105,15 @@ struct term_cfg{
 	uint32_t	kkt_base_timeout;	/* опорный таймаут ККТ */
 	uint32_t	kkt_brightness;	/* яркость печати */
 	bool		kkt_apc;	/* автоматическая печать чеков ККТ */
+/* Настройки печати документов на ККТ */
+	bool		kkt_print_cheque;	/* печать чеков */
+	bool		kkt_print_shift_open;	/* печать отчёта об открытии смены */
+	bool		kkt_print_shift_close;	/* печать отчёта о закрытии смены */
+	bool		kkt_print_reg;		/* печать отчёта о регистрации */
+	bool		kkt_print_rereg;	/* печать отчёта о перерегистрации */
+	bool		kkt_print_fs_close;	/* печать отчёта о закрытии ФН */
+	bool		kkt_print_calc_state;	/* печать отчёта о текущем состоянии расчётов */
+	bool		kkt_print_correction_cheque;	/* печать чека коррекции */
 /* Настройки экрана */
 	uint32_t	blank_time;	/* время гашения экрана (мин) (0 -- нет гашения) */
 	int		color_scheme;	/* цветовая схема */

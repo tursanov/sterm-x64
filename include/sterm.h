@@ -79,6 +79,7 @@ enum {
 	cmd_ppp_optn,
 	cmd_bank_optn,
 	cmd_kkt_optn,
+	cmd_kkt_docs_optn,
 	cmd_scr_optn,
 	cmd_kbd_optn,
 	cmd_store_optn,

@@ -339,6 +339,15 @@ static bool set_term_defaults(void)
 	cfg.kkt_brightness = 0;
 	cfg.kkt_apc = false;
 
+	cfg.kkt_print_cheque = true;
+	cfg.kkt_print_shift_open = true;
+	cfg.kkt_print_shift_close = true;
+	cfg.kkt_print_reg = true;
+	cfg.kkt_print_rereg = true;
+	cfg.kkt_print_fs_close = true;
+	cfg.kkt_print_calc_state = true;
+	cfg.kkt_print_correction_cheque = true;
+
 	cfg.blank_time = 0;
 	cfg.color_scheme = 0;
 	translate_color_scheme(cfg.color_scheme,

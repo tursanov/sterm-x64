@@ -436,6 +436,15 @@ static struct {
 	CFG_ENTRY_UINT32	("kkt-base-timeout",	kkt_base_timeout),
 	CFG_ENTRY_UINT32	("kkt-brightness",	kkt_brightness),
 	CFG_ENTRY_BOOL		("kkt-apc",		kkt_apc),
+/* Настройки печати документов на ККТ */
+	CFG_ENTRY_BOOL		("kkt-print-cheque",		kkt_print_cheque),
+	CFG_ENTRY_BOOL		("kkt-print-shift-open",	kkt_print_shift_open),
+	CFG_ENTRY_BOOL		("kkt-print-shift-close",	kkt_print_shift_close),
+	CFG_ENTRY_BOOL		("kkt-print-reg",		kkt_print_reg),
+	CFG_ENTRY_BOOL		("kkt-print-rereg",		kkt_print_rereg),
+	CFG_ENTRY_BOOL		("kkt-print-fs-close",		kkt_print_fs_close),
+	CFG_ENTRY_BOOL		("kkt-print-calc-state",	kkt_print_calc_state),
+	CFG_ENTRY_BOOL		("kkt-print-correction-cheque",	kkt_print_correction_cheque),
 /* Настройки экрана */
 	CFG_ENTRY_UINT32	("blank-time",		blank_time),
 	CFG_ENTRY_INT		("color-scheme",	color_scheme),
