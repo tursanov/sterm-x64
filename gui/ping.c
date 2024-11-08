@@ -1,6 +1,7 @@
 /*
  * Проверка линии TCP/IP посылкой icmp-пакетов (ping).
  * 11.05.2019 добавлена проверка ОФД путём установки соединения TCP.
+ * 08.11.2024 процессинговые серверы проверяются так же, как и ОФД.
  * (c) gsr, Alex P. Popov 2002, 2004, 2005, 2019.
  */
 
@@ -25,6 +26,7 @@
 #include "sterm.h"
 #include "gui/exgdi.h"
 #include "gui/ping.h"
+#include "pos/tcp.h"
 
 enum {
 	HOST_GW = 0,
@@ -35,6 +37,11 @@ enum {
 	HOST_FDO,
 	NR_HOSTS,
 };
+
+static inline bool need_tcp_check(int n)
+{
+	return (n == HOST_BANK1) || (n == HOST_BANK2) || (n == HOST_FDO);
+}
 
 static struct ping_rec {
 	struct in_addr ip;
@@ -51,34 +58,34 @@ static struct ping_rec {
 } hosts[NR_HOSTS];
 
 static int icmp_sock = -1;
-static int fdo_sock  = -1;
+static int tcp_sock[NR_HOSTS] = {[0 ... ASIZE(tcp_sock) - 1] = -1};
 
 enum {
-	fdo_st_start,
-	fdo_st_conn,
-	fdo_st_ok,
-	fdo_st_na,
+	tcp_st_start,
+	tcp_st_conn,
+	tcp_st_ok,
+	tcp_st_na,
 };
 
-static const char *fdo_st_str(int fdo_st)
+static const char *tcp_st_str(int tcp_st)
 {
 	static char buf[8];
 	const char *ret = buf;
-	switch (fdo_st){
-		case fdo_st_start:
+	switch (tcp_st){
+		case tcp_st_start:
 			ret = "";
 			break;
-		case fdo_st_conn:
+		case tcp_st_conn:
 			ret = "соединение";
 			break;
-		case fdo_st_ok:
+		case tcp_st_ok:
 			ret = "доступен  ";
 			break;
-		case fdo_st_na:
+		case tcp_st_na:
 			ret = "недоступен";
 			break;
 		default:
-			snprintf(buf, sizeof(buf), "%d", fdo_st);
+			snprintf(buf, sizeof(buf), "%d", tcp_st);
 	}
 	return ret;
 }
@@ -87,9 +94,16 @@ static void make_host_name(int n, uint32_t ip)
 {
 	if ((n >= 0) && (n < NR_HOSTS)){
 		hosts[n].ip.s_addr = ip;
-		if (n == HOST_FDO){
-			hosts[n].port = (ip == INADDR_NONE) ? 0 : cfg.fdo_port;
-			hosts[n].state = (ip == INADDR_NONE) ? fdo_st_na : fdo_st_start;
+		if (need_tcp_check(n)){
+			int port = 0;
+			if (ip != INADDR_NONE){
+				if (n == HOST_FDO)
+					port = cfg.fdo_port;
+				else if ((n == HOST_BANK1) || (n == HOST_BANK2))
+					port = TCP_POS_PORT_BASE;
+			}
+			hosts[n].port = port;
+			hosts[n].state = (ip == INADDR_NONE) ? tcp_st_na : tcp_st_start;
 		}else{
 			hosts[n].id = (ip == INADDR_NONE) ? 0 : rand() & 0xffff;
 			hosts[n].nr_replies = 0;
@@ -143,7 +157,7 @@ static int in_cksum(uint16_t *buf, int sz)
 	}
 
 	if (nleft == 1) {
-		*(uint16_t *) (&ans) = *(uint8_t *) w;
+		*(uint16_t *) (&ans) = *(uint8_t *)w;
 		sum += ans;
 	}
 
@@ -205,53 +219,55 @@ static int parse_reply(char *buf, int sz, struct sockaddr_in *from)
 	return ret;
 }
 
-static bool fdo_sock_open(void)
+static int tcp_sock_open(void)
 {
-	fdo_sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (fdo_sock != -1){
-		if (fcntl(fdo_sock, F_SETFL, O_NONBLOCK) == -1){
-			close(fdo_sock);
-			fdo_sock = -1;
+	int sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sock != -1){
+		if (fcntl(sock, F_SETFL, O_NONBLOCK) == -1){
+			close(sock);
+			sock = -1;
 		}
 	}
-	return fdo_sock != -1;
+	return sock;
 }
 
-static void fdo_sock_close(void)
+static void tcp_sock_close(int n)
 {
-	if (fdo_sock != -1){
-		shutdown(fdo_sock, SHUT_RDWR);
-		close(fdo_sock);
-		fdo_sock = -1;
+	if (tcp_sock[n] != -1){
+		shutdown(tcp_sock[n], SHUT_RDWR);
+		close(tcp_sock[n]);
+		tcp_sock[n] = -1;
 	}
 }
 
-static bool fdo_begin_connect(struct ping_rec *rec, uint32_t t)
+static bool tcp_begin_connect(int n, uint32_t t)
 {
 	bool ret = false;
+	struct ping_rec *rec = hosts + n;
 	struct sockaddr_in addr = {
 		.sin_family	= AF_INET,
 		.sin_port	= htons(rec->port),
 		.sin_addr	= rec->ip
 	};
-	if ((connect(fdo_sock, (struct sockaddr *)&addr, sizeof(addr)) != 0) &&
+	if ((connect(tcp_sock[n], (struct sockaddr *)&addr, sizeof(addr)) != 0) &&
 			(errno != EINPROGRESS)){
-		fdo_sock_close();
-		rec->state = fdo_st_na;
+		tcp_sock_close(n);
+		rec->state = tcp_st_na;
 	}else{
 		rec->t0 = t;
-		rec->state = fdo_st_conn;
+		rec->state = tcp_st_conn;
 		ret = true;
 	}
 	return ret;
 }
 
-#define FDO_CONNECT_TIMEOUT		300	/* мс */
-static bool fdo_connect(struct ping_rec *rec, uint32_t t)
+#define TCP_CONNECT_TIMEOUT		300	/* 3 сек */
+static bool tcp_connect(int n, uint32_t t)
 {
 	bool ret = true;
+	struct ping_rec *rec = hosts + n;
 	struct pollfd fds = {
-		.fd		= fdo_sock,
+		.fd		= tcp_sock[n],
 		.events		= POLLOUT,
 		.revents	= 0
 	};
@@ -259,12 +275,12 @@ static bool fdo_connect(struct ping_rec *rec, uint32_t t)
 	if ((rc == -1) || (fds.revents & (POLLERR | POLLHUP | POLLNVAL)))
 		ret = false;
 	else if (fds.revents & POLLOUT)
-		rec->state = fdo_st_ok;
-	else if ((t - rec->t0) > FDO_CONNECT_TIMEOUT)
+		rec->state = tcp_st_ok;
+	else if ((t - rec->t0) > TCP_CONNECT_TIMEOUT)
 		ret = false;
 	if (!ret){
-		fdo_sock_close();
-		rec->state = fdo_st_na;
+		tcp_sock_close(n);
+		rec->state = tcp_st_na;
 	}
 	return ret;
 }
@@ -467,35 +483,42 @@ static char *get_ping_line(int n)
 	}
 #define DESC_WIDTH	30
 #define IP_WIDTH	25
-	if (n == HOST_FDO){
+	if (need_tcp_check(n)){
 		char addr[30];
-		snprintf(addr, sizeof(addr), "%s:%hu", inet_ntoa(ip), cfg.fdo_port);
+		int port = 0;
+		if (n == HOST_FDO)
+			port = cfg.fdo_port;
+		else if ((n == HOST_BANK1) || (n == HOST_BANK2))
+			port = TCP_POS_PORT_BASE;
+		snprintf(addr, sizeof(addr), "%s:%hu", inet_ntoa(ip), port);
 		snprintf(line, sizeof(line), "%-*s%-*s%s", DESC_WIDTH, desc, IP_WIDTH, addr,
-			fdo_st_str(hosts[n].state));
+			tcp_st_str(hosts[n].state));
 	}else
 		snprintf(line, sizeof(line), "%-*s%-*s%d из %hu", DESC_WIDTH, desc,
 			IP_WIDTH, inet_ntoa(ip), hosts[n].nr_replies, hosts[n].seq);
 	return line;
 }
 
-static bool fdo_process(uint32_t t)
+static bool tcp_process(int n, uint32_t t)
 {
-	struct ping_rec *rec = hosts + HOST_FDO;
+	struct ping_rec *rec = hosts + n;
 	if (rec->ip.s_addr == INADDR_NONE)
 		return false;
 	bool rc = false;
-	int prev_fdo_st = rec->state;
+	int prev_tcp_st = rec->state;
 	switch (rec->state){
-		case fdo_st_start:
-			rc = fdo_sock_open() && fdo_begin_connect(rec, t);
+		case tcp_st_start:
+			tcp_sock[n] = tcp_sock_open();
+			if (tcp_sock[n] != -1)
+				rc = tcp_begin_connect(n, t);
 			break;
-		case fdo_st_conn:
-			rc = fdo_connect(rec, t);
+		case tcp_st_conn:
+			rc = tcp_connect(n, t);
 			break;
 	}
-	if (!rc && (fdo_sock != -1))
-		fdo_sock_close();
-	return prev_fdo_st != rec->state;
+	if (!rc && (tcp_sock[n] != -1))
+		tcp_sock_close(n);
+	return prev_tcp_st != rec->state;
 }
 
 bool process_ping(struct kbd_event *e)
@@ -521,8 +544,8 @@ bool process_ping(struct kbd_event *e)
 				(hosts[i].nr_replies == NR_PINGS))
 			continue;
 		bool rc = false;
-		if (i == HOST_FDO)
-			rc = fdo_process(t);
+		if (need_tcp_check(i))
+			rc = tcp_process(i, t);
 		else if ((hosts[i].seq < NR_PINGS) &&
 				(t - hosts[i].t0) > ICMP_PING_INTERVAL)
 			rc = send_ping(hosts + i, t);
