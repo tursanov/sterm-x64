@@ -116,6 +116,7 @@ typedef struct K {
 	bool check_state;	// состояние проверки
 	uint8_t v; 			// вид деятельности (1 - основной, 2 - прочие)
 	time_t dt;			// дата и время добавления документа
+	char *bank_dt;      // дата и время начала операции в ИПТ
 } K;
 
 // проверка банковского абзаца на соответствие операции и возврата
@@ -139,6 +140,11 @@ extern int64_t K_get_sum(K *k);
 extern void K_calc_sum(K *k, S *s);
 // добавить сумму, учитывая p
 void K_add_sum(uint8_t p, K *k, S *s);
+
+// общая сумма для k
+int64_t K_calc_total_sum(K *k);
+// общая сумма для k по определённому p
+int64_t K_calc_total_sum_by_P(K *k, int p);
 
 
 // установить код подкорзины

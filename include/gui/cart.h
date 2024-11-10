@@ -53,6 +53,9 @@ typedef struct ui_subcart_t
 #define sc_action_enabled(sc) (((sc)->enabled_flags & CART_ACTION_ENABLED) != 0)
 #define sc_delete_enabled(sc) (((sc)->enabled_flags & CART_DELETE_ENABLED) != 0)
 
+#define sc_action_selected(sc) ((sc)->tab_selected_flags == CART_TAB_SELECTED_ACTION)
+#define sc_delete_selected(sc) ((sc)->tab_selected_flags == CART_TAB_SELECTED_DELETE)
+
 typedef struct ui_doc_t
 {
 	D *val;
@@ -76,6 +79,8 @@ void ui_subcart_init(ui_subcart_t *sc, SubCart *val, bool tab_selected);
 void ui_subcart_free(ui_subcart_t *sc);
 void ui_subcart_calc_bounds(ui_subcart_t *sc);
 void ui_subcart_draw(ui_subcart_t *sc, int y);
+bool ui_subcart_items_disabled(ui_subcart_t *sc);
+size_t ui_subcart_get_all_k(ui_subcart_t *sc, list_t *list);
 
 
 void ui_doc_init(ui_doc_t *d, D *val, bool selected);

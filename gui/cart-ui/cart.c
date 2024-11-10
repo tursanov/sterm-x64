@@ -112,7 +112,8 @@ int ui_sel_subcart_index = -1;
 
 void process_docs();
 void print_cheque(SubCart *sc, list_t *klist);
-void ui_select_next_subcart();
+void ui_select_next_subcart(bool select_first);
+void ui_select_prev_subcart(bool select_last);
 void get_doc_selection(list_t* sel);
 void ui_cart_select_documents();
 
@@ -272,7 +273,6 @@ int ui_cart_get_y(ui_subcart_t *sc)
 	return 0;
 }
 
-
 static void ui_cart_tab_select_next()
 {
     ui_subcart_t *sc = ui_sel_subcart;
@@ -281,27 +281,177 @@ static void ui_cart_tab_select_next()
     {
         return;
     }
-
-    if (sc->tab_selected_doc >= 0)
+    
+    if (sc_action_selected(sc))
+    {
+        if (sc_delete_enabled(sc))
+        {
+            sc->tab_selected_flags = CART_TAB_SELECTED_DELETE;
+        }
+        else
+        {
+            ui_select_next_subcart(true);
+            return;
+        }
+    }
+    else if (sc_delete_selected(sc))
+    {
+        ui_select_next_subcart(true);
+        return;
+    }
+    else if (sc->tab_selected_doc >= 0)
     {
         sc->tab_selected_doc++;
         if (sc->tab_selected_doc >= sc->doc_count)
         {
-            ui_select_next_subcart();
+            if (sc_action_enabled(sc))
+            {
+                sc->tab_selected_flags = CART_TAB_SELECTED_ACTION;
+            }
+            else if (sc_delete_enabled(sc))
+            {
+                sc->tab_selected_flags = CART_TAB_SELECTED_DELETE;
+            }
+            else
+            {
+                ui_select_next_subcart(true);
+                return;
+            }
         }
-    }
-    else if (sc->tab_selected_flags == CART_TAB_SELECTED_ACTION)
-    {
-        sc->tab_selected_flags = CART_TAB_SELECTED_DELETE;
-    }
-    else if (sc->tab_selected_flags == CART_TAB_SELECTED_DELETE)
-    {
-        sc->tab_selected_doc = 0;
-        sc->tab_selected_flags = CART_TAB_SELECTED_NONE;
     }
 
     ui_subcart_draw(sc, ui_cart_get_y(sc));
 }
+
+static void ui_cart_tab_select_prev()
+{
+    ui_subcart_t *sc = ui_sel_subcart;
+    
+    if (sc == NULL)
+    {
+        return;
+    }
+    
+    if (sc_action_selected(sc))
+    {
+        sc->tab_selected_doc = sc->doc_count - 1;
+        sc->tab_selected_flags = 0;
+    }
+    else if (sc_delete_selected(sc))
+    {
+        if (sc_action_enabled(sc))
+        {
+            sc->tab_selected_flags = CART_TAB_SELECTED_ACTION;
+        }
+        else
+        {
+            sc->tab_selected_doc = sc->doc_count - 1;
+            sc->tab_selected_flags = 0;
+        }
+    }
+    else
+    {
+        sc->tab_selected_doc--;
+        if (sc->tab_selected_doc < 0)
+        {
+            ui_select_prev_subcart(true);
+            return;
+        }
+    }
+    
+    ui_subcart_draw(sc, ui_cart_get_y(sc));
+}
+
+void ui_select_next_subcart(bool select_first)
+{
+    if (ui_cart->subcart_count == 0)
+    {
+        return;
+    }
+    
+    ui_subcart_t *sc = ui_sel_subcart;
+
+    ui_sel_subcart_index += 1;
+    if (ui_sel_subcart_index >= ui_cart->subcart_count)
+        ui_sel_subcart_index = 0;
+        
+    sc->tab_selected_doc = -1;
+    sc->tab_selected_flags = 0;
+
+    ui_sel_subcart = &ui_cart->subcarts[ui_sel_subcart_index];
+    
+    if (sc_action_enabled(ui_sel_subcart) && !select_first)
+    {
+        ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_ACTION;
+    }
+    else if (sc_delete_enabled(ui_sel_subcart) && !select_first)
+    {
+        ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_DELETE;
+    }
+    else
+    {
+        ui_sel_subcart->tab_selected_doc = 0;
+    }
+    
+    ui_cart_redraw_all();
+    
+    printf("ui_sel_subcart_index = %d\n", ui_sel_subcart_index);
+}
+
+void ui_select_prev_subcart(bool select_last)
+{
+    if (ui_cart->subcart_count == 0)
+    {
+        return;
+    }
+    
+    ui_subcart_t *sc = ui_sel_subcart;
+
+    ui_sel_subcart_index -= 1;
+    if (ui_sel_subcart_index < 0)
+        ui_sel_subcart_index = ui_cart->subcart_count - 1;
+        
+    sc->tab_selected_doc = -1;
+    sc->tab_selected_flags = 0;
+
+    ui_sel_subcart = &ui_cart->subcarts[ui_sel_subcart_index];
+    
+    if (select_last)
+    {
+        if (sc_delete_enabled(ui_sel_subcart))
+        {
+            ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_DELETE;
+        }
+        else if (sc_action_enabled(ui_sel_subcart))
+        {
+            ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_ACTION;
+        }
+        else
+        {
+            ui_sel_subcart->tab_selected_doc = ui_sel_subcart->doc_count - 1;
+        }
+    }
+    else
+    {
+        if (sc_action_enabled(ui_sel_subcart))
+        {
+            ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_ACTION;
+        }
+        else if (sc_delete_enabled(ui_sel_subcart))
+        {
+            ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_DELETE;
+        }
+        else
+        {
+            ui_sel_subcart->tab_selected_doc = 0;
+        }
+    }
+    
+    ui_cart_redraw_all();
+    
+    printf("ui_sel_subcart_index = %d\n", ui_sel_subcart_index);
+}
+
 
 void ui_cart_process_enter()
 {
@@ -344,42 +494,6 @@ void ui_cart_process_space()
     }    
 }
 
-void ui_select_next_subcart()
-{
-    if (ui_cart->subcart_count == 0)
-    {
-        return;
-    }
-    
-    ui_subcart_t *sc = ui_sel_subcart;
-
-    ui_sel_subcart_index += 1;
-    if (ui_sel_subcart_index >= ui_cart->subcart_count)
-        ui_sel_subcart_index = 0;
-        
-    sc->tab_selected_doc = -1;
-    sc->tab_selected_flags = 0;
-
-    ui_sel_subcart = &ui_cart->subcarts[ui_sel_subcart_index];
-    
-    if (sc_action_enabled(ui_sel_subcart))
-    {
-        ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_ACTION;
-    }
-    else if (sc_delete_enabled(ui_sel_subcart))
-    {
-        ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_DELETE;
-    }
-    else
-    {
-        ui_sel_subcart->tab_selected_doc = 0;
-    }
-
-    
-    ui_cart_redraw_all();
-    
-    printf("ui_sel_subcart_index = %d\n", ui_sel_subcart_index);
-}
 
 
 bool cart_process(const struct kbd_event *_e) {
@@ -403,6 +517,10 @@ bool cart_process(const struct kbd_event *_e) {
             case KEY_DOWN:
                 ui_cart_tab_select_next();
                 break;
+            case KEY_LEFT:
+            case KEY_UP:
+                ui_cart_tab_select_prev();
+                break;
             case KEY_SPACE:
                 ui_cart_process_space();
                 break;
@@ -410,7 +528,10 @@ bool cart_process(const struct kbd_event *_e) {
                 ui_cart_process_enter();
                 break;
             case KEY_PGDN:
-                ui_select_next_subcart();
+                ui_select_next_subcart(false);
+                break;
+            case KEY_PGUP:
+                ui_select_prev_subcart(false);
                 break;
         }
 	}
@@ -520,7 +641,76 @@ void get_doc_selection(list_t* sel)
     }
 }
 
-void get_all_k_from_doc(list_t klist[2])
+int get_unprocessed_non_cash_annulment_invoice()
+{
+    int ret = 0;
+    LIST_INIT(cancel_non_cash_items, NULL);
+    LIST_INIT(non_cash_items, NULL);
+    
+    for (int i = 0; i < ui_cart->subcart_count; i++)
+    {
+        ui_subcart_t *sc = &ui_cart->subcarts[i];
+     
+        if (sc->val->type == CANCEL_NON_CASH_ITEMS)
+        {
+            ui_subcart_get_all_k(sc, &cancel_non_cash_items);
+        }
+
+        if (sc->val->type == NON_CASH_ITEMS)
+        {
+            ui_subcart_get_all_k(sc, &non_cash_items);
+        }
+        
+        if (ui_subcart_items_disabled(sc))
+        {
+            goto LOut;
+        }        
+    }
+    
+    for (list_item_t *li = cancel_non_cash_items.head; li; li = li->next)
+    {
+        K *cancel_non_cash_k = LIST_ITEM(li, K);
+        for (list_item_t *li1 = non_cash_items.head; li1; li1 = li1->next)
+        {
+            K *non_cash_k = LIST_ITEM(li1, K);
+            
+            if (doc_no_compare(&cancel_non_cash_k->d, &non_cash_k->d) == 0 &&
+                K_calc_total_sum(cancel_non_cash_k) == K_calc_total_sum(non_cash_k))
+            {
+                ret = cancel_non_cash_k->c;
+                goto LOut;
+            }
+        }
+    }
+LOut:    
+    
+    list_clear(&cancel_non_cash_items);
+    list_clear(&non_cash_items);
+    
+    return ret;
+}
+
+typedef struct
+{
+    ui_subcart_t *sc;
+    list_t dlist;
+    list_t klist;
+    list_t klist_by_p[2];
+    uint8_t p;
+    S sum;    
+    bool has_unprocessed_bank_op;
+    bool has_y;
+} selected_docs_t;
+
+void free_selected_docs(selected_docs_t *sd)
+{
+    list_clear(&sd->dlist);
+    list_clear(&sd->klist);
+    list_clear(&sd->klist_by_p[0]);
+    list_clear(&sd->klist_by_p[1]);
+}
+
+void get_selected_docs(selected_docs_t* sd)
 {
     ui_subcart_t *sc = ui_sel_subcart;
     if (sc == NULL)
@@ -528,9 +718,9 @@ void get_all_k_from_doc(list_t klist[2])
         return;
     }
     
+    sd->sc = sc;
     ui_doc_t *d = sc->docs;
     uint8_t kp = 255;
-
     
     for (size_t i = 0; i < sc->doc_count; i++, d++)
     {
@@ -538,16 +728,19 @@ void get_all_k_from_doc(list_t klist[2])
         {
             D* doc = d->val;
             
+            list_add(&sd->dlist, doc);
+            
             for (list_item_t* li = doc->related.head; li; li = li->next)
             {
                 K *k = LIST_ITEM(li, K);
-                uint8_t p = LIST_ITEM(k->llist.head, L)->p;
+                uint8_t p = K_lp(k);
                 int index;
                 
                 if (kp == 255)
                 {
                     kp = p;
                     index = 0;
+                    sd->p = p;
                 }
                 else if (kp == p)
                 {
@@ -558,28 +751,174 @@ void get_all_k_from_doc(list_t klist[2])
                     index = 1;
                 }
                 
-                list_add(&klist[index], k);
+                list_add(&sd->klist_by_p[index], k);
+                list_add(&sd->klist, k);
+                K_add_sum(kp, k, &sd->sum);
+
+                if (k->bank_state != BANK_STATE_SUCCESS)
+                {
+                    sd->has_unprocessed_bank_op = true;
+                }
+                
+                if (k->y != NULL)
+                {
+                    sd->has_y = true;
+                }
             }
         }
     }
 }
 
+typedef struct 
+{
+    int64_t amount;
+    char *ords;
+} bank_items_t;
+
+bank_items_t * get_bank_items(list_t *sel)
+{
+    bank_items_t *r = calloc(1, sizeof(bank_items_t));
+    size_t ords_capacity = 128;
+    char *ords = malloc(ords_capacity + 1);
+    size_t ords_len = 0;
+    char *ordsp = ords;
+    
+    ordsp[0] = 0;
+
+    for (list_item_t *li = sel->head; li; li = li->next)
+    {
+        D *d = LIST_ITEM(li, D);
+
+        int64_t sum = 0;
+        for (list_item_t *li1 = d->related.head; li1; li1 = li1->next)
+        {
+            K *k = LIST_ITEM(li1, K);
+            int64_t s = K_calc_total_sum(k);
+            if (K_lp(d->k) != K_lp(k))
+                s = -s;
+                
+            sum += s;
+        }
+
+        r->amount += sum;
+        
+        if (d->k->y)
+        {
+            int len = sprintf(NULL, "%14s/%ld", d->k->d.s, sum);
+            
+            if (ords_len + len > ords_capacity)
+            {
+                ords_capacity += 128;
+                ords = realloc(ords, ords_capacity + 1);
+                ordsp = ords + ords_len;
+            }
+        
+            sprintf(ordsp, "%14s/%ld;", d->k->d.s, sum);
+            
+            ords_len += len;
+        }
+    }
+   
+    r->ords = ords; 
+    if (ords_len > 0)
+    {
+        r->ords[ords_len - 1] = 0;
+    }
+    
+    return r;
+}
+
+void free_bank_items(bank_items_t *items)
+{
+    if (items->ords)
+        free(items->ords);
+    free(items);
+}
+
+void process_other_items(selected_docs_t *sd)
+{
+}
+
+void process_non_cash_items(selected_docs_t *sd)
+{
+    if (get_unprocessed_non_cash_annulment_invoice())
+    {
+        message_box("Žè¨¡ª ",
+            "… ‚‘… ŽŒ…€ „ŽŠ“Œ…’Ž‚ ‹ˆ Žƒ€˜…. Žƒ€‘ˆ’… „ŽŠ“Œ…’ ˆ Ž‚’Žˆ’… Ž…€–ˆž",
+            dlg_yes, 0, al_center);
+        return;
+    }
+    
+    uint8_t code = 0xa3;
+    
+    if (sd->sc->val->type == CANCEL_NON_CASH_ITEMS
+        || sd->sc->val->type == CANCEL_REFUND_NON_CASH_ITEMS)
+    {
+        code = 0xa5;
+    }
+    else if (sd->sc->val->type == REFUND_NON_CASH_ITEMS)
+    {
+        code = 0xa4;
+    }
+
+    char dt[16];
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+    
+    strftime(dt, sizeof(dt), "%Y%m%d%H%M%S", &tm);
+    
+    for (list_item_t *li = sd->dlist.head; li; li = li->next)
+    {
+        D *d = LIST_ITEM(li, D);
+        d->k->bank_state = code;
+        
+    
+        if (d->k->bank_dt)
+            free(d->k->bank_dt);    
+        d->k->bank_dt = strdup(dt);
+    }
+    
+    AD_save();
+}
+
 void process_docs()
 {
-    list_t klist[2] =
+    selected_docs_t sd;
+    get_selected_docs(&sd);
+    
+    char type = ui_sel_subcart->val->type;
+
+    if (type == OTHER_ITEMS)
     {
-        { NULL, NULL, 0, NULL },
-        { NULL, NULL, 0, NULL },
-    };
-    get_all_k_from_doc(klist);
+        process_other_items(&sd);
+    }
+    else if ((type == NON_CASH_ITEMS
+            || type == CANCEL_REFUND_NON_CASH_ITEMS
+            || type == REFUND_NON_CASH_ITEMS
+            || type == CANCEL_NON_CASH_ITEMS
+            || type == FAST_PAYMENT_ITEMS)
+            && sd.has_unprocessed_bank_op
+            && sd.has_y
+            && sd.sum.e > 0)
+    {
+        process_non_cash_items(&sd);
+    }
+
+    free_selected_docs(&sd);
+}
+
+void process_print_docs()
+{
+    selected_docs_t sd;
+    get_selected_docs(&sd);
     
     for (int i = 0; i < 2; i++)
     {
-        if (klist->count == 0)
+        list_t *list = &sd.klist_by_p[i];
+        if (list->count == 0)
         {
             continue;
         }
-        list_t *list = &klist[i];
         
         ui_subcart_t *sc = ui_sel_subcart;
         print_cheque(sc->val, list);

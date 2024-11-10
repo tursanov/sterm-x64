@@ -198,7 +198,7 @@ typedef struct {
     S sum;
 } doc_params_t;
 
-void doc_get_params(doc_params_t *p, ui_subcart_t *sc, ui_doc_t *d)
+void doc_get_params(doc_params_t *p, __attribute__((unused)) ui_subcart_t *sc, ui_doc_t *d)
 {
     p->has_items = true;
     
@@ -345,3 +345,49 @@ void ui_subcart_draw(ui_subcart_t *sc, int y)
     draw_button_ex(cart_screen, x + w - CART_XGAP*4 - CART_BUTTON_WIDTH, y, CART_BUTTON_WIDTH, CART_BUTTON_HEIGHT,  "Удалить", delete_selected && delete_enabled, delete_enabled);
 }
 
+
+bool ui_subcart_items_disabled(ui_subcart_t *sc)
+{
+    for (int i = 0; i < sc->doc_count; i++)
+    {
+        ui_doc_t *d = &sc->docs[i];
+        
+        if (d->val->k->bank_state != BANK_STATE_NONE
+            || d->val->k->print_state != PRINT_STATE_NONE
+            || d->val->k->check_state)
+        {
+            return true;
+        }
+        
+        for (list_item_t *li = d->val->related.head; li; li = li->next)
+        {
+            K *k = LIST_ITEM(li, K);
+            
+            if (k->print_state == PRINT_STATE_PRINTING)
+            {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+size_t ui_subcart_get_all_k(ui_subcart_t *sc, list_t *list)
+{
+    size_t count = 0;
+    for (int i = 0; i < sc->doc_count; i++)
+    {
+        ui_doc_t *d = &sc->docs[i];
+        
+        for (list_item_t *li = d->val->related.head; li; li = li->next)
+        {
+            K *k = LIST_ITEM(li, K);
+
+            list_add(list, k);
+            count++;
+        }
+    }
+    
+    return count;
+}

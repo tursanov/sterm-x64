@@ -320,8 +320,16 @@ void K_destroy(K *k) {
 	doc_no_free(&k->i21);
 	doc_no_free(&k->u);
 	doc_no_free(&k->b);
+
 	if (k->y)
+	{
 		free(k->y);
+    }
+
+    if (k->bank_dt)
+    {
+        free(k->bank_dt);
+    }
 
 	free(k);
 }
@@ -374,6 +382,7 @@ K *K_clone(K *k, bool clone_l)
 	k1->c = k->c;
 	k1->v = k->v;
 	k1->dt = k->dt;
+	k1->bank_dt = COPYSTR(k->bank_dt);
 
 	if (clone_l)
 	{
@@ -481,7 +490,7 @@ void K_add_sum(uint8_t p, K *k, S *s)
     }
 }
 
-static int64_t K_calc_total_sum(K *k) {
+int64_t K_calc_total_sum(K *k) {
 	int64_t sum = 0;
 	for (list_item_t *li3 = k->llist.head; li3 != NULL; li3 = li3->next) {
 		L *l = LIST_ITEM(li3, L);
@@ -490,7 +499,7 @@ static int64_t K_calc_total_sum(K *k) {
 	return sum;
 }
 
-static int64_t K_calc_total_sum_by_P(K *k, int p) {
+int64_t K_calc_total_sum_by_P(K *k, int p) {
 	int64_t sum = 0;
 	for (list_item_t *li3 = k->llist.head; li3 != NULL; li3 = li3->next) {
 		L *l = LIST_ITEM(li3, L);
@@ -547,7 +556,8 @@ int K_save(int fd, K *k) {
 		SAVE_INT(fd, k->print_state) < 0 ||
 		SAVE_INT(fd, k->check_state) < 0 ||
 		SAVE_INT(fd, k->v) < 0 ||
-		SAVE_INT(fd, k->dt) < 0)
+		SAVE_INT(fd, k->dt) < 0 ||
+		save_string(fd, k->bank_dt) < 0)
         return -1;
 
     return 0;
@@ -657,7 +667,8 @@ K *K_load_v2(int fd) {
 		LOAD_INT(fd, k->print_state) < 0 ||
 		LOAD_INT(fd, k->check_state) < 0 ||
 		LOAD_INT(fd, k->v) < 0 ||
-		LOAD_INT(fd, k->dt) < 0)
+		LOAD_INT(fd, k->dt) < 0 ||
+		load_string(fd, &k->bank_dt) < 0)
 	{
 		K_destroy(k);
 		return NULL;
