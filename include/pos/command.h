@@ -64,6 +64,10 @@ extern pos_response_param_list_t resp_param_list;
 #define POS_PARAM_ID_POS_STR	"ID_POS"	/* идентификатор ИПТ */
 #define POS_PARAM_NMTYPE_STR	"NEXT_MTYPE"	/* следующий пункт меню */
 #define POS_PARAM_PARAMS_STR	"PARAMS"	/* параметры */
+#define POS_PARAM_TYPE_STR	"TYPE"		/* используется в СБП */
+#define POS_PARAM_SUBTYPE_STR	"SUBTYPE"	/* используется в СБП */
+#define POS_PARAM_FAMIO_STR	"FAMIO"		/* используется в СБП */
+#define POS_PARAM_RFNDINFO_STR	"RFNDINFO"	/* используется при возврате */
 
 /* Типы параметров */
 enum {
@@ -86,6 +90,10 @@ enum {
 	POS_PARAM_ID_POS,
 	POS_PARAM_NMTYPE,
 	POS_PARAM_PARAMS,
+	POS_PARAM_TYPE,
+	POS_PARAM_SUBTYPE,
+	POS_PARAM_FAMIO,
+	POS_PARAM_RFNDINFO,
 };
 
 /* Поддержка ЕБТ в ИПТ */

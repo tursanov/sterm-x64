@@ -174,7 +174,22 @@ extern void pos_process(void);
 extern bool pos_send_empty(void);
 extern bool pos_send_params_resp(void);
 extern bool pos_send_params_req(void);
-extern struct pos_response *pos_query(uint8_t menu_item, bool can_edit, const char *ords);
+
+struct pos_query_params {
+	uint64_t amount;
+	uint32_t order_id;
+	bool can_edit;
+	time_t time;
+	uint32_t invoice;
+	const char *ords;
+	const char *type;
+	const char *subtype;
+	const char *famio;
+	const char *rfnd_info;
+	uint8_t mtype;
+};
+
+extern struct pos_response *pos_query(const struct pos_query_params *params);
 extern void on_response_pos(void);
 
 #if defined __cplusplus

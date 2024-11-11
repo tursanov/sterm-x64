@@ -15,6 +15,60 @@
 /* Поддержка ЕБТ в ИПТ */
 bool ubt_supported = false;
 
+/* Параметры запроса ИПТ */
+static struct pos_query_params pos_query_params;
+
+static void clr_pos_query_params(void)
+{
+	pos_query_params.amount = 0;
+	pos_query_params.order_id = 0;
+	pos_query_params.can_edit = false;
+	pos_query_params.time = 0;
+	pos_query_params.invoice = 0;
+	if (pos_query_params.ords != NULL){
+		free((void *)pos_query_params.ords);
+		pos_query_params.ords = NULL;
+	}
+	if (pos_query_params.type != NULL){
+		free((void *)pos_query_params.type);
+		pos_query_params.type = NULL;
+	}
+	if (pos_query_params.subtype != NULL){
+		free((void *)pos_query_params.subtype);
+		pos_query_params.subtype = NULL;
+	}
+	if (pos_query_params.famio != NULL){
+		free((void *)pos_query_params.famio);
+		pos_query_params.famio = NULL;
+	}
+	if (pos_query_params.rfnd_info != NULL){
+		free((void *)pos_query_params.rfnd_info);
+		pos_query_params.rfnd_info = NULL;
+	}
+	pos_query_params.mtype = MTYPE_UNKNOWN;
+}
+
+static void set_pos_query_params(const struct pos_query_params *params)
+{
+	clr_pos_query_params();
+	pos_query_params.amount = params->amount;
+	pos_query_params.order_id = params->order_id;
+	pos_query_params.can_edit = params->can_edit;
+	pos_query_params.time = params->time;
+	pos_query_params.invoice = params->invoice;
+	if (params->ords != NULL)
+		pos_query_params.ords = strdup(params->ords);
+	if (params->type != NULL)
+		pos_query_params.type = strdup(params->type);
+	if (params->subtype != NULL)
+		pos_query_params.subtype = strdup(params->subtype);
+	if (params->famio != NULL)
+		pos_query_params.famio = strdup(params->famio);
+	if (params->rfnd_info != NULL)
+		pos_query_params.rfnd_info = strdup(params->rfnd_info);
+	pos_query_params.mtype = params->mtype;
+}
+
 /* Выбранный пункт меню */
 static uint8_t pos_menu_item = MTYPE_UNKNOWN;
 
@@ -91,6 +145,10 @@ static int get_param_type(char *name)
 		{POS_PARAM_ID_POS_STR,		POS_PARAM_ID_POS},
 		{POS_PARAM_NMTYPE_STR,		POS_PARAM_NMTYPE},
 		{POS_PARAM_PARAMS_STR,		POS_PARAM_PARAMS},
+		{POS_PARAM_TYPE_STR,		POS_PARAM_TYPE},
+		{POS_PARAM_SUBTYPE_STR,		POS_PARAM_SUBTYPE},
+		{POS_PARAM_FAMIO_STR,		POS_PARAM_FAMIO},
+		{POS_PARAM_RFNDINFO_STR,	POS_PARAM_RFNDINFO},
 	};
 	if (name == NULL)
 		return POS_PARAM_UNKNOWN;
@@ -591,15 +649,11 @@ bool pos_prepare_request_params(void)
 	return true;
 }
 
-struct pos_response *pos_query(uint8_t menu_item, bool can_edit, const char *ords)
+struct pos_response *pos_query(const struct pos_query_params *params)
 {
-	if (ords == NULL)
+	if (params == NULL)
 		return NULL;
-	pos_menu_item = menu_item;
-	pos_can_edit = can_edit;
-	if (pos_ords != NULL)
-		free((void *)pos_ords);
-	pos_ords = strdup(ords);
+	set_pos_query_params(params);
 	show_pos();
 	if (pos_state == pos_new)
 		return NULL;
