@@ -806,7 +806,8 @@ bank_items_t * get_bank_items(list_t *sel)
         
         if (d->k->y)
         {
-            int len = sprintf(NULL, "%14s/%ld", d->k->d.s, sum);
+            char buf[32];
+            int len = sprintf(buf, "%14s/%ld;", d->k->d.s, sum);
             
             if (ords_len + len > ords_capacity)
             {
@@ -883,6 +884,8 @@ void process_non_cash_items(selected_docs_t *sd)
     AD_save();
     
     bank_items_t *bi = get_bank_items(&sd->dlist);
+    
+    printf("ords: %s\n", bi->ords);
 
     struct pos_response* resp = pos_query(code, false, bi->ords);
     free_bank_items(bi);
@@ -943,6 +946,7 @@ void process_non_cash_items(selected_docs_t *sd)
 void process_docs()
 {
     selected_docs_t sd;
+    memset(&sd, 0, sizeof(sd));
     get_selected_docs(&sd);
     
     char type = ui_sel_subcart->val->type;
