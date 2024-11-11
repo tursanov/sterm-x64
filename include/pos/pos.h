@@ -155,6 +155,17 @@ struct pos_response{
         struct pos_param params[255];
 };
 
+/* результаты ответов на запрос к ИПТ */
+#define POS_QUERY_SUCCESS 0x00
+#define POS_QUERY_INCOMPLETED 0x01
+#define POS_QUERY_INTERRUPTED 0x02
+#define POS_QUERY_ERROR 0x03
+#define POS_QUERY_INCOMPLETED_NOT_FOUND 0x04
+#define POS_QUERY_INCONSISTENT 0x05
+#define POS_QUERY_INCOMPLETED_NOT_FOUND2 0x06
+#define POS_QUERY_CHECK_SBP 0x07
+#define POS_QUERY_NONE 0xff
+
 extern bool pos_create(void);
 extern void pos_release(void);
 extern int  pos_get_state(void);

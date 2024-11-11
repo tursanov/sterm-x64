@@ -291,6 +291,8 @@ extern AD* _ad;
 extern void AD_destroy(void);
 // сохранение корзины на диск
 extern int AD_save(void);
+// сохранение архива на диск
+extern int AD_archive_save();
 // загрузка корзины с диска
 extern int AD_load(uint8_t t1055, bool clear);
 // установка значения для P1

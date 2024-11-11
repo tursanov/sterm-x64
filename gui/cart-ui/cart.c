@@ -13,6 +13,8 @@
 #include "gui/cart.h"
 #include "gui/forms.h"
 
+#include "pos/pos.h"
+
 #include "kkt/fd/fd.h"
 #include "kkt/fd/tlv.h"
 #include "kkt/kkt.h"
@@ -876,6 +878,63 @@ void process_non_cash_items(selected_docs_t *sd)
         if (d->k->bank_dt)
             free(d->k->bank_dt);    
         d->k->bank_dt = strdup(dt);
+    }
+    
+    AD_save();
+    
+    bank_items_t *bi = get_bank_items(&sd->dlist);
+
+    struct pos_response* resp = pos_query(code, false, bi->ords);
+    free_bank_items(bi);
+    
+    if (resp->res_code == POS_QUERY_SUCCESS
+        || resp->res_code == POS_QUERY_INCOMPLETED
+        || resp->res_code == POS_QUERY_CHECK_SBP)
+    {
+        for (list_item_t *li = sd->dlist.head; li; li = li->next)
+        {
+            D *d = LIST_ITEM(li, D);
+            
+            for (list_item_t *li1 = d->related.head; li1; li1 = li1->next)
+            {
+                K *k = LIST_ITEM(li1, K);
+                
+                if (k->c == 0 && resp->res_code == POS_QUERY_SUCCESS)
+                {
+                    k->c = resp->invoice;
+                    k->check_state = resp->res_code == POS_QUERY_CHECK_SBP;
+                    k->bank_state = resp->res_code == POS_QUERY_CHECK_SBP
+                        ? BANK_STATE_NONE
+                        : BANK_STATE_SUCCESS;
+                        
+                    if (k->y->op != '*')
+                    {
+                        list_add(&_ad->archive_items, k);
+                    }
+                }
+            }
+        }
+        
+        AD_archive_save();
+    }        
+    else
+    {
+        for (list_item_t *li = sd->dlist.head; li; li = li->next)
+        {
+            D *d = LIST_ITEM(li, D);
+            
+            d->k->bank_state = BANK_STATE_NONE;
+            
+            if (resp->res_code == POS_QUERY_ERROR)
+            {
+                for (list_item_t *li1 = d->related.head; li1; li1 = li1->next)
+                {
+                    K *k = LIST_ITEM(li1, K);
+                
+                    k->check_state = false;
+                }
+            }
+        }
     }
     
     AD_save();
