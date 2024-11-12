@@ -69,15 +69,6 @@ static void set_pos_query_params(const struct pos_query_params *params)
 	pos_query_params.mtype = params->mtype;
 }
 
-/* Выбранный пункт меню */
-static uint8_t pos_menu_item = MTYPE_UNKNOWN;
-
-/* Флаг возможности редактирования суммы и номера квитанции в окне банковского приложения */
-static bool pos_can_edit = false;
-
-/* Список номеров документов и их стоимостей */
-static const char *pos_ords = NULL;
-
 /* Получена команда FINISHMENU */
 bool fmenu = false;
 
@@ -318,6 +309,7 @@ static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_o
 	if (check_only)
 		pos_response_param_list_free(&resp_param_list);
 	else if (fmenu){
+		fmenu = false;
 		make_pos_resp(&pos_resp);
 		pos_send_empty();
 	}
@@ -460,33 +452,6 @@ static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int
 	if (buf == NULL)
 		return false;
 	switch (param){
-		case POS_PARAM_AMOUNT:
-		{
-			uint64_t amount = 0;
-			for (size_t i = 0; i < bd.nr_docs; i++)
-				amount += bd.doc_info[i].amount;
-			sprintf(val, "%lu", amount);
-			l = strlen(val);
-			break;
-		}
-		case POS_PARAM_INVOICE:
-			snprintf(val, sizeof(val), "%.7u", 12345);	/* FIXME */
-			l = strlen(val);
-			break;
-		case POS_PARAM_TIME:
-		{
-			time_t t = time(NULL) + time_delta;
-			struct tm *tm = localtime(&t);
-			sprintf(val, "%.4d%.2d%.2d%.2d%.2d%.2d",
-				tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-				tm->tm_hour, tm->tm_min, tm->tm_sec);
-			l = strlen(val);
-			break;
-		}
-		case POS_PARAM_ID:
-			sprintf(val, "%.*u", BNK_REQ_ID_LEN, bd.req_id);
-			l = strlen(val);
-			break;
 		case POS_PARAM_TERMID:
 			normalize_termid();
 			memcpy(val, bd.term_id, BNK_TERM_ID_LEN);
@@ -505,8 +470,49 @@ static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int
 			val[1] = 0;
 			l = 1;
 			break;
+		case POS_PARAM_AMOUNT:
+			sprintf(val, "%lu", pos_query_params.amount);
+			l = strlen(val);
+			break;
+		case POS_PARAM_ID:
+			sprintf(val, "%.*u", BNK_REQ_ID_LEN, pos_query_params.order_id);
+			l = strlen(val);
+			break;
+		case POS_PARAM_EDIT:
+			val[0] = pos_query_params.can_edit ? 1 : 0;
+			l = 1;
+			break;
+		case POS_PARAM_TIME:
+		{
+			struct tm *tm = localtime(&pos_query_params.time);
+			sprintf(val, "%.4d%.2d%.2d%.2d%.2d%.2d",
+				tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+				tm->tm_hour, tm->tm_min, tm->tm_sec);
+			l = strlen(val);
+			break;
+		}
+		case POS_PARAM_INVOICE:
+			snprintf(val, sizeof(val), "%.7u", pos_query_params.invoice);
+			l = strlen(val);
+			break;
 		case POS_PARAM_ORDS:
-			snprintf(val, sizeof(val), "%s", pos_ords);
+			snprintf(val, sizeof(val), "%s", pos_query_params.ords);
+			l = strlen(val);
+			break;
+		case POS_PARAM_TYPE:
+			snprintf(val, sizeof(val), "%s", pos_query_params.type);
+			l = strlen(val);
+			break;
+		case POS_PARAM_SUBTYPE:
+			snprintf(val, sizeof(val), "%s", pos_query_params.subtype);
+			l = strlen(val);
+			break;
+		case POS_PARAM_FAMIO:
+			snprintf(val, sizeof(val), "%s", pos_query_params.famio);
+			l = strlen(val);
+			break;
+		case POS_PARAM_RFNDINFO:
+			snprintf(val, sizeof(val), "%s", pos_query_params.rfnd_info);
 			l = strlen(val);
 			break;
 		case POS_PARAM_UBT:
@@ -514,16 +520,13 @@ static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int
 			l = 1;
 			break;
 		case POS_PARAM_MTYPE:
-			val[0] = pos_menu_item;
-			l = 1;
-			break;
-		case POS_PARAM_EDIT:
-			val[0] = pos_can_edit;
+			val[0] = pos_query_prams.mtype;
 			l = 1;
 			break;
 		case POS_PARAM_FMENU:
 			val[0] = 1;
 			l = 1;
+			fmenu = true;
 			break;
 		default:
 			if (required){
