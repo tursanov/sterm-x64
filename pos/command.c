@@ -12,6 +12,9 @@
 #include "sterm.h"
 #include "kkt/fd/ad.h"
 
+/* Имеются незавершённые операции ИПТ */
+bool pos_incomplete_op = false;
+
 /* Поддержка ЕБТ в ИПТ */
 bool ubt_supported = false;
 
@@ -319,8 +322,10 @@ static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_o
 static bool pos_parse_init_required(struct pos_data_buf *buf __attribute__((unused)),
 	bool check_only)
 {
-	if (!check_only && (_term_aux_state == ast_none))
+	if (!check_only && (_term_aux_state == ast_none)){
+		pos_incomplete_op = true;
 		set_term_astate(ast_pos_need_init);
+	}
 	return true;
 }
 

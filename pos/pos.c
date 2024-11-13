@@ -554,6 +554,7 @@ static void on_pos_new(uint32_t t __attribute__((unused)))
 {
 	pos_close(true);
 	pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_NOT_INIT, 0);
+	pos_incomplete_op = false;
 	if (pos_open() && pos_send_init_check())
 		pos_set_state(pos_init_check);
 }
