@@ -12,6 +12,7 @@
 #include "gui/dialog.h"
 #include "gui/cart.h"
 #include "gui/forms.h"
+#include "gui/fa.h"
 
 #include "pos/pos.h"
 
@@ -22,55 +23,6 @@
 
 bool has_unprocessed_operations = false;
 
-static char cashier_name[64+1] = {0};
-static char cashier_post[64+1] = {0};
-static char cashier_inn[12+1] = {0};
-static char cashier_cashier[64+1] = {0};
-
-static void make_cashier() {
-	size_t cashier_name_size = strlen(cashier_name);
-	size_t cashier_post_size = strlen(cashier_post);
-	size_t cashier_cashier_size = cashier_name_size;
-
-	memcpy(cashier_cashier, cashier_name, cashier_name_size);
-	if (cashier_post_size > 0 && cashier_name_size < 63) {
-		size_t l = 64 - cashier_name_size - 1;
-		l = MIN(l, cashier_post_size);
-
-		cashier_cashier[cashier_name_size] = ' ';
-		memcpy(cashier_cashier + cashier_name_size + 1, cashier_post, l);
-		cashier_cashier_size += l + 1;
-	}
-	cashier_cashier[cashier_cashier_size] = 0;
-}
-
-static uint8_t rereg_data[2048];
-static size_t rereg_data_len = sizeof(rereg_data);
-static uint8_t reg_tax_systems = 0;
-static int64_t user_inn = 0;
-
-
-static int fa_get_reregistration_data() {
-	int ret;
-	rereg_data_len = sizeof(rereg_data);
-	if ((ret = kkt_get_last_reg_data(rereg_data, &rereg_data_len)) == 0 && rereg_data_len > 0) {
-		for (const ffd_tlv_t *tlv = (ffd_tlv_t *)rereg_data,
-				*end = (ffd_tlv_t *)(rereg_data + rereg_data_len);
-				tlv < end;
-				tlv = FFD_TLV_NEXT(tlv)) {
-			switch (tlv->tag) {
-				case 1018:
-					user_inn = atoll(FFD_TLV_DATA_AS_STRING(tlv));
-					break;
-				case 1062:
-					reg_tax_systems = FFD_TLV_DATA_AS_UINT8(tlv);
-					break;
-			}
-		}
-	}
-
-	return ret;
-}
 
 static void update_cheque(void *arg __attribute__((unused))) {
 	kbd_flush_queue();
@@ -122,9 +74,6 @@ void ui_cart_select_documents();
 
 void ui_cart_create()
 {
-    make_cashier();
-	fa_get_reregistration_data();
-
 	if (ui_cart != NULL)
 	{
 		ui_cart_destroy();
@@ -165,6 +114,8 @@ void ui_cart_select_documents()
 {
 	LIST_INIT(sel, NULL);
 	get_doc_selection(&sel);
+	
+	printf("sel.count = %lu, sel.head: %p\n", sel.count, sel.head);
 
     for (int i = 0; i < ui_cart->subcart_count; i++)
     {
@@ -177,6 +128,9 @@ void ui_cart_select_documents()
             for (list_item_t *li = sel.head; li != NULL; li = li->next)
             {
                 D *x = LIST_ITEM(li, D);
+                
+                printf("x = %p, d->val = %p\n", x, d->val);
+                
                 if (d->val == x)
                 {
                     d->selected = true;
@@ -579,12 +533,13 @@ void get_doc_selection(list_t* sel)
             
             if (in_print_state(d->val))
             {
-                list_add(sel, d);
+                list_add(sel, d->val);
             }
         }
         
         if (sel->count > 0)
         {
+            printf("get_doc_selection: in_print_state\n");
             return;
         }
         
@@ -594,12 +549,14 @@ void get_doc_selection(list_t* sel)
             
             if (in_bank_process_state(d->val) || in_check_state(d->val))
             {
-                list_add(sel, d);
+                printf("get_doc_selection: in_bank_state or in_check_state\n");
+                list_add(sel, d->val);
             }
         }
         
         if (sel->count > 0)
         {
+            printf("get_doc_selection: sel->count > 0\n");
             return;
         }
         
@@ -609,16 +566,22 @@ void get_doc_selection(list_t* sel)
             
             if (d->val->k->u.s != NULL)
             {
+                printf("get_doc_selection: has_u\n");
                 continue;
             }
             
-            if (d->val->group != NULL)
+            printf("get_doc_selection: group != NULL: %d\n", d->val->group != NULL);
+            if (d->val->group != NULL && d->val->group->count > 0)
             {
                 if (sel->count + d->val->group->count > MAX_DOCS)
                 {
+                    printf("get_doc_selection: sel->count: %lu, d->val->group->count: %lu\n",
+                        sel->count, d->val->group->count);
                     break;
                 }
                 
+                printf("get_doc_selection: d->val->group->head: %p\n",
+                                        d->val->group->head);
                 for (list_item_t *li = d->val->group->head; li != NULL; li = li->next)
                 {
                     D *x = LIST_ITEM(li, D);
@@ -637,6 +600,7 @@ void get_doc_selection(list_t* sel)
             
             if (d->val->k->c != 0 || sc->val->type == 'F')
             {
+                printf("d->val->k->c != 0 || sc->val->type == 'F': true");
                 break;
             }
 		}
@@ -771,10 +735,19 @@ void get_selected_docs(selected_docs_t* sd)
     }
 }
 
+void process_print_docs(selected_docs_t* sd);
+
+
 typedef struct 
 {
+    int order_id;
+    int64_t primary_sum;
+    int64_t secondary_sum;
     int64_t amount;
     char *ords;
+    bool is_fast_payment;
+    bool in_check_state;
+    char rfnd_info[64];
 } bank_items_t;
 
 bank_items_t * get_bank_items(list_t *sel)
@@ -790,7 +763,17 @@ bank_items_t * get_bank_items(list_t *sel)
     for (list_item_t *li = sel->head; li; li = li->next)
     {
         D *d = LIST_ITEM(li, D);
-
+        
+        if (r->order_id == 0 && d->name && strcmp(d->name, "‚‘") != 0)
+        {
+            r->order_id = d->k->y->req_id;
+        }
+        
+        if (d->k->y->op == '*')
+        {
+            r->is_fast_payment = true;
+        }
+        
         int64_t sum = 0;
         for (list_item_t *li1 = d->related.head; li1; li1 = li1->next)
         {
@@ -800,9 +783,29 @@ bank_items_t * get_bank_items(list_t *sel)
                 s = -s;
                 
             sum += s;
+            
+            if (k->check_state)
+            {
+                r->in_check_state = true;
+            }
         }
 
         r->amount += sum;
+        
+        printf("d->name = %s\n", d->name);
+        
+        if (d->name && strcmp(d->name, "‚Ž‡‚€’") == 0)
+        {
+            printf("d->k->v = %d\n", d->k->v);
+            if (d->k->v == 1)
+            {
+                r->primary_sum += sum;
+            }
+            else if (d->k->v == 2)
+            {
+                r->secondary_sum += sum;
+            }
+        }
         
         if (d->k->y)
         {
@@ -828,6 +831,20 @@ bank_items_t * get_bank_items(list_t *sel)
         r->ords[ords_len - 1] = 0;
     }
     
+    if (sel->count > 0)
+    {
+        D *d = LIST_ITEM(sel->head, D);
+        
+        int len = strlen(d->k->y->term_id);
+        if (len >= 4)
+        {
+            uint8_t railway_code = d->k->y->term_id[3];
+            
+            sprintf(r->rfnd_info, "PAKOSN/%2x/%ld;PAKPVD/%2x/%ld\x1dINN:%ld",
+                railway_code, r->primary_sum, railway_code, r->secondary_sum, user_inn);
+        }
+    }
+    
     return r;
 }
 
@@ -838,9 +855,18 @@ void free_bank_items(bank_items_t *items)
     free(items);
 }
 
-void process_other_items(selected_docs_t *sd)
+void process_other_items(__attribute__((unused)) selected_docs_t *sd)
 {
 }
+
+struct pos_response pr = {
+   .res_code = POS_QUERY_SUCCESS,
+   .resp_code = "",
+   .id_pos = "",
+   .invoice = 0,
+   .next_mtype = 0,
+   .nr_params = 0,
+};
 
 void process_non_cash_items(selected_docs_t *sd)
 {
@@ -886,9 +912,39 @@ void process_non_cash_items(selected_docs_t *sd)
     bank_items_t *bi = get_bank_items(&sd->dlist);
     
     printf("ords: %s\n", bi->ords);
+    printf("rfnd_info: %s\n", bi->rfnd_info);
+    
+    struct pos_query_params params =
+    {
+        .amount = bi->amount,
+        .order_id = bi->order_id,
+        .can_edit = false,
+        .time = t,
+        .ords = bi->ords,
+        .type = bi->is_fast_payment ? "SBP" : NULL,
+        .subtype = bi->is_fast_payment
+            ? bi->in_check_state
+                ? "CHECK"
+                : "PAY"
+            : NULL,
+        .famio = cashier_get_name(),
+        .rfnd_info = bi->rfnd_info,
+        .mtype = code
+    };
 
-    struct pos_response* resp = pos_query(code, false, bi->ords);
+    struct pos_response* resp = pos_query(&params);
+    
+//    struct pos_response *resp = &pr;
+//    pr.invoice++;
+  
     free_bank_items(bi);
+    
+    if (resp == NULL)
+    {
+        message_box("Žè¨¡ª ", "ˆ’ ­¥ ¯®¤ª«îç¥­ ¨«¨ ­¥ ®â¢¥ç ¥â", dlg_yes, 0, al_center);
+        ui_cart_redraw_all();
+        return;
+    }
     
     if (resp->res_code == POS_QUERY_SUCCESS
         || resp->res_code == POS_QUERY_INCOMPLETED
@@ -915,6 +971,8 @@ void process_non_cash_items(selected_docs_t *sd)
                         list_add(&_ad->archive_items, k);
                     }
                 }
+                
+                printf("k: %p, k->c = %d, k->bank_state = %d\n", k, k->c, k->bank_state);
             }
         }
         
@@ -941,6 +999,8 @@ void process_non_cash_items(selected_docs_t *sd)
     }
     
     AD_save();
+    
+    ui_cart_redraw_all();
 }
 
 void process_docs()
@@ -966,18 +1026,20 @@ void process_docs()
     {
         process_non_cash_items(&sd);
     }
+    else
+    {
+        process_print_docs(&sd);
+        ui_cart_redraw_all();
+    }
 
     free_selected_docs(&sd);
 }
 
-void process_print_docs()
+void process_print_docs(selected_docs_t* sd)
 {
-    selected_docs_t sd;
-    get_selected_docs(&sd);
-    
     for (int i = 0; i < 2; i++)
     {
-        list_t *list = &sd.klist_by_p[i];
+        list_t *list = &sd->klist_by_p[i];
         if (list->count == 0)
         {
             continue;
@@ -985,12 +1047,18 @@ void process_print_docs()
         
         ui_subcart_t *sc = ui_sel_subcart;
         print_cheque(sc->val, list);
+        
+        AD_remove_K_list(list);
+        
+        cart_build();
+        ui_cart_create();
+        ui_cart_redraw_all();
     }
 }
 
 typedef void (*update_screen_func_t)(void *arg);
 
-static bool fa_create_doc(uint16_t doc_type, const uint8_t *pattern_footer,
+static bool fa_create_doc1(uint16_t doc_type, const uint8_t *pattern_footer,
 		size_t pattern_footer_size, 
 		update_screen_func_t update_func, void *update_func_arg) 
 {
@@ -1058,7 +1126,9 @@ void print_cheque(SubCart *sc, list_t *klist)
 
 	ffd_tlv_reset();
 
-	ffd_tlv_add_string(1021, cashier_cashier);
+	ffd_tlv_add_string(1021, cashier_get_cashier());
+	
+	const char *cashier_inn = cashier_get_inn();
 	if (cashier_inn[0])
 		ffd_tlv_add_fixed_string(1203, cashier_inn, 12);
 	ffd_tlv_add_uint8(1054, c->t1054);
@@ -1137,7 +1207,7 @@ void print_cheque(SubCart *sc, list_t *klist)
 		uint8_t* pattern_footer = NULL;
 		size_t pattern_footer_size = 0;
 
-		if (fa_create_doc(CHEQUE, pattern_footer, pattern_footer_size, update_cheque, NULL)) {
+		if (fa_create_doc1(CHEQUE, pattern_footer, pattern_footer_size, update_cheque, NULL)) {
 		}
 	}
 }

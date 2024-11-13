@@ -249,6 +249,7 @@ void doc_get_params(doc_params_t *p, __attribute__((unused)) ui_subcart_t *sc, u
         if (k->bank_state != BANK_STATE_SUCCESS)
         {
             p->non_finished_bank_state = true;
+            printf("k: %p, k->bank_state = %d\n", k, k->bank_state);
         }
         
         K_add_sum(p->p, k, &p->sum);
@@ -276,6 +277,20 @@ const char *get_action_text(ui_subcart_t *sc, bool *is_enabled)
         && p.same_check_state
         && first_sc;
         
+    printf("sc->val->type: '%c'\n", sc->val->type);
+    printf("p.has_items: %d, has_unprocessed_operations: %d, "
+			"p.has_unformed: %d, p.same_processing_state: %d, "
+			"p.same_check_state: %d, p.non_finished_bank_state: %d, p.in_check_state: %d, "
+			"first_sc: %d\n",
+        p.has_items,
+        has_unprocessed_operations,
+        p.has_unformed,
+        p.same_processing_state,
+        p.same_check_state,
+		p.non_finished_bank_state,
+		p.in_check_state,
+        first_sc); 
+       
     if ((sc->val->type == NON_CASH_ITEMS
         || sc->val->type == CANCEL_NON_CASH_ITEMS
         || sc->val->type == CANCEL_REFUND_NON_CASH_ITEMS

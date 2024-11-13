@@ -1327,6 +1327,14 @@ void AD_remove_K(K *k) {
 	}
 }
 
+void AD_remove_K_list(list_t* list)
+{
+    for (list_item_t *li = list->head; li; li = li->next)
+    {
+    	K *k = LIST_ITEM(li, K);
+        AD_remove_K(k);
+    }
+}
 
 //List<K> ZsList = ArchiveItems.FindAll(x => x.C == kX.C && x != kX);
 

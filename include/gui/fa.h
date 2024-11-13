@@ -15,6 +15,8 @@ extern void	release_fa(void);
 extern bool	draw_fa(void);
 extern bool	process_fa(const struct kbd_event *e);
 
+int64_t user_inn;
+
 extern bool cashier_load();
 extern bool cashier_save();
 extern bool cashier_destroy();

@@ -520,7 +520,7 @@ static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int
 			l = 1;
 			break;
 		case POS_PARAM_MTYPE:
-			val[0] = pos_query_prams.mtype;
+			val[0] = pos_query_params.mtype;
 			l = 1;
 			break;
 		case POS_PARAM_FMENU:

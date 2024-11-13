@@ -47,7 +47,7 @@ const char *ui_doc_get_op(ui_subcart_t *sc, ui_doc_t *d, S *s)
 	    {
 	        return "…—€’œ —…Š€";
 	    }
-	    else if (doc->related.count == 0)
+	    else if (doc->related.count == 1)
 	    {
 	        return t == 'D' ? "Š€’€ ‹€’€" : "‘ ‹€’€";
 	    }
@@ -65,7 +65,7 @@ const char *ui_doc_get_op(ui_subcart_t *sc, ui_doc_t *d, S *s)
 	{
 	    if (k->m == 2)
 	    {
-    	    if (doc->related.count > 0 && k->n.s && !k->a_flag)
+    	    if (doc->related.count > 1 && k->n.s && !k->a_flag)
     	    {
     	        return "‚‹€’€ € Š€’“ ‹€’…‹œ™ˆŠ€";
     	    }

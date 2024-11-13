@@ -305,6 +305,8 @@ extern int AD_delete_doc(int64_t doc);
 extern void AD_calc_sum();
 // удаление чека из корзины
 extern void AD_remove_C(C* c);
+extern void AD_remove_K(K *k);
+extern void AD_remove_K_list(list_t* list);
 
 typedef struct AD_state {
 	// актуальное количество чеков для печати
