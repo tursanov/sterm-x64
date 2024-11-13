@@ -25,6 +25,7 @@
 #include "numbers.h"
 #include "ppp.h"
 #include "sterm.h"
+#include "termlog.h"
 #include "transport.h"
 #include "xchange.h"
 #include "gui/xchange.h"
@@ -124,6 +125,8 @@ static uint16_t expected_len;	/* ожидаемая длина ответа */
 
 static void _log_data(uint8_t *p, uint16_t len, int dir)
 {
+	log_data("xchg", (dir == xlog_in) ? "\"Экспресс\" --> ТМ" : "ТМ --> \"Экспресс\"",
+		p, len);
 	xlog_add_item(p, len, dir);
 	if (xchg_active)
 		on_new_xchg_item();

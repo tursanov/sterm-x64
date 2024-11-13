@@ -43,6 +43,8 @@ extern "C" {
 #define XSLT_FOLDER		_("xslt")
 /* Каталог, в котором хранятся обновления БПУ */
 #define XPRN_FOLDER		_("xprn")
+/* Каталог, в котором хранятся логи терминала */
+#define LOG_FOLDER		_("log")
 
 #if defined __cplusplus
 }

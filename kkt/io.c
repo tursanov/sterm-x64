@@ -98,15 +98,11 @@ void kkt_reset_rx(void)
 ssize_t kkt_io_write(uint32_t *timeout)
 {
 	ssize_t ret = serial_write(kkt_dev, kkt_tx, kkt_tx_len, timeout);
-/*	if (ret > 0)
-		write(STDOUT_FILENO, kkt_tx, ret);*/
 	return ret;
 }
 
 ssize_t kkt_io_read(size_t len, uint32_t *timeout)
 {
 	ssize_t ret = serial_read(kkt_dev, kkt_rx + kkt_rx_len, len, timeout);
-/*	if (ret > 0)
-		write(STDOUT_FILENO, kkt_rx + kkt_rx_len, ret);*/
 	return ret;
 }

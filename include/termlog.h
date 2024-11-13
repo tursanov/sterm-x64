@@ -37,6 +37,11 @@ extern bool log_internal(int lvl, const char *file, const char *fn, uint32_t lin
 #define LOG_FR_BUSY		"ККТ занята."
 #define LOG_NO_BNK_BIN		"Банковская корзина отсутствует."
 
+/* Запись обмена с внешними устройствами в файл */
+#define MAX_LOG_FILES		30
+
+extern bool log_data(const char *prefix, const char *title, const uint8_t *data, size_t len);
+
 #if defined __cplusplus
 }
 #endif

@@ -13,6 +13,7 @@
 #include "pos/serial.h"
 #include "cfg.h"
 #include "serial.h"
+#include "termlog.h"
 
 static int serial_dev = -1;
 
@@ -264,6 +265,7 @@ bool pos_serial_get_msg(struct pos_data_buf *buf)
 	buf->data_len = l1 + l2;
 	buf->data_index = buf->block_start = 0;
 	pos_dump(buf);
+	log_data("ipt", "ˆ’ --> ’Œ", buf->un.data, buf->un.hdr.length + 8);
 	in_data_head += l1 + l2;
 	in_data_head %= sizeof(in_data);
 	in_data_len -= l1 + l2;
@@ -300,6 +302,7 @@ bool pos_serial_send_msg(struct pos_data_buf *buf)
 			__func__, offs, out_data_head, out_data_len);
 #endif
 	pos_dump(buf);
+	log_data("ipt", "’Œ --> ˆ’", buf->un.data, buf->data_len);
 	pos_t0 = u_times();
 	poll_ok = false;
 	return true;

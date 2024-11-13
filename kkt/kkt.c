@@ -11,6 +11,7 @@
 #include "log/kkt.h"
 #include "x3data/common.h"
 #include "cfg.h"
+#include "termlog.h"
 
 /* Текстовое описание статуса */
 const char *kkt_status_str(uint8_t status)
@@ -373,13 +374,10 @@ static bool do_transaction(uint8_t prefix, uint8_t cmd, void *param)
 	uint32_t timeout = get_timeout(prefix, cmd);
 	struct timeb t0;
 	ftime(&t0);
-	//printf("%s: parser = %p; timeout = %u; kkt_tx_len = %zu\n",
-	//	__func__, parser, timeout, kkt_tx_len);
 	if (kkt_tx_len > 0){
 		ssize_t rc = kkt_io_write(&timeout);
-		//printf("%s: rc = %zd\n", __func__, rc);
-		if (rc != kkt_tx_len)
-			ret = kkt_on_com_error(timeout);
+		if (rc > 0)
+			log_data("kkt", "ТМ --> ККТ", kkt_tx, rc);
 	}
 	if (ret){
 		begin_rx();
@@ -407,6 +405,7 @@ static bool do_transaction(uint8_t prefix, uint8_t cmd, void *param)
 			((cmd == KKT_SRV_BEGIN_DOC) || (cmd == KKT_SRV_SEND_DOC) ||
 			 (cmd == KKT_SRV_END_DOC)))
 		flags = KLOG_REC_APC;
+	log_data("kkt", "ККТ --> ТМ", kkt_rx, kkt_rx_len);
 	klog_write_rec(hklog, &t0, kkt_tx, kkt_tx_len, kkt_status, kkt_rx, kkt_rx_len, flags);
 	return ret;
 }
