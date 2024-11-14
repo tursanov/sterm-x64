@@ -861,7 +861,7 @@ void process_other_items(__attribute__((unused)) selected_docs_t *sd)
             "ВНИМАНИЕ! Вы действительно хотите УДАЛИТЬ выделенные документы БЕЗ проведения операций по ним?",
             dlg_yes_no, 0, al_center) == DLG_BTN_YES)
     {
-        AD_remove_K_list(list);
+        AD_remove_K_list(&sd->klist);
         
         cart_build();
         ui_cart_create();
@@ -1013,10 +1013,11 @@ void process_non_cash_items(selected_docs_t *sd)
     ui_cart_redraw_all();
     
     if ((code == 0xa2 && resp->res_code == POS_QUERY_SUCCESS)
-        || (resp->res_code == POS_QUERY_INCOMPLETE_NOT_FOUND && strcmp(resp->resp_code, "007") == 0)
-        || (code == 0xa1 && resp->res_code == POS_QUERY_SUCCESS)
+        || (resp->res_code == POS_QUERY_INCOMPLETED_NOT_FOUND
+            && strcmp(resp->resp_code, "007") == 0)
+        || (code == 0xa1 && resp->res_code == POS_QUERY_SUCCESS))
     {
-        list_clear(&_ad.archive_items);
+        list_clear(&_ad->archive_items);
         AD_archive_save();
     }
 }
