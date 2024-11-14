@@ -265,7 +265,7 @@ bool pos_serial_get_msg(struct pos_data_buf *buf)
 	buf->data_len = l1 + l2;
 	buf->data_index = buf->block_start = 0;
 	pos_dump(buf);
-	log_data("ipt", "ˆ’ --> ’Œ", buf->un.data, buf->un.hdr.length + 8);
+	log_data("ipt", "ˆ’ --> ’Œ", buf->un.data, buf->data_len);
 	in_data_head += l1 + l2;
 	in_data_head %= sizeof(in_data);
 	in_data_len -= l1 + l2;
