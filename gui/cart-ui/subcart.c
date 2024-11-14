@@ -7,9 +7,7 @@
 #include "gui/cart.h"
 #include "gui/forms.h"
 #include "gui/controls/button.h"
-
-extern bool has_unprocessed_operations;
-
+#include "pos/command.h"
 
 static const char* sc_tab_title[MAX_SUB_CART][CART_MAX_TAB_COL] =
 {
@@ -271,19 +269,19 @@ const char *get_action_text(ui_subcart_t *sc, bool *is_enabled)
     bool first_sc = &ui_cart->subcarts[0] == sc;
     
     *is_enabled = p.has_items
-        && !has_unprocessed_operations
+        && !pos_incomplete_op
         && !p.has_unformed
         && p.same_processing_state
         && p.same_check_state
         && first_sc;
         
     printf("sc->val->type: '%c'\n", sc->val->type);
-    printf("p.has_items: %d, has_unprocessed_operations: %d, "
+    printf("p.has_items: %d, pos_incomplete_op: %d, "
 			"p.has_unformed: %d, p.same_processing_state: %d, "
 			"p.same_check_state: %d, p.non_finished_bank_state: %d, p.in_check_state: %d, "
 			"first_sc: %d\n",
         p.has_items,
-        has_unprocessed_operations,
+        pos_incomplete_op,
         p.has_unformed,
         p.same_processing_state,
         p.same_check_state,

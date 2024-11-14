@@ -21,9 +21,6 @@
 #include "kkt/kkt.h"
 #include "kkt/fdo.h"
 
-bool has_unprocessed_operations = false;
-
-
 static void update_cheque(void *arg __attribute__((unused))) {
 	kbd_flush_queue();
 	//cheque_draw();
@@ -857,6 +854,19 @@ void free_bank_items(bank_items_t *items)
 
 void process_other_items(__attribute__((unused)) selected_docs_t *sd)
 {
+    if (message_box("Предупреждение",
+            "ВНИМАНИЕ! Вы хотите УДАЛИТЬ выделенные документы БЕЗ проведения операций по ним?",
+            dlg_yes_no, 0, al_center) == DLG_BTN_YES
+        && message_box("Предупреждение",
+            "ВНИМАНИЕ! Вы действительно хотите УДАЛИТЬ выделенные документы БЕЗ проведения операций по ним?",
+            dlg_yes_no, 0, al_center) == DLG_BTN_YES)
+    {
+        AD_remove_K_list(list);
+        
+        cart_build();
+        ui_cart_create();
+        ui_cart_redraw_all();
+    }
 }
 
 struct pos_response pr = {
@@ -1001,6 +1011,14 @@ void process_non_cash_items(selected_docs_t *sd)
     AD_save();
     
     ui_cart_redraw_all();
+    
+    if ((code == 0xa2 && resp->res_code == POS_QUERY_SUCCESS)
+        || (resp->res_code == POS_QUERY_INCOMPLETE_NOT_FOUND && strcmp(resp->resp_code, "007") == 0)
+        || (code == 0xa1 && resp->res_code == POS_QUERY_SUCCESS)
+    {
+        list_clear(&_ad.archive_items);
+        AD_archive_save();
+    }
 }
 
 void process_docs()

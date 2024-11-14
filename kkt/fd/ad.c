@@ -1306,7 +1306,7 @@ void AD_remove_C(C *c) {
 	AD_save();
 }
 
-void AD_remove_K(K *k) {
+static bool AD_remove_K_without_calc_sum(K *k) {
 	for (list_item_t *li1 = _ad->clist.head; li1;) {
 		C *c = LIST_ITEM(li1, C);
 		li1 = li1->next;
@@ -1320,19 +1320,40 @@ void AD_remove_K(K *k) {
 				{
 					list_remove(&_ad->clist, c);
 				}
-				AD_save();
-				AD_calc_sum();
+				return true;
 			}
 		}
 	}
+	
+	return false;
 }
+
+void AD_remove_K(K *k) {
+
+    if (AD_remove_K_without_calc_sum(k))
+    {
+		AD_calc_sum();
+        AD_save();
+    }
+}
+
 
 void AD_remove_K_list(list_t* list)
 {
+    bool changed;
     for (list_item_t *li = list->head; li; li = li->next)
     {
     	K *k = LIST_ITEM(li, K);
-        AD_remove_K(k);
+        if (AD_remove_K_without_calc_sum(k))
+        {
+            changed = true;
+        }
+    }
+    
+    if (changed)
+    {
+		AD_calc_sum();
+        AD_save();
     }
 }
 
