@@ -131,6 +131,11 @@ enum {
 	cmd_agents_fa,
 	cmd_articles_fa,
 	cmd_archive_fa,
+/* ―¥ΰ ζ¨¨ α ’ */
+	cmd_pos_check_last_operation,
+	cmd_pos_day_open,
+	cmd_pos_day_close,
+	cmd_pos_service_operations,
 };
 
 extern int kt;			/* β¨― ª«ξη  DS1990A */

@@ -76,6 +76,7 @@ GUI_CART_OBJS =		\
 	cart		\
 	subcart		\
 	document		\
+	pos
 
 KKT_OBJS =		\
 	fdo		\

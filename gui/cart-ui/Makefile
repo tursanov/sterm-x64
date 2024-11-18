@@ -6,6 +6,7 @@ GUI_CART_OBJS =		\
 	document \
 	subcart	\
 	cart \
+	pos
 
 OBJS = $(addsuffix .o, $(GUI_CART_OBJS))
 

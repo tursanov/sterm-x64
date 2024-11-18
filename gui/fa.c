@@ -29,6 +29,7 @@
 #include "kkt/fdo.h"
 #include "ds1990a.h"
 #include "kkt/fd/tlv.h"
+#include "gui/cart.h"
 
 static int fa_active_group = -1;
 static int fa_active_item = -1;
@@ -202,6 +203,10 @@ static bool fa_create_menu(void)
 		if (fs_debug)
 			add_menu_item(fa_menu, new_menu_item("Сброс ФН", cmd_reset_fs_fa, true));
 	}
+	add_menu_item(fa_menu, new_menu_item("Статус последней операции (ИПТ)", cmd_pos_check_last_operation, true));
+	add_menu_item(fa_menu, new_menu_item("Открыть день (ИПТ)", cmd_pos_day_open, true));
+	add_menu_item(fa_menu, new_menu_item("Закрыть день (ИПТ)", cmd_pos_day_close, true));
+	add_menu_item(fa_menu, new_menu_item("Сервисные операции (ИПТ)", cmd_pos_service_operations, true));
 	add_menu_item(fa_menu, new_menu_item("Выход", cmd_exit, true));
 
 
@@ -1360,6 +1365,18 @@ static bool process_fa_cmd(int cmd) {
 			break;
 		case cmd_archive_fa:
 			fa_archive();
+			break;
+        case cmd_pos_check_last_operation:
+			break;
+			pos_check_last_operation();
+	    case cmd_pos_day_open:
+			pos_day_open();
+			break;
+	    case cmd_pos_day_close:
+			pos_day_close();
+			break;
+	    case cmd_pos_service_operations:
+			pos_service_operations();
 			break;
 		default:
 			ret = false;

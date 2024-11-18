@@ -91,4 +91,10 @@ int ui_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width);
 extern int kbd_lang_ex;
 extern int kbd_get_char_ex(int key);
 
+void pos_check_last_operation();
+void pos_day_open();
+void pos_day_close();
+void pos_service_operations();
+
+
 #endif // UI_CART_H
