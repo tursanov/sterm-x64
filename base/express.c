@@ -2575,9 +2575,9 @@ bool execute_resp(void)
 			set_term_astate(ast_none);
 		if (has_req && resp_handling)
 			send_request();
-		if (TST_FLAG(OBp, GDF_RESP_INIT))
+/*		if (TST_FLAG(OBp, GDF_RESP_INIT))
 			ret = false;
-		else
+		else*/
 			ret = (p != NULL) ? !p->jump_next : false;
 	}
 	return ret;

@@ -2155,6 +2155,7 @@ static bool on_exit_bank_system(const struct optn_group *group)
 	return ret;
 }
 
+#if 0
 /* Получение настроек БПУ */
 static void get_lprn_params(void)
 {
@@ -2180,6 +2181,7 @@ static void get_lprn_params(void)
 		}
 	}
 }
+#endif
 
 /* Обработка окна настроек */
 bool process_options(const struct kbd_event *e)
@@ -2194,7 +2196,8 @@ bool process_options(const struct kbd_event *e)
 					optn_set_group(OPTN_GROUP_SYSTEM);
 					break;
 				case cmd_dev_optn:
-					get_lprn_params();
+//					get_lprn_params();
+					adjust_sprn_params(false);
 					optn_set_group(OPTN_GROUP_DEVICES);
 					break;
 				case cmd_tcpip_optn:
