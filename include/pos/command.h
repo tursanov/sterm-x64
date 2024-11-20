@@ -56,6 +56,12 @@ extern pos_response_param_list_t resp_param_list;
 #define POS_PARAM_CLERKTYPE_STR	"CLERKTYPE"	/* тип жетона кассира */
 #define POS_PARAM_UBT_STR	"EBT"		/* поддержка единой банковской транзакции (ЕБТ) */
 #define POS_PARAM_VERSION_STR	"VERSION"	/* версия ПО ИПТ */
+#define POS_PARAM_TYPES_STR	"TYPES"		/* типы операций, выполняемых ИПТ */
+#define POS_PARAM_MODEL_STR	"MODEL"		/* модель ИПТ */
+#define POS_PARAM_SERIALNO_STR	"SERIALNO"	/* заводской номер ИПТ */
+#define POS_PARAM_OSVERSION_STR	"OSVERSION"	/* версия ОС ИПТ */
+#define POS_PARAM_TMS_ID_STR	"TMS_ID"	/* идентификатор ИПТ в TMS */
+#define POS_PARAM_SERVERS_STR	"SERVERS_NUMBER_LIST"	/* список серверов процессинга для проверки */
 #define POS_PARAM_MTYPE_STR	"MTYPE"		/* пункт меню */
 #define POS_PARAM_EDIT_STR	"EDIT"		/* возможность редактирования суммы и номера квитанции */
 #define POS_PARAM_FMENU_STR	"FINISHMENU"	/* завершение работы банковского приложения */
@@ -63,11 +69,13 @@ extern pos_response_param_list_t resp_param_list;
 #define POS_PARAM_RESP_CODE_STR	"RESPONSE_CODE"	/* код ответа */
 #define POS_PARAM_ID_POS_STR	"ID_POS"	/* идентификатор ИПТ */
 #define POS_PARAM_NMTYPE_STR	"NEXT_MTYPE"	/* следующий пункт меню */
+#define POS_PARAM_NR_PARAMS_STR	"NPARAMS"	/* количество параметров */
 #define POS_PARAM_PARAMS_STR	"PARAMS"	/* параметры */
 #define POS_PARAM_TYPE_STR	"TYPE"		/* используется в СБП */
 #define POS_PARAM_SUBTYPE_STR	"SUBTYPE"	/* используется в СБП */
 #define POS_PARAM_FAMIO_STR	"FAMIO"		/* используется в СБП */
 #define POS_PARAM_RFNDINFO_STR	"RFNDINFO"	/* используется при возврате */
+#define POS_PARAM_FRAGMENTATION_STR	"SUPPORT_FRAGMENTATION"	/* поддержка печати фрагментами на ККТ */
 
 /* Типы параметров */
 enum {
@@ -82,6 +90,12 @@ enum {
 	POS_PARAM_CLERKTYPE,
 	POS_PARAM_UBT,
 	POS_PARAM_VERSION,
+	POS_PARAM_TYPES,
+	POS_PARAM_MODEL,
+	POS_PARAM_SERIALNO,
+	POS_PARAM_OSVERSION,
+	POS_PARAM_TMS_ID,
+	POS_PARAM_SERVERS,
 	POS_PARAM_MTYPE,
 	POS_PARAM_EDIT,
 	POS_PARAM_FMENU,
@@ -89,11 +103,13 @@ enum {
 	POS_PARAM_RESP_CODE,
 	POS_PARAM_ID_POS,
 	POS_PARAM_NMTYPE,
+	POS_PARAM_NR_PARAMS,
 	POS_PARAM_PARAMS,
 	POS_PARAM_TYPE,
 	POS_PARAM_SUBTYPE,
 	POS_PARAM_FAMIO,
 	POS_PARAM_RFNDINFO,
+	POS_PARAM_FRAGMENTATION,
 };
 
 /* Имеются незавершённые операции ИПТ */
@@ -130,6 +146,8 @@ extern bool pos_req_save_command_response_parameters(struct pos_data_buf *buf);
 extern bool pos_req_save_command_init_check(struct pos_data_buf *buf);
 /* Подготовка списка параметров для запроса у ИПТ (FINISHMENU) */
 extern bool pos_prepare_request_params(void);
+/* Подготовка списка параметров для запроса информации об ИПТ */
+extern bool pos_prepare_request_info(void);
 
 #if defined __cplusplus
 }

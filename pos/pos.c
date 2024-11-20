@@ -355,6 +355,7 @@ bool pos_send_empty(void)
 
 static bool pos_send_init_check(void)
 {
+	pos_clr_info();
 	pos_req_begin(&pos_buf);
 	pos_req_save_command_init_check(&pos_buf);
 	pos_req_end(&pos_buf);
@@ -368,6 +369,7 @@ static bool pos_send_init_check(void)
 
 static bool pos_send_init(void)
 {
+	pos_clr_info();
 	pos_req_begin(&pos_buf);
 	pos_req_save_command_init(&pos_buf);
 	pos_req_end(&pos_buf);

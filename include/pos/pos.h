@@ -192,6 +192,22 @@ struct pos_query_params {
 extern struct pos_response *pos_query(const struct pos_query_params *params);
 extern void on_response_pos(void);
 
+/* Информация об ИПТ */
+struct pos_info {
+	const char *version;
+	const char *op_types;
+	const char *model;
+	const char *serial_nr;
+	const char *os_version;
+	const char *tms_id;
+#define POS_DEF_SERVERS	0x00000003
+	uint32_t servers;
+};
+
+extern struct pos_info pos_info;
+
+extern void pos_clr_info(void);
+
 #if defined __cplusplus
 }
 #endif

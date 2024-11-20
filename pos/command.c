@@ -11,6 +11,7 @@
 #include "numbers.h"
 #include "sterm.h"
 #include "kkt/fd/ad.h"
+#include "kkt/kkt.h"
 
 /* Имеются незавершённые операции ИПТ */
 bool pos_incomplete_op = false;
@@ -72,6 +73,38 @@ static void set_pos_query_params(const struct pos_query_params *params)
 	pos_query_params.mtype = params->mtype;
 }
 
+/* Информация об ИПТ */
+struct pos_info pos_info;
+
+void pos_clr_info(void)
+{
+	if (pos_info.version != NULL){
+		free((void *)pos_info.version);
+		pos_info.version = NULL;
+	}
+	if (pos_info.op_types != NULL){
+		free((void *)pos_info.op_types);
+		pos_info.op_types = NULL;
+	}
+	if (pos_info.model != NULL){
+		free((void *)pos_info.model);
+		pos_info.model = NULL;
+	}
+	if (pos_info.serial_nr != NULL){
+		free((void *)pos_info.serial_nr);
+		pos_info.serial_nr = NULL;
+	}
+	if (pos_info.os_version != NULL){
+		free((void *)pos_info.os_version);
+		pos_info.os_version = NULL;
+	}
+	if (pos_info.tms_id != NULL){
+		free((void *)pos_info.tms_id);
+		pos_info.tms_id = NULL;
+	}
+	pos_info.servers = POS_DEF_SERVERS;
+}
+
 /* Получена команда FINISHMENU */
 bool fmenu = false;
 
@@ -131,6 +164,12 @@ static int get_param_type(char *name)
 		{POS_PARAM_CLERKTYPE_STR,	POS_PARAM_CLERKTYPE},
 		{POS_PARAM_UBT_STR,		POS_PARAM_UBT},
 		{POS_PARAM_VERSION_STR,		POS_PARAM_VERSION},
+		{POS_PARAM_TYPES_STR,		POS_PARAM_TYPES},
+		{POS_PARAM_MODEL_STR,		POS_PARAM_MODEL},
+		{POS_PARAM_SERIALNO_STR,	POS_PARAM_SERIALNO},
+		{POS_PARAM_OSVERSION_STR,	POS_PARAM_OSVERSION},
+		{POS_PARAM_TMS_ID_STR,		POS_PARAM_TMS_ID},
+		{POS_PARAM_SERVERS_STR,		POS_PARAM_SERVERS},
 		{POS_PARAM_MTYPE_STR,		POS_PARAM_MTYPE},
 		{POS_PARAM_EDIT_STR,		POS_PARAM_EDIT},
 		{POS_PARAM_FMENU_STR,		POS_PARAM_FMENU},
@@ -138,11 +177,13 @@ static int get_param_type(char *name)
 		{POS_PARAM_RESP_CODE_STR,	POS_PARAM_RESP_CODE},
 		{POS_PARAM_ID_POS_STR,		POS_PARAM_ID_POS},
 		{POS_PARAM_NMTYPE_STR,		POS_PARAM_NMTYPE},
+		{POS_PARAM_NR_PARAMS_STR,	POS_PARAM_NR_PARAMS},
 		{POS_PARAM_PARAMS_STR,		POS_PARAM_PARAMS},
 		{POS_PARAM_TYPE_STR,		POS_PARAM_TYPE},
 		{POS_PARAM_SUBTYPE_STR,		POS_PARAM_SUBTYPE},
 		{POS_PARAM_FAMIO_STR,		POS_PARAM_FAMIO},
 		{POS_PARAM_RFNDINFO_STR,	POS_PARAM_RFNDINFO},
+		{POS_PARAM_FRAGMENTATION_STR,	POS_PARAM_FRAGMENTATION},
 	};
 	if (name == NULL)
 		return POS_PARAM_UNKNOWN;
@@ -533,6 +574,10 @@ static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int
 			l = 1;
 			fmenu = true;
 			break;
+		case POS_PARAM_FRAGMENTATION:
+			val[0] = kkt_has_param("SUPPORT_FRAGMENTATION") ? 1 : 0;
+			l = 1;
+			break;
 		default:
 			if (required){
 				pos_set_error(POS_ERROR_CLASS_KEYBOARD,
@@ -550,7 +595,7 @@ static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int
 	}
 }
 
-/* Запись в поток команд заданного параметра в для запроса ИПТ */
+/* Запись в поток команд заданного параметра для запроса ИПТ */
 static bool pos_write_req_param(struct pos_data_buf *buf, const char *name, bool required)
 {
 	if (buf == NULL)
@@ -621,29 +666,23 @@ bool pos_req_save_command_request_parameters(struct pos_data_buf *buf)
 	}
 }
 
-bool pos_prepare_request_params(void)
+struct param_info {
+	const char *name;
+	int type;
+	bool required;
+};
+
+static bool pos_prepare_request(const struct param_info *params, size_t nr_params)
 {
-	static const struct {
-		const char *name;
-		int type;
-		bool required;
-	} params[] = {
-		{POS_PARAM_RES_CODE_STR,	POS_PARAM_RES_CODE,	true},
-		{POS_PARAM_RESP_CODE_STR,	POS_PARAM_RESP_CODE,	true},
-		{POS_PARAM_ID_POS_STR,		POS_PARAM_ID_POS,	true},
-		{POS_PARAM_INVOICE_STR,		POS_PARAM_INVOICE,	true},
-		{POS_PARAM_NMTYPE_STR,		POS_PARAM_NMTYPE,	true},
-		{POS_PARAM_PARAMS_STR,		POS_PARAM_PARAMS,	true},
-	};
 	pos_request_param_list_free(&req_param_list);
-	req_param_list.count = ASIZE(params);
+	req_param_list.count = nr_params;
 	req_param_list.params = calloc(req_param_list.count, sizeof(pos_request_param_t));
 	if (req_param_list.params == NULL){
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
 		return false;
 	}
-	for (int i = 0; i < ASIZE(params); i++){
-		const typeof(*params) *param = params + i;
+	for (int i = 0; i < nr_params; i++){
+		const struct param_info *param = params + i;
 		pos_request_param_t *p = req_param_list.params + i;
 		p->name = strdup(param->name);
 		if (p->name == NULL){
@@ -657,6 +696,22 @@ bool pos_prepare_request_params(void)
 	return true;
 }
 
+/* Подготовка списка параметров для запроса у ИПТ (FINISHMENU) */
+bool pos_prepare_request_params(void)
+{
+	static const struct param_info params[] = {
+		{POS_PARAM_MTYPE_STR,		POS_PARAM_MTYPE,	false},
+		{POS_PARAM_RES_CODE_STR,	POS_PARAM_RES_CODE,	false},
+		{POS_PARAM_RESP_CODE_STR,	POS_PARAM_RESP_CODE,	false},
+		{POS_PARAM_ID_POS_STR,		POS_PARAM_ID_POS,	false},
+		{POS_PARAM_INVOICE_STR,		POS_PARAM_INVOICE,	false},
+		{POS_PARAM_NMTYPE_STR,		POS_PARAM_NMTYPE,	false},
+		{POS_PARAM_NR_PARAMS_STR,	POS_PARAM_NR_PARAMS,	false},
+		{POS_PARAM_PARAMS_STR,		POS_PARAM_PARAMS,	false},
+	};
+	return pos_prepare_request(params, ASIZE(params));
+}
+
 struct pos_response *pos_query(const struct pos_query_params *params)
 {
 	if (params == NULL)
@@ -668,4 +723,19 @@ struct pos_response *pos_query(const struct pos_query_params *params)
 	while (pos_state != pos_new)
 		pos_process();
 	return &pos_resp;
+}
+
+/* Подготовка списка параметров для запроса информации об ИПТ */
+bool pos_prepare_request_info(void)
+{
+	static const struct param_info params[] = {
+		{POS_PARAM_VERSION_STR,		POS_PARAM_VERSION,	true},
+		{POS_PARAM_TYPES_STR,		POS_PARAM_TYPES,	false},
+		{POS_PARAM_MODEL_STR,		POS_PARAM_MODEL,	false},
+		{POS_PARAM_SERIALNO_STR,	POS_PARAM_SERIALNO,	false},
+		{POS_PARAM_OSVERSION_STR,	POS_PARAM_OSVERSION,	false},
+		{POS_PARAM_TMS_ID_STR,		POS_PARAM_TMS_ID,	false},
+		{POS_PARAM_SERVERS_STR,		POS_PARAM_SERVERS,	false},
+	};
+	return pos_prepare_request(params, ASIZE(params));
 }
