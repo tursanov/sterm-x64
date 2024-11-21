@@ -602,9 +602,15 @@ static void on_pos_ready(uint32_t t)
 	else if (pos_serial_peek_msg()){
 		pos_serial_get_msg(&pos_buf);
 		pos_parse_resp(&pos_buf);
-		if (fmenu && (pos_buf.un.hdr.msg.nr_blocks == 0)){
-			pos_prepare_request_params();
-			pos_send_params_req();
+		if (pos_buf.un.hdr.msg.nr_blocks == 0){
+			if (!pos_info_req_sent){
+				pos_prepare_request_info();
+				pos_send_params_req();
+				pos_info_req_sent = true;
+			}else if (fmenu){
+				pos_prepare_request_params();
+				pos_send_params_req();
+			}
 		}
 	}else if (dt > POS_TIMEOUT){
 		if (!poll_ok){

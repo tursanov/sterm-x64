@@ -75,6 +75,18 @@ static void set_pos_query_params(const struct pos_query_params *params)
 
 /* Информация об ИПТ */
 struct pos_info pos_info;
+bool pos_info_req_sent = false;;
+
+static inline bool pos_info_empty(void)
+{
+	return	(pos_info.version == NULL) &&
+		(pos_info.op_types == NULL) &&
+		(pos_info.model == NULL) &&
+		(pos_info.serial_nr == NULL) &&
+		(pos_info.os_version == NULL) &&
+		(pos_info.tms_id == NULL) &&
+		(pos_info.servers == POS_DEF_SERVERS);
+}
 
 void pos_clr_info(void)
 {
@@ -103,6 +115,7 @@ void pos_clr_info(void)
 		pos_info.tms_id = NULL;
 	}
 	pos_info.servers = POS_DEF_SERVERS;
+	pos_info_req_sent = false;
 }
 
 /* Получена команда FINISHMENU */
@@ -307,6 +320,63 @@ static void make_pos_resp(struct pos_response *pos_resp)
 	}
 }
 
+static uint32_t get_srv_list(const char *txt)
+{
+	uint32_t ret = 0;
+	char *delim = NULL;
+	for (const char *s = txt; *s != 0; s = delim + 1){
+		int n = 0;
+		if ((sscanf(s, "%d", &n) == 1) && (n > 0) && (n < 9))
+			ret |= 1 << (n - 1);
+		delim = strchr(s, ',');
+	}
+	if (ret == 0)
+		ret = POS_DEF_SERVERS;
+	return ret;
+}
+
+static void make_pos_info(void)
+{
+	for (int i = 0; i < resp_param_list.count; i++){
+		pos_response_param_t *p = resp_param_list.params + i;
+		switch (get_param_type(p->name)){
+			case POS_PARAM_VERSION:
+				if (pos_info.version != NULL)
+					free((void *)pos_info.version);
+				pos_info.version = strdup(p->value);
+				break;
+			case POS_PARAM_TYPES:
+				if (pos_info.op_types != NULL)
+					free((void *)pos_info.op_types);
+				pos_info.op_types = strdup(p->value);
+				break;
+			case POS_PARAM_MODEL:
+				if (pos_info.model != NULL)
+					free((void *)pos_info.model);
+				pos_info.model = strdup(p->value);
+				break;
+			case POS_PARAM_SERIALNO:
+				if (pos_info.serial_nr != NULL)
+					free((void *)pos_info.serial_nr);
+				pos_info.serial_nr = strdup(p->value);
+				break;
+			case POS_PARAM_OSVERSION:
+				if (pos_info.os_version != NULL)
+					free((void *)pos_info.os_version);
+				pos_info.os_version = strdup(p->value);
+				break;
+			case POS_PARAM_TMS_ID:
+				if (pos_info.tms_id != NULL)
+					free((void *)pos_info.tms_id);
+				pos_info.tms_id = strdup(p->value);
+				break;
+			case POS_PARAM_SERVERS:
+				pos_info.servers = get_srv_list(p->value);
+				break;
+		}
+	}
+}
+
 static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_only)
 {
 	static char s[2049];
@@ -356,7 +426,8 @@ static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_o
 		fmenu = false;
 		make_pos_resp(&pos_resp);
 		pos_send_empty();
-	}
+	}else if (pos_info_empty())
+		make_pos_info();
 	return true;
 }
 

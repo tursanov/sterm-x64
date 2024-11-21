@@ -205,6 +205,7 @@ struct pos_info {
 };
 
 extern struct pos_info pos_info;
+extern bool pos_info_req_sent;
 
 extern void pos_clr_info(void);
 
