@@ -4,14 +4,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include "gui/scr.h"
+#include "kkt/fd/ad.h"
+#include "kkt/kkt.h"
 #include "pos/command.h"
 #include "pos/error.h"
 #include "ds1990a.h"
 #include "genfunc.h"
 #include "numbers.h"
 #include "sterm.h"
-#include "kkt/fd/ad.h"
-#include "kkt/kkt.h"
+#include "termlog.h"
 
 /* Имеются незавершённые операции ИПТ */
 bool pos_incomplete_op = false;
@@ -198,6 +199,7 @@ static int get_param_type(char *name)
 		{POS_PARAM_RFNDINFO_STR,	POS_PARAM_RFNDINFO},
 		{POS_PARAM_FRAGMENTATION_STR,	POS_PARAM_FRAGMENTATION},
 	};
+	log_info("name = %s.", name);
 	if (name == NULL)
 		return POS_PARAM_UNKNOWN;
 	int ret = POS_PARAM_UNKNOWN;
@@ -225,6 +227,7 @@ static bool pos_parse_request_parameters(struct pos_data_buf *buf, bool check_on
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
 		return false;
 	}
+	log_info("count = %hhu.", req_param_list.count);
 	req_param_list.params = calloc(req_param_list.count, sizeof(pos_request_param_t));
 	if (req_param_list.params == NULL){
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
@@ -234,6 +237,7 @@ static bool pos_parse_request_parameters(struct pos_data_buf *buf, bool check_on
 		pos_request_param_t *p = req_param_list.params + i;
 		char name[33];
 		int n = pos_read_array(buf, (uint8_t *)name, 32);
+		log_info("n = %d.", n);
 		if (n <= 0){
 			pos_request_param_list_free(&req_param_list);
 			pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
@@ -241,12 +245,14 @@ static bool pos_parse_request_parameters(struct pos_data_buf *buf, bool check_on
 		}
 		recode_str(name, n);
 		p->name = strndup(name, n);
+		log_info("name = %s.", p->name);
 		if (p->name == NULL){
 			pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
 			pos_request_param_list_free(&req_param_list);
 			return false;
 		}
-		p->type = get_param_type(name);
+		p->type = get_param_type(p->name);
+		log_info("type = %d.", p->type);
 		if (p->type == POS_PARAM_UBT)
 			ubt_supported = true;
 		if (!pos_read_byte(buf, &p->required)){
@@ -254,6 +260,7 @@ static bool pos_parse_request_parameters(struct pos_data_buf *buf, bool check_on
 			pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
 			return false;
 		}
+		log_info("required = %d.", p->required);
 	}
 	if (check_only)
 		pos_request_param_list_free(&req_param_list);
@@ -568,6 +575,7 @@ static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int
 	static int ind[] = {7, 0, 6, 5, 4, 3, 2, 1};
 	if (buf == NULL)
 		return false;
+	log_info("param = %d; required = %d.", param, required);
 	switch (param){
 		case POS_PARAM_TERMID:
 			normalize_termid();
@@ -788,11 +796,16 @@ struct pos_response *pos_query(const struct pos_query_params *params)
 	if (params == NULL)
 		return NULL;
 	set_pos_query_params(params);
+	clr_pos_resp(&pos_resp);
 	show_pos();
 	if (pos_state == pos_new)
 		return NULL;
-	while (pos_state != pos_new)
-		pos_process();
+	while (pos_state != pos_new){
+		if (get_cmd(false, true) == cmd_reset){
+			if (reset_term(false))
+				return NULL;
+		}
+	}
 	return &pos_resp;
 }
 

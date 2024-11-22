@@ -100,7 +100,6 @@ enum {
 	cmd_print_plog_range,
 	cmd_find_plog_date,
 	cmd_find_plog_number,
-	cmd_pos,
 	cmd_term_info,
 	cmd_iplir_version,
 	cmd_kkt_info,

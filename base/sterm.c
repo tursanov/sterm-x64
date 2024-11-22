@@ -1444,7 +1444,6 @@ static int handle_kbd(struct kbd_event *e, bool check_scr, bool busy)
 		{KEY_T, cmd_view_error},	/* ошибка в тексте ответа */
 		{KEY_X, cmd_view_plog},		/* просмотр БКЛ */
 		{KEY_Z,	cmd_ticket_number},	/* чтение номера БСО в пригородном режиме */
-//		{KEY_COMMA, cmd_pos},		/* вызов POS-терминала */
 		{KEY_F10, cmd_exit},		/* выход */
 	},
 	keys[] = {
@@ -2298,6 +2297,7 @@ void show_pos(void)
 		push_term_info();
 		set_term_busy(true);
 		set_scr_mode(m32x8, true, false);
+		redraw_term(false, main_title);
 		hide_cursor();
 /*		scr_visible = false;*/
 		pGC = CreateGC(8, 30, DISCX-16, DISCY-144);
@@ -3691,7 +3691,6 @@ static bool process_term(void)
 		{cmd_print_plog_range,	print_plog_range,	true},
 		{cmd_find_plog_date,	find_plog_date,		true},
 		{cmd_find_plog_number,	find_plog_number,	true},
-		{cmd_pos,		show_pos,		true},
 		{cmd_term_info,		show_term_info,		true},
 		{cmd_iplir_version,	show_iplir_version,	true},
 		{cmd_kkt_info,		show_kkt_info,		true},
@@ -3728,6 +3727,20 @@ static bool process_term(void)
 	return true;
 }
 
+static bool do_test(void)
+{
+	static uint8_t data[] = {
+		0x31, 0x30, 0x30, 0x30, 0x00, 0x00, 0x00, 0x2d,
+		0x01, 0x00, 0x99, 0x00, 0x28, 0x03, 0x03, 0x00,
+		0x15, 0x53, 0x55, 0x50, 0x50, 0x4f, 0x52, 0x54,
+		0x5f, 0x46, 0x52, 0x41, 0x47, 0x4d, 0x45, 0x4e,
+		0x54, 0x41, 0x54, 0x49, 0x4f, 0x4e, 0x00, 0x00,
+		0x05, 0x4d, 0x54, 0x59, 0x50, 0x45, 0x00, 0x00,
+		0x03, 0x45, 0x42, 0x54, 0x01,
+	};
+	return pos_test(data, sizeof(data));
+}
+
 int main(int argc, char **argv)
 {
 	term_check_sum = make_check_sum(argv[0]);
@@ -3736,6 +3749,7 @@ int main(int argc, char **argv)
 	else if (ret_val == RET_VERSION)
 		ret_val = RET_NORMAL;
 	else if (create_term()){
+		do_test();
 		while(process_term());
 		release_term();
 	}else

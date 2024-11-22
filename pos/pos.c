@@ -1,4 +1,4 @@
-/* Основной модуль для работы с POS-эмулятором. (c) A.Popov, gsr 2004 */
+/* Основной модуль для работы с POS-эмулятором. (c) A.Popov, gsr 2004, 2024 */
 
 #include <sys/timeb.h>
 #include <sys/times.h>
@@ -808,4 +808,14 @@ void pos_release(void)
 	pos_close(true);
 	pos_release_transactions();
 	pos_set_state(pos_new);
+}
+
+bool pos_test(const uint8_t *buf, size_t len)
+{
+	log_info("buf = %p; len = %zu.", buf, len);
+	memcpy(pos_buf.un.data, buf, len);
+	pos_buf.data_len = len;
+	bool ret = pos_parse_resp(&pos_buf);
+	log_info("ret = %d.", ret);
+	return ret;
 }

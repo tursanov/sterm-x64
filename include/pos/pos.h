@@ -209,6 +209,8 @@ extern bool pos_info_req_sent;
 
 extern void pos_clr_info(void);
 
+extern bool pos_test(const uint8_t *buf, size_t len);
+
 #if defined __cplusplus
 }
 #endif
