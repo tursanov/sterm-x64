@@ -12,6 +12,8 @@
 
 static char last_error[1024] = { 0 };
 
+bool last_cheque_process_started = false;
+
 #define DIR_NAME "/home/sterm/patterns"
 
 uint8_t *load_pattern(uint8_t doc_type, const uint8_t *pattern_footer,
@@ -556,6 +558,8 @@ int fd_create_doc(uint8_t doc_type, const uint8_t *pattern_footer, size_t patter
 	uint8_t *pattern;
 	size_t pattern_size;
 	struct kkt_doc_info di;
+	
+	last_cheque_process_started = false;
 
 	fdo_suspend();
 
@@ -649,10 +653,22 @@ int fd_create_doc(uint8_t doc_type, const uint8_t *pattern_footer, size_t patter
 	}
 
 	err_info_len = sizeof(err_info);
+	last_cheque_process_started = true;
 	if ((ret = kkt_end_doc(doc_type, pattern, pattern_size, timeout_factor,
 			&di, err_info, &err_info_len)) != 0) {
 		fd_set_error(doc_type, ret, err_info, err_info_len);
 		printf("kkt_end_doc->ret = %.2x, err_info_len = %zu\n", ret, err_info_len);
+		
+		if (ret == 0x45 && err_info_len > 0)
+		{
+            uint8_t err = err_info[2];
+            
+            if (err == 0x02 || err == 0x03 || err == 0x04 || err == 0x07
+                || err == 0x12 || err == 0x14 || err == 0x16 || err == 0x17)
+            {
+            	last_cheque_process_started = false;
+            }
+		}
 
 		if (ret == 0x80 || ret == 0x8c) {
 			if (err_info_len > 0) {

@@ -99,5 +99,8 @@ int fd_calc_report();
 // закрытие ФН
 int fd_close_fs();
 
+// признак того, что оформление документа началось
+extern bool last_cheque_process_started;
+
 
 #endif

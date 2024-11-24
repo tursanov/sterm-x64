@@ -1056,6 +1056,16 @@ void process_docs()
     free_selected_docs(&sd);
 }
 
+void set_printing_state(list_t *list, uint8_t state)
+{
+    for (list_item_t *i1 = list->head; i1; i1 = i1->next)
+    {
+        K *k = LIST_ITEM(i1, K);
+		k->print_state = state;
+    }
+    AD_save();
+}
+
 void process_print_docs(selected_docs_t* sd)
 {
     for (int i = 0; i < 2; i++)
@@ -1067,16 +1077,25 @@ void process_print_docs(selected_docs_t* sd)
         }
         
         ui_subcart_t *sc = ui_sel_subcart;
-        if (print_cheque(sc->val, list))
+
+
+        set_printing_state(list, PRINT_STATE_PRINTING);
+       
+        bool ret = print_cheque(sc->val, list);
+        
+        if (last_cheque_process_started)
         {
             AD_remove_K_list(list);
-        
-        
             cart_build();
             ui_cart_create();
             ui_cart_redraw_all();
         }
         else
+        {
+            set_printing_state(list, PRINT_STATE_NONE);
+        }
+        
+        if (!ret)
         {
             break;
         }
