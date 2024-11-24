@@ -30,7 +30,7 @@ static void ui_subcart_set_title(ui_subcart_t* sc)
 	switch (sc->val->type)
 	{
 		case 'A':
-			strcpy(sc->title, "Ž‹€’€ €‹ˆ—");
+			strcpy(sc->title, "Ž‹€’€ €‹ˆ—›…");
 			break;
 		case 'B':
 			strcpy(sc->title, "‚Ž‡‚€’ €‹ˆ—›…/Ž’Œ…€ €‹ˆ—›…/‚Ž‡‚€’ € Š€’“ ‹€’…‹œ™ˆŠ€");

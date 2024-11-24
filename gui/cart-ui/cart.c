@@ -62,7 +62,7 @@ ui_subcart_t *ui_sel_subcart = NULL;
 int ui_sel_subcart_index = -1;
 
 void process_docs();
-void print_cheque(SubCart *sc, list_t *klist);
+bool print_cheque(SubCart *sc, list_t *klist);
 void ui_select_next_subcart(bool select_first);
 void ui_select_prev_subcart(bool select_last);
 void get_doc_selection(list_t* sel);
@@ -257,6 +257,7 @@ static void ui_cart_tab_select_next()
         sc->tab_selected_doc++;
         if (sc->tab_selected_doc >= sc->doc_count)
         {
+            sc->tab_selected_doc = -1;
             if (sc_action_enabled(sc))
             {
                 sc->tab_selected_flags = CART_TAB_SELECTED_ACTION;
@@ -307,6 +308,7 @@ static void ui_cart_tab_select_prev()
         sc->tab_selected_doc--;
         if (sc->tab_selected_doc < 0)
         {
+            sc->tab_selected_doc = -1;
             ui_select_prev_subcart(true);
             return;
         }
@@ -423,7 +425,7 @@ void ui_cart_process_enter()
     }
     else if (sc->tab_selected_flags == CART_TAB_SELECTED_ACTION)
     {
-        process_docs();    
+        process_docs();
     }
     else if (sc->tab_selected_flags == CART_TAB_SELECTED_DELETE)
     {
@@ -1065,13 +1067,19 @@ void process_print_docs(selected_docs_t* sd)
         }
         
         ui_subcart_t *sc = ui_sel_subcart;
-        print_cheque(sc->val, list);
+        if (print_cheque(sc->val, list))
+        {
+            AD_remove_K_list(list);
         
-        AD_remove_K_list(list);
         
-        cart_build();
-        ui_cart_create();
-        ui_cart_redraw_all();
+            cart_build();
+            ui_cart_create();
+            ui_cart_redraw_all();
+        }
+        else
+        {
+            break;
+        }
     }
 }
 
@@ -1138,7 +1146,7 @@ static bool fa_create_doc1(uint16_t doc_type, const uint8_t *pattern_footer,
 	return true;
 }
 
-void print_cheque(SubCart *sc, list_t *klist)
+bool print_cheque(SubCart *sc, list_t *klist)
 {
     C* c = sc->c;
     size_t doc_count = 0;
@@ -1227,6 +1235,11 @@ void print_cheque(SubCart *sc, list_t *klist)
 		size_t pattern_footer_size = 0;
 
 		if (fa_create_doc1(CHEQUE, pattern_footer, pattern_footer_size, update_cheque, NULL)) {
+		    return true;
 		}
+		
+		return false;
 	}
+	
+	return true;
 }

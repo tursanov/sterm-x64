@@ -30,6 +30,8 @@ extern bool cashier_set_name(const char *name);
 
 extern void cart_init();
 
+static time_t k_dt = 0;
+
 static int dump_file_pos(const char *prefix, int fd)
 {
 	int position = lseek(fd, 0, SEEK_CUR);
@@ -2124,6 +2126,12 @@ int AD_processO(K *k) {
 }
 
 int AD_process(K* k) {
+    if (k_dt == 0)
+    {
+        k_dt = time(NULL);
+    }
+    k->dt = k_dt;
+    
     AD_processO(k);
     AD_save();
 #ifdef TEST_PRINT
@@ -2322,6 +2330,11 @@ int kkt_xml_callback(bool check, int evt, const char *name, const char *val)
 
 	switch (evt) {
 	case 0:
+	    if (!check)
+	    {
+	        k_dt = time(NULL);
+	    }
+	    
 		break;
 	case 1:
 		if (strcmp(name, "K") == 0) {

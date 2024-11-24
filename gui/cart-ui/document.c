@@ -16,9 +16,10 @@ const char *printsum(int64_t sum, char *buf)
 
 static char *strdatetime(char *buf, size_t max, time_t t)
 {
-	struct tm* tm;
-	tm = localtime(&t);
-	strftime(buf, max, "%d.%m.%y %H:%M:%S", tm);
+	struct tm tm;
+	tm = *localtime(&t);
+	
+	strftime(buf, max, "%d.%m.%y %H:%M:%S", &tm);
 
 	return buf;
 }
@@ -39,7 +40,7 @@ const char *ui_doc_get_op(ui_subcart_t *sc, ui_doc_t *d, S *s)
 	}
 	else if (t == 'A')
 	{
-	    return d->val->k->m == 2 ? "Ž’Œ…€ ‚Ž‡‚‚’‚ € ‘—…’ ‹€’…‹œ™ˆŠ€" : "Ž‹€’€ €‹ˆ—…";
+	    return d->val->k->m == 2 ? "Ž’Œ…€ ‚Ž‡‚€’€ € ‘—…’ ‹€’…‹œ™ˆŠ€" : "Ž‹€’€ €‹ˆ—›…";
 	}
 	else if (t == 'D' || t == 'E')
 	{
@@ -67,7 +68,7 @@ const char *ui_doc_get_op(ui_subcart_t *sc, ui_doc_t *d, S *s)
 	    {
     	    if (doc->related.count > 1 && k->n.s && !k->a_flag)
     	    {
-    	        return "‚‹€’€ € Š€’“ ‹€’…‹œ™ˆŠ€";
+    	        return "‚›‹€’€ € Š€’“ ‹€’…‹œ™ˆŠ€";
     	    }
     	    else
     	    {
@@ -76,7 +77,7 @@ const char *ui_doc_get_op(ui_subcart_t *sc, ui_doc_t *d, S *s)
 	    }
 	    else
 	    {
-	        return "‚Ž‡‚€’/Ž’Œ…€ €‹ˆ—…";
+	        return "‚Ž‡‚€’/Ž’Œ…€ €‹ˆ—›…";
 	    }
 	}
 	else if (t == 'F')
@@ -212,8 +213,8 @@ int ui_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width)
     }
 	DrawText(cart_screen, x + 20, y, col_width, cart_fnt->max_height, d->val->k->d.s, DT_LEFT | DT_VCENTER);
 	x += (float)col_width * fr[0];
-	DrawText(cart_screen, x, y, col_width, cart_fnt->max_height,
-			strdatetime(buf, sizeof(buf), d->val->k->dt), DT_LEFT | DT_VCENTER);
+	strdatetime(buf, sizeof(buf) - 1, d->val->k->dt);
+	DrawText(cart_screen, x, y, col_width, cart_fnt->max_height, buf, DT_LEFT | DT_VCENTER);
 	x += (float)col_width * fr[1];
 
 	SetFont(cart_screen, cart_sfnt);
