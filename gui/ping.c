@@ -34,13 +34,19 @@ enum {
 /*	HOST_X3_ALT,*/
 	HOST_BANK1,
 	HOST_BANK2,
+	HOST_BANK3,
+	HOST_BANK4,
+	HOST_BANK5,
+	HOST_BANK6,
+	HOST_BANK7,
+	HOST_BANK8,
 	HOST_FDO,
 	NR_HOSTS,
 };
 
 static inline bool need_tcp_check(int n)
 {
-	return (n == HOST_BANK1) || (n == HOST_BANK2) || (n == HOST_FDO);
+	return ((n >= HOST_BANK1) && (n <= HOST_BANK8)) || (n == HOST_FDO);
 }
 
 static struct ping_rec {
@@ -99,8 +105,8 @@ static void make_host_name(int n, uint32_t ip)
 			if (ip != INADDR_NONE){
 				if (n == HOST_FDO)
 					port = cfg.fdo_port;
-				else if ((n == HOST_BANK1) || (n == HOST_BANK2))
-					port = TCP_POS_PORT_BASE;
+				else if ((n >= HOST_BANK1) || (n <= HOST_BANK8))
+					port = TCP_POS_PORT_BASE + (n - HOST_BANK1) % 4;
 			}
 			hosts[n].port = port;
 			hosts[n].state = (ip == INADDR_NONE) ? tcp_st_na : tcp_st_start;
@@ -118,12 +124,22 @@ static void make_host_names(void)
 	make_host_name(HOST_GW, cfg.gateway);
 	make_host_name(HOST_X3, get_x3_ip());
 	if (cfg.bank_system){
-		uint32_t ip = ntohl(cfg.bank_proc_ip);
-		make_host_name(HOST_BANK1, htonl(ip++));
-		make_host_name(HOST_BANK2, htonl(ip));
+		uint32_t net_ip = cfg.bank_proc_ip;
+		uint32_t ip = ntohl(net_ip);
+		uint32_t mask = 1;
+		for (int i = 0, n = HOST_BANK1; i < 8; i++, n++, mask <<= 1){
+			if (n == HOST_BANK5){
+				ip++;
+				net_ip = htonl(ip);
+			}
+			if ((pos_info.servers & mask) == 0)
+				make_host_name(n, INADDR_NONE);
+			else
+				make_host_name(n, net_ip);
+		}
 	}else{
-		make_host_name(HOST_BANK1, INADDR_NONE);
-		make_host_name(HOST_BANK2, INADDR_NONE);
+		for (int i = 0, n = HOST_BANK1; i < 8; i++, n++)
+			make_host_name(n, INADDR_NONE);
 	}
 	if (cfg.has_kkt && (cfg.fdo_iface == KKT_FDO_IFACE_USB))
 		make_host_name(HOST_FDO, cfg.fdo_ip);
@@ -466,13 +482,9 @@ static char *get_ping_line(int n)
 			snprintf(desc, sizeof(desc), "Хост-ЭВМ \"Экспресс\"");
 			ip.s_addr = cfg.x3_p_ip;
 			break;
-		case HOST_BANK1:
-			snprintf(desc, sizeof(desc), "Процессинговый центр #1");
+		case HOST_BANK1 ... HOST_BANK8:
+			snprintf(desc, sizeof(desc), "Процессинговый центр #%d", n - HOST_BANK1 + 1);
 			ip.s_addr = cfg.bank_proc_ip;
-			break;
-		case HOST_BANK2:
-			snprintf(desc, sizeof(desc), "Процессинговый центр #2");
-			ip.s_addr = htonl(ntohl(cfg.bank_proc_ip) + 1);
 			break;
 		case HOST_FDO:
 			snprintf(desc, sizeof(desc), "ОФД");
@@ -488,8 +500,11 @@ static char *get_ping_line(int n)
 		int port = 0;
 		if (n == HOST_FDO)
 			port = cfg.fdo_port;
-		else if ((n == HOST_BANK1) || (n == HOST_BANK2))
-			port = TCP_POS_PORT_BASE;
+		else if ((n >= HOST_BANK1) || (n <= HOST_BANK8)){
+			port = TCP_POS_PORT_BASE + (n - HOST_BANK1) % 4;
+			if (n > HOST_BANK4)
+				ip.s_addr = htonl(ntohl(ip.s_addr) + 1);
+		}
 		snprintf(addr, sizeof(addr), "%s:%hu", inet_ntoa(ip), port);
 		snprintf(line, sizeof(line), "%-*s%-*s%s", DESC_WIDTH, desc, IP_WIDTH, addr,
 			tcp_st_str(hosts[n].state));

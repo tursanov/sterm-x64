@@ -3727,6 +3727,7 @@ static bool process_term(void)
 	return true;
 }
 
+#if 0
 static bool do_test(void)
 {
 	static uint8_t data[] = {
@@ -3740,6 +3741,7 @@ static bool do_test(void)
 	};
 	return pos_test(data, sizeof(data));
 }
+#endif
 
 int main(int argc, char **argv)
 {
@@ -3749,7 +3751,7 @@ int main(int argc, char **argv)
 	else if (ret_val == RET_VERSION)
 		ret_val = RET_NORMAL;
 	else if (create_term()){
-		do_test();
+//		do_test();
 		while(process_term());
 		release_term();
 	}else
