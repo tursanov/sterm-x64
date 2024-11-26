@@ -155,7 +155,7 @@ struct pos_response{
         struct pos_param params[255];
 };
 
-/* результаты ответов на запрос к ИПТ */
+/* Результаты ответов на запрос к ИПТ */
 #define POS_QUERY_SUCCESS 0x00
 #define POS_QUERY_INCOMPLETED 0x01
 #define POS_QUERY_INTERRUPTED 0x02

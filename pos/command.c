@@ -319,6 +319,14 @@ static void make_pos_resp(struct pos_response *pos_resp)
 				break;
 		}
 	}
+	log_info("\n\tres_code = 0x%.hhx;"
+			"\n\tresp_code = %s;"
+			"\n\tid_pos = %s;"
+			"\n\tinvoice = %u;"
+			"\n\tnext_mtype = 0x%.2hhx;"
+			"\n\tnr_params = %hhd.",
+		pos_resp->res_code, pos_resp->resp_code, pos_resp->id_pos, pos_resp->invoice,
+		pos_resp->next_mtype, pos_resp->nr_params);
 }
 
 static uint32_t get_srv_list(const char *txt)
@@ -398,7 +406,7 @@ static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_o
 			pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
 			return false;
 		}
-		recode_str(s, n);
+//		recode_str(s, n);
 		p->name = strndup(s, n);
 		if (p->name == NULL){
 			pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
@@ -411,7 +419,7 @@ static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_o
 			pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
 			return false;
 		}
-		recode_str(s, n);
+//		recode_str(s, n);
 		p->value = strndup(s, n);
 		if (get_param_type(p->name) == POS_PARAM_UBT)
 			ubt_supported = p->value[0] != 0;

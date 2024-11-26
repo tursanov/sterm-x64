@@ -810,7 +810,6 @@ void pos_release(void)
 	pos_set_state(pos_new);
 }
 
-#if 0
 bool pos_test(const uint8_t *buf, size_t len)
 {
 	log_info("buf = %p; len = %zu.", buf, len);
@@ -820,4 +819,3 @@ bool pos_test(const uint8_t *buf, size_t len)
 	log_info("ret = %d.", ret);
 	return ret;
 }
-#endif
