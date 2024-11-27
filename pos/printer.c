@@ -5,12 +5,14 @@
 #include "pos/error.h"
 #include "pos/printer.h"
 #include "genfunc.h"
+#include "termlog.h"
 
 uint8_t pos_prn_buf[2048];
 int  pos_prn_data_len = 0;
 
 static bool pos_parse_print(struct pos_data_buf *buf, bool check_only)
 {
+	log_info("buf = %p; check_only = %d.", buf, check_only);
 	int n;
 	uint8_t attr;
 	if (pos_prn_data_len >= sizeof(pos_prn_buf)){

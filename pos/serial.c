@@ -141,15 +141,8 @@ static int read_exp_len(int head)
 		l |= in_data[(head + i + 4) % sizeof(in_data)];
 	}
 	l += 8;
-#if defined __POS_DEBUG__
-	printf("%s: (%d): %d\n", __func__, head, l);
-#endif
-	if (l < 0){
-#if defined __POS_DEBUG__
-		printf("%s: ª®àà¥ªâ¨àã¥¬ ¤«¨­ã ¤® %d\n", __func__, sizeof(in_data));
-#endif
+	if (l < 0)
 		l = sizeof(in_data);
-	}
 	return l;
 }
 
@@ -176,9 +169,6 @@ int pos_serial_receive(void)
 	if (n == -1)
 		return 0;
 	else if (n > 0){
-#if defined __POS_DEBUG__
-		printf("%s: %d bytes received\n", __func__, n);
-#endif
 		in_data_len += n;
 		cur_block_len += n;
 		while (cur_block_len >= cur_block_exp_len){
@@ -223,9 +213,6 @@ int pos_serial_transmit(void)
 	if (n == -1)
 		return 0;
 	else if (n > 0){
-#if defined __POS_DEBUG__
-		printf("%s: %d bytes sent\n", __func__, n);
-#endif
 		out_data_head += n;
 		out_data_head %= sizeof(out_data);
 		out_data_len -= n;
@@ -254,17 +241,12 @@ bool pos_serial_get_msg(struct pos_data_buf *buf)
 		l1 = first_block_exp_len;
 	else
 		l2 = first_block_exp_len - l1;
-#if defined __POS_DEBUG__
-	printf("%s: in_data_head = %d; in_data_len = %d; l1 = %d; l2 = %d\n",
-			__func__, in_data_head, in_data_len, l1, l2);
-#endif
 	memcpy(buf->un.data, in_data + in_data_head, l1);
 	if (l2 > 0)
 		memcpy(buf->un.data + l1,
 			in_data + (in_data_head + l1) % sizeof(in_data), l2);
 	buf->data_len = l1 + l2;
 	buf->data_index = buf->block_start = 0;
-	pos_dump(buf);
 	log_data("ipt", "ˆ’ --> ’Œ", buf->un.data, buf->data_len);
 	in_data_head += l1 + l2;
 	in_data_head %= sizeof(in_data);
@@ -297,11 +279,6 @@ bool pos_serial_send_msg(struct pos_data_buf *buf)
 		memcpy(out_data + (offs + l1) % sizeof(out_data),
 				buf->un.data + l1, l2);
 	out_data_len += l1 + l2;
-#if defined __POS_DEBUG__
-	printf("%s: offs = %d; out_data_head = %d; out_data_len = %d\n",
-			__func__, offs, out_data_head, out_data_len);
-#endif
-	pos_dump(buf);
 	log_data("ipt", "’Œ --> ˆ’", buf->un.data, buf->data_len);
 	pos_t0 = u_times();
 	poll_ok = false;

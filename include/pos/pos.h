@@ -112,13 +112,6 @@ extern bool pos_req_stream_end(struct pos_data_buf *buf);
 /* Пустой ответ */
 #define pos_req_empty(req)	(pos_req_begin(req) && pos_req_end(req))
 
-#if defined __POS_DEBUG__
-/* Печать буфера */
-extern bool pos_dump(struct pos_data_buf *buf);
-#else
-#define pos_dump(buf)
-#endif
-
 /* Состояния модуля работы с POS-эмулятором */
 enum {
 	pos_new,		/* требуется посылка команды INIT_CHECK */

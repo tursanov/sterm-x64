@@ -24,31 +24,8 @@
 uint32_t stream_flags;
 
 /* Буфер сообщения для работы с POS-эмулятором */
-static struct pos_data_buf pos_buf;
-
-/* Отладочная печать */
-#ifdef __POS_DEBUG__
-bool pos_dump(struct pos_data_buf *buf)
-{
-	struct timeb tp;
-	struct tm *tm;
-	int i;
-	uint8_t *p;
-	if (buf == NULL)
-		return false;
-	ftime(&tp);
-	tm = localtime(&tp.time);
-	printf("%.2d:%.2d:%.2d.%.3hu\n", tm->tm_hour, tm->tm_min, tm->tm_sec,
-			tp.millitm);
-	for (i = 0, p = buf->un.data; i < buf->data_len; i++, p++){
-		if (((i & 0x07) == 0) && i)
-			printf("%c", (i & 0x0f) ? ' ' : '\n');
-		printf("%.2hx ", (uint16_t)*p);
-	}
-	printf("\n");
-	return true;
-}
-#endif
+static struct pos_data_buf pos_buf_rx;
+static struct pos_data_buf pos_buf_tx;
 
 /* Чтение данных из буфера */
 bool pos_read(struct pos_data_buf *buf, uint8_t *data, int len)
@@ -343,9 +320,9 @@ bool poll_ok = true;
 
 bool pos_send_empty(void)
 {
-	pos_req_begin(&pos_buf);
-	pos_req_end(&pos_buf);
-	if (pos_serial_send_msg(&pos_buf))
+	pos_req_begin(&pos_buf_tx);
+	pos_req_end(&pos_buf_tx);
+	if (pos_serial_send_msg(&pos_buf_tx))
 		return true;
 	else{
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_SYSTEM, 0);
@@ -356,10 +333,10 @@ bool pos_send_empty(void)
 static bool pos_send_init_check(void)
 {
 	pos_clr_info();
-	pos_req_begin(&pos_buf);
-	pos_req_save_command_init_check(&pos_buf);
-	pos_req_end(&pos_buf);
-	if (pos_serial_send_msg(&pos_buf))
+	pos_req_begin(&pos_buf_tx);
+	pos_req_save_command_init_check(&pos_buf_tx);
+	pos_req_end(&pos_buf_tx);
+	if (pos_serial_send_msg(&pos_buf_tx))
 		return true;
 	else{
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_SYSTEM, 0);
@@ -370,10 +347,10 @@ static bool pos_send_init_check(void)
 static bool pos_send_init(void)
 {
 	pos_clr_info();
-	pos_req_begin(&pos_buf);
-	pos_req_save_command_init(&pos_buf);
-	pos_req_end(&pos_buf);
-	if (pos_serial_send_msg(&pos_buf))
+	pos_req_begin(&pos_buf_tx);
+	pos_req_save_command_init(&pos_buf_tx);
+	pos_req_end(&pos_buf_tx);
+	if (pos_serial_send_msg(&pos_buf_tx))
 		return true;
 	else{
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_SYSTEM, 0);
@@ -387,10 +364,10 @@ static bool pos_send_kbd(void)
 		pos_set_error(POS_ERROR_CLASS_SCREEN, POS_ERR_SCR_NOT_READY, 0);
 		return false;
 	}
-	pos_req_begin(&pos_buf);
-	pos_req_save_keyboard_stream(&pos_buf);
-	pos_req_end(&pos_buf);
-	if (pos_serial_send_msg(&pos_buf))
+	pos_req_begin(&pos_buf_tx);
+	pos_req_save_keyboard_stream(&pos_buf_tx);
+	pos_req_end(&pos_buf_tx);
+	if (pos_serial_send_msg(&pos_buf_tx))
 		return true;
 	else{
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_SYSTEM, 0);
@@ -400,20 +377,12 @@ static bool pos_send_kbd(void)
 
 bool pos_send_params_resp(void)
 {
-	static struct pos_data_buf buf;
-/*	int i;*/
 	if (req_param_list.count == 0)
 		return true;
-/*	for (i = 0; i < req_param_list.count; i++){
-		if (req_param_list.params[i].required)
-			break;
-	}
-	if (i == req_param_list.count)
-		return true;*/
-	pos_req_begin(&buf);
-	pos_req_save_command_response_parameters(&buf);
-	pos_req_end(&buf);
-	if (pos_serial_send_msg(&buf))
+	pos_req_begin(&pos_buf_tx);
+	pos_req_save_command_response_parameters(&pos_buf_tx);
+	pos_req_end(&pos_buf_tx);
+	if (pos_serial_send_msg(&pos_buf_tx))
 		return true;
 	else{
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_SYSTEM, 0);
@@ -423,13 +392,12 @@ bool pos_send_params_resp(void)
 
 bool pos_send_params_req(void)
 {
-	static struct pos_data_buf buf;
 	if (req_param_list.count == 0)
 		return true;
-	pos_req_begin(&buf);
-	pos_req_save_command_request_parameters(&buf);
-	pos_req_end(&buf);
-	if (pos_serial_send_msg(&buf))
+	pos_req_begin(&pos_buf_tx);
+	pos_req_save_command_request_parameters(&pos_buf_tx);
+	pos_req_end(&pos_buf_tx);
+	if (pos_serial_send_msg(&pos_buf_tx))
 		return true;
 	else{
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_SYSTEM, 0);
@@ -440,10 +408,10 @@ bool pos_send_params_req(void)
 
 static bool pos_send_finish(void)
 {
-	pos_req_begin(&pos_buf);
-	pos_req_save_command_finish(&pos_buf);
-	pos_req_end(&pos_buf);
-	if (pos_serial_send_msg(&pos_buf))
+	pos_req_begin(&pos_buf_tx);
+	pos_req_save_command_finish(&pos_buf_tx);
+	pos_req_end(&pos_buf_tx);
+	if (pos_serial_send_msg(&pos_buf_tx))
 		return true;
 	else{
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_SYSTEM, 0);
@@ -455,10 +423,10 @@ static bool pos_send_tcp(void)
 {
 	if ((pos_count_tcp_events() == 0) || !pos_serial_is_free() || !poll_ok)
 		return true;
-	pos_req_begin(&pos_buf);
-	pos_req_save_tcp(&pos_buf);
-	pos_req_end(&pos_buf);
-	if (pos_serial_send_msg(&pos_buf))
+	pos_req_begin(&pos_buf_tx);
+	pos_req_save_tcp(&pos_buf_tx);
+	pos_req_end(&pos_buf_tx);
+	if (pos_serial_send_msg(&pos_buf_tx))
 		return true;
 	else{
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_SYSTEM, 0);
@@ -468,10 +436,10 @@ static bool pos_send_tcp(void)
 
 static bool pos_send_error(void)
 {
-	pos_req_begin(&pos_buf);
-	pos_req_save_error_stream(&pos_buf, &pos_error);
-	pos_req_end(&pos_buf);
-	if (pos_serial_send_msg(&pos_buf))
+	pos_req_begin(&pos_buf_tx);
+	pos_req_save_error_stream(&pos_buf_tx, &pos_error);
+	pos_req_end(&pos_buf_tx);
+	if (pos_serial_send_msg(&pos_buf_tx))
 		return true;
 	else{
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_SYSTEM, 0);
@@ -518,18 +486,6 @@ void pos_print_state(int st)
 
 void pos_set_state(int st)
 {
-#if defined __POS_DEBUG__
-	struct timeb tp;
-	struct tm *tm;
-	ftime(&tp);
-	tm = localtime(&tp.time);
-	printf("%.2d:%.2d:%.2d.%.3hu ", tm->tm_hour, tm->tm_min, tm->tm_sec,
-			tp.millitm);
-	pos_print_state(pos_state);
-	printf("->");
-	pos_print_state(st);
-	printf("\n");
-#endif
 	pos_state = st;
 }
 
@@ -565,8 +521,8 @@ static void on_pos_init_check(uint32_t t)
 {
 	uint32_t dt = t - pos_t0;
 	if (pos_serial_peek_msg()){
-		pos_serial_get_msg(&pos_buf);
-		if (pos_parse_resp(&pos_buf)){
+		pos_serial_get_msg(&pos_buf_rx);
+		if (pos_parse_resp(&pos_buf_rx)){
 			pos_close(true);
 			pos_set_state(pos_idle);
 		}else
@@ -584,9 +540,9 @@ static void on_pos_idle(uint32_t t __attribute__((unused)))
 static void on_pos_init(uint32_t t __attribute__((unused)))
 {
 	if (pos_open() && pos_send_init()){
-		pos_write_scr(&pos_buf, "ИДЕТ СОЕДИНЕНИЕ С POS-ЭМУЛЯТОРОМ",
+		pos_write_scr(&pos_buf_rx, "ИДЕТ СОЕДИНЕНИЕ С POS-ЭМУЛЯТОРОМ",
 				GREEN, BLACK);
-		pos_parse_resp(&pos_buf);
+		pos_parse_resp(&pos_buf_rx);
 		pos_set_state(pos_ready);
 	}else
 		pos_set_error(POS_ERROR_CLASS_SYSTEM,
@@ -600,9 +556,9 @@ static void on_pos_ready(uint32_t t)
 	if (!pos_tcp_process() || !pos_send_tcp())
 		return;
 	else if (pos_serial_peek_msg()){
-		pos_serial_get_msg(&pos_buf);
-		pos_parse_resp(&pos_buf);
-		if (pos_buf.un.hdr.msg.nr_blocks == 0){
+		pos_serial_get_msg(&pos_buf_rx);
+		pos_parse_resp(&pos_buf_rx);
+		if (pos_buf_rx.un.hdr.msg.nr_blocks == 0){
 			if (!pos_info_req_sent){
 				pos_prepare_request_info();
 				pos_send_params_req();
@@ -641,7 +597,7 @@ static bool send_pos_cheque_request(const uint8_t *data, size_t data_len)
 	int offs = get_req_offset();
 	req_len = offs;
 	req_len += snprintf((char *)req_buf + req_len, ASIZE(req_buf) - req_len - REQ_SUFFIX_LEN,
-		"P53R0022F[");
+		"P53R002F[");
 	if ((req_len + data_len + REQ_SUFFIX_LEN) <= ASIZE(req_buf)){
 		memcpy(req_buf + req_len, data, data_len);
 		req_len += data_len;
@@ -699,8 +655,8 @@ static void on_pos_err(uint32_t t __attribute__((unused)))
 	err_beep();
 	plog_write_rec(hplog, (uint8_t *)pos_err_desc, strlen(pos_err_desc),
 		PLRT_ERROR);
-	pos_save_err_msg(&pos_buf, pos_err_desc);
-	pos_parse_resp(&pos_buf);
+	pos_save_err_msg(&pos_buf_rx, pos_err_desc);
+	pos_parse_resp(&pos_buf_rx);
 	pos_set_state(pos_ewait);
 	pos_t0 = u_times();	/* err_beep -- блокирующая функция */
 	pos_err_xdesc = s;
@@ -813,9 +769,9 @@ void pos_release(void)
 bool pos_test(const uint8_t *buf, size_t len)
 {
 	log_info("buf = %p; len = %zu.", buf, len);
-	memcpy(pos_buf.un.data, buf, len);
-	pos_buf.data_len = len;
-	bool ret = pos_parse_resp(&pos_buf);
+	memcpy(pos_buf_rx.un.data, buf, len);
+	pos_buf_rx.data_len = len;
+	bool ret = pos_parse_resp(&pos_buf_rx);
 	log_info("ret = %d.", ret);
 	return ret;
 }
