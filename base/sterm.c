@@ -66,6 +66,7 @@
 #include "tki.h"
 #include "transport.h"
 
+#if defined _DEBUG
 #include "pos/command.h"
 static bool do_test(void)
 {
@@ -163,6 +164,7 @@ static bool do_test(void)
 //	show_pos();
 	return pos_test(data, sizeof(data));
 }
+#endif
 
 uint16_t term_check_sum = 0;	/* контрольная сумма терминала */
 
@@ -1141,7 +1143,6 @@ static void init_devices(void)
 static void init_term(bool need_init)
 {
 	bool flag = xlog_active || plog_active || klog_active;
-	set_log_lvl(Info);
 	can_reject = false;
 	err_ptr = NULL;
 	set_term_state(st_stop_iplir);
@@ -1266,6 +1267,11 @@ static inline bool open_logs(void)
 
 static bool create_term(void)
 {
+#if defined _DEBUG
+	set_log_lvl(Debug);
+#else
+	set_log_lvl(Error);
+#endif
 	if (!read_tki(STERM_TKI_NAME, false))
 		return false;
 	set_sigterm_handler();
@@ -2480,7 +2486,9 @@ static void show_term_info(void)
 		"Изготовитель", "Esc");
 	ClearScreen(clBlack);
 	message_box("Информация о терминале", buf, dlg_none, 0, al_left);
+#if defined _DEBUG
 	do_test();
+#endif
 	online = true;
 	pop_term_info();
 	ClearScreen(clBtnFace);
