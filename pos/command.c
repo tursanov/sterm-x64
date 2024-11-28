@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "gui/scr.h"
 #include "kkt/fd/ad.h"
 #include "kkt/kkt.h"
@@ -76,7 +77,7 @@ static void set_pos_query_params(const struct pos_query_params *params)
 
 /* Информация об ИПТ */
 struct pos_info pos_info;
-bool pos_info_req_sent = false;;
+bool pos_info_req_sent = false;
 
 static inline bool pos_info_empty(void)
 {
@@ -346,6 +347,7 @@ static uint32_t get_srv_list(const char *txt)
 
 static void make_pos_info(void)
 {
+	int n = 0;
 	for (int i = 0; i < resp_param_list.count; i++){
 		pos_response_param_t *p = resp_param_list.params + i;
 		switch (get_param_type(p->name)){
@@ -353,37 +355,46 @@ static void make_pos_info(void)
 				if (pos_info.version != NULL)
 					free((void *)pos_info.version);
 				pos_info.version = strdup(p->value);
+				n++;
 				break;
 			case POS_PARAM_TYPES:
 				if (pos_info.op_types != NULL)
 					free((void *)pos_info.op_types);
 				pos_info.op_types = strdup(p->value);
+				n++;
 				break;
 			case POS_PARAM_MODEL:
 				if (pos_info.model != NULL)
 					free((void *)pos_info.model);
 				pos_info.model = strdup(p->value);
+				n++;
 				break;
 			case POS_PARAM_SERIALNO:
 				if (pos_info.serial_nr != NULL)
 					free((void *)pos_info.serial_nr);
 				pos_info.serial_nr = strdup(p->value);
+				n++;
 				break;
 			case POS_PARAM_OSVERSION:
 				if (pos_info.os_version != NULL)
 					free((void *)pos_info.os_version);
 				pos_info.os_version = strdup(p->value);
+				n++;
 				break;
 			case POS_PARAM_TMS_ID:
 				if (pos_info.tms_id != NULL)
 					free((void *)pos_info.tms_id);
 				pos_info.tms_id = strdup(p->value);
+				n++;
 				break;
 			case POS_PARAM_SERVERS:
 				pos_info.servers = get_srv_list(p->value);
+				n++;
 				break;
 		}
 	}
+	if (n > 0)
+		pos_reinit();
 }
 
 static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_only)
@@ -703,6 +714,8 @@ bool pos_req_save_command_response_parameters(struct pos_data_buf *buf)
 	for (int i = 0; i < req_param_list.count; i++){
 		pos_request_param_t *p = req_param_list.params + i;
 		if (p->type == POS_PARAM_UNKNOWN)
+			continue;
+		else if ((p->type == POS_PARAM_MTYPE) && !pos_info_req_sent)
 			continue;
 		else if (!pos_write_resp_param(buf, p->name, p->type, p->required))
 			return false;

@@ -163,6 +163,7 @@ extern bool pos_create(void);
 extern void pos_release(void);
 extern int  pos_get_state(void);
 extern void pos_set_state(int st);
+extern bool pos_reinit(void);
 extern void pos_process(void);
 extern bool pos_send_empty(void);
 extern bool pos_send_params_resp(void);

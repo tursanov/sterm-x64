@@ -344,9 +344,10 @@ static bool pos_send_init_check(void)
 	}	
 }
 
-static bool pos_send_init(void)
+static bool pos_send_init(bool clr_info)
 {
-	pos_clr_info();
+	if (clr_info)
+		pos_clr_info();
 	pos_req_begin(&pos_buf_tx);
 	pos_req_save_command_init(&pos_buf_tx);
 	pos_req_end(&pos_buf_tx);
@@ -507,6 +508,16 @@ static void pos_close(bool close_com)
 		pos_serial_close();
 }
 
+bool pos_reinit(void)
+{
+	bool ret = pos_send_finish();
+	if (ret){
+		usleep(1000000);
+		ret = pos_send_init(false);
+	}
+	return ret;
+}
+
 /* Ž¡à ¡®âª  à §«¨ç­ëå á®áâ®ï­¨© ª®­¥ç­®£®  ¢â®¬ â  POS-í¬ã«ïâ®à  */
 static void on_pos_new(uint32_t t __attribute__((unused)))
 {
@@ -539,7 +550,7 @@ static void on_pos_idle(uint32_t t __attribute__((unused)))
 
 static void on_pos_init(uint32_t t __attribute__((unused)))
 {
-	if (pos_open() && pos_send_init()){
+	if (pos_open() && pos_send_init(true)){
 		pos_write_scr(&pos_buf_rx, "ˆ„…’ ‘Ž…„ˆ…ˆ… ‘ POS-Œ“‹Ÿ’ŽŽŒ",
 				GREEN, BLACK);
 		pos_parse_resp(&pos_buf_rx);
@@ -559,14 +570,12 @@ static void on_pos_ready(uint32_t t)
 		pos_serial_get_msg(&pos_buf_rx);
 		pos_parse_resp(&pos_buf_rx);
 		if (pos_buf_rx.un.hdr.msg.nr_blocks == 0){
-			if (!pos_info_req_sent){
-				pos_prepare_request_info();
-				pos_send_params_req();
-				pos_info_req_sent = true;
-			}else if (fmenu){
+			if (fmenu){
 				pos_prepare_request_params();
 				pos_send_params_req();
-			}
+			}else if (!pos_info_req_sent)
+				pos_info_req_sent = pos_prepare_request_info() &&
+					pos_send_params_req();
 		}
 	}else if (dt > POS_TIMEOUT){
 		if (!poll_ok){
