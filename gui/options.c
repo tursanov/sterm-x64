@@ -125,7 +125,7 @@ static bool scheme_changed = false;
  * только один раз.
  */
 bool lprn_params_read = false;
-static const char lprn_hdr[] = "БПУ-----------";
+//static const char lprn_hdr[] = "БПУ-----------";
 
 /* TCP/IP */
 static const char *optn_use_ppp[] = {"Сетевая карта", "PPP"};
@@ -338,7 +338,7 @@ static struct optn_item dev_optn_items[] = {
 	OPTN_BOOL2("БПУ", "Наличие в составе терминала БПУ",
 		has_sprn, NULL),
 	OPTN_STATIC("Номер БПУ", (const char *)lprn_number, sizeof(lprn_number)),
-	OPTN_STATIC("------Параметры печати", lprn_hdr, sizeof(lprn_hdr) - 1),
+/*	OPTN_STATIC("------Параметры печати", lprn_hdr, sizeof(lprn_hdr) - 1),
 	OPTN_INT_EDIT("Длина бланка", "Длина документа в мм", s0, NULL),
 	OPTN_INT_EDIT("Ширина бланка", "Ширина документа в мм", s1, NULL),
 	OPTN_INT_EDIT("Расст. до штрих-кода", "Расстояние до считываемого\r\n"
@@ -355,7 +355,7 @@ static struct optn_item dev_optn_items[] = {
 	OPTN_INT_EDIT("Коррекция отреза", "Константа коррекции отреза\r\n"
 		"по реперной метке в точках\r\n(1 точка = 1/8 мм)", s8, NULL),
 	OPTN_INT_EDIT("Коррекция левой гр. КЛ", "Константа коррекции левой границы\r\n"
-		"контрольной ленты в точках\r\n(1 точка = 1/8 мм)", s9, NULL),
+		"контрольной ленты в точках\r\n(1 точка = 1/8 мм)", s9, NULL),*/
 };
 
 /* TCP/IP */
@@ -906,6 +906,7 @@ static bool __optn_set_item_enable(int offset, bool enable)
 #define optn_enable_item(fld) optn_set_item_enable(fld, true)
 #define optn_disable_item(fld) optn_set_item_enable(fld, false)
 
+#if 0
 /*
  * Разрешение/запрещение редактирования параметров БСО БПУ в зависимости
  * от режима работы.
@@ -928,6 +929,7 @@ static void adjust_sprn_params(bool enable)
 		}
 	}
 }
+#endif
 
 /* Работа с меню настроек */
 static bool optn_create_menu(void)
@@ -2132,6 +2134,7 @@ static bool on_exit_bank_system(const struct optn_group *group)
 	return ret;
 }
 
+#if 0
 /* Получение настроек БПУ */
 static void get_lprn_params(void)
 {
@@ -2157,6 +2160,7 @@ static void get_lprn_params(void)
 		}
 	}
 }
+#endif
 
 /* Обработка окна настроек */
 bool process_options(const struct kbd_event *e)
@@ -2171,7 +2175,7 @@ bool process_options(const struct kbd_event *e)
 					optn_set_group(OPTN_GROUP_SYSTEM);
 					break;
 				case cmd_dev_optn:
-					get_lprn_params();
+//					get_lprn_params();
 					optn_set_group(OPTN_GROUP_DEVICES);
 					break;
 				case cmd_tcpip_optn:
