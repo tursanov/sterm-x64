@@ -169,8 +169,8 @@ static uint8_t get_tcap_byte(void)
 		if (kkt_has_param("SUPPORT_ESC_R"))
 			ret |= TCAP_XSLT;
 	}
-	if (cfg.has_sprn)
-		ret |= (TCAP_EX_BCODE | TCAP_UNIBLANK);
+	if (cfg.tickets_on_kkt)
+		ret |= TCAP_UNIBLANK;
 	if (!cfg.bank_system)
 		ret |= TCAP_NO_POS;
 	return map[ret];

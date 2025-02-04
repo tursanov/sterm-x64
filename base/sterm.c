@@ -294,6 +294,7 @@ static bool set_term_defaults(void)
 	cfg.s7 = 0;
 	cfg.s8 = 0;
 	cfg.s9 = 0;
+	cfg.tickets_on_kkt = false;
 
 	cfg.use_ppp = false;
 	cfg.local_ip = 0;
