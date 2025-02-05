@@ -2207,7 +2207,7 @@ static void show_klog(void)
 	if (!cfg.has_kkt){
 		set_term_astate(ast_illegal);
 		err_beep();
-	}{
+	}else{
 		online = false;
 		guess_term_state();
 		push_term_info();

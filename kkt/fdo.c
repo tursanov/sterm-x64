@@ -17,10 +17,10 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include "cfg.h"
 #include "kkt/cmd.h"
 #include "kkt/fs.h"
 #include "kkt/kkt.h"
+#include "cfg.h"
 
 /* Отладочная печать */
 __attribute__((format (printf, 2, 3))) static void __dbg(const char *fn, const char *fmt, ...)
@@ -93,46 +93,7 @@ enum {
 /* Состояние потока для работы с ОФД */
 static volatile int fdo_thread_state = fdo_thread_active;
 
-#if 0
-/* Для сигнализации об изменении состояния потока используется механизм сигналов */
-#define SIG_THREAD_STATE_CHANGED	SIGRTMIN
-
-static void sig_handler(int arg /*__attribute__((used))*/)
-{
-	dbg("arg = %d.", arg);
-}
-
-static bool fdo_set_sig_handler(void)
-{
-	struct sigaction sa = {
-		.sa_handler = sig_handler,
-		.sa_flags = 0,
-		.sa_restorer = NULL
-	};
-	sigemptyset(&sa.sa_mask);
-	bool ret = (sigaction(SIG_THREAD_STATE_CHANGED, &sa, NULL) == 0);
-	if (!ret)
-		dbg("ошибка sigaction(): %s.", strerror(errno));
-	return ret;
-}
-
-static bool fdo_reset_sig_handler(void)
-{
-	struct sigaction sa = {
-		.sa_handler = SIG_DFL,
-		.sa_flags = 0,
-		.sa_restorer = NULL
-	};
-	sigemptyset(&sa.sa_mask);
-	bool ret = (sigaction(SIG_THREAD_STATE_CHANGED, &sa, NULL) == 0);
-	if (!ret)
-		dbg("ошибка sigaction(): %s.", strerror(errno));
-	return ret;
-}
-#endif
-
 static pthread_mutex_t fdo_mtx = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
-static pthread_mutex_t susp_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 bool fdo_lock(void)
 {
@@ -153,13 +114,7 @@ static bool fdo_set_thread_state(int state)
 		if (state == fdo_thread_active)
 			fdo_reset_rx();
 		fdo_unlock();
-/*		int rc = pthread_kill(fdo_thread, SIG_THREAD_STATE_CHANGED);
-		if (rc == 0){*/
-			pthread_mutex_lock(&susp_mtx);
-			pthread_mutex_unlock(&susp_mtx);
-			ret = true;
-/*		}else
-			dbg("ошибка pthread_kill(): %s.", strerror(errno));*/
+		ret = true;
 	}
 	return ret;
 }
@@ -187,15 +142,6 @@ static bool fdo_sleep(uint32_t ms)
 	uint32_t t0 = u_times();
 	while ((fdo_thread_state == fdo_thread_active) && ((u_times() - t0) < ms))
 		pthread_yield();
-/*	if (ms == 0)
-		ret = pthread_yield() == 0;
-	else{
-		struct timespec ts = {
-			.tv_sec = ms / 1000,
-			.tv_nsec = (ms % 1000) * 1000000
-		};
-		ret = nanosleep(&ts, NULL) == 0;
-	}*/
 	return ret;
 }
 
@@ -314,13 +260,6 @@ static bool fdo_parse_addr(const uint8_t *data, size_t len, uint32_t *ip, uint16
 	return !err;
 }
 
-/*static void *debug_thread_proc(void *arg)
-{
-	usleep(100);
-	pthread_kill((pthread_t)arg, SIG_THREAD_STATE_CHANGED);
-	return NULL;
-}*/
-
 /* Установка соединения с ОФД */
 static uint16_t fdo_connect(const uint8_t *data, size_t len)
 {
@@ -349,8 +288,6 @@ static uint16_t fdo_connect(const uint8_t *data, size_t len)
 			.events		= POLLOUT,
 			.revents	= 0
 		};
-/*		pthread_t tid = 0;
-		pthread_create(&tid, NULL, debug_thread_proc, (void *)pthread_self());*/
 		int rc = poll(&fds, 1, FDO_CONNECT_TIMEOUT);
 		if (rc == -1){
 			if (errno == EINTR)
@@ -548,15 +485,10 @@ static void fdo_poll_kkt(void)
 static void *fdo_thread_proc(void *arg __attribute__((unused)))
 {
 	while (fdo_thread_state != fdo_thread_stopped){
-		if (fdo_thread_state == fdo_thread_suspended)
-/*			pause();*/
-			pthread_yield();
-		else if ((fdo_thread_state == fdo_thread_active) &&
-				cfg.has_kkt && (kkt != NULL)){
-			pthread_mutex_lock(&susp_mtx);
+		if ((fdo_thread_state == fdo_thread_active) &&
+				cfg.has_kkt && (kkt != NULL))
 			fdo_poll_kkt();
-			pthread_mutex_unlock(&susp_mtx);
-		}else
+		else
 			pthread_yield();
 	}
 	return NULL;
@@ -565,9 +497,7 @@ static void *fdo_thread_proc(void *arg __attribute__((unused)))
 bool fdo_init(void)
 {
 	bool ret = false;
-/*	if (!fdo_set_sig_handler())
-		;
-	else*/ if (pthread_create(&fdo_thread, NULL, fdo_thread_proc, NULL) == 0){
+	if (pthread_create(&fdo_thread, NULL, fdo_thread_proc, NULL) == 0){
 		dbg("модуль ОФД готов к работе.");
 		ret = true;
 	}else
@@ -580,6 +510,5 @@ void fdo_release(void)
 	fdo_stop_thread();
 	pthread_mutex_unlock(&fdo_mtx);
 	fdo_sock_close();
-/*	fdo_reset_sig_handler();*/
 	dbg("модуль ОФД завершил работу.");
 }
