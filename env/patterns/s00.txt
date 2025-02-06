@@ -1,0 +1,15 @@
+;Соответствие шаблонов печати фискальных документов пользователю ККТ
+;В шаблонах типа 3 для кассового чека и кассового чека коррекции реквизиты "номер смены" и "номер чека за смену" должны быть указаны
+;Остальные пользователи ККТ
+000000000000=011:registration_pattern.dat,012:registration_pattern2-r.dat,013:registration_pattern.dat
+000000000000=111:registration_pattern.dat,112:registration_pattern2-r.dat,113:registration_pattern.dat
+000000000000=021:open_shift_pattern.dat,022:open_shift_pattern2-r.dat,023:open_shift_pattern.dat
+000000000000=210:calc_report_pattern.dat,213:calc_report_pattern.dat
+000000000000=031:cheque_pattern.dat,032:cheque_pattern2-r.dat,033:cheque_pattern.dat
+000000000000=311:cheque_corr_pattern.dat,312:cheque_corr_pattern2-r.dat,313:cheque_corr_pattern.dat
+000000000000=051:close_shift_pattern.dat,052:close_shift_pattern2-r.dat,053:close_shift_pattern.dat
+000000000000=061:close_fs_pattern.dat,062:close_fs_pattern2-r.dat,063:close_fs_pattern.dat
+;АО «ФПК»
+7708709686=031:opt_cheque_patternQR.dat
+7708709686=032:opt_cheque_pattern2QR.dat
+7708709686=033:opt_cheque_pattern3.dat
