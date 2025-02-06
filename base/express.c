@@ -1200,8 +1200,7 @@ static uint8_t *check_sprn(uint8_t *txt, int l, int *ecode)
 				break;
 			case st_data_dle:
 				if ((b == X_PARA_END_N) || (b == X_PARA_END)){
-					if ((b1 == LPRN_FORM_FEED) ||
-							(b1 == LPRN_FORM_FEED1))
+					if (b1 == LPRN_FORM_FEED)
 						st = st_ok;
 					else{
 						txt += i - 1;
@@ -1316,7 +1315,7 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 		return txt;
 	}
 	if (dst == dst_sprn)
-		p = check_sprn(txt, l, ecode);
+		return check_sprn(txt, l, ecode);
 	else if (dst == dst_kprn)
 		return check_kprn(txt, l, n_para, ecode);
 	if (dst == dst_aprn)
@@ -1693,7 +1692,7 @@ int make_resp_map(void)
 	bool next_para = false;
 	bool first_print = true;
 	reset_resp_map();
-	set_resp_mode(cfg.scr_mode);
+	set_resp_mode(m80x20);
 	for (i = n = 0; (i <= text_len) && (n < MAX_PARAS); i++){
 		if (next_para){
 			next_para = false;
@@ -1736,7 +1735,7 @@ int make_resp_map(void)
 			}else{
 				switch (p[i]){
 					case X_80_20:
-						set_resp_mode(m80x20);
+//						set_resp_mode(m80x20);
 /*						set_scr_mode(m80x20, true, false);*/
 						break;
 					case X_SWRES:
@@ -2401,9 +2400,8 @@ static bool execute_prn(struct para_info *p, int l, int n_para)
 		}
 #endif		/* INSERT_SPRN_CODE_HERE */
 	}
-	if (printed){	/* FIXME */
+	if (printed)	/* FIXME */
 		xlog_set_rec_flags(hxlog, log_number, n_para, XLOG_REC_PRINTED);
-	}
 	return ret;
 }
 
@@ -2684,10 +2682,11 @@ bool execute_resp(void)
 				if (can_reject){
 					reject_req();
 					return resp_executing = false;
-				}else{
-/*					set_term_astate(ast_illegal);*/
+				}else
 					err_beep();
-				}
+				break;
+			case cmd_switch_res:
+				switch_term_mode();
 				break;
 			case cmd_pgup:
 				cm_pgup(NULL);

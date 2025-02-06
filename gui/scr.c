@@ -592,9 +592,10 @@ int set_scr_mode(int m, bool need_redraw, bool is_main)
 /* Переключение режима экрана */
 void switch_scr_mode(bool need_redraw)
 {
-	if (cur_mode == m80x20)
-		/*set_scr_mode(m32x8, need_redraw, true)*/;
-	else
+	if (cur_mode == m80x20){
+		if (!scr_is_resp())
+			set_scr_mode(m32x8, need_redraw, true);
+	}else
 		set_scr_mode(m80x20, need_redraw, true);
 	set_resp_mode(cur_mode);
 }
@@ -602,16 +603,17 @@ void switch_scr_mode(bool need_redraw)
 /* Корректировка режима экрана */
 static bool adjust_scr_mode(void)
 {
+	bool ret = false;
 	if (scr_is_resp()){
 		if ((resp_mode != m_undef) && (cur_mode != resp_mode)){
-			set_scr_mode(resp_mode,false,false);
-			return true;
+			set_scr_mode(resp_mode, false, false);
+			ret = true;
 		}
 	}else if (cur_mode != main_mode){
-		set_scr_mode(main_mode,false,false);
-		return true;
+		set_scr_mode(main_mode, false, false);
+		ret = true;
 	}
-	return false;
+	return ret;
 }
 
 /* Установка режима просмотра ответа */

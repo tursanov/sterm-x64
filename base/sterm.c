@@ -1387,6 +1387,7 @@ static bool bad_repeat(struct kbd_event *e)
 	uint16_t ctrl_keys[] = {
 		KEY_LCTRL,
 		KEY_RCTRL,
+		KEY_A,		/* Ctrl+Ф -- циклическое переключение разрешения экрана */
 		KEY_G,		/* Ctrl+П -- печать копии экрана */
 		KEY_I,		/* Ctrl+I -- информация о терминале */
 		KEY_J,		/* Ctrl+О -- просмотр обмена в канале */
@@ -1424,6 +1425,7 @@ static int handle_kbd(struct kbd_event *e, bool check_scr, bool busy)
 		uint16_t key;
 		int cm;
 	} ctrl_keys[] = {
+		{KEY_A, cmd_switch_res},	/* изменение разрешения экрана */
 		{KEY_G, cmd_snap_shot},		/* печать копии экрана */
 		{KEY_H, cmd_view_klog},		/* просмотр ККЛ */
 		{KEY_I, cmd_term_info},		/* информация о терминале */
@@ -2894,6 +2896,13 @@ static void show_kkt_info(void)
 	redraw_term(true, main_title);
 }
 
+/* Циклическое переключение разрешеня экрана терминала */
+void switch_term_mode(void)
+{
+	if (!scr_is_resp())
+		switch_scr_mode(true);
+}
+
 /* Преобразование номера необработанных абзацев в H-байт */
 uint8_t n2hbyte(int n)
 {
@@ -3647,6 +3656,7 @@ static bool process_term(void)
 		{cmd_help,		show_help,		true},
 		{cmd_exit,		NULL,			false},
 		{cmd_reset,		__reset_term,		true},
+		{cmd_switch_res,	switch_term_mode,	true},
 		{cmd_enter,		send_request,		true},
 		{cmd_print,		print_text,		true},
 		{cmd_view_xlog,		show_xlog,		true},
