@@ -671,11 +671,11 @@ void show_ndest(int n)
 			case dst_hash:
 			case dst_kkt:
 			case dst_log:
+			case dst_sprn:
 				set_term_astate(ast_resp);
 				astate_for_req = ast_resp;
 				break;
 			case dst_xprn:
-			case dst_sprn:
 			case dst_kprn:
 			case dst_aprn:
 				set_term_astate(ast_prn);

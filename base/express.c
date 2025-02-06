@@ -2657,7 +2657,12 @@ bool execute_resp(void)
 				show_req();
 				break;
 			case cmd_view_resp:
-				jump_next = true;
+				if (map[next].dst == dst_sprn){
+					cur_para = next;
+					map[cur_para].auto_handle = true;
+					parsed = false;
+				}else
+					jump_next = true;
 				break;
 			case cmd_print:
 				if ((map[next].dst == dst_xprn) ||
