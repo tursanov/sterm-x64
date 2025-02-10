@@ -329,9 +329,9 @@ static struct optn_item dev_optn_items[] = {
 		has_xprn, on_xprn_change),
 	OPTN_STR_EDIT("Номер ОПУ", "Заводской номер основного\r\nпечатающего устройства",
 		PRN_NUMBER_LEN, xprn_number, NULL),
-	OPTN_BOOL2("БПУ", "Наличие в составе терминала БПУ",
+/*	OPTN_BOOL2("БПУ", "Наличие в составе терминала БПУ",
 		has_sprn, NULL),
-	OPTN_STATIC("Номер БПУ", (const char *)lprn_number, sizeof(lprn_number)),
+	OPTN_STATIC("Номер БПУ", (const char *)lprn_number, sizeof(lprn_number)),*/
 /*	OPTN_STATIC("------Параметры печати", lprn_hdr, sizeof(lprn_hdr) - 1),
 	OPTN_INT_EDIT("Длина бланка", "Длина документа в мм", s0, NULL),
 	OPTN_INT_EDIT("Ширина бланка", "Ширина документа в мм", s1, NULL),

@@ -283,7 +283,7 @@ static bool set_term_defaults(void)
 	cfg.xprn_number[0] = 0;
 	cfg.has_aprn = false;
 	cfg.aprn_number[0] = 0;
-	cfg.has_sprn = false;
+	cfg.has_sprn = true;
 	cfg.s0 = 0;
 	cfg.s1 = 0;
 	cfg.s2 = 0;

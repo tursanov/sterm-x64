@@ -755,10 +755,8 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 	string xml_scr, xml_prn;
 	if ((scr_transform != TransformType::None) && (scr_transform != TransformType::Prn)){
 		snprintf(hdr, ASIZE(hdr), "<?xml version=\"1.0\" encoding=\"%s\"?>\r\n"
-				"<A H=\"%d\" W=\"%d\" T=\"S%c\" D=\"P\">\r\n",
+				"<A H=\"20\" W=\"80\" T=\"S%c\" D=\"P\">\r\n",
 			(recode == RECODE_NONE) ? "us-ascii" : "cp866",
-			(cur_mode == m32x8) ? 8  : 20,
-			(cur_mode == m32x8) ? 32 : 80,
 			get_dst_char(dst));
 		xml_scr.assign(hdr);
 		xml_scr += xml0;
@@ -768,10 +766,8 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 	}
 	if (prn_transform != TransformType::None){
 		snprintf(hdr, ASIZE(hdr), "<?xml version=\"1.0\" encoding=\"%s\"?>\r\n"
-				"<A H=\"%d\" W=\"%d\" T=\"P%c\" D=\"P\">\r\n",
+				"<A H=\"20\" W=\"80\" T=\"P%c\" D=\"P\">\r\n",
 			(recode == RECODE_NONE) ? "us-ascii" : "cp866",
-			(cur_mode == m32x8) ? 8  : 20,
-			(cur_mode == m32x8) ? 32 : 80,
 			get_dst_char(dst));
 		xml_prn.assign(hdr);
 		xml_prn += xml0;
