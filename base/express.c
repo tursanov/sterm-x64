@@ -2162,10 +2162,8 @@ static void preexecute_resp(void)
 				break;
 			case dst_text:
 				if (init){
-					bool old_use_integrator = use_integrator;
 					use_integrator = check_integrator(text_buf, l);
-					if (use_integrator != old_use_integrator)
-						RedrawScr(false, get_main_title());
+					RedrawScr(false, get_main_title());
 					log_dbg("use_integrator = %d.", use_integrator);
 					check_x3_grids(text_buf, l);
 					log_dbg("need_grids_update_xprn = %d; need_grids_update_kkt = %d.",
