@@ -852,6 +852,7 @@ void release_garbage(void)
 }
 
 /* Получение заголовка главного окна терминала */
+#if 0
 char *get_main_title(void)
 {
 	snprintf(main_title, sizeof(main_title), MAIN_TITLE " ("
@@ -862,6 +863,17 @@ char *get_main_title(void)
 		use_integrator ? "ИНТЕГРАТОР" : "ХОСТ");
 	return main_title;
 }
+#else
+char *get_main_title(void)
+{
+	snprintf(main_title, sizeof(main_title), MAIN_TITLE " ("
+		_s(STERM_VERSION_MAJOR) "."
+		_s(STERM_VERSION_MINOR) "."
+		_s(STERM_VERSION_RELEASE) ")  [%s]",
+		use_integrator ? "ИНТЕГРАТОР" : "ХОСТ");
+	return main_title;
+}
+#endif
 
 #if 0
 /* Вывод на экран сообщения об ошибке чтения заводского номера ППУ */
