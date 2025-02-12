@@ -1676,7 +1676,7 @@ static void reset_resp_map(void)
 		map[i].log_handled = false;
 		map[i].jit_req = false;
 		map[i].delay = 0;
-		map[i].scr_mode = m_undef;
+		map[i].scr_mode = m80x20;
 	}
 	n_paras = 0;
 }
@@ -1692,7 +1692,7 @@ int make_resp_map(void)
 	bool next_para = false;
 	bool first_print = true;
 	reset_resp_map();
-	set_resp_mode(m80x20);
+//	set_resp_mode(m80x20);
 	for (i = n = 0; (i <= text_len) && (n < MAX_PARAS); i++){
 		if (next_para){
 			next_para = false;

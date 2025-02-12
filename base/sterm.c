@@ -2048,6 +2048,7 @@ static void show_resp(void)
 			cur_para %= n_paras;
 			n++;
 			if (can_show(map[cur_para].dst)){
+				set_resp_mode(m80x20);
 				int l = handle_para(cur_para);
 				if (map[cur_para].scr_mode == m_undef)
 					set_scr_text(text_buf, l, txt_rich, true);

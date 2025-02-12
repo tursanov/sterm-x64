@@ -119,7 +119,7 @@ static struct hint_entry main_hints[NR_HINTS]={
 	{"Ctrl+Ч",	"КЛ ИПТ",		_("pict/log.bmp")},
 	{"Ctrl+Р",	"КЛ ККТ",		_("pict/log.bmp")},
 	{"Ctrl+Ш",	"Инфо",			_("pict/info.bmp")},
-	{"Ctrl+Щ",		"ККТ",		_("pict/kkt.bmp")},
+	{"Ctrl+Щ",	"ККТ",			_("pict/kkt.bmp")},
 };
 
 /* Геометрия экрана 80x20 */
