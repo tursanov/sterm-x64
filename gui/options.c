@@ -105,6 +105,7 @@ struct optn_group{
 /* Функции обратного вызова */
 static void on_iplir_change(struct optn_item *item);
 static void on_xprn_change(struct optn_item *item);
+static void on_tickets_on_kkt_change(struct optn_item *item);
 //static void on_aprn_change(struct optn_item *item);
 static void on_bank_change(struct optn_item *item);
 static void on_kkt_change(struct optn_item *item);
@@ -350,8 +351,11 @@ static struct optn_item dev_optn_items[] = {
 		"по реперной метке в точках\r\n(1 точка = 1/8 мм)", s8, NULL),
 	OPTN_INT_EDIT("Коррекция левой гр. КЛ", "Константа коррекции левой границы\r\n"
 		"контрольной ленты в точках\r\n(1 точка = 1/8 мм)", s9, NULL),*/
-	OPTN_BOOL1("Печать на ККТ", "Печать проездных документов на ККТ",
-		tickets_on_kkt, NULL),
+	OPTN_BOOL1("Печать на ККТ", "Печать проездных документов на ККТ\r\n"
+		"ВНИМАНИЕ: категорически запрещается\r\n"
+		"устанавливать переключатель в положение\r\n"
+		"\"Да\" без специального указания!",
+		tickets_on_kkt, on_tickets_on_kkt_change),
 };
 
 /* TCP/IP */
@@ -2189,6 +2193,25 @@ static void on_xprn_change(struct optn_item *item)
 {
 	if (item != NULL)
 		optn_set_item_enable(xprn_number, item->vv.flag);
+}
+
+/* Вызывается при включении печати проездных документов на ККТ */
+static void on_tickets_on_kkt_change(struct optn_item *item)
+{
+	if (!item->v.flag && item->vv.flag){
+		int rc = message_box("ВНИМАНИЕ!", "Настройка \"Печать на ККТ\" "
+				"может быть изменена из положения \"Нет\" в положение \"Да\" "
+				"без взможности возврата в положение \"Нет\".\n\n"
+				"Изменение настройки \"Печать на ККТ\" в положение \"Да\" "
+				"должна быть выполнена тольк опсле получения особого указания.\n\n"
+				"Нажатие на кнопку \"OK\" после изменения настройки \"Печать на ККТ\" "
+				"в положение \"Да\" без получения особого указания "
+				"приведёт к неработоспособности терминала.\n\n"
+				"Вы подтверждаете продолжение?", dlg_yes_no, 1, al_center);
+		draw_options();
+       		if (rc == DLG_BTN_NO)
+			item->vv.flag = false;
+	}
 }
 
 #if 0
