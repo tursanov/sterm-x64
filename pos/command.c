@@ -339,6 +339,8 @@ static uint32_t get_srv_list(const char *txt)
 		if ((sscanf(s, "%d", &n) == 1) && (n > 0) && (n < 9))
 			ret |= 1 << (n - 1);
 		delim = strchr(s, ',');
+		if (delim == NULL)
+			break;
 	}
 	if (ret == 0)
 		ret = POS_DEF_SERVERS;
