@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "gui/scr.h"
 #include "log/pos.h"
 #include "pos/command.h"
