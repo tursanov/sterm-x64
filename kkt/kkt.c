@@ -373,11 +373,11 @@ static bool do_transaction(uint8_t prefix, uint8_t cmd, void *param)
 	uint32_t timeout = get_timeout(prefix, cmd);
 	struct timeb t0;
 	ftime(&t0);
-	printf("%s: parser = %p; timeout = %u; kkt_tx_len = %zu\n",
-		__func__, parser, timeout, kkt_tx_len);
+	//printf("%s: parser = %p; timeout = %u; kkt_tx_len = %zu\n",
+	//	__func__, parser, timeout, kkt_tx_len);
 	if (kkt_tx_len > 0){
 		ssize_t rc = kkt_io_write(&timeout);
-		printf("%s: rc = %zd\n", __func__, rc);
+		//printf("%s: rc = %zd\n", __func__, rc);
 		if (rc != kkt_tx_len)
 			ret = kkt_on_com_error(timeout);
 	}

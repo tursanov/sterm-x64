@@ -36,7 +36,8 @@ __attribute__((format (printf, 2, 3))) static void __dbg(const char *fn, const c
 	va_end(ap);
 }
 
-#define dbg(fmt, arg...) __dbg(__func__, fmt "\n", ## arg)
+//#define dbg(fmt, arg...) __dbg(__func__, fmt "\n", ## arg)
+#define dbg(fmt, arg...) do {} while (0)
 
 /* Заголовок сеансового уровня */
 struct fdo_session_header {

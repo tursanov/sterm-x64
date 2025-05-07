@@ -51,6 +51,8 @@ typedef struct {
 	size_t agent_data_size;
 	uint8_t *agent_data;
 	uint64_t dsum[5];
+	char* client;
+	char* client_inn;
 } newcheque_t;
 
 extern uint8_t reg_tax_systems;
@@ -138,7 +140,9 @@ static newcheque_t newcheque = {
 	.articles = { NULL, NULL, 0, (list_item_delete_func_t)cheque_article_free },
 	.agent_data_size = 0,
 	.agent_data = NULL,
-	.dsum = { 0, 0, 0, 0, 0 }
+	.dsum = { 0, 0, 0, 0, 0 },
+	.client = NULL,
+	.client_inn = NULL
 };
 
 extern bool check_phone_or_email(const char *pe, bool allowNone);
@@ -234,7 +238,9 @@ static bool newcheque_save() {
 			SAVE_INT(fd, newcheque.dsum[1]) &&
 			SAVE_INT(fd, newcheque.dsum[2]) &&
 			SAVE_INT(fd, newcheque.dsum[3]) &&
-			SAVE_INT(fd, newcheque.dsum[4]);
+			SAVE_INT(fd, newcheque.dsum[4]) &&
+			save_string(fd, newcheque.client) == 0 &&
+			save_string(fd, newcheque.client_inn) == 0;
 
 		s_close(fd);
 	}
@@ -255,7 +261,9 @@ bool newcheque_load() {
 			LOAD_INT(fd, newcheque.dsum[1]) == 0 &&
 			LOAD_INT(fd, newcheque.dsum[2]) == 0 &&
 			LOAD_INT(fd, newcheque.dsum[3]) == 0 &&
-			LOAD_INT(fd, newcheque.dsum[4]) == 0;
+			LOAD_INT(fd, newcheque.dsum[4]) == 0 &&
+			load_string(fd, &newcheque.client) == 0 &&
+			load_string(fd, &newcheque.client_inn) == 0;
 		s_close(fd);
 	}
 
@@ -273,6 +281,10 @@ int newcheque_destroy() {
 		free(newcheque.add_info);
 	if (newcheque.agent_data)
 		free(newcheque.agent_data);
+	if (newcheque.client)
+		free(newcheque.client);
+	if (newcheque.client_inn)
+		free(newcheque.client_inn);
 	return list_clear(&newcheque.articles);
 }
 
@@ -982,8 +994,13 @@ bool newcheque_print(window_t *w) {
 			ffd_tlv_add_string(1030, ca->article->name);
 			ffd_tlv_add_vln(1079, ca->price_per_unit);
 			ffd_tlv_add_fvln(1023, ca->count.value, ca->count.dot);
-			if (ca->article->vat_rate < 7)
+
+			if (ca->article->vat_rate < 6)
 				ffd_tlv_add_uint8(1199, ca->article->vat_rate);
+
+            if (ca->article->vat_rate > 6)
+                ffd_tlv_add_uint8(1199, ca->article->vat_rate - 1);
+                
 			if (ca->agent != NULL) {
 				printf("ca->agent->inn: %s\n", ca->agent->inn);
 				ffd_tlv_add_fixed_string(1226, ca->agent->inn, 12);
@@ -1026,6 +1043,24 @@ bool newcheque_print(window_t *w) {
 			ffd_tlv_add(tlv);
 			p += FFD_TLV_SIZE(tlv);
 		}
+	}
+	
+	if (newcheque.client && newcheque.client[0] != 0) {
+	    printf("newcheque.client = %s\n", newcheque.client);
+	    ffd_tlv_add_string(1227, newcheque.client);
+	}
+	
+	if (newcheque.client_inn && newcheque.client_inn[0] != 0) {
+	    int len = strlen(newcheque.client_inn);
+
+	    printf("newcheque.client_inn = %s\n", newcheque.client_inn);
+	    
+	    if (len != 10 && len != 12) {
+    		window_show_error(w, 1228, "Неправильный ИНН клиента");
+	    	return false;
+		}
+	
+	    ffd_tlv_add_fixed_string(1228, newcheque.client_inn, 12);
 	}
 
 	switch (newcheque.pay_kind) {
@@ -1101,6 +1136,18 @@ bool newcheque_print(window_t *w) {
 		free(newcheque.add_info);
 		newcheque.add_info = NULL;
 		window_set_data(w, 1192, 0, "", 0);
+	}
+
+	if (newcheque.client) {
+		free(newcheque.client);
+		newcheque.client = NULL;
+		window_set_data(w, 1227, 0, "", 0);
+	}
+
+	if (newcheque.client_inn) {
+		free(newcheque.client_inn);
+		newcheque.client_inn = NULL;
+		window_set_data(w, 1228, 0, "", 0);
 	}
 
 	newcheque.dsum[0] =
@@ -1201,6 +1248,18 @@ int newcheque_execute() {
 	window_add_control(win,
 			edit_create(1192, screen, x, y, w, h, newcheque.add_info,
 			   	EDIT_INPUT_TYPE_TEXT, 16));
+	y += h + YGAP;
+
+	window_add_label(win, TEXT_START, y + DY, align_left, "Покупатель (клиент):");
+	window_add_control(win,
+			edit_create(1227, screen, x, y, w, h, newcheque.client,
+			   	EDIT_INPUT_TYPE_TEXT, 255));
+	y += h + YGAP;
+
+	window_add_label(win, TEXT_START, y + DY, align_left, "ИНН покупателя (клиента):");
+	window_add_control(win,
+			edit_create(1228, screen, x, y, w, h, newcheque.client_inn,
+			   	EDIT_INPUT_TYPE_TEXT, 12));
 	y += h + YGAP + th + 12;
 
 	window_add_label(win, TEXT_START, y - th - 4, align_left,
@@ -1253,6 +1312,17 @@ int newcheque_execute() {
 		if (newcheque.add_info)
 			free(newcheque.add_info);
 		newcheque.add_info = strdup(data.data);
+		
+		window_get_data(win, 1227, 0, &data);
+		if (newcheque.client)
+			free(newcheque.client);
+		newcheque.client = strdup(data.data);
+		
+		window_get_data(win, 1228, 0, &data);
+		if (newcheque.client_inn)
+			free(newcheque.client_inn);
+		newcheque.client_inn = strdup(data.data);
+		
 
 		newcheque.pay_type = window_get_int_data(win, 1054, 0, 0) + 1;
 		newcheque.pay_kind = window_get_int_data(win, 9998, 0, 0);
