@@ -15,11 +15,15 @@
 #include "gui/fa.h"
 
 #include "pos/pos.h"
+#include "pos/command.h"
 
 #include "kkt/fd/fd.h"
 #include "kkt/fd/tlv.h"
 #include "kkt/kkt.h"
 #include "kkt/fdo.h"
+
+int cart_start_y = 0;
+
 
 static void update_cheque(void *arg __attribute__((unused))) {
 	kbd_flush_queue();
@@ -175,8 +179,37 @@ void ui_cart_redraw_all()
 	ClearGC(cart_screen, clSilver);
 	
 	ui_cart_calc_bounds();
+	
+	pos_incomplete_op = true;
+	
+	if (pos_incomplete_op)
+	{
+	    cart_start_y = 35;
+	}
+	else
+	{
+	    cart_start_y = 0;
+	}
+	
+    if (pos_incomplete_op)
+	{
+	    const char *text = "ВНИМАНИЕ! Имеется незавершенная операция в ИПТ";
+	    int x = CART_XGAP * 3;
+	    int y = CART_YGAP;
+	    int w = DISCX - CART_XGAP * 6;
+	    int h = CART_BUTTON_HEIGHT;
+	    
+    	fill_rect(cart_screen, x, y, w, h, 2, RGB(200, 100, 100), RGB(200, 150, 150));
+    	
+		int tw = GetTextWidth(cart_screen, text);
 
-	int y = CART_YGAP;
+		x += (w - tw) / 2;
+		y += (h - GetTextHeight(cart_screen))/2;
+		SetTextColor(cart_screen, RGB(100, 50, 50));
+		TextOut(cart_screen, x, y, text);
+    }
+
+	int y = CART_YGAP + cart_start_y;
 	for (int i = 0; i < ui_cart->subcart_count; i++)
 	{
 		ui_subcart_t *sc = &ui_cart->subcarts[i];
@@ -188,7 +221,7 @@ void ui_cart_redraw_all()
 	if (ui_cart->subcart_count == 0)
 	{
         draw_button(cart_screen,
-            CART_XGAP * 3, CART_YGAP,
+            CART_XGAP * 3, y,
             DISCX - CART_XGAP * 6, CART_BUTTON_HEIGHT,
             "Нет документов для обработки",
             true);
@@ -208,7 +241,7 @@ void ui_cart_draw(GCPtr s, FontPtr f, FontPtr sf)
 
 int ui_cart_get_y(ui_subcart_t *sc)
 {
-	int y = CART_YGAP;
+	int y = CART_YGAP + cart_start_y;
 	for (int i = 0; i < ui_cart->subcart_count; i++)
 	{
 		ui_subcart_t *_sc = &ui_cart->subcarts[i];

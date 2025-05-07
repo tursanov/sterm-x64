@@ -30,6 +30,7 @@
 #include "ds1990a.h"
 #include "kkt/fd/tlv.h"
 #include "gui/cart.h"
+#include "pos/command.h"
 
 static int fa_active_group = -1;
 static int fa_active_item = -1;

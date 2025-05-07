@@ -25,6 +25,8 @@
 #define CART_ACTION_ENABLED 0x01
 #define CART_DELETE_ENABLED 0x02
 
+extern int cart_start_y;
+
 typedef struct dim_t
 {
 	int w;
