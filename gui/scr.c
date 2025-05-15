@@ -2649,6 +2649,7 @@ int set_scr_text(uint8_t *s, int l, int t, bool need_redraw)
 		hide_cursor();
 		adjust_scr_mode();
 		bool wrap = false;
+		sg = &sg80x20;
 		for (int n = 0; (s - ss) < l; s++){
 			if (is_escape(*s))
 				dle = true;
