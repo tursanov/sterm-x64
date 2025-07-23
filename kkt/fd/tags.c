@@ -71,7 +71,7 @@ kkt_tag_t tags[] = {
 	{ 1116, "номер первого непереданного документа", tag_type_uint32 },
 	{ 1117, "адрес электронной почты отправителя чека", tag_type_string },
 	{ 1118, "количество кассовых чеков (БСО) за смену", tag_type_uint32 },
-	{ 1119, "сумма НДС чека", tag_type_vln },
+	{ 1119, "сумма НДС чека", tag_type_stlv },
 	{ 1120, "сумма НДС", tag_type_vln },
 	{ 1126, "признак проведения лотереи", tag_type_byte },
 	{ 1129, "счетчики операций \"приход\"", tag_type_stlv },
@@ -200,7 +200,7 @@ tag_type_t tags_get_tlv_text(ffd_tlv_t *tlv, char *text, size_t text_size) {
 			break;
 		case tag_type_unixtime:
 			{ 
-				time_t t = *(time_t *)data;
+				time_t t = (time_t)*(int32_t *)data;
 				struct tm tm = *gmtime(&t);
 				strftime(s, text_size - l, "%d.%m.%Y %H:%M", &tm);
 			}

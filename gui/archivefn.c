@@ -319,7 +319,7 @@ static void print_stlv(uint8_t *p, size_t size, int level) {
 		out_printf("%s%s", tmp, text);
 
 		if (type == tag_type_stlv)
-			print_stlv(p + 4, t->length, 1);
+			print_stlv(p + 4, t->length, level + 1);
 
 		size_t l = t->length + sizeof(*t);
 		i += l;
