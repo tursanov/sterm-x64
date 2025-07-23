@@ -25,6 +25,7 @@
 #include "gui/newcheque.h"
 #include "gui/archivefn.h"
 #include "kkt/fd/fd.h"
+#include "kkt/fd/pattern.h"
 #include "kkt/kkt.h"
 #include "kkt/fdo.h"
 #include "ds1990a.h"
@@ -280,6 +281,7 @@ bool init_fa(int arg)
 	fdo_suspend();
 	fa_check_fn();
 	fa_get_reregistration_data();
+    kkt_reload_patterns(user_inn);
 	fdo_resume();
 
 	if (arg == cmd_fa) {
@@ -334,6 +336,7 @@ void release_fa(void)
 	}
 	cheque_release();
 	cheque_docs_release();
+	kkt_free_patterns();
 	if (fa_menu) {
 		release_menu(fa_menu,false);
 		fa_menu = NULL;

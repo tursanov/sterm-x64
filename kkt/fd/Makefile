@@ -6,7 +6,8 @@ FFD_OBJS =		\
 	ad 		\
 	fd		\
 	tags	\
-	tlv
+	tlv     \
+	pattern
 
 OBJS = $(addsuffix .o, $(FFD_OBJS))
 

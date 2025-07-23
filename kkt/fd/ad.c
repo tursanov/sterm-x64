@@ -1282,7 +1282,7 @@ static int stage = 0;
 	AD_calc_sum();
 	char buf[1024];
 	sprintf(buf, "stage%d.txt", ++stage);
-	int fd = fopen(buf, "w");
+	int f = fopen(buf, "w");
 	AD_print(f);
 	fclose(f);
 #endif
@@ -1571,7 +1571,7 @@ int kkt_xml_callback(bool check, int evt, const char *name, const char *val)
                                                  &_lMask, 0x08, &_l->t)) != 0)
                         return ret;
                 } else if (strcmp(name, "N") == 0) {
-                    if ((ret = process_int_value("L", name, val, 0, 6,
+                    if ((ret = process_int_value("L", name, val, 0, 10,
                                                  &_lMask, 0x10, &v64)) != 0)
                         return ret;
 					_l->n = (uint8_t)v64;

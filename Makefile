@@ -83,7 +83,8 @@ KKT_FD_OBJS =		\
 	ad		\
 	fd		\
 	tags		\
-	tlv
+	tlv         \
+	pattern
 
 LOG_OBJS =		\
 	express		\
