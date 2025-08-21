@@ -30,5 +30,7 @@ typedef struct kkt_tag_t {
 
 const char *tags_get_text(uint16_t tag);
 tag_type_t tags_get_tlv_text(ffd_tlv_t *tlv, char *text, size_t text_size);
+void dump_current_tlv();
+
 
 #endif // TAGS_H

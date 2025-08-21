@@ -260,3 +260,35 @@ tag_type_t tags_get_tlv_text(ffd_tlv_t *tlv, char *text, size_t text_size) {
 
 	return t->type;
 }
+
+void dump_stlv(uint8_t *p, size_t size, int level) {
+	char text[2048];
+	char tmp[8] = {0};
+
+	memset(tmp, ' ', level);
+	tmp[level] = 0;
+
+	size_t i = 0;
+	while (i < size) {
+		ffd_tlv_t *t = (ffd_tlv_t *)p;
+
+		tag_type_t type = tags_get_tlv_text(t, text, sizeof(text));
+		printf("%s%s\n", tmp, text);
+
+		if (type == tag_type_stlv)
+			dump_stlv(p + 4, t->length, level + 1);
+
+		size_t l = t->length + sizeof(*t);
+		i += l;
+		p += l;
+	}
+}
+
+void dump_current_tlv()
+{
+    uint8_t *tlv = ffd_tlv_data();
+    size_t tlv_size = ffd_tlv_size();
+    
+    dump_stlv(tlv, tlv_size, 0);
+}
+

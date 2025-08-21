@@ -1052,6 +1052,8 @@ static int fa_cheque_corr_2() {
 			fa_show_error(form, 1102, "Для данного документа должно быть заполнено хотя бы одно поле с НДС");
 			continue;
 		}
+		
+//      dump_current_tlv();
 
 		if (fa_create_doc(CHEQUE_CORR, NULL, 0, update_form, form))
 			return 1;
@@ -1075,7 +1077,6 @@ void fa_cheque_corr() {
 		FORM_ITEM_EDIT_TEXT(9999, "Должность кассира:", cashier_post, FORM_INPUT_TYPE_TEXT, 64)
 		FORM_ITEM_EDIT_TEXT(1203, "ИНН Кассира:", cashier_inn, FORM_INPUT_TYPE_NUMBER, 12)
 
-		FORM_ITEM_EDIT_TEXT(1177, "Описание коррекции:", NULL, FORM_INPUT_TYPE_TEXT, 256)
 		FORM_ITEM_EDIT_TEXT(1178, "Дата коррекции:", NULL, FORM_INPUT_TYPE_DATE, 10)
 		FORM_ITEM_EDIT_TEXT(1179, "Номер предписания:", NULL, FORM_INPUT_TYPE_TEXT, 32)
 
@@ -1115,7 +1116,6 @@ void fa_cheque_corr() {
 			ffd_tlv_add_uint8(1173, corr_type) != 0) 
 			continue;
 		if (ffd_tlv_stlv_begin(1174, 292) != 0 ||
-			fa_tlv_add_string(form, 1177, false) != 0 ||
 			fa_tlv_add_unixtime(form, 1178, true) != 0 ||
 			fa_tlv_add_string(form, 1179, true) != 0 ||
 			ffd_tlv_stlv_end() != 0)
