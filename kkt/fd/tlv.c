@@ -39,7 +39,7 @@ typedef struct {
 	uint16_t max_length;
 } ffd_stlv_t;
 
-#define STLV_MAX_LEVEL	4
+#define STLV_MAX_LEVEL	5
 static ffd_stlv_t stlvs[STLV_MAX_LEVEL];
 static ffd_stlv_t* max_stlv = &stlvs[STLV_MAX_LEVEL - 1];
 static ffd_stlv_t* stlv = NULL;

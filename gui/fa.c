@@ -307,6 +307,7 @@ form_t *open_shift_form = NULL;
 form_t *close_shift_form = NULL;
 form_t *cheque_corr_form = NULL;
 form_t *close_fs_form = NULL;
+form_t *cheque_corr_form_2 = NULL;
 
 void release_fa(void)
 {
@@ -329,6 +330,10 @@ void release_fa(void)
 	if (cheque_corr_form) {
 		form_destroy(cheque_corr_form);
 		cheque_corr_form = NULL;
+	}
+	if (cheque_corr_form_2) {
+		form_destroy(cheque_corr_form_2);
+		cheque_corr_form_2 = NULL;
 	}
 	if (close_fs_form) {
 		form_destroy(close_fs_form);
@@ -449,6 +454,21 @@ static uint64_t form_data_to_vln(form_data_t *data) {
 		}
 	}*/
 	return value;
+}
+
+static int64_t fa_form_get_vln(form_t* form, uint16_t tag) {
+	form_data_t data;
+
+	if (!form_get_data(form, tag, 1, &data)) {
+		fa_show_error(form, tag, "Указан неверный тэг");
+		return -1;
+	}
+
+	if (data.size == 0) {
+		return -1;
+	}
+
+	return form_data_to_vln(&data);
 }
 
 static int fa_tlv_add_vln_ex(form_t *form, uint16_t tag, bool required,
@@ -962,6 +982,84 @@ static int fa_get_int_field(form_t *form, uint16_t tag) {
 	return ret;
 }
 
+static int fa_add_new_vat(uint8_t vat_index, uint64_t vln)
+{
+    if (ffd_tlv_stlv_begin(1119, 15) != 0 ||
+        ffd_tlv_add_uint8(1199, vat_index) != 0 ||
+        ffd_tlv_add_vln(1120, vln) != 0 ||
+	    ffd_tlv_stlv_end() != 0)
+	    return -1;
+    return 0;
+}
+
+static int fa_cheque_corr_2() {
+	BEGIN_FORM(cheque_corr_form_2, "Чек коррекции - НДС")
+		FORM_ITEM_EDIT_TEXT(1102, "НДС 20%:", NULL, FORM_INPUT_TYPE_MONEY, 16)
+		FORM_ITEM_EDIT_TEXT(1103, "НДС 10%:", NULL, FORM_INPUT_TYPE_MONEY, 16)
+		FORM_ITEM_EDIT_TEXT(1104, "НДС 0%:", NULL, FORM_INPUT_TYPE_MONEY, 16)
+		FORM_ITEM_EDIT_TEXT(1105, "БЕЗ НДС:", NULL, FORM_INPUT_TYPE_MONEY, 16)
+		FORM_ITEM_EDIT_TEXT(1106, "НДС 20/120:", NULL, FORM_INPUT_TYPE_MONEY, 16)
+		FORM_ITEM_EDIT_TEXT(1107, "НДС 10/110:", NULL, FORM_INPUT_TYPE_MONEY, 16)
+
+		FORM_ITEM_EDIT_TEXT(1108, "НДС 5%", NULL, FORM_INPUT_TYPE_MONEY, 16)
+		FORM_ITEM_EDIT_TEXT(1109, "НДС 7%", NULL, FORM_INPUT_TYPE_MONEY, 16)
+		FORM_ITEM_EDIT_TEXT(1110, "НДС 5/105", NULL, FORM_INPUT_TYPE_MONEY, 16)
+		FORM_ITEM_EDIT_TEXT(1111, "НДС 7/107", NULL, FORM_INPUT_TYPE_MONEY, 16)
+
+		FORM_ITEM_BUTTON(1, "Печать")
+		FORM_ITEM_BUTTON(0, "Отмена")
+	END_FORM()
+	
+	form_t *form = cheque_corr_form_2;
+
+	while (form_execute(form) == 1) {
+		uint32_t vat_flags = 0;
+		if (fa_tlv_add_vln_ex(form, 1102, false, &vat_flags, 0) != 0 ||
+			fa_tlv_add_vln_ex(form, 1103, false, &vat_flags, 1) != 0 ||
+			fa_tlv_add_vln_ex(form, 1104, false, &vat_flags, 2) != 0 ||
+			fa_tlv_add_vln_ex(form, 1105, false, &vat_flags, 3) != 0 ||
+			fa_tlv_add_vln_ex(form, 1106, false, &vat_flags, 4) != 0 ||
+			fa_tlv_add_vln_ex(form, 1107, false, &vat_flags, 5) != 0)
+			continue;
+			
+        int64_t vat5 = fa_form_get_vln(form, 1108);
+        int64_t vat7 = fa_form_get_vln(form, 1109);
+        int64_t vat5_105 = fa_form_get_vln(form, 1110);
+        int64_t vat7_107 = fa_form_get_vln(form, 1111);
+        
+        if (vat5 >= 0 || vat7 >= 0 || vat5_105 >= 0 || vat7_107 >= 0)
+        {
+    		if (ffd_tlv_stlv_begin(1115, 360) != 0)
+    		    continue;
+    		    
+            if (vat5 >= 0 && fa_add_new_vat(7, vat5) != 0)
+                continue;
+            if (vat7 >= 0 && fa_add_new_vat(8, vat7) != 0)
+                continue;
+            if (vat5_105 >= 0 && fa_add_new_vat(9, vat5_105) != 0)
+                continue;
+            if (vat7_107 >= 0 && fa_add_new_vat(10, vat7_107) != 0)
+                continue;
+			
+			if (ffd_tlv_stlv_end() != 0)
+			    continue;
+            
+            vat_flags = 1;
+        }
+			
+
+		if (vat_flags == 0) {
+			fa_show_error(form, 1102, "Для данного документа должно быть заполнено хотя бы одно поле с НДС");
+			continue;
+		}
+
+		if (fa_create_doc(CHEQUE_CORR, NULL, 0, update_form, form))
+			return 1;
+	}
+	
+	return 0;
+}
+
 void fa_cheque_corr() {
 	const char *str_pay_type[] = { "Коррекция прихода", "Коррекция расхода" };
 	const char *str_tax_mode[] = { "ОСН", "УСН ДОХОД", "УСН ДОХОД-РАСХОД", "ЕНВД", "ЕСХН", "ПАТЕНТ" };
@@ -987,19 +1085,20 @@ void fa_cheque_corr() {
 		FORM_ITEM_EDIT_TEXT(1216, "Постоплатой:", "0", FORM_INPUT_TYPE_MONEY, 16)
 		FORM_ITEM_EDIT_TEXT(1217, "Встречным предоставлением:", "0", FORM_INPUT_TYPE_MONEY, 16)
 
-		FORM_ITEM_EDIT_TEXT(1102, "НДС 20%:", NULL, FORM_INPUT_TYPE_MONEY, 16)
-		FORM_ITEM_EDIT_TEXT(1103, "НДС 10%:", NULL, FORM_INPUT_TYPE_MONEY, 16)
-		FORM_ITEM_EDIT_TEXT(1104, "НДС 0%:", NULL, FORM_INPUT_TYPE_MONEY, 16)
-		FORM_ITEM_EDIT_TEXT(1105, "БЕЗ НДС:", NULL, FORM_INPUT_TYPE_MONEY, 16)
-		FORM_ITEM_EDIT_TEXT(1106, "НДС 20/120:", NULL, FORM_INPUT_TYPE_MONEY, 16)
-		FORM_ITEM_EDIT_TEXT(1107, "НДС 10/110:", NULL, FORM_INPUT_TYPE_MONEY, 16)
+//		FORM_ITEM_EDIT_TEXT(1102, "НДС 20%:", NULL, FORM_INPUT_TYPE_MONEY, 16)
+//		FORM_ITEM_EDIT_TEXT(1103, "НДС 10%:", NULL, FORM_INPUT_TYPE_MONEY, 16)
+//		FORM_ITEM_EDIT_TEXT(1104, "НДС 0%:", NULL, FORM_INPUT_TYPE_MONEY, 16)
+//		FORM_ITEM_EDIT_TEXT(1105, "БЕЗ НДС:", NULL, FORM_INPUT_TYPE_MONEY, 16)
+//		FORM_ITEM_EDIT_TEXT(1106, "НДС 20/120:", NULL, FORM_INPUT_TYPE_MONEY, 16)
+//		FORM_ITEM_EDIT_TEXT(1107, "НДС 10/110:", NULL, FORM_INPUT_TYPE_MONEY, 16)
 
-		FORM_ITEM_BUTTON(1, "Печать")
+		FORM_ITEM_BUTTON(1, "Далее")
 		FORM_ITEM_BUTTON(0, "Отмена")
 	END_FORM()
 	form_t *form = cheque_corr_form;
 
 	while (form_execute(form) == 1) {
+
 		ffd_tlv_reset();
 
 		int pay_type;
@@ -1022,31 +1121,25 @@ void fa_cheque_corr() {
 			ffd_tlv_stlv_end() != 0)
 			continue;
 
-		uint32_t vat_flags = 0;
+		if (fa_tlv_add_cashier(form) != 0)
+			continue;
+			
 		if (fa_tlv_add_vln(form, 1031, true) != 0 ||
 			fa_tlv_add_vln(form, 1081, true) != 0 ||
 			fa_tlv_add_vln(form, 1215, true) != 0 ||
 			fa_tlv_add_vln(form, 1216, true) != 0 ||
-			fa_tlv_add_vln(form, 1217, true) != 0 ||
-
-			fa_tlv_add_vln_ex(form, 1102, false, &vat_flags, 0) != 0 ||
-			fa_tlv_add_vln_ex(form, 1103, false, &vat_flags, 1) != 0 ||
-			fa_tlv_add_vln_ex(form, 1104, false, &vat_flags, 2) != 0 ||
-			fa_tlv_add_vln_ex(form, 1105, false, &vat_flags, 3) != 0 ||
-			fa_tlv_add_vln_ex(form, 1106, false, &vat_flags, 4) != 0 ||
-			fa_tlv_add_vln_ex(form, 1107, false, &vat_flags, 5) != 0)
+			fa_tlv_add_vln(form, 1217, true) != 0)
 			continue;
 
-		if (vat_flags == 0) {
-			fa_show_error(form, 1102, "Для данного документа должно быть заполнено хотя бы одно поле с НДС");
-			continue;
-		}
-
-		if (fa_tlv_add_cashier(form) != 0)
-			continue;
-
-		if (fa_create_doc(CHEQUE_CORR, NULL, 0, update_form, form))
+			
+		if (fa_cheque_corr_2() == 1) {
 			break;
+		}
+		
+		form_draw(form);
+
+//		if (fa_create_doc(CHEQUE_CORR, NULL, 0, update_form, form))
+//			break;
 	}
 	fa_set_group(FAPP_GROUP_MENU);
 }
