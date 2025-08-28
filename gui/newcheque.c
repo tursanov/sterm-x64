@@ -59,6 +59,7 @@ extern uint8_t reg_tax_systems;
 static const char * s_tax_systems[6];
 static uint8_t b_tax_systems[6];
 static int s_tax_system_count;
+static bool support_1222_1224_1225;
 
 static cheque_article_t *cheque_article_new() {
 	cheque_article_t *ca =  (cheque_article_t *)malloc(sizeof(cheque_article_t));
@@ -960,13 +961,14 @@ bool newcheque_print(window_t *w) {
 	if (newcheque.phone_or_email && newcheque.phone_or_email[0])
 		ffd_tlv_add_string(1008, newcheque.phone_or_email);
 
-
 	if (_ad->t1086 != NULL) {
 		ffd_tlv_stlv_begin(1084, 320);
 		ffd_tlv_add_string(1085, "’…Œˆ€‹");
 		ffd_tlv_add_string(1086, _ad->t1086);
 		ffd_tlv_stlv_end();
 	}
+	
+	const char *supplier_phone = agent != NULL ? agent->supplier_phone : NULL;
 
 	if (newcheque.add_info && newcheque.add_info[0])
 		ffd_tlv_add_string(1192, newcheque.add_info);
@@ -1004,6 +1006,22 @@ bool newcheque_print(window_t *w) {
 			if (ca->agent != NULL) {
 				printf("ca->agent->inn: %s\n", ca->agent->inn);
 				ffd_tlv_add_fixed_string(1226, ca->agent->inn, 12);
+				if (support_1222_1224_1225)
+				{
+				    if (ca->agent->pay_agent != 0)
+				    {
+            			ffd_tlv_add_uint8(1222, ca->agent->pay_agent);
+            			ffd_tlv_stlv_begin(1224, 512);
+        				ffd_tlv_add_string(1225, ca->agent->name);
+        				if (ca->agent->supplier_phone != NULL) {
+        				    if (supplier_phone == NULL
+        				        || ca->agent->supplier_phone != supplier_phone
+        				        || strcmp(ca->agent->supplier_phone, supplier_phone) != 0)
+            				ffd_tlv_add_string(1171, ca->agent->supplier_phone);
+        				}
+            			ffd_tlv_stlv_end();				        
+				    }
+				}
 			}
 		}
 		ffd_tlv_stlv_end();
@@ -1165,6 +1183,8 @@ bool newcheque_print(window_t *w) {
 
 int newcheque_execute() {
 	int focus_id = 9997;
+	
+	support_1222_1224_1225 = kkt_has_param("SUPPORT_1222_1224_1225");
 
 	window_t *win = window_create(NULL, "—¥ª(¨) (Esc - ¢ëå®¤)", newcheque_process);
 	GCPtr screen = window_get_gc(win);

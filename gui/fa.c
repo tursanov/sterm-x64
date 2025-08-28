@@ -39,6 +39,8 @@ static struct menu *fa_menu = NULL;
 static struct menu *fa_sales_menu = NULL;
 int fa_arg = cmd_fa;
 static bool fs_debug = false;
+static bool support_1222_1224_1225;
+
 
 static bool process_fa_cmd(int cmd);
 
@@ -283,6 +285,8 @@ bool init_fa(int arg)
 	fa_get_reregistration_data();
     kkt_reload_patterns(user_inn);
 	fdo_resume();
+	
+	support_1222_1224_1225 = kkt_has_param("SUPPORT_1222_1224_1225");
 
 	if (arg == cmd_fa) {
 		ClearScreen(clBlack);
@@ -1257,6 +1261,17 @@ void fa_cheque() {
 							else
 								sprintf(inn, "%.10ld", l->i);
 							ffd_tlv_add_fixed_string(1226, inn, 12);
+							
+							if (support_1222_1224_1225)
+							{
+							    ffd_tlv_add_uint8(1222, 64);
+							    ffd_tlv_stlv_begin(1224, 512);
+							        ffd_tlv_add_string(1225, l->z);
+							        if (l->h && strcmp(l->h, agent_phone) != 0) {
+							            ffd_tlv_add_string(1171, l->h);
+							        }
+							    ffd_tlv_stlv_end();
+							}
 						}
 						ffd_tlv_stlv_end();
 					}
