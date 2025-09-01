@@ -36,6 +36,7 @@ bool fa_create_doc(uint16_t doc_type, const uint8_t *pattern_footer,
 		void *update_func_arg);
 
 extern const char *str_tax_systems[];
+extern uint8_t tax_systems_bits[];
 extern size_t str_tax_system_count;
 extern const char *str_short_kkt_modes[];
 extern const char *str_kkt_modes[];

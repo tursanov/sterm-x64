@@ -82,8 +82,8 @@ static control_t *control_create(GCPtr gc, int x, int y, int w, int h,
 		break;
 	case FORM_ITEM_TYPE_BITSET:
 		c = bitset_create(info->id, gc, x, y, w, h,
-				info->bitset.short_items, info->bitset.items, info->bitset.item_count,
-				info->bitset.value);
+				info->bitset.short_items, info->bitset.items, info->bitset.bits,
+				info->bitset.item_count, info->bitset.value);
 		break;
 	default:
 		return NULL;

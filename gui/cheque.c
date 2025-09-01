@@ -237,18 +237,24 @@ static int doc_view_expanded_draw(C *c, int start_y) {
 			doc_no_is_empty(&k->u) ? "" : " (…‡€‚…˜…Ž… ……Ž”ŽŒ‹…ˆ…)");
 		TextOut(screen, GAP*2, y, text);
 		y += fnt->max_height;
-
+		
 		for (list_item_t *li2 = k->llist.head; li2 != NULL; li2 = li2->next) {
 			const char *svat[] = {
 				"„‘ 20%",
 				"„‘ 10%",
 				"„‘ 20/120",
 				"„‘ 10/110",
+				"",
+				"",
+            	"„‘ 5%",
+            	"„‘ 7%",
+            	"„‘ 5/105",
+            	"„‘ 7/107"
 			};
 			char *p = text;
 			L *l = LIST_ITEM(li2, L);
 			p += sprintf(p, "%s: %.1lld.%.2lld", l->s, (long long)l->t / 100, (long long)l->t % 100);
-			if (l->n >= 1 && l->n <= 4) {
+			if ((l->n >= 1 && l->n <= 4) || (l->n >= 7 && l->n <= 10)) {
 				sprintf(p, " (¢ â.ç. %s: %.1lld.%.2lld)", svat[l->n - 1],
 					(long long)l->c / 100, (long long)l->c % 100);
 			}

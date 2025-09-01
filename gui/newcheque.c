@@ -1191,7 +1191,7 @@ int newcheque_execute() {
 
 	s_tax_system_count = 0;
 	for (int i = 0; i < str_tax_system_count; i++) {
-		uint8_t b = 1 << i;
+		uint8_t b = tax_systems_bits[i];
 		if (reg_tax_systems & b) {
 			s_tax_systems[s_tax_system_count] = str_tax_systems[i];
 			b_tax_systems[s_tax_system_count] = b;

@@ -2848,11 +2848,12 @@ static void show_kkt_info(void)
 			"%29s:  %u.%u.%u.%u\n"	/* IP-адрес ОФД */
 			"%29s:  %hu\n"		/* TCP-порт ОФД */
 
-			"%29s:  %s\n"		/* SUPPORT_1222_1224_1225 */
-			"%29s:  %s\n"		/* COMP1057WO1171 */
-			"%29s:  %s\n"		/* SUPPORT_NULL_IN_TEMPLATE */
-			"%29s:  %s\n"		/* SUPPORT_FRAGMENTATION */
-			"%29s:  %s\n",		/* SUPPORT_ESC_R */
+			"%29s:  %s, "		/* SUPPORT_1222_1224_1225 */
+			"%35s:  %s\n"		/* COMP1057WO1171 */
+			"%29s:  %s, "		/* SUPPORT_NULL_IN_TEMPLATE */
+			"%35s:  %s\n"		/* SUPPORT_FRAGMENTATION */
+			"%29s:  %s, "		/* SUPPORT_ESC_R */
+			"%35s:  %s\n",		/* SUPPORT_VAT_5_7 */
 		"ККТ", kkt->name,
 		"Заводской номер ККТ", (kkt_nr == NULL) ? "НЕ УСТАНОВЛЕН" : kkt_nr,
 		"Версия ПО", (kkt_ver == NULL) ? "НЕИЗВЕСТНО" : kkt_ver,
@@ -2893,7 +2894,8 @@ static void show_kkt_info(void)
 		"Теги ФФД 1057 без 1171", kkt_has_param("COMP1057WO1171") ? "да" : "нет",
 		"Отказ от печати ФД", kkt_has_param("SUPPORT_NULL_IN_TEMPLATE") ? "да" : "нет",
 		"Печать фрагментами", kkt_has_param("SUPPORT_FRAGMENTATION") ? "да" : "нет",
-		"Печать шаблонами", kkt_has_param("SUPPORT_ESC_R") ? "да" : "нет"
+		"Печать шаблонами", kkt_has_param("SUPPORT_ESC_R") ? "да" : "нет",
+		"Поддержка ставок НДС 5% и 7%", kkt_has_param("SUPPORT_VAT_5_7") ? "да" : "нет"
 	);
 	online = false;
 	guess_term_state();

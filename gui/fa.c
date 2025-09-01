@@ -753,13 +753,16 @@ void fa_close_fs() {
 #include "references/agent.c"
 #include "references/article.c"
 
-const char *str_tax_systems[] = { "ОСН", "УСН ДОХОД", "УСН ДОХОД-РАСХОД", "ЕНВД", "ЕСХН", "ПАТЕНТ" };
+const char *str_tax_systems[] = { "ОСН", "УСН ДОХОД", "УСН ДОХОД-РАСХОД", "ЕСХН", "ПАТЕНТ" };
 size_t str_tax_system_count = ASIZE(str_tax_systems);
+uint8_t tax_systems_bits[] = { 0x01, 0x02, 0x04, 0x10, 0x20 };
+
 const char *str_short_kkt_modes[] = { "ШФД", "АВТОН.Р.", "АВТОМАТ.Р.",
 		"УСЛУГИ", "БСО", "ИНТЕРНЕТ" };
 const char *str_kkt_modes[] = { "Шифрование", "Автономный режим", "Автоматический режим",
 		"Применение в сфере услуг", "Режим БСО", "Применение в Интернет" };
 size_t str_kkt_mode_count = ASIZE(str_kkt_modes);
+uint8_t kkt_modes_bits[] = { 0x01, 0x02, 0x04, 0x08, 0x10, 0x20 };
 
 static int fa_fill_registration_tlv(form_t *form) {
 	ffd_tlv_reset();
@@ -798,10 +801,10 @@ void fa_registration() {
 		FORM_ITEM_EDIT_TEXT(1018, "ИНН пользователя:", NULL, FORM_INPUT_TYPE_NUMBER, 12)
 		FORM_ITEM_EDIT_TEXT(1009, "Адрес расчетов:", NULL, FORM_INPUT_TYPE_TEXT, 256)
 		FORM_ITEM_EDIT_TEXT(1187, "Место расчетов:", NULL, FORM_INPUT_TYPE_TEXT, 256)
-		FORM_ITEM_BITSET(1062, "Системы налогообложения:", str_tax_systems, str_tax_systems, 
-				str_tax_system_count, 0)
+		FORM_ITEM_BITSET(1062, "Системы налогообложения:", str_tax_systems, str_tax_systems,
+		        tax_systems_bits, str_tax_system_count, 0)
 		FORM_ITEM_EDIT_TEXT(1037, "Регистрационный номер ККТ:", NULL, FORM_INPUT_TYPE_NUMBER, 16)
-		FORM_ITEM_BITSET(9998, "Режимы работы:", str_short_kkt_modes, str_kkt_modes, 6, 0)
+		FORM_ITEM_BITSET(9998, "Режимы работы:", str_short_kkt_modes, str_kkt_modes, kkt_modes_bits, 6, 0)
 		FORM_ITEM_EDIT_TEXT(1036, "Номер автомата:", NULL, FORM_INPUT_TYPE_TEXT, 20)
 
 		FORM_ITEM_EDIT_TEXT(1021, "Кассир:", cashier_name, FORM_INPUT_TYPE_TEXT, 64)
@@ -831,6 +834,7 @@ static const char *short_rereg_reason[8] = { "ЗАМЕНА ФН", "ЗАМЕНА ОФД", "ИЗМ.РЕК
 	"ИЗМ.НАСТР.ККТ", NULL,  NULL, NULL, NULL };
 static const char *rereg_reason[8] = { "Замена ФН", "Замена ОФД", "Изменение реквизитов",
 	"Изменение настроек ККТ", NULL,  NULL, NULL, NULL };
+static uint8_t rereg_reason_bits[8] = { 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80 };
 
 static size_t get_trim_string_size(const ffd_tlv_t *tlv) {
 	size_t size = tlv->length;
@@ -925,9 +929,9 @@ void fa_reregistration() {
 		FORM_ITEM_EDIT_TEXT(1009, "Адрес расчетов:", NULL, FORM_INPUT_TYPE_TEXT, 256)
 		FORM_ITEM_EDIT_TEXT(1187, "Место расчетов:", NULL, FORM_INPUT_TYPE_TEXT, 256)
 		FORM_ITEM_BITSET(1062, "Системы налогообложения:", str_tax_systems, str_tax_systems, 
-				str_tax_system_count, 0)
+		        tax_systems_bits, str_tax_system_count, 0)
 		FORM_ITEM_EDIT_TEXT(1037, "Регистрационный номер ККТ:", NULL, FORM_INPUT_TYPE_NUMBER, 16)
-		FORM_ITEM_BITSET(9998, "Режимы работы:", str_short_kkt_modes, str_kkt_modes, 6, 0)
+		FORM_ITEM_BITSET(9998, "Режимы работы:", str_short_kkt_modes, str_kkt_modes, kkt_modes_bits, 6, 0)
 		FORM_ITEM_EDIT_TEXT(1036, "Номер автомата:", NULL, FORM_INPUT_TYPE_TEXT, 20)
 		
 		FORM_ITEM_EDIT_TEXT(1021, "Кассир:", cashier_name, FORM_INPUT_TYPE_TEXT, 64)
@@ -940,7 +944,7 @@ void fa_reregistration() {
 		FORM_ITEM_EDIT_TEXT(1117, "Адрес эл. почты отпр. чека:", NULL, FORM_INPUT_TYPE_TEXT, 64)
 		FORM_ITEM_EDIT_TEXT(1046, "Наименование ОФД:", NULL, FORM_INPUT_TYPE_TEXT, 256)
 		FORM_ITEM_EDIT_TEXT(1017, "ИНН ОФД:", NULL, FORM_INPUT_TYPE_NUMBER, 12)
-		FORM_ITEM_BITSET(9997, "Причины перерегистрации", short_rereg_reason, rereg_reason, 4, 0)
+		FORM_ITEM_BITSET(9997, "Причины перерегистрации", short_rereg_reason, rereg_reason, rereg_reason_bits, 4, 0)
 		FORM_ITEM_BUTTON(1, "Печать")
 		FORM_ITEM_BUTTON(0, "Отмена")
 	END_FORM()
@@ -1011,7 +1015,7 @@ static int fa_cheque_corr_2() {
 		FORM_ITEM_EDIT_TEXT(1111, "НДС 7/107", NULL, FORM_INPUT_TYPE_MONEY, 16)
 
 		FORM_ITEM_BUTTON(1, "Печать")
-		FORM_ITEM_BUTTON(0, "Отмена")
+		FORM_ITEM_BUTTON(0, "Назад")
 	END_FORM()
 	
 	form_t *form = cheque_corr_form_2;
@@ -1068,7 +1072,8 @@ static int fa_cheque_corr_2() {
 
 void fa_cheque_corr() {
 	const char *str_pay_type[] = { "Коррекция прихода", "Коррекция расхода" };
-	const char *str_tax_mode[] = { "ОСН", "УСН ДОХОД", "УСН ДОХОД-РАСХОД", "ЕНВД", "ЕСХН", "ПАТЕНТ" };
+	const char *str_tax_mode[] = { "ОСН", "УСН ДОХОД", "УСН ДОХОД-РАСХОД", "ЕСХН", "ПАТЕНТ" };
+	uint8_t tax_mode_bits[] = { 0x01, 0x02, 0x04, 0x10, 0x20 };
 	const char *str_corr_type[] = { "Самостоятельно", "По предписанию" };
 
 	fa_set_cashier_info(cheque_corr_form);
@@ -1083,6 +1088,9 @@ void fa_cheque_corr() {
 
 		FORM_ITEM_EDIT_TEXT(1178, "Дата коррекции:", NULL, FORM_INPUT_TYPE_DATE, 10)
 		FORM_ITEM_EDIT_TEXT(1179, "Номер предписания:", NULL, FORM_INPUT_TYPE_TEXT, 32)
+
+		FORM_ITEM_EDIT_TEXT(1227, "Покупатель (клиент):", NULL, FORM_INPUT_TYPE_TEXT, 255)
+		FORM_ITEM_EDIT_TEXT(1228, "ИНН покупателя:", NULL, FORM_INPUT_TYPE_NUMBER, 12)
 
 		FORM_ITEM_EDIT_TEXT(1031, "Наличными:", "0", FORM_INPUT_TYPE_MONEY, 16)
 		FORM_ITEM_EDIT_TEXT(1081, "Безналичными:", "0", FORM_INPUT_TYPE_MONEY, 16)
@@ -1116,14 +1124,32 @@ void fa_cheque_corr() {
 			continue;
 
 		if (ffd_tlv_add_uint8(1054, (pay_type == 0) ? 1 : 3) != 0 ||
-			ffd_tlv_add_uint8(1055, (1 << tax_system)) != 0 ||
+			ffd_tlv_add_uint8(1055, tax_mode_bits[tax_system]) != 0 ||
 			ffd_tlv_add_uint8(1173, corr_type) != 0) 
 			continue;
+			
 		if (ffd_tlv_stlv_begin(1174, 292) != 0 ||
-			fa_tlv_add_unixtime(form, 1178, true) != 0 ||
-			fa_tlv_add_string(form, 1179, true) != 0 ||
-			ffd_tlv_stlv_end() != 0)
+			fa_tlv_add_unixtime(form, 1178, true) != 0)
 			continue;
+			
+    	form_data_t data;
+	    if (fa_get_string(form, &data, 1179, false) != 0)
+		    continue;
+
+        if (corr_type == 0 && data.size > 0) {
+    		fa_show_error(form, 1179, "При самостоятельной коррекции номер предписания не указывается");
+    		continue;
+        }
+        
+        if (corr_type == 1) {
+			if (fa_tlv_add_string(form, 1179, true) != 0)
+			{
+			    continue;
+			}
+        }
+        
+        if (ffd_tlv_stlv_end() != 0)
+            continue;
 
 		if (fa_tlv_add_cashier(form) != 0)
 			continue;
@@ -1134,7 +1160,10 @@ void fa_cheque_corr() {
 			fa_tlv_add_vln(form, 1216, true) != 0 ||
 			fa_tlv_add_vln(form, 1217, true) != 0)
 			continue;
-
+			
+        fa_tlv_add_string(form, 1227, false);
+        fa_tlv_add_fixed_string(form, 1228, 12, false);
+			
 			
 		if (fa_cheque_corr_2() == 1) {
 			break;
@@ -1237,13 +1266,13 @@ void fa_cheque() {
 						ffd_tlv_stlv_begin(1059, 1024);
 						ffd_tlv_add_uint8(1214, l->r);
 						char s1030[256];
-						sprintf(s1030, "%s\n\rдокумент \xfc%s", l->s, k->b.s ? k->b.s : "");
+						sprintf(s1030, "%s документ \xfc%s", l->s, k->b.s ? k->b.s : "");
 						ffd_tlv_add_string(1030, s1030);
 						ffd_tlv_add_vln(1079, l->t);
 						ffd_tlv_add_fvln(1023, 1, 0);
 						if (l->n > 0)
 							ffd_tlv_add_uint8(1199, l->n);
-						if (l->n >= 1 && l->n <= 4) {
+						if ((l->n >= 1 && l->n <= 4) || l->n >= 7) {
 							printf("ADD 1198, %lld\n", (long long)l->c);
 							ffd_tlv_add_vln(1198, l->c);
 							printf("ADD 1200, %lld\n", (long long)l->c);
