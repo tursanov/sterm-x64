@@ -1239,14 +1239,14 @@ void fa_cheque() {
 			char phone[19+1];
 			bool is_same_agent;
 			bool attr = kkt_has_param("COMP1057WO1171");
-			if (C_is_agent_cheque(c, user_inn, agent_phone, &is_same_agent)) {
+/*			if (C_is_agent_cheque(c, user_inn, agent_phone, &is_same_agent)) {
 				ffd_tlv_add_uint8(1057, 1 << 6);
 
 				if (!attr || is_same_agent) {
 					get_phone(agent_phone, phone);
 					ffd_tlv_add_string(1171, phone);
 				}
-			}
+			}*/
 
 			if (_ad->t1086 != NULL) {
 				ffd_tlv_stlv_begin(1084, 320);
@@ -1282,7 +1282,21 @@ void fa_cheque() {
 							// если ИНН == 0, но есть l->z, значит перевозчик не российский.
 							if (l->z && l->z[0] != 0) {
 								ffd_tlv_add_fixed_string(1226, "000000000000", 12);
+
+								if (support_1222_1224_1225)
+								{
+								    ffd_tlv_add_uint8(1222, 64);
+							    	ffd_tlv_stlv_begin(1224, 512);
+							        	ffd_tlv_add_string(1225, l->z);
+							      	  if (l->h && strcmp(l->h, agent_phone) != 0) {
+							        	    ffd_tlv_add_string(1171, l->h);
+							        	}
+							   	 	ffd_tlv_stlv_end();
+								}
+
 							}
+							
+							
 						} else if (l->i != user_inn) {
 							char inn[12+1];
 							if (c->p > 9999999999ll)

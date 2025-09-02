@@ -1010,7 +1010,7 @@ bool newcheque_print(window_t *w) {
 				{
 				    if (ca->agent->pay_agent != 0)
 				    {
-            			ffd_tlv_add_uint8(1222, ca->agent->pay_agent);
+            			ffd_tlv_add_uint8(1222, 1 << ca->agent->pay_agent);
             			ffd_tlv_stlv_begin(1224, 512);
         				ffd_tlv_add_string(1225, ca->agent->name);
         				if (ca->agent->supplier_phone != NULL) {
@@ -1030,7 +1030,7 @@ bool newcheque_print(window_t *w) {
 	}
 
 	if (agent != NULL) {
-		ffd_tlv_add_uint8(1057, 1 << agent->pay_agent);
+/*		ffd_tlv_add_uint8(1057, 1 << agent->pay_agent);
 		switch (agent->pay_agent) {
 			case 0:
 			case 1:
@@ -1053,7 +1053,7 @@ bool newcheque_print(window_t *w) {
 			case 6:
 				ffd_tlv_add_string(1171, agent->supplier_phone);
 				break;
-		}
+		}*/
 	} else if (newcheque.agent_data_size > 0) {
 		for (uint8_t *p = newcheque.agent_data,
 				*end = p + newcheque.agent_data_size; p < end; ) {

@@ -848,7 +848,7 @@ bool show_hints(void)
 					glyph = NULL;
 				else if (kkt == NULL)
 					glyph = _("pict/kkt_err.bmp");
-				else if (!kkt_has_param("SUPPORT_ESC_R"))
+				else if (!kkt_has_param("SUPPORT_ESC_R") || !kkt_has_param("SUPPORT_VAT_5_7"))
 					glyph = _("pict/kkt_warn.bmp");
 			}
 			glyphs[i] = glyph ? CreateBitmap(glyph) : NULL;
