@@ -2356,6 +2356,27 @@ static void show_cheque_fa(void)
 	show_fa_with_arg(cmd_cheque_fa);
 }
 
+static const char *get_kkt_patterns_ver(void)
+{
+	static char patterns_dt[19];
+	const char *patterns_ver = get_local_patterns_ver();
+	struct tm *patterns_tm = NULL;
+	if (patterns_ver != NULL){
+		time_t t = jul_date_to_unix_date(patterns_ver);
+		if (t != -1)
+			patterns_tm = localtime(&t);
+	}
+	if (patterns_ver == NULL)
+		snprintf(patterns_dt, sizeof(patterns_dt), "неизвестно");
+	else if (patterns_tm == NULL)
+		snprintf(patterns_dt, sizeof(patterns_dt), "%s (неизвестно)", patterns_ver);
+	else
+		snprintf(patterns_dt, sizeof(patterns_dt), "%s (%.2u.%.2u.%.4u)",
+			patterns_ver, patterns_tm->tm_mday, patterns_tm->tm_mon + 1,
+			patterns_tm->tm_year + 1900);
+	return patterns_dt;
+}
+
 /* Вывод на экран информации о терминале */
 static void show_term_info(void)
 {
@@ -2376,6 +2397,7 @@ static void show_term_info(void)
 		_s(STERM_VERSION_MINOR) "." _s(STERM_VERSION_RELEASE) "\n"
 		"%29s:  %.4hX\n"
 		"%29s:  %.*s\n"
+		"%29s:  %s\n"
 		"%29s:  %s (%s)\n"
 		"%29s:  %s\n"
 		"%29s:  %s\n"
@@ -2384,6 +2406,7 @@ static void show_term_info(void)
 		"Терминал", "Код версии",
 		"CRC", term_check_sum,
 		"Серийный номер", isizeof(tn), tn,
+		"Шаблоны печати ФД", get_kkt_patterns_ver(),
 		"IP хост-ЭВМ", inet_ntoa(dw2ip(get_x3_ip())),
 		cfg.use_p_ip ? "осн." : "доп.",
 		"Лицензия ИПТ", bank_ok ? "Есть" : "Нет",
@@ -2793,22 +2816,6 @@ static void show_kkt_info(void)
 	}else
 		set_term_astate(ast_none);
 	fdo_suspend();
-	const char *patterns_ver = get_local_patterns_ver();
-	struct tm *patterns_tm = NULL;
-	if (patterns_ver != NULL){
-		time_t t = jul_date_to_unix_date(patterns_ver);
-		if (t != -1)
-			patterns_tm = localtime(&t);
-	}
-	char patterns_dt[19];
-	if (patterns_ver == NULL)
-		snprintf(patterns_dt, sizeof(patterns_dt), "неизвестно");
-	else if (patterns_tm == NULL)
-		snprintf(patterns_dt, sizeof(patterns_dt), "%s (неизвестно)", patterns_ver);
-	else
-		snprintf(patterns_dt, sizeof(patterns_dt), "%s (%.2u.%.2u.%.4u)",
-			patterns_ver, patterns_tm->tm_mday, patterns_tm->tm_mon + 1,
-			patterns_tm->tm_year + 1900);
 	struct kkt_fs_status fs_status;
 	bool fs_status_ok = kkt_get_fs_status(&fs_status) == KKT_STATUS_OK;
 	struct kkt_fs_lifetime fs_lifetime;
@@ -2874,7 +2881,7 @@ static void show_kkt_info(void)
 		"ККТ", kkt->name,
 		"Заводской номер ККТ", (kkt_nr == NULL) ? "НЕ УСТАНОВЛЕН" : kkt_nr,
 		"Версия ПО", (kkt_ver == NULL) ? "НЕИЗВЕСТНО" : kkt_ver,
-		"Шаблоны печати ФД", patterns_dt,
+		"Шаблоны печати ФД", get_kkt_patterns_ver(),
 		"Показания RTC", rtc_ok ? fs_rtc_str(&rtc) : "НЕИЗВЕСТНО",
 		"Заводской номер ФН", (kkt_fs_nr == NULL) ? "НЕИЗВЕСТНО" : kkt_fs_nr,
 		"Версия ФН", fs_version.version,
