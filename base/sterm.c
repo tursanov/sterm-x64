@@ -2793,6 +2793,22 @@ static void show_kkt_info(void)
 	}else
 		set_term_astate(ast_none);
 	fdo_suspend();
+	const char *patterns_ver = get_local_patterns_ver();
+	struct tm *patterns_tm = NULL;
+	if (patterns_ver != NULL){
+		time_t t = jul_date_to_unix_date(patterns_ver);
+		if (t != -1)
+			patterns_tm = localtime(&t);
+	}
+	char patterns_dt[19];
+	if (patterns_ver == NULL)
+		snprintf(patterns_dt, sizeof(patterns_dt), "неизвестно");
+	else if (patterns_tm == NULL)
+		snprintf(patterns_dt, sizeof(patterns_dt), "%s (неизвестно)", patterns_ver);
+	else
+		snprintf(patterns_dt, sizeof(patterns_dt), "%s (%.2u.%.2u.%.4u)",
+			patterns_ver, patterns_tm->tm_mday, patterns_tm->tm_mon + 1,
+			patterns_tm->tm_year + 1900);
 	struct kkt_fs_status fs_status;
 	bool fs_status_ok = kkt_get_fs_status(&fs_status) == KKT_STATUS_OK;
 	struct kkt_fs_lifetime fs_lifetime;
@@ -2818,7 +2834,8 @@ static void show_kkt_info(void)
 	snprintf(txt, sizeof(txt),
 			"%29s: \"%s\"\n"	/* ККТ */
 			"%29s:  %s\n"		/* Заводской номер ККТ */
-			"%29s:  %s\n"		/* Версия ПО */
+			"%29s:  %s, "		/* Версия ПО */
+			"%15s: %s\n"		/* Шаблоны печати ФД */
 			"%29s:  %s\n\n"		/* Показания RTC */
 
 			"%29s:  %s\n"		/* Заводской номер ФН */
@@ -2857,6 +2874,7 @@ static void show_kkt_info(void)
 		"ККТ", kkt->name,
 		"Заводской номер ККТ", (kkt_nr == NULL) ? "НЕ УСТАНОВЛЕН" : kkt_nr,
 		"Версия ПО", (kkt_ver == NULL) ? "НЕИЗВЕСТНО" : kkt_ver,
+		"Шаблоны печати ФД", patterns_dt,
 		"Показания RTC", rtc_ok ? fs_rtc_str(&rtc) : "НЕИЗВЕСТНО",
 		"Заводской номер ФН", (kkt_fs_nr == NULL) ? "НЕИЗВЕСТНО" : kkt_fs_nr,
 		"Версия ФН", fs_version.version,
