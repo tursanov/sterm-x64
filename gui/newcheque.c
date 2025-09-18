@@ -507,9 +507,17 @@ static bool read_doc(window_t *parent, window_t *win, uint32_t doc_no) {
 		return false;
 	}
 
+    size_t len = tlv_size;
+
 	if ((status = kkt_read_doc_tlv(buf, &tlv_size)) != 0) {
 		fd_set_error(0, status, NULL, 0);
 		show_error_ex(win, "Ошибка при чтении TLV из ФН");
+		goto LOut;
+	}
+	
+	if (tlv_size != len)
+	{
+		window_show_error(win, 9998, "Ошибка при считывании документа из ФН, повторите операцию.");
 		goto LOut;
 	}
 
@@ -517,6 +525,15 @@ static bool read_doc(window_t *parent, window_t *win, uint32_t doc_no) {
 		free(newcheque.agent_data);
 		newcheque.agent_data_size = 0;
 		newcheque.agent_data = NULL;
+	}
+	
+	if (newcheque.client) {
+	    free(newcheque.client);
+	    newcheque.client = NULL;
+	}
+	if (newcheque.client_inn) {
+	    free(newcheque.client_inn);
+	    newcheque.client_inn = NULL;
 	}
 
 	newcheque.dsum[0] = 
@@ -604,6 +621,16 @@ static bool read_doc(window_t *parent, window_t *win, uint32_t doc_no) {
 			newcheque.dsum[4] = ffd_tlv_data_as_vln(tlv);
 			if (newcheque.dsum[4] > 0)
 				pay_kind = (pay_kind < 0) ? 4 : 5;
+		} else if (tlv->tag == 1227) {
+		    newcheque.client = (char *)malloc(tlv->length + 1);
+		    memcpy(newcheque.client, FFD_TLV_DATA(tlv), tlv->length);
+		    newcheque.client[tlv->length] = 0;
+			window_set_data(parent, 1227, 0, newcheque.client, tlv->length);
+		} else if (tlv->tag == 1228) {
+		    newcheque.client_inn = (char *)malloc(tlv->length + 1);
+		    memcpy(newcheque.client_inn, FFD_TLV_DATA(tlv), tlv->length);
+		    newcheque.client_inn[tlv->length] = 0;
+			window_set_data(parent, 1228, 0, newcheque.client_inn, tlv->length);
 		}
 
 		ptr += FFD_TLV_SIZE(tlv);
@@ -721,6 +748,14 @@ bool newcheque_process(window_t *w, const struct kbd_event *e) {
 	control_t *c;
 	if (!e->pressed)
 		return true;
+		
+    if (e->key == KEY_NUMMUL || (e->key == KEY_8 && (e->shift_state & SHIFT_CTRL)))
+    {
+		c = window_get_focus(w);
+		if (c && c->id == 9997)
+			article_from_cheque_new(w);
+        return true;
+    }
 
 	switch (e->key) {
 		case KEY_NUMPLUS:
@@ -729,11 +764,6 @@ bool newcheque_process(window_t *w, const struct kbd_event *e) {
 			if (c && c->id == 9997)
 				article_new(w);
 			break;
-		case KEY_NUMMUL:
-			c = window_get_focus(w);
-			if (c && c->id == 9997)
-				article_from_cheque_new(w);
-			break;
 		case KEY_MINUS:
 		case KEY_NUMMINUS:
 			c = window_get_focus(w);
@@ -741,6 +771,7 @@ bool newcheque_process(window_t *w, const struct kbd_event *e) {
 				article_delete(w);
 			break;
 	}
+	
 	return true;
 }
 
@@ -1014,9 +1045,9 @@ bool newcheque_print(window_t *w) {
             			ffd_tlv_stlv_begin(1224, 512);
         				ffd_tlv_add_string(1225, ca->agent->name);
         				if (ca->agent->supplier_phone != NULL) {
-        				    if (supplier_phone == NULL
+        				    /*if (supplier_phone == NULL
         				        || ca->agent->supplier_phone != supplier_phone
-        				        || strcmp(ca->agent->supplier_phone, supplier_phone) != 0)
+        				        || strcmp(ca->agent->supplier_phone, supplier_phone) != 0)*/
             				ffd_tlv_add_string(1171, ca->agent->supplier_phone);
         				}
             			ffd_tlv_stlv_end();				        
@@ -1029,7 +1060,7 @@ bool newcheque_print(window_t *w) {
 		printf("sum: %ld\n", ca->sum);
 	}
 
-	if (agent != NULL) {
+/*	if (agent != NULL) {
 		ffd_tlv_add_uint8(1057, 1 << agent->pay_agent);
 		switch (agent->pay_agent) {
 			case 0:
@@ -1054,7 +1085,7 @@ bool newcheque_print(window_t *w) {
 				ffd_tlv_add_string(1171, agent->supplier_phone);
 				break;
 		}
-	} else if (newcheque.agent_data_size > 0) {
+	} else*/ if (newcheque.agent_data_size > 0) {
 		for (uint8_t *p = newcheque.agent_data,
 				*end = p + newcheque.agent_data_size; p < end; ) {
 			ffd_tlv_t *tlv = (ffd_tlv_t *)p;

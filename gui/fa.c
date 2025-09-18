@@ -1028,7 +1028,7 @@ static int fa_cheque_corr_2() {
 			fa_tlv_add_vln_ex(form, 1105, false, &vat_flags, 3) != 0 ||
 			fa_tlv_add_vln_ex(form, 1106, false, &vat_flags, 4) != 0 ||
 			fa_tlv_add_vln_ex(form, 1107, false, &vat_flags, 5) != 0)
-			continue;
+			return 1;
 			
         int64_t vat5 = fa_form_get_vln(form, 1108);
         int64_t vat7 = fa_form_get_vln(form, 1109);
@@ -1038,19 +1038,19 @@ static int fa_cheque_corr_2() {
         if (vat5 >= 0 || vat7 >= 0 || vat5_105 >= 0 || vat7_107 >= 0)
         {
     		if (ffd_tlv_stlv_begin(1115, 360) != 0)
-    		    continue;
+    		    return 1;
     		    
             if (vat5 >= 0 && fa_add_new_vat(7, vat5) != 0)
-                continue;
+    		    return 1;
             if (vat7 >= 0 && fa_add_new_vat(8, vat7) != 0)
-                continue;
+    		    return 1;
             if (vat5_105 >= 0 && fa_add_new_vat(9, vat5_105) != 0)
-                continue;
+    		    return 1;
             if (vat7_107 >= 0 && fa_add_new_vat(10, vat7_107) != 0)
-                continue;
+    		    return 1;
 			
 			if (ffd_tlv_stlv_end() != 0)
-			    continue;
+    		    return 1;
             
             vat_flags = 1;
         }
@@ -1058,13 +1058,14 @@ static int fa_cheque_corr_2() {
 
 		if (vat_flags == 0) {
 			fa_show_error(form, 1102, "Для данного документа должно быть заполнено хотя бы одно поле с НДС");
-			continue;
+   		    return 1;
 		}
 		
 //      dump_current_tlv();
 
 		if (fa_create_doc(CHEQUE_CORR, NULL, 0, update_form, form))
-			return 1;
+			return 2;
+        return 1;
 	}
 	
 	return 0;
@@ -1164,8 +1165,7 @@ void fa_cheque_corr() {
         fa_tlv_add_string(form, 1227, false);
         fa_tlv_add_fixed_string(form, 1228, 12, false);
 			
-			
-		if (fa_cheque_corr_2() == 1) {
+		if (fa_cheque_corr_2() == 2) {
 			break;
 		}
 		
@@ -1288,7 +1288,7 @@ void fa_cheque() {
 								    ffd_tlv_add_uint8(1222, 64);
 							    	ffd_tlv_stlv_begin(1224, 512);
 							        	ffd_tlv_add_string(1225, l->z);
-							      	  if (l->h && strcmp(l->h, agent_phone) != 0) {
+							      	    if (l->h && strcmp(l->h, agent_phone) != 0) {
 							        	    ffd_tlv_add_string(1171, l->h);
 							        	}
 							   	 	ffd_tlv_stlv_end();

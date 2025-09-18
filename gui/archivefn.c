@@ -351,10 +351,19 @@ static bool archivefn_get_doc() {
 		return false;
 	}
 
+    size_t len = tlv_size;
 	if ((status = kkt_read_doc_tlv(tlv, &tlv_size)) != 0) {
 		archivefn_show_error(status, "Ошибка при чтении TLV из ФН");
-	} else
-		print_stlv(tlv, tlv_size, 0);
+	} else {
+	    if (tlv_size != len)
+	    {
+    		message_box("Ошибка", "Ошибка при считывании документа. Повторите операцию.", dlg_yes, 0, al_center);
+    		free(tlv);
+    		return false;
+	    } else {
+    		print_stlv(tlv, tlv_size, 0);
+		}
+    }
 
 	free(tlv);
 

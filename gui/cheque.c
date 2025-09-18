@@ -204,7 +204,7 @@ static int doc_view_collapsed_draw(C *c, int start_y) {
 
 static int doc_view_expanded_draw(C *c, int start_y) {
 	int y = start_y;
-	char text[1024];
+	char text[2048];
 
 	SetTextColor(screen, clBlack);
 
@@ -258,8 +258,15 @@ static int doc_view_expanded_draw(C *c, int start_y) {
 				sprintf(p, " (¢ â.ç. %s: %.1lld.%.2lld)", svat[l->n - 1],
 					(long long)l->c / 100, (long long)l->c % 100);
 			}
-			TextOut(screen, GAP*4, y, text);
-			y += fnt->max_height;
+			
+			#define MAX_CH 90
+			int len = strlen(text);
+			p = text;
+			for (int i = 0; i < len; i+= MAX_CH, p += MAX_CH)
+			{
+			    TextOutN(screen, GAP*4, y, p, MAX_CH);
+			    y += fnt->max_height;
+			}
 		}
 	}
 	if (scroll_enabled || expanded_top_n > 0) {
