@@ -85,10 +85,13 @@ static time_t get_local_patterns_date(void)
 		log_err("В каталоге " PATTERNS_FOLDER " не найден файл даты.");
 		regfree(&reg);
 		return -1;
-	}else if (n > 1)
-		log_info("В каталоге " PATTERNS_FOLDER " найдено более одного файла даты (%d); "
-			"будет использован %s.", n, names[0]->d_name);
-	else
+	}else if (n > 1){
+/*		log_info("В каталоге " PATTERNS_FOLDER " найдено более одного файла даты (%d); "
+			"будет использован %s.", n, names[0]->d_name);*/
+		log_info("В каталоге " PATTERNS_FOLDER " найдено более одного файла даты (%d).", n);
+		regfree(&reg);
+		return -1;
+	}else
 		log_dbg("Обнаружен файл %s.", names[0]->d_name);
 	time_t ret = jul_date_to_unix_date(names[0]->d_name + 3);
 	free(names);
