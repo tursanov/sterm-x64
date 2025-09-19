@@ -9,6 +9,8 @@
 extern "C" {
 #endif
 
+extern const char *get_local_patterns_ver(void);
+extern time_t jul_date_to_unix_date(const char *jul_date);
 extern bool check_x3_kkt_patterns(const uint8_t *data, size_t len);
 extern bool need_patterns_update(void);
 extern bool sync_patterns(void);

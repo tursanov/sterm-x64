@@ -21,7 +21,7 @@
 /* Версия шаблонов печати в "Экспресс" */
 static string x3_kkt_patterns_version;
 
-static time_t jul_date_to_unix_date(const char *jul_date)
+time_t jul_date_to_unix_date(const char *jul_date)
 {
 	if ((jul_date == NULL) || (strlen(jul_date) != 5))
 		return -1;
@@ -43,13 +43,34 @@ static int pattern_selector(const struct dirent *entry)
 	return regexec(&reg, entry->d_name, 0, NULL, 0) == REG_NOERROR;
 }
 
-static time_t get_local_patterns_date()
+#define PATTERNS_REGEX	"^S00[0-9]{5}$"
+
+const char *get_local_patterns_ver(void)
+{
+	const char *ret = NULL;
+	static char ver[6];
+	int rc = regcomp(&reg, PATTERNS_REGEX, REG_EXTENDED | REG_NOSUB);
+	if (rc != REG_NOERROR)
+		return ret;
+	struct dirent **names;
+	int n = scandir(PATTERNS_FOLDER, &names, pattern_selector, alphasort);
+	if (n == 1){
+		snprintf(ver, sizeof(ver), "%s", names[0]->d_name + 3);
+		ret = ver;
+	}
+	if (n > 0)
+		free(names);
+	regfree(&reg);
+	return ret;
+}
+
+static time_t get_local_patterns_date(void)
 {
 	if (!create_folder_if_need(PATTERNS_FOLDER)){
 		log_err("Каталог " PATTERNS_FOLDER " не существует и не может быть создан.");
 		return -1;
 	}
-	int rc = regcomp(&reg, "^S00[0-9]{5}$", REG_EXTENDED | REG_NOSUB);
+	int rc = regcomp(&reg, PATTERNS_REGEX, REG_EXTENDED | REG_NOSUB);
 	if (rc != REG_NOERROR){
 		log_err("Ошибка компиляции регулярного выражения для: %d.", rc);
 		return -1;
