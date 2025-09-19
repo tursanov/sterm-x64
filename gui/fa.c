@@ -1177,6 +1177,7 @@ void fa_cheque_corr() {
 	fa_set_group(FAPP_GROUP_MENU);
 }
 
+#if 0
 static size_t get_phone(char *src, char *dst) {
 	if (src == NULL)
 		return 0;
@@ -1200,6 +1201,7 @@ static size_t get_phone(char *src, char *dst) {
 
 	return len;
 }
+#endif
 
 void fa_cheque() {
 //	bool changed = false;
@@ -1236,9 +1238,9 @@ void fa_cheque() {
 			ffd_tlv_add_vln(1217, (uint64_t)c->sum.b);
 
 			char agent_phone[19+1];
-			char phone[19+1];
+/*			char phone[19+1];
 			bool is_same_agent;
-			bool attr = kkt_has_param("COMP1057WO1171");
+			bool attr = kkt_has_param("COMP1057WO1171");*/
 /*			if (C_is_agent_cheque(c, user_inn, agent_phone, &is_same_agent)) {
 				ffd_tlv_add_uint8(1057, 1 << 6);
 

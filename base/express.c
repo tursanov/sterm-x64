@@ -217,84 +217,6 @@ static uint8_t *check_bcode(uint8_t *p, int l, int *ecode)
 	return p + i - 1;
 }
 
-/* Проверка команды нанесения штрихового кода для ППУ (Ар2 0x1a) */
-static uint8_t *check_bcode2(uint8_t *p, int l, int *ecode)
-{
-	enum {
-		st_type,
-		st_x,
-		st_y,
-		st_number,
-		st_len,
-		st_data,
-		st_stop,
-	};
-	int i, n = 0, data_len = 0, st = st_type;
-	uint8_t b;
-	*ecode = E_BCODE;
-	if ((p == NULL) || (l <= 0))
-		return p;
-	for (i = 0; (i < l) && (st != st_stop); i++){
-		b = p[i];
-		switch (st){
-			case st_type:
-				if (isdigit(b)){
-					n = 0;
-					st = st_x;
-				}else
-					return p + i;
-				break;
-			case st_x:
-				if ((n == 0) && (b == 0x3b))
-					st = st_number;
-				else if (!isdigit(b))
-					return p + i;
-				else if (++n == 3){
-					n = 0;
-					st = st_y;
-				}
-				break;
-			case st_y:
-				if (!isdigit(b))
-					return p + i;
-				else if (++n == 3){
-					n = 0;
-					st = st_len;
-				}
-				break;
-			case st_number:
-				if ((b != 0x31) && (b != 0x32) && (b != 0x33))
-					return p + i;
-				n = 0;
-				st = st_len;
-				break;
-			case st_len:
-				if (!isdigit(b))
-					return p + i;
-				data_len *= 10;
-				data_len += b - 0x30;
-				if (++n == 3){
-					if (data_len == 0)
-						return p + i - 2;
-					else{
-						n = 0;
-						st = st_data;
-					}
-				}
-				break;
-			case st_data:
-				if (b < 0x30)
-					return p + i;
-				else if (++n == data_len)
-					st = st_stop;
-				break;
-		}
-	}
-	if (st == st_stop)
-		*ecode = E_OK;
-	return p + i;
-}
-
 /*
  * Проверка команды нанесения штрихового кода для ППУ (Ар2 0x1a).
  * Формат команды нанесения штрих-кода:
@@ -1468,7 +1390,6 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 						return p - 2;
 					}
 					if (b == LPRN_WR_BCODE2){
-//						pp = check_bcode2(p, txt + l - p, ecode);
 						pp = check_kkt_bcode(p, txt + l - p, ecode, NULL, NULL);
 						if (*ecode != E_OK)
 							return pp;

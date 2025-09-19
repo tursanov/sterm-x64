@@ -12,6 +12,7 @@ bool xbase64_encode(const uint8_t *src, size_t src_len, uint8_t *dst, size_t dst
 			in[k] = src[i];
 		out[0] = in[0] >> 2;
 		out[1] = (in[0] & 0x03) << 4;
+		out[2] = out[3] = 0;
 		if (k > 1){
 			out[1] |= in[1] >> 4;
 			out[2] = (in[1] & 0x0f) << 2;

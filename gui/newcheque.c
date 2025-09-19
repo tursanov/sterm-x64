@@ -913,6 +913,7 @@ static void newcheque_show_op(window_t *w, const char *title) {
 	DrawText(screen, 100, 240, DISCX - 100*2, DISCY - 240*2, title, DT_CENTER | DT_VCENTER);
 }
 
+#if 0
 static agent_t *get_newcheque_agent() {
 	agent_t *cheque_agent = NULL;
 	bool first = true;
@@ -936,6 +937,7 @@ static agent_t *get_newcheque_agent() {
 
 	return cheque_agent;
 }
+#endif
 
 bool newcheque_print(window_t *w) {
 	data_t cashier;
@@ -975,7 +977,7 @@ bool newcheque_print(window_t *w) {
 	cheque_article_t *ca = LIST_ITEM(newcheque.articles.head, cheque_article_t);
 	article_group_params_t p = { ca->article ? ca->article->pay_agent : 0 };
 	uint64_t sum = 0;
-	agent_t *agent = get_newcheque_agent();
+//	agent_t *agent = get_newcheque_agent();
 
 	printf("cashier: %s\n", cashier_get_cashier());
 
@@ -999,7 +1001,7 @@ bool newcheque_print(window_t *w) {
 		ffd_tlv_stlv_end();
 	}
 	
-	const char *supplier_phone = agent != NULL ? agent->supplier_phone : NULL;
+//	const char *supplier_phone = agent != NULL ? agent->supplier_phone : NULL;
 
 	if (newcheque.add_info && newcheque.add_info[0])
 		ffd_tlv_add_string(1192, newcheque.add_info);

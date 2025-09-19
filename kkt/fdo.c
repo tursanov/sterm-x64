@@ -23,6 +23,7 @@
 #include "cfg.h"
 
 /* Отладочная печать */
+#if defined __FDO_DEBUG__
 __attribute__((format (printf, 2, 3))) static void __dbg(const char *fn, const char *fmt, ...)
 {
 	struct timeb tb;
@@ -35,9 +36,10 @@ __attribute__((format (printf, 2, 3))) static void __dbg(const char *fn, const c
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
 }
-
-//#define dbg(fmt, arg...) __dbg(__func__, fmt "\n", ## arg)
+#define dbg(fmt, arg...) __dbg(__func__, fmt "\n", ## arg)
+#else
 #define dbg(fmt, arg...) do {} while (0)
+#endif
 
 /* Заголовок сеансового уровня */
 struct fdo_session_header {
@@ -210,6 +212,7 @@ static bool fdo_sock_open_if_need(void)
 	return (fdo_sock == -1) ? fdo_sock_open() : true;
 }
 
+#if defined __FDO_DEBUG__
 static int fdo_get_sock_error(void)
 {
 	int err = 0;
@@ -218,6 +221,7 @@ static int fdo_get_sock_error(void)
 		err = errno;
 	return err;
 }
+#endif
 
 static bool fdo_parse_addr(const uint8_t *data, size_t len, uint32_t *ip, uint16_t *port)
 {

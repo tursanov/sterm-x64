@@ -26,6 +26,9 @@ option		__LOGDBG__
 # Запись обмена с ППУ в специальный файл
 #option		__LOG_LPRN__
 
+# Вывод отладочной информации при работе с ОФД
+#option		__FDO_DEBUG__
+
 # Фиктивное перемонтирование /home в remount_home
 option		__FAKE_REMOUNT__
 
