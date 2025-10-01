@@ -163,13 +163,9 @@ static uint8_t get_tcap_byte(void)
 /* 70 -- 77 */	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* . . . . . . . . */
 /* 77 -- 7f */	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* . . . . . . . . */
 	};
-	uint8_t ret = TCAP_TERM;
-	if (cfg.has_kkt && (kkt != NULL)){
-		if (cfg.fiscal_mode)
-			ret |= TCAP_KKT;
-		if (kkt_has_param("SUPPORT_ESC_R"))
-			ret |= TCAP_XSLT;
-	}
+	uint8_t ret = TCAP_XSLT;
+	if (cfg.has_kkt && cfg.fiscal_mode)
+		ret |= TCAP_KKT;
 	if (cfg.tickets_on_kkt)
 		ret |= TCAP_UNIBLANK;
 	if (!cfg.bank_system)
