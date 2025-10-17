@@ -13,6 +13,7 @@
 #include "gui/scr.h"
 #include "gui/status.h"
 #include "prn/express.h"
+#include "prn/local.h"
 #include "sterm.h"
 
 static int xprn = -1;
@@ -244,6 +245,7 @@ bool xprn_print(const char *txt, int l)
 	set_term_astate(ast_none);
 	xprn_printing = true;
 	bool ret = true;
+	bool dle = false;
 	while (lflag){
 		if (prn_buf_len == 0){		/* имел место сброс терминала */
 			ret = false;
@@ -255,13 +257,20 @@ bool xprn_print(const char *txt, int l)
 				ii = i;
 			}
 			i = 0;
-			ch_buf = false;
+			ch_buf = dle = false;
 		}
 		if ((kt != key_none)){
+			uint8_t ch = ptr[i] & 0x7f;
+			if (dle){
+				dle = false;
+				if ((ch == LPRN_NO_BCODE) && cfg.tickets_on_kkt)
+					ch = XPRN_NO_BCODE;
+			}else
+				dle = ch == XPRN_DLE;
 #if defined __DEBUG_PRINT__
-			putchar(ptr[i] & 0x7f);
+			putchar(ch);
 #else
-			rc = ioctl(xprn, XPRN_IO_OUTCHAR, ptr[i] & 0x7f);
+			rc = ioctl(xprn, XPRN_IO_OUTCHAR, ch);
 #endif
 			switch (rc){
 				case prn_ready:
@@ -276,6 +285,7 @@ bool xprn_print(const char *txt, int l)
 					}else if (i == pcmd_len){
 						ptr = prn_buf;		/* конец "постоянной" команды */
 						i = ii;
+						dle = false;
 					}
 					break;
 				case prn_dead:

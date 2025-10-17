@@ -2042,6 +2042,7 @@ bool quick_astate(int ast)
 		case ast_pos_error:
 		case ast_pos_need_init:
 		case ast_no_kkt:
+		case ast_kkt_error:
 			return true;
 		default:
 			return false;

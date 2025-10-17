@@ -517,6 +517,7 @@ const char *find_term_astate(intptr_t ast, bool *x3_err)
 		{ast_pos_error,		"Ошибка ИПТ"},
 		{ast_pos_need_init,	"Проинициализируйте ИПТ"},
 		{ast_no_kkt,		"ККТ не обнаружена"},
+		{ast_kkt_error,		"Ошибка ККТ"},
 	};
 	static char buf[MAX_TERM_ASTATE_LEN + 2];	/* для учёта 0x01 */
 	const char *ret = NULL;

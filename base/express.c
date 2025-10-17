@@ -956,7 +956,10 @@ static int get_dest(uint8_t b)
 			ret = dst_text;
 			break;
 		case X_XPRN:
-			ret = dst_xprn;
+			if (!cfg.has_xprn && cfg.tickets_on_kkt)
+				ret = dst_text;
+			else
+				ret = dst_xprn;
 			break;
 		case X_APRN:
 			ret = dst_aprn;
@@ -1389,11 +1392,13 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 				case LPRN_INTERLINE:
 				case LPRN_NO_BCODE:
 				case LPRN_WR_BCODE2:
-					if ((dst != dst_sprn) && (dst != dst_log)){
+					if ((b == LPRN_NO_BCODE) && cfg.tickets_on_kkt &&
+							((dst == dst_xprn) || (dst == dst_text)))
+						break;
+					else if ((dst != dst_sprn) && (dst != dst_log)){
 						*ecode = E_MISPLACE;
 						return p - 2;
-					}
-					if (b == LPRN_WR_BCODE2){
+					}else if (b == LPRN_WR_BCODE2){
 						pp = check_kkt_bcode(p, txt + l - p, ecode, NULL, NULL);
 						if (*ecode != E_OK)
 							return pp;
@@ -1501,7 +1506,7 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 					n_dsts++;
 					break;
 				case X_XPRN:
-					if (!cfg.has_xprn){
+					if (!cfg.has_xprn && !cfg.tickets_on_kkt){
 						*ecode = E_NODEVICE;
 						return p;
 					}
@@ -2201,13 +2206,17 @@ static int show_lprn_error(int lprn_ret, bool rejectable)
 /* Вывод окна с сообщением об ошибке ККППУ при печати на ленте */
 static int show_kprn_error(uint8_t status, bool rejectable)
 {
-	struct custom_btn btns[3];
+	struct custom_btn btns[4];
 	int n = 0;
 	btns[n].text = "Повторная печать";
 	btns[n++].cmd = cmd_print;
 	if (rejectable){
 		btns[n].text = "Отказ от заказа";
 		btns[n++].cmd = cmd_reject;
+	}
+	if (n_unhandled() > 0){
+		btns[n].text = "Завершение обработки";
+		btns[n++].cmd = cmd_reset;
 	}
 	btns[n].text = NULL;
 	btns[n].cmd = cmd_none;
@@ -2242,14 +2251,16 @@ static bool kprn_print(const uint8_t *data, size_t len)
 			ret = true;
 			break;
 		}else{
-			set_term_astate(ast_no_kkt);
+			set_term_astate(ast_kkt_error);
 			err_beep();
 			int cmd = show_kprn_error(status, can_reject);
 			if (cmd == cmd_reject){
 				reject_req();
 				break;
-			}else if (cmd == cmd_reset)
+			}else if (cmd == cmd_reset){
+				reset_term(true);
 				break;
+			}
 		}
 	}
 	return ret;
