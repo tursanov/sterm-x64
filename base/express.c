@@ -423,7 +423,7 @@ static uint8_t *check_prom(uint8_t *txt, int l, int *ecode, int dst)
 					}else if (!check_attr(p[0], p[1])){
 						*ecode = E_ILLATTR;
 						return p;
-					}else if (dst != dst_text){
+					}else if (dst != dst_scr){
 						*ecode = E_MISPLACE;
 						return p - 2;
 					}
@@ -953,11 +953,11 @@ static int get_dest(uint8_t b)
 	int ret = dst_none;
 	switch (b){
 		case X_SCR:
-			ret = dst_text;
+			ret = dst_scr;
 			break;
 		case X_XPRN:
 			if (!cfg.has_xprn && cfg.tickets_on_kkt)
-				ret = dst_text;
+				ret = dst_scr2;
 			else
 				ret = dst_xprn;
 			break;
@@ -1297,7 +1297,7 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 					if ((p + 2) > eptr){
 						*ecode = E_NOPEND;
 						return eptr - 1;
-					}else if (dst != dst_text){
+					}else if (dst != dst_scr){
 						*ecode = E_MISPLACE;
 						return p - 2;
 					}else if (!check_attr(p[0], p[1])){
@@ -1393,7 +1393,7 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 				case LPRN_NO_BCODE:
 				case LPRN_WR_BCODE2:
 					if ((b == LPRN_NO_BCODE) && cfg.tickets_on_kkt &&
-							((dst == dst_xprn) || (dst == dst_text)))
+							((dst == dst_xprn) || (dst == dst_scr2)))
 						break;
 					else if ((dst != dst_sprn) && (dst != dst_log)){
 						*ecode = E_MISPLACE;
@@ -1754,7 +1754,7 @@ int n_unhandled(void)
 /* Можно ли вывести абзац на экран */
 bool can_show(int dst)
 {
-	return	(dst == dst_text) || (dst == dst_xprn) ||
+	return	(dst == dst_scr) || (dst == dst_scr2) || (dst == dst_xprn) ||
 		(dst == dst_sprn) || (dst == dst_kprn) || (dst == dst_aprn) ||
 		(dst == dst_out) || (dst == dst_log);
 }
@@ -2064,6 +2064,7 @@ static void preexecute_resp(void)
 			case dst_xprn:
 			case dst_kprn:
 			case dst_sprn:
+			case dst_scr2:
 				no_print = false;
 				log_number = xlog_write_rec(hxlog,
 					text_buf, l, XLRT_NORMAL, log_para++);
@@ -2090,7 +2091,7 @@ static void preexecute_resp(void)
 					xlog_set_rec_flags(hxlog, log_number, log_para, XLOG_REC_APC);
 				log_para++;
 				break;
-			case dst_text:
+			case dst_scr:
 				if (init){
 					use_integrator = check_integrator(text_buf, l);
 					RedrawScr(false, get_main_title());
@@ -2413,7 +2414,7 @@ bool find_pic_data(int *data, int *req)
 	*data = *req = -1;
 	int n = 0, m = 0, pic_para = -1, req_para = -1;
 	for (int i = 0; i < n_paras; i++){
-		if (map[i].dst == dst_tprn){
+		if (map[i].dst == dst_xprn){
 			if (++n > 1)
 				break;
 			pic_para = i;
@@ -2501,7 +2502,7 @@ bool execute_resp(void)
 					struct xml_data *xml_data = get_xml_data(cur_para);
 					if ((xml_data != NULL) && (xml_data->scr_data != NULL)){
 						xml_flag = true;
-						p->dst = dst_text;
+						p->dst = dst_scr;
 						l = handle_para(cur_para);
 					}
 				}

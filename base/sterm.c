@@ -641,7 +641,8 @@ bool set_term_led(char c)
 void show_dest(int dst)
 {
 	switch (dst){
-		case dst_text:
+		case dst_scr:
+		case dst_scr2:
 			set_term_state(st_scr);
 			break;
 		case dst_xprn:
@@ -667,7 +668,8 @@ void show_ndest(int n)
 	p=&map[n];
 	if (!p->handled){	/* Абзац не обработан */
 		switch (p->dst){
-			case dst_text:
+			case dst_scr:
+			case dst_scr2:
 			case dst_keys:
 			case dst_hash:
 			case dst_kkt:

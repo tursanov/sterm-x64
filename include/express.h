@@ -29,10 +29,12 @@ extern int req_type;
 
 /* Команды "Экспресс" */
 #define X_DLE		0x1b	/* Esc префикс команды */
+/* Эти команды использовались в ответах "Экспресс-2", их назначение неизвестно */
 #define X_WRITE		0x31	/* 1 запись */
 #define X_READ_ALL	0x32	/* 2 читать полный буфер */
 #define X_CLEAR		0x35	/* 5 стирание/запись */
 #define X_READ		0x36	/* 6 читать буфер */
+/* Актуальные команды "Экспресс" */
 #define X_DELAY		0x42	/* B пауза */
 #define X_RD_PROM	0x43	/* C чтение из ДЗУ */
 #define X_PARA_END_N	0x44	/* D конец абзаца; перейти к следующему */
@@ -129,21 +131,21 @@ extern int req_type;
 
 /* Устройство для вывода абзаца ответа */
 enum {
-	dst_none,	/*  0 */
-	dst_sys,	/*  1 */
-	dst_text,	/*  2 */
-	dst_xprn,	/*  3 ОПУ */
-	dst_tprn = dst_xprn,
-	dst_aprn,	/*  4 ДПУ */
-	dst_sprn,	/*  5 БПУ */
-	dst_out,	/*  6 */
-	dst_qout,	/*  7 */
-	dst_hash,	/*  8 */
-	dst_keys,	/*  9 */
-	dst_bank,	/* 10 */
-	dst_log,	/* 11 */
-	dst_kkt,	/* 12 */
-	dst_kprn,	/* 13 */
+	dst_none,		/* нет */
+	dst_sys,		/* псевдоабзац (Ар2 5, Ар2 D, Ар2 \, Ар2 Z */
+	dst_scr,		/* экран */
+	dst_scr2,		/* ОПУ при его отсутствии (аналог ТПУ ПАК РМК) */
+	dst_xprn,		/* ОПУ */
+	dst_aprn,		/* ДПУ */
+	dst_sprn,		/* БПУ */
+	dst_out,		/* ОЗУ заказа */
+	dst_qout,		/* ОЗУ заказа без вывода на экран */
+	dst_hash,		/* ОЗУ констант */
+	dst_keys,		/* ОЗУ ключей */
+	dst_bank,		/* ИПТ */
+	dst_log,		/* КЛ1 */
+	dst_kkt,		/* ККТ */
+	dst_kprn,		/* ККПУ */
 };
 
 /* Информация об абзаце ответа */

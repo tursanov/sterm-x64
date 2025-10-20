@@ -574,7 +574,7 @@ static char get_dst_char(int dst)
 {
 	char ret ='?';
 	switch (dst){
-		case dst_text:
+		case dst_scr:
 			ret = X_SCR;
 			break;
 		case dst_log:
