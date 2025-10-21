@@ -77,8 +77,8 @@ enum {
 /* Длина префикса запроса */
 #define REQ_PREFIX_LEN		6
 /* Длина суффикса запроса */
-#define REQ_SUFFIX_LEN		91
-/* Минимальная длина запроса по TCP/IP */
+#define REQ_SUFFIX_LEN		105
+/* Минимальная длина запроса */
 #define MIN_REQ_LEN		(REQ_PREFIX_LEN + REQ_SUFFIX_LEN)
 
 /* Маркеры гарантированной доставки */
