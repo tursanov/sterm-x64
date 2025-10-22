@@ -1233,7 +1233,8 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 	int dst = get_dest(txt[-1]);
 	bool has_warray = false;
 	if ((txt == NULL) || (l <= 0) || (ecode == NULL) || (n_para < 0)){
-		*ecode = E_UNKNOWN;
+		if (ecode != NULL)
+			*ecode = E_UNKNOWN;
 		return NULL;
 	}else if (n_para >= MAX_PARAS){
 		*ecode = E_MANY_PARAS;
