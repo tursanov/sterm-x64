@@ -324,11 +324,6 @@ static uint8_t *check_kkt_bcode(uint8_t *p, size_t l, int *ecode,
 			memcpy(dst + dst_idx, p + idx, bc->len);
 			dst_idx += bc->len;
 			idx += bc->len;
-			FILE *f = fopen("bcode.bin", "wb");
-			if (f != NULL){
-				fwrite(dst, dst_idx, 1, f);
-				fclose(f);
-			}
 		}
 	}
 	if (dst_len != NULL)
