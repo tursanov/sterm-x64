@@ -1,4 +1,4 @@
-/* Основной модуль для работы с POS-эмулятором. (c) A.Popov, gsr 2004 */
+/* Основной модуль для работы с POS-эмулятором. (c) A.Popov, gsr 2004, 2024-2025 */
 
 #if !defined POS_H
 #define POS_H
@@ -143,6 +143,7 @@ extern int  pos_get_state(void);
 extern void pos_set_state(int st);
 extern void pos_process(void);
 extern bool pos_send_params(void);
+extern void on_response_pos(void);
 
 #if defined __cplusplus
 }

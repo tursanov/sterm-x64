@@ -1,4 +1,4 @@
-/* Основной модуль для работы с POS-эмулятором. (c) A.Popov, gsr 2004 */
+/* Основной модуль для работы с POS-эмулятором. (c) A.Popov, gsr 2004, 2024 */
 
 #include <sys/timeb.h>
 #include <sys/times.h>
@@ -17,6 +17,7 @@
 #include "pos/tcp.h"
 #include "prn/express.h"
 #include "sterm.h"
+#include "transport.h"
 
 /* Флаги потоков, присутствующих в ответе */
 uint32_t stream_flags;
@@ -608,17 +609,84 @@ static void on_pos_enter(uint32_t t)
 			POS_ERR_TIMEOUT, 0);
 }
 
+/* Отправка запроса на получение квитанции ИПТ */
+static bool send_pos_cheque_request(const uint8_t *data, size_t len)
+{
+	bool ret = false;
+	static const uint8_t prefix[] = "P53R002F[";
+	static const uint8_t suffix[] = "]";
+	if ((data == NULL) ||
+			((sizeof(prefix) - 1 + len + sizeof(suffix) - 1 + MIN_REQ_LEN) > sizeof(req_buf)))
+		return ret;
+	int offs = get_req_offset();
+	req_len = offs;
+	memcpy(req_buf + offs, prefix, sizeof(prefix) - 1);
+	offs += sizeof(prefix) - 1;
+	if (len > 0){
+		memcpy(req_buf + offs, data, len);
+		offs += len;
+	}
+	memcpy(req_buf + offs, suffix, sizeof(suffix) - 1);
+	req_len = offs + sizeof(suffix) - 1;
+	ret = wrap_text();
+	if (ret)
+		req_type = req_pos_cheque;
+	return ret;
+}
+
+/* Вызывается после получения ответа на запрос чека ИПТ */
+void on_response_pos(void)
+{
+	static char err_msg[1024];
+	err_msg[0] = 0;
+/* 0 -- данные чека; 1 -- другой ответ, обработка не требуется; 2 -- другой ответ, требуется обработка */
+	int non_pos_resp = 0;
+//	set_term_state(st_resp);
+	int pos_para = -1;
+	size_t pos_len = 0;
+	if (find_pos_data(&pos_para) && (pos_para != -1)){
+		pos_len = handle_para(pos_para);
+/*		log_info("Обнаружены данные чека ИПТ (абзац #%d; %zd байт).",
+			pos_para + 1, pos_len);*/
+		if (pos_len > 0){
+			kprn_print(text_buf, pos_len);
+		}else{
+			snprintf(err_msg, ASIZE(err_msg), "Получены данные чека ИПТ нулевой длины.");
+			non_pos_resp = 1;
+		}
+	}else{
+		snprintf(err_msg, ASIZE(err_msg), "Не найдены данные чека ИПТ.");
+		non_pos_resp = 2;
+	}
+/*	if (err_msg[0] != 0)
+		log_err(err_msg);*/
+	if (non_pos_resp != 0){
+		req_type = req_regular;
+		if (non_pos_resp == 2){
+//			log_dbg("Переходим к обработке ответа.");
+			execute_resp();
+		}
+	}
+}
+
 static void on_pos_print(uint32_t t __attribute__((unused)))
 {
 	if (pos_prn_data_len > 0){
 		plog_write_rec(hplog, pos_prn_buf, pos_prn_data_len, PLRT_NORMAL);
-		pos_set_state(pos_printing);
-		if (xprn_print((char *)pos_prn_buf, pos_prn_data_len)){
-			pos_prn_data_len = 0;
-			if (pos_get_state() == pos_printing){
-				pos_set_state(pos_ready);
+		if (cfg.tickets_on_kkt){
+			if (send_pos_cheque_request(pos_prn_buf, pos_prn_data_len))
+				pos_set_state(pos_printing);
+			else
+				pos_set_error(POS_ERROR_CLASS_PRINTER, POS_ERR_PRN, 0);
+		}else{
+			pos_set_state(pos_printing);
+			if (xprn_print((char *)pos_prn_buf, pos_prn_data_len)){
+				pos_prn_data_len = 0;
+				if (pos_get_state() == pos_printing){
+					pos_set_state(pos_ready);
 /* NB: мы не можем использовать здесь t, т.к. xprn_print -- блокирующая функция */
-				pos_t0 = u_times();
+					pos_t0 = u_times();
+				}
 			}
 		}
 	}else

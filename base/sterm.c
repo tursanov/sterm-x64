@@ -1,4 +1,4 @@
-/* Основные функции терминала. (c) gsr 2000-2020 */
+/* Основные функции терминала. (c) gsr 2000-2020, 2024 */
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -3569,7 +3569,9 @@ static void on_response(bool *need_sync_dev_data)
 		}else{
 			set_term_busy(true);
 			set_term_state(st_resp);
-			if ((req_type == req_grid_xprn) || (req_type == req_grid_kkt)){
+			if (req_type == req_pos_cheque)
+				on_response_pos();
+			else if ((req_type == req_grid_xprn) || (req_type == req_grid_kkt)){
 				on_response_grid();
 				*need_sync_dev_data = c_state != cs_hasreq;
 			}else if ((req_type == req_icon_xprn) || (req_type == req_icon_kkt)){

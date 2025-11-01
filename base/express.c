@@ -1,6 +1,6 @@
 /*
  * Синтаксический разбор и обработка текста ответа из "Экспресс".
- * (c) gsr 2009-2020, 2022, 2024.
+ * (c) gsr 2009-2020, 2022, 2024-2025.
  */
 
 #include <ctype.h>
@@ -2237,7 +2237,7 @@ static int show_kprn_error(uint8_t status, bool rejectable)
 	return ret;
 }
 
-static bool kprn_print(const uint8_t *data, size_t len)
+bool kprn_print(const uint8_t *data, size_t len)
 {
 	bool ret = false;
 	while (true){
@@ -2426,6 +2426,26 @@ bool find_pic_data(int *data, int *req)
 	}
 	if ((m == 1) && (req_para != -1))
 		*req = req_para;
+	return ret;
+}
+
+/* Поиск абзаца для печати чека ИПТ на ККТ */
+bool find_pos_data(int *nr)
+{
+	bool ret = false;
+	*nr = -1;
+	int n = 0, pos_para = -1;
+	for (int i = 0; i < n_paras; i++){
+		if (map[i].dst == dst_kprn){
+			if (++n > 1)
+				break;
+			pos_para = i;
+		}
+	}
+	if ((n == 1) && (pos_para != -1)){
+		*nr = pos_para;
+		ret = true;
+	}
 	return ret;
 }
 

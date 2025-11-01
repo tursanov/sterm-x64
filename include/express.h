@@ -268,6 +268,12 @@ extern const struct bank_info *get_bi(void);
 /* Получение данных изображения для БПУ */
 extern bool find_pic_data(int *data, int *req);
 
+/* Поиск абзаца для печати чека ИПТ на ККТ */
+extern bool find_pos_data(int *nr);
+
+/* Печать на ККТ */
+extern bool kprn_print(const uint8_t *data, size_t len);
+
 /* Категории данных, для которых требуется синхронизация с "Экспресс" */
 #define X3_SYNC_NONE			0x00000000	/* синхронизация данных не требуется */
 #define X3_SYNC_XPRN_GRIDS		0x00000001	/* требуется синхронизация разметок бланков БПУ */
