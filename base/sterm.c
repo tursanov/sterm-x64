@@ -2297,7 +2297,7 @@ static void show_pos(void)
 #define POS_WIDTH		32
 #define POS_HEIGHT		8
 	GCPtr pGC;
-	if (!cfg.bank_system || !cfg.has_xprn){
+	if (!cfg.bank_system || !cfg.has_xprn || TST_FLAG(ZBp, GDF_REQ_INIT | GDF_REQ_FIRST)){
 		set_term_astate(ast_illegal);
 		err_beep();
 	}else if (pos_get_state() != pos_idle){
@@ -3548,7 +3548,8 @@ static void on_response(bool *need_sync_dev_data)
 #endif
 	if (ssaver_active)
 		scr_wakeup();
-	release_garbage();
+	if (req_type != req_pos_cheque)
+		release_garbage();
 	resp_handling = true;
 	clear_hash(prom);
 	err_ptr = check_syntax(resp_buf + text_offset, text_len, &ecode);
@@ -3612,6 +3613,8 @@ static void on_response(bool *need_sync_dev_data)
 				set_term_busy(false);
 		}
 	}else{
+		if (req_type == req_pos_cheque)
+			release_garbage();
 		SET_FLAG(ZBp, GDF_REQ_SYNTAX);
 		resp_handling = false;
 		if (s_state == ss_initializing){

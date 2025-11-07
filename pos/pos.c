@@ -664,6 +664,7 @@ void on_response_pos(void)
 		req_type = req_regular;
 		if (non_pos_resp == 2){
 //			log_dbg("Переходим к обработке ответа.");
+			release_garbage();
 			execute_resp();
 		}
 	}

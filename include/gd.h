@@ -103,9 +103,9 @@ enum {
 #define GDF_RESP_INIT		0x20	/* ответ при инициализации */
 #define GDF_RESP_APP		0x40	/* прикладной ответ */
 
-#define SET_FLAG(f, v) (f |= v)
-#define CLR_FLAG(f, v) (f &= ~v)
-#define TST_FLAG(f, v) (f & v)
+#define SET_FLAG(f, v) (f |= (v))
+#define CLR_FLAG(f, v) (f &= ~(v))
+#define TST_FLAG(f, v) (f & (v))
 
 /* Работа со счетчиками гарантированной доставки */
 #define INC_VAL(w) ({ w++; w %= 0x1000; w; })

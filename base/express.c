@@ -1363,7 +1363,8 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 				case XPRN_WR_BCODE:
 				case XPRN_RD_BCODE:
 				case XPRN_NO_BCODE:
-					if ((dst != dst_xprn) && (dst != dst_aprn)){
+					if ((dst != dst_xprn) && (dst != dst_aprn) &&
+							(dst != dst_log)){
 						if ((b == XPRN_NO_BCODE) ||
 								((dst != dst_sprn) &&
 								 (dst != dst_log))){
