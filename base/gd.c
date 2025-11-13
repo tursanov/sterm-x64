@@ -183,8 +183,12 @@ static void write_term_info(void)
 	req_buf[req_len++] = term_id[0];
 	req_buf[req_len++] = get_tcap_byte();
 	req_buf[req_len] = term_id[2];
-	if (cfg.has_kkt && cfg.fiscal_mode && (kkt != NULL) && kkt_has_param("SUPPORT_VAT_5_7"))
-		req_buf[req_len] = 0x41;
+	if (cfg.has_kkt && cfg.fiscal_mode && (kkt != NULL)){
+		if (kkt_has_param("SUPPORT_VAT_22"))
+			req_buf[req_len] = 0x42;
+		else if (kkt_has_param("SUPPORT_VAT_5_7"))
+			req_buf[req_len] = 0x41;
+	}
 	req_len++;
 /* Заводской номер терминала */
 	memcpy(req_buf + req_len, tn, sizeof(tn));

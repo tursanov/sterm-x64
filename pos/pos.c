@@ -589,8 +589,7 @@ static void on_pos_ready(uint32_t t)
 	}else if (dt > POS_TIMEOUT){
 		if (!poll_ok){
 			if (dt > MAX_POS_TIMEOUT)
-				pos_set_error(POS_ERROR_CLASS_SYSTEM,
-					POS_ERR_TIMEOUT, 0);
+				pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_TIMEOUT, 0);
 		}else if ((pos_get_state() == pos_ready) && pos_serial_is_free())
 			pos_send_empty();
 	}
@@ -643,13 +642,15 @@ void on_response_pos(void)
 	int non_pos_resp = 0;
 //	set_term_state(st_resp);
 	int pos_para = -1;
-	size_t pos_len = 0;
 	if (find_pos_data(&pos_para) && (pos_para != -1)){
-		pos_len = handle_para(pos_para);
+		size_t pos_len = handle_para(pos_para);
 /*		log_info("Обнаружены данные чека ИПТ (абзац #%d; %zd байт).",
 			pos_para + 1, pos_len);*/
 		if (pos_len > 0){
 			kprn_print(text_buf, pos_len);
+			if (pos_active)
+				pos_set_state(pos_ready);
+			pos_t0 = u_times();
 		}else{
 			snprintf(err_msg, ASIZE(err_msg), "Получены данные чека ИПТ нулевой длины.");
 			non_pos_resp = 1;

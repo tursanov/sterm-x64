@@ -6,8 +6,8 @@
 #include "pos/printer.h"
 #include "genfunc.h"
 
-uint8_t pos_prn_buf[2048];
-int  pos_prn_data_len = 0;
+uint8_t pos_prn_buf[65536];
+size_t pos_prn_data_len = 0;
 
 static bool pos_parse_print(struct pos_data_buf *buf, bool check_only)
 {
@@ -44,7 +44,8 @@ bool pos_parse_printer_stream(struct pos_data_buf *buf, bool check_only)
 	};
 	int i, l;
 	uint16_t len;
-	pos_prn_data_len = 0;
+	if (check_only || !is_pos_prn_special())
+		pos_prn_data_len = 0;
 	if (!pos_read_word(buf, &len) || (len > POS_MAX_BLOCK_DATA_LEN)){
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
 		return false;

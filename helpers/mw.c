@@ -33,7 +33,7 @@ static char *key_file;		/* имя файла ключей DALLAS */
 static bool tki_read = true;	/* флаг чтения/записи файла tki */
 static bool can_repeat_keys = false;	/* флаг возможности ввода дублирующихся ключей */
 
-/* Об'ект действия */
+/* Объект действия */
 enum {
 	subj_none,
 	subj_srv_keys,		/* настроечные ключи DS1990A */
@@ -72,9 +72,9 @@ static void print_dallas_key(struct md5_hash *md5, int ds_type)
 	struct md5_hash zero_md5 = ZERO_MD5_HASH;
 	if (md5 == NULL)
 		return;
-	printf("%*c:", DESCR_WIDTH, ds_key_char(ds_type));
+	printf("%*c: ", DESCR_WIDTH, ds_key_char(ds_type));
 	if (memcmp(md5, &zero_md5, sizeof(*md5)) == 0)
-		printf(" не введен");
+		printf("не введен");
 	else
 		print_md5(md5);
 	printf("\n");

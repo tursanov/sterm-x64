@@ -625,7 +625,7 @@ bool set_term_astate(intptr_t ast)
 	if ((str = find_term_astate(ast, &x3_err)) != NULL){
 		_term_aux_state = ast;
 		scr_set_rstatus(str);
-		if (x3_err && (req_type != req_regular))
+		if (x3_err && (req_type != req_regular) && (req_type != req_pos_cheque))
 			x3data_sync_report_dlg();
 		ret = true;
 	}
@@ -2880,7 +2880,8 @@ static void show_kkt_info(void)
 			"%29s:  %s, "		/* SUPPORT_NULL_IN_TEMPLATE */
 			"%35s:  %s\n"		/* SUPPORT_FRAGMENTATION */
 			"%29s:  %s, "		/* SUPPORT_ESC_R */
-			"%35s:  %s\n",		/* SUPPORT_VAT_5_7 */
+			"%35s:  %s\n"		/* SUPPORT_VAT_5_7 */
+			"%29s:  %s\n",		/* SUPPORT_VAT_22 */
 		"ККТ", kkt->name,
 		"Заводской номер ККТ", (kkt_nr == NULL) ? "НЕ УСТАНОВЛЕН" : kkt_nr,
 		"Версия ПО", (kkt_ver == NULL) ? "НЕИЗВЕСТНО" : kkt_ver,
@@ -2923,7 +2924,8 @@ static void show_kkt_info(void)
 		"Отказ от печати ФД", kkt_has_param("SUPPORT_NULL_IN_TEMPLATE") ? "да" : "нет",
 		"Печать фрагментами", kkt_has_param("SUPPORT_FRAGMENTATION") ? "да" : "нет",
 		"Печать шаблонами", kkt_has_param("SUPPORT_ESC_R") ? "да" : "нет",
-		"Поддержка ставок НДС 5% и 7%", kkt_has_param("SUPPORT_VAT_5_7") ? "да" : "нет"
+		"Поддержка ставок НДС 5% и 7%", kkt_has_param("SUPPORT_VAT_5_7") ? "да" : "нет",
+		"Поддержка ставки НДС 22%", kkt_has_param("SUPPORT_VAT_22") ? "да" : "нет"
 	);
 	online = false;
 	guess_term_state();

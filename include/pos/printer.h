@@ -8,11 +8,18 @@ extern "C" {
 #endif
 
 #include "pos/pos.h"
+#include "cfg.h"
 
 #define POS_PRINTER_PRINT	0x05
 
-extern uint8_t pos_prn_buf[2048];
-extern int  pos_prn_data_len;
+extern uint8_t pos_prn_buf[65536];
+extern size_t pos_prn_data_len;
+
+static inline bool is_pos_prn_special(void)
+{
+	return cfg.tickets_on_kkt && (pos_prn_data_len >= sizeof(uint32_t)) &&
+		(*((uint32_t *)pos_prn_buf) == 0);
+}
 
 extern bool pos_parse_printer_stream(struct pos_data_buf *buf, bool check_only);
 
