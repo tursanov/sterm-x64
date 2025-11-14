@@ -684,9 +684,10 @@ static void on_pos_print(uint32_t t __attribute__((unused)))
 						pos_prn_data_len - 4, XLRT_NORMAL, 0);
 				pos_prn_data_len = 0;
 				pos_set_state(pos_ready);
-			}else if (send_pos_cheque_request(pos_prn_buf, pos_prn_data_len))
+			}else if (send_pos_cheque_request(pos_prn_buf, pos_prn_data_len)){
+				pos_prn_data_len = 0;
 				pos_set_state(pos_printing);
-			else
+			}else
 				pos_set_error(POS_ERROR_CLASS_PRINTER, POS_ERR_PRN, 0);
 		}else{
 			pos_set_state(pos_printing);
