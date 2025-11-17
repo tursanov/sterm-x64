@@ -2297,7 +2297,8 @@ static void show_pos(void)
 #define POS_WIDTH		32
 #define POS_HEIGHT		8
 	GCPtr pGC;
-	if (!cfg.bank_system || !cfg.has_xprn || TST_FLAG(ZBp, GDF_REQ_INIT | GDF_REQ_FIRST)){
+	if (!cfg.bank_system || !(cfg.tickets_on_kkt || cfg.has_xprn) ||
+			TST_FLAG(ZBp, GDF_REQ_INIT | GDF_REQ_FIRST)){
 		set_term_astate(ast_illegal);
 		err_beep();
 	}else if (pos_get_state() != pos_idle){

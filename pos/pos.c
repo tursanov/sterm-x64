@@ -678,11 +678,13 @@ static void on_pos_print(uint32_t t __attribute__((unused)))
 	if (pos_prn_data_len > 0){
 		plog_write_rec(hplog, pos_prn_buf, pos_prn_data_len, PLRT_NORMAL);
 		if (cfg.tickets_on_kkt){
-			if (is_pos_prn_special() && (pos_prn_buf[pos_prn_data_len - 1] == KKT_FF)){
-				if (pos_prn_data_len > 4)
-					xlog_write_rec(hxlog, pos_prn_buf + 4,
-						pos_prn_data_len - 4, XLRT_NORMAL, 0);
-				pos_prn_data_len = 0;
+			if (is_pos_prn_special()){
+				if (pos_prn_buf[pos_prn_data_len - 1] == KKT_FF){
+					if (pos_prn_data_len > 4)
+						xlog_write_rec(hxlog, pos_prn_buf + 4,
+							pos_prn_data_len - 4, XLRT_NORMAL, 0);
+					pos_prn_data_len = 0;
+				}
 				pos_set_state(pos_ready);
 			}else if (send_pos_cheque_request(pos_prn_buf, pos_prn_data_len)){
 				pos_prn_data_len = 0;
