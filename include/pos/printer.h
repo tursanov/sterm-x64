@@ -19,7 +19,7 @@ static inline bool is_pos_prn_special(void)
 {
 	return cfg.tickets_on_kkt && (pos_prn_data_len >= 4) &&
 		(pos_prn_buf[0] == 0) && (pos_prn_buf[1] == 0) &&
-		(pos_prn_buf[2] == 8) && (pos_prn_buf[3] == 0);
+		(pos_prn_buf[2] == 0) && (pos_prn_buf[3] == 0);
 }
 
 extern bool pos_parse_printer_stream(struct pos_data_buf *buf, bool check_only);
