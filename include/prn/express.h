@@ -57,7 +57,7 @@ extern bool xprn_printing;
 extern void xprn_init(void);
 extern void xprn_release(void);
 extern void xprn_flush(void);
-extern bool xprn_print(const char *txt, int l);
+extern bool xprn_print(const uint8_t *txt, int l);
 
 #if defined __cplusplus
 }

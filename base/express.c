@@ -2274,10 +2274,10 @@ static bool execute_prn(struct para_info *p, int l, int n_para)
 	set_term_astate(ast_none);
 	if (p->dst == dst_xprn){
 		if (cfg.has_xprn)
-			ret = printed = xprn_print((char *)text_buf, l);
+			ret = printed = xprn_print(text_buf, l);
 	}else if (p->dst == dst_aprn){
 		if (cfg.has_aprn)
-			ret = printed = aprn_print((char *)text_buf, l);
+			ret = printed = aprn_print(text_buf, l);
 	}else if (p->dst == dst_kprn){
 		if (cfg.has_kkt && (kkt != NULL))
 			ret = printed = kprn_print(text_buf, l);

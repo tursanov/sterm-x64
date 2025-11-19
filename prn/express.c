@@ -45,7 +45,7 @@ void xprn_flush(void)
 }
 
 /* Подготовка текста к печати */
-static int xprn_write_text(const char *p, int l)
+static int xprn_write_text(const uint8_t *p, int l)
 {
 	enum {
 		st_start,
@@ -232,7 +232,7 @@ static int xprn_write_text(const char *p, int l)
 bool xprn_printing = false;
 
 /* Печать текста на ОПУ */
-bool xprn_print(const char *txt, int l)
+bool xprn_print(const uint8_t *txt, int l)
 {
 	bool said = false;
 	uint8_t *ptr = prn_buf;

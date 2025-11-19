@@ -55,7 +55,7 @@ void aprn_flush(void)
 	prn_buf_len = 0;
 }
 
-static int aprn_write_text(const char *txt, int len)
+static int aprn_write_text(const uint8_t *txt, int len)
 {
 	if ((txt == NULL) || (len <= 0) || (len > PRN_BUF_LEN))
 		return 0;
@@ -85,7 +85,7 @@ static int aprn_out_char(uint8_t ch)
 #endif
 }
 
-bool aprn_print(const char *txt, int l)
+bool aprn_print(const uint8_t *txt, int l)
 {
 	uint8_t *ptr = prn_buf;
 	int i = 0, lsr;

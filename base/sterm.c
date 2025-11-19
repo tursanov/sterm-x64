@@ -3042,9 +3042,9 @@ static void print_text(void)
 	redraw_term(true, main_title);	/* в handle_menu вызывается только при нажатии Esc */
 	if ((use_xprn && cfg.has_xprn) || (!use_xprn && cfg.has_aprn)){
 		if (scr_is_req()){
-			char buf[N_XPRN_CHARS + 4];
+			uint8_t buf[N_XPRN_CHARS + 4];
 			int l = scr_get_24(buf, N_XPRN_CHARS, true);
-			recode_str(buf, l);
+			recode_str((char *)buf, l);
 			if (use_xprn)
 				xprn_print(buf, l);
 			else
@@ -3288,7 +3288,7 @@ static void print_sshot(void)
 			bool busy = term_busy;
 			guess_term_state();
 			set_term_busy(true);
-			xprn_print((char *)buf, m);
+			xprn_print(buf, m);
 			set_term_busy(busy);
 		}
 		scr_show_mode(true);

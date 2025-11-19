@@ -243,7 +243,7 @@ void print_help(void)
 	draw_hlp_hints();
 	for (int i = 0; i < n_hlp_lines; i++){
 		snprintf(buf, sizeof(buf), "%s\n\r", get_hlp_line(i));
-		if (!xprn_print(recode_str(buf, -1), strlen(buf)))
+		if (!xprn_print((const uint8_t *)recode_str(buf, -1), strlen(buf)))
 			break;
 	}
 	help_printing=false;

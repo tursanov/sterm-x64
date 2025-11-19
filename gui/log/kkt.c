@@ -202,11 +202,11 @@ bool klog_print_current(struct log_gui_context *ctx)
 		return false;
 	ctx->modal = true;
 	ret =	klog_print_header() &&
-		xprn_print((char *)log_prn_buf, log_prn_data_len) &&
+		xprn_print(log_prn_buf, log_prn_data_len) &&
 		klog_print_rec() &&
-		xprn_print((char *)log_prn_buf, log_prn_data_len) &&
+		xprn_print(log_prn_buf, log_prn_data_len) &&
 		klog_print_footer() &&
-		xprn_print((char *)log_prn_buf, log_prn_data_len);
+		xprn_print(log_prn_buf, log_prn_data_len);
 	ctx->modal = false;
 	return ret;
 }
@@ -231,15 +231,14 @@ bool klog_print_range(struct log_gui_context *ctx, uint32_t from, uint32_t to)
 		log_draw(ctx);
 /* Печать заголовка */
 		if ((n == 0) && (!klog_print_header() ||
-				!xprn_print((char *)log_prn_buf, log_prn_data_len)))
+				!xprn_print(log_prn_buf, log_prn_data_len)))
 			break;
 /* Печать записей */
-		else if (!klog_print_rec() || !xprn_print((char *)log_prn_buf,
-				log_prn_data_len))
+		else if (!klog_print_rec() || !xprn_print(log_prn_buf, log_prn_data_len))
 			break;
 /* Печать концевика */
 		else if (ret && (!klog_print_footer() ||
-				!xprn_print((char *)log_prn_buf, log_prn_data_len))){
+				!xprn_print(log_prn_buf, log_prn_data_len))){
 			ret = false;
 			break;
 		}

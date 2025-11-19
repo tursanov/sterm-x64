@@ -2303,7 +2303,7 @@ int get_scr_text(uint8_t *buf, int len)
 
 /* Получение первых l символов ОЗУ заказа */
 /* NB: возможен выход за правую границу буфера */
-int scr_get_24(char *buf, int l, bool strip)
+int scr_get_24(uint8_t *buf, int l, bool strip)
 {
 	uint8_t *p = inp_buf[cur_window].buf;
 	int i, n = 0;

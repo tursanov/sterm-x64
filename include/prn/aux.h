@@ -49,7 +49,7 @@ extern "C" {
 extern void aprn_init(void);
 extern void aprn_release(void);
 extern void aprn_flush(void);
-extern bool aprn_print(const char *txt, int l);
+extern bool aprn_print(const uint8_t *txt, int l);
 
 #if defined __cplusplus
 }
