@@ -17,8 +17,8 @@ extern size_t pos_prn_data_len;
 
 static inline bool is_pos_prn_special(void)
 {
-	return cfg.tickets_on_kkt && (pos_prn_data_len >= sizeof(uint32_t)) &&
-		(*((const uint32_t *)pos_prn_buf) == 0);
+	const uint32_t *p = (const uint32_t *)pos_prn_buf;
+	return cfg.tickets_on_kkt && (pos_prn_data_len >= sizeof(uint32_t)) && (*p == 0);
 }
 
 extern bool pos_parse_printer_stream(struct pos_data_buf *buf, bool check_only);

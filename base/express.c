@@ -614,243 +614,8 @@ static uint8_t *check_rom(uint8_t *txt, int l, int *ecode)
 	return p;
 }
 
-#if 0
-/* Проверка банковского абзаца */
-static uint8_t *check_bank_info(uint8_t *txt, int l, int *ecode)
-{
-	enum {
-		st_req_id,
-		st_term_id,
-		st_op_type,
-		st_ticket,
-		st_reissue,
-		st_reissue_nr,
-		st_blank_nr,
-		st_amount_quot,
-		st_amount_rem,
-		st_doc_end,
-		st_stop,
-		st_err,
-	};
-	int i, st = st_req_id, n = 0, m = 0;
-	uint8_t b;
-	*ecode = E_BANK;
-	for (i = 0; (i < l) && (st != st_stop) && (st != st_err); i++){
-		b = txt[i];
-		switch (st){
-			case st_req_id:
-				if (n < BNK_REQ_ID_LEN){
-					if (!isdigit(b))
-						st = st_err;
-				}else if (n == BNK_REQ_ID_LEN){
-					if (b == ';'){
-						n = 0;
-						st = st_term_id;
-					}else
-						st = st_err;
-				}
-				if (st == st_req_id)
-					n++;
-				break;
-			case st_term_id:
-				if (n == BNK_TERM_ID_LEN){
-					if (b == ';'){
-						n = 0;
-						st = st_op_type;
-					}else
-						st = st_err;
-				}
-				if (st == st_term_id)
-					n++;
-				break;
-			case st_op_type:
-				if (n == 0){
-					if ((b != '+') && (b =! '-') && (b != '*'))
-						st = st_err;
-				}else if (b == ';'){
-					n = 0;
-					st = st_ticket;
-				}else
-					st = st_err;
-				if (st == st_op_type)
-					n++;
-				break;
-			case st_ticket:
-				if (n == 0){
-					if ((b != 'p') && (b != 'u'))
-						st = st_err;
-				}else if (b == ';'){
-					n = 0;
-					st = st_reissue;
-				}
-				if (st == st_ticket)
-					n++;
-				break;
-			case st_reissue:
-				if (n == 0){
-					if (b == '1'){
-						n = 0;
-						st = st_reissue_nr;
-					}else if (b == ';')
-						st = st_blank_nr;
-					else if (b != '0')
-						st = st_err;
-				}else if (b == ';')
-					st = st_blank_nr;
-				else
-					st = st_err;
-				if (st == st_reissue)
-					n++;
-				break;
-			case st_reissue_nr:
-				if (n == 0){
-					if (b != '(')
-						st = st_err;
-				}else if (n < (BNK_BLANK_NR_LEN + 1)){
-					if (!isdigit(b) && ((i < 2) || (b > 4)))
-						st = st_err;
-				}else if (n == (BNK_BLANK_NR_LEN + 1)){
-					if (b != ')')
-						st = st_err;
-				}else if (b == ';'){
-					n = m = 0;
-					st = st_blank_nr;
-				}else
-					st = st_err;
-				if (st == st_reissue_nr)
-					n++;
-				break;
-			case st_blank_nr:
-				if (n < BNK_BLANK_NR_LEN){
-					if (!isdigit(b))
-						st = st_err;
-				}else if (b == '/'){
-					n = 0;
-					st = st_amount_quot;
-				}else
-					st = st_err;
-				if (st == st_blank_nr)
-					n++;
-				break;
-			case st_amount_quot:
-				if (isdigit(b)){
-					if (n == BNK_AMOUNT_MAX_LEN)
-						st = st_err;
-					else if ((i + 1) == l)
-						st = st_stop;
-				}else if (b == '.'){
-					if ((n > 0) && ((n + 1) < BNK_AMOUNT_MAX_LEN))
-						st = st_amount_rem;
-					else
-						st = st_err;
-				}else{
-					i--;
-					st = st_doc_end;
-				}
-				if (st == st_amount_quot)
-					n++;
-				break;
-			case st_amount_rem:
-				if (isdigit(b)){
-					if (n == BNK_AMOUNT_MAX_LEN)
-						st = st_err;
-					else if ((i + 1) == l)
-						st = st_stop;
-				}else{
-					i--;
-					st = st_doc_end;
-				}
-				if (st == st_amount_rem)
-					n++;
-				break;
-			case st_doc_end:
-				if (b == ';'){
-					m++;
-					if (m < BNK_MAX_DOCS){
-						n = 0;
-						st = st_blank_nr;
-					}else
-						st = st_err;
-				}else
-					st = st_err;
-				break;
-		}
-	}
-	if (st == st_stop)
-		*ecode = E_OK;
-	return txt + i;
-}
-
-/* Сканирование банковского абзаца (синтаксис уже проверен) */
-static void scan_bank_info(uint8_t *txt)
-{
-	clear_bank_info();
-	int idx = 0;
-/* Номер заказа в системе */
-	size_t len;
-	read_var_uint(txt, &len, BNK_REQ_ID_LEN, &bd.req_id);
-	idx += BNK_REQ_ID_LEN + 1;
-/* Технологический номер терминала */
-	memcpy(bd.term_id, txt + idx, BNK_TERM_ID_LEN);
-	bd.term_id[BNK_TERM_ID_LEN] = 0;
-	idx += BNK_TERM_ID_LEN + 1;
-/* Тип платежа */
-	bd.op = txt[idx];
-	idx += 2;
-/* ОД/ПВД */
-	bd.ticket = txt[idx] == 'p';
-	idx += 2;
-/* Признак переоформления */
-	if (txt[idx] == '0'){
-		bd.repayment = '0';
-		idx += 2;
-	}else if (txt[idx] == '1'){
-		bd.repayment = '1';
-		idx += 2;
-		memcpy(bd.prev_blank_nr, txt + idx, BNK_BLANK_NR_LEN);
-		bd.prev_blank_nr[BNK_BLANK_NR_LEN] = 0;
-		idx += BNK_BLANK_NR_LEN + 2;
-	}else{
-		bd.repayment = 0;
-		idx++;
-	}
-/* Информация о документах в заказе */
-	for (int i = 0; i < BNK_MAX_DOCS; i++){
-		if (!isdigit(txt[idx]))
-			break;
-		struct bank_doc_info *di = bd.doc_info + i;
-		memcpy(di->blank_nr, txt + idx, BNK_BLANK_NR_LEN);
-		di->blank_nr[BNK_BLANK_NR_LEN] = 0;
-		idx += BNK_BLANK_NR_LEN + 1;
-		uint64_t q = 0, r = 0;
-		bool quot = true;
-		for (int j = 0; j < BNK_AMOUNT_MAX_LEN; j++){
-			uint8_t b = txt[idx++];
-			if (isdigit(b)){
-				b -= 0x30;
-				if (quot){
-					q *= 10;
-					q += b;
-				}else{
-					r *= 10;
-					r += b;
-				}
-			}else if (b == '.')
-				quot = false;
-			else if (b == ';')
-				break;
-		}
-		idx++;
-		if (r < 10)
-			r *= 10;
-		di->amount = q * 100 + r;
-		bd.nr_docs++;
-	}
-}
-#endif
-
 /* Проверка абзаца для ИПТ */
-static uint8_t *check_bank_info(uint8_t *txt, int l, int *ecode)
+static uint8_t *check_bank_info(uint8_t *txt, int l, size_t id_len, int *ecode)
 {
 	enum {
 		st_id,
@@ -870,76 +635,75 @@ static uint8_t *check_bank_info(uint8_t *txt, int l, int *ecode)
 					st = st_err;
 				else{
 					n++;
-					if (n == 7){
+					if (n == id_len){
 						n = 0;
 						st = st_termid;
 					}
 				}
 				break;
 			case st_termid:
-/*				if (n == 2){
-					if (((b < 0x41) || (b > 0x5a)) &&
-							((b < 0x60) || (b > 0x7e)))
-						st = st_err;
-				}else if (!isdigit(b))
-					st = st_err;*/
-				if (st != st_err){
-					n++;
-					if (n == 5){
-						n = 0;
-						st = st_amount;
-					}
+				n++;
+				if (n == BANK_TERM_ID_LEN){
+					n = 0;
+					st = st_amount;
 				}
 				break;
 			case st_amount:
-				if (n == 7){
+				if (n == BANK_AMOUNT_QUOT_LEN){
 					if (b != '.')
 						st = st_err;
 				}else if (!isdigit(b))
 					st = st_err;
-				if (st != st_err){
-					n++;
-					if (n == 9)
-						st = st_stop;
-				}
+				if ((st != st_err) && (++n == BANK_AMOUNT_LEN))
+					st = st_stop;
 				break;
 		}
 	}
-/*	if (i < l){
-		printf(__func__": i = %d; l = %d\n", i, l);
-		*ecode = E_BANK;
-	}*/
 	if (st != st_stop)
 		*ecode = E_BANK;
 	return txt + i;
 }
 
-/* Сканирование абзаца для ИПТ */
-static void scan_bank_info(uint8_t *txt)
+static uint64_t read_uint64(const uint8_t *data, size_t n)
 {
-/*	time_t t = time(NULL) + time_delta;
-	struct tm *tm = localtime(&t);*/
-	uint8_t tmp;
+	if ((data == NULL) || (n > 20))
+		return 0;
+	uint64_t ret = 0;
+	for (size_t i = 0; i < n; i++){
+		uint8_t b = data[i];
+		if ((b >= 0x30) && (n <= 0x39)){
+			ret *= 10;
+			ret += b - 0x30;
+		}else{
+			ret = 0;
+			break;
+		}
+	}
+	return ret;
+}
+
+static inline uint32_t read_uint32(const uint8_t *data, size_t n)
+{
+	return (uint32_t)read_uint64(data, n);
+}
+
+static inline uint16_t read_uint16(const uint8_t *data, size_t n)
+{
+	return (uint16_t)read_uint64(data, n);
+}
+
+/* Сканирование абзаца для ИПТ */
+static void scan_bank_info(uint8_t *txt, size_t id_len)
+{
 	add_bank_info();
-	tmp = txt[7];
-	txt[7] = 0;
-	bi.id = strtoul((char *)txt, NULL, 10);
-	txt[7] = tmp;
-	memcpy(&bi.termid, txt + 7, 5);
-	tmp = txt[19];
-	txt[19] = 0;
-	bi.amount1 = strtoul((char *)(txt + 12), NULL, 10);
-	txt[19] = tmp;
-	tmp = txt[21];
-	txt[21] = 0;
-	bi.amount2 = strtoul((char *)(txt + 20), NULL, 10);
-	txt[21] = tmp;
-/*	bi.dt.day = tm->tm_mday - 1;
-	bi.dt.mon = tm->tm_mon;
-	bi.dt.year = tm->tm_year % 100;
-	bi.dt.hour = tm->tm_hour;
-	bi.dt.min = tm->tm_min;
-	bi.dt.sec = tm->tm_sec;*/
+	off_t offs = 0;
+	bi.id = read_uint64(txt + offs, id_len);
+	offs += id_len;
+	memcpy(&bi.termid, txt + offs, BANK_TERM_ID_LEN);
+	offs += BANK_TERM_ID_LEN;
+	bi.amount1 = read_uint32(txt + offs, BANK_AMOUNT_QUOT_LEN);
+	offs += BANK_AMOUNT_QUOT_LEN + BANK_AMOUNT_DELIM_LEN;
+	bi.amount2 = read_uint32(txt + offs, BANK_AMOUNT_DELIM_LEN);
 }
 
 /* Определение назначения абзаца ответа */
@@ -995,9 +759,7 @@ static int get_dest(uint8_t b)
 
 static int para_len(int offset)
 {
-	int i, l = 0;
-	bool dle = false;
-	uint8_t p_end[] = {
+	static const uint8_t p_end[] = {
 		X_PARA_END_N,
 		X_SCR,
 		X_XPRN,
@@ -1014,15 +776,18 @@ static int para_len(int offset)
 	};
 	if ((offset == -1) || (offset >= (text_offset + text_len)))
 		return 0;
-	for (i = offset; i < (text_offset + text_len); i++, l++){
+	int l = 0;
+	bool dle = false;
+	for (int i = offset; i < (text_offset + text_len); i++, l++){
+		uint8_t b = resp_buf[i];
 		if (dle){
 			dle = false;
-			if (memchr(p_end, resp_buf[i], sizeof(p_end)) != NULL){
+			if (memchr(p_end, b, sizeof(p_end)) != NULL){
 				l--;
 				break;
 			}
 		}else
-			dle = is_escape(resp_buf[i]);
+			dle = is_escape(b);
 	}
 	return l;
 }
@@ -1519,7 +1284,8 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 						*ecode = E_NO_BANK;
 						return p - 2;
 					}
-					p = check_bank_info(p, txt + l - p, ecode);
+					p = check_bank_info(p, txt + l - p, para_len(p - txt) == BANK_PARA_LEN_OLD ?
+						BANK_ID_LEN_OLD : BANK_ID_LEN_NEW, ecode);
 					if (*ecode != E_OK)
 						return p;
 					n_dsts++;
@@ -2072,7 +1838,8 @@ static void preexecute_resp(void)
 					text_buf, l, XLRT_AUX, log_para++);
 				break;
 			case dst_bank:
-				scan_bank_info(text_buf);
+				scan_bank_info(text_buf, (l == BANK_PARA_LEN_OLD) ?
+					BANK_ID_LEN_OLD : BANK_ID_LEN_NEW);
 				log_number = xlog_write_rec(hxlog, text_buf, l,
 					XLRT_BANK, log_para++);
 				break;

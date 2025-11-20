@@ -336,7 +336,7 @@ static bool pos_write_param(struct pos_data_buf *buf, char *name, int param,
 			break;
 		}
 		case POS_PARAM_ID:
-			sprintf(val, "%.7u", bi_pos.id);
+			sprintf(val, "%.7u", (uint32_t)(bi_pos.id % 10000000));
 			l = strlen(val);
 			break;
 		case POS_PARAM_TERMID:
