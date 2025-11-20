@@ -137,6 +137,8 @@ enum {
 	pos_ewait,		/* ожидание после вывода на экран сообщения об ошибке */
 };
 
+extern int pos_state;
+
 extern bool pos_create(void);
 extern void pos_release(void);
 extern int  pos_get_state(void);

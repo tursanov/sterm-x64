@@ -14,6 +14,8 @@
 #include "gui/scr.h"
 #include "kkt/kkt.h"
 #include "log/express.h"
+#include "pos/error.h"
+#include "pos/pos.h"
 #include "prn/express.h"
 #include "prn/local.h"
 #include "cfg.h"
@@ -356,6 +358,8 @@ void slayer_error(int e)
 				break;
 		}
 		c_state = cs_nc;
+		if (pos_active && (pos_state == pos_printing))
+			pos_set_error(POS_ERROR_CLASS_PRINTER, POS_ERR_PRN, 0);
 	}
 	if (cfg.tcp_cbt || (gd_error_type(e) == gde_tcp))
 		release_term_socket();

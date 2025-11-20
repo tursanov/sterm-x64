@@ -153,7 +153,7 @@ $(SUBDIRS):
 	@$(MAKE) -C $@ -I../ -I../../
 
 sterm:	$(OBJS)
-	$(LD_CMD)
+	$(LD_BANNER)
 	@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE) -L /usr/lib/vipnet -lstdc++ -lvpn_api -lz -lxml2 -lxslt
 
 mk_env:

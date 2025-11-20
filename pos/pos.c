@@ -341,7 +341,7 @@ bool pos_req_stream_end(struct pos_data_buf *buf)
 	return true;
 }
 
-static int pos_state = pos_new;
+int pos_state = pos_new;
 /* Используется для периодического опроса POS-эмулятора */
 uint32_t pos_t0 = 0;
 /* На пустой запрос пришел ответ в течение заданного таймаута */
@@ -679,10 +679,12 @@ static void on_pos_print(uint32_t t __attribute__((unused)))
 		if (cfg.tickets_on_kkt){
 			if (is_pos_prn_special()){
 				if (pos_prn_buf[pos_prn_data_len - 1] == KKT_FF){
-					plog_write_rec(hplog, pos_prn_buf, pos_prn_data_len, PLRT_NORMAL);
-					if (pos_prn_data_len > 4)
-						xlog_write_rec(hxlog, pos_prn_buf + 4,
-							pos_prn_data_len - 4, XLRT_NORMAL, 0);
+					if (pos_prn_data_len > sizeof(uint32_t)){
+						plog_write_rec(hplog, pos_prn_buf + sizeof(uint32_t),
+							pos_prn_data_len - sizeof(uint32_t), PLRT_NORMAL);
+						xlog_write_rec(hxlog, pos_prn_buf + sizeof(uint32_t),
+							pos_prn_data_len - sizeof(uint32_t), XLRT_NORMAL, 0);
+					}
 					pos_prn_data_len = 0;
 				}
 				pos_set_state(pos_ready);
