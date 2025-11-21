@@ -152,28 +152,29 @@ static void xlog_fill_scr_special(struct log_gui_context *ctx)
 /* Занесение в экранный буфер записи типа XLRT_BANK */
 static void xlog_fill_scr_bank(struct log_gui_context *ctx)
 {
-	static char *bank_msg = "bank";
-	static int bank_msg_len = -1;
-	if (bank_msg_len == -1)
-		bank_msg_len = strlen(bank_msg);
+	static const char bank_msg[] = "bank";
+	size_t id_len = xlog_data_len == BANK_PARA_LEN_OLD ? BANK_ID_LEN_OLD : BANK_ID_LEN_NEW;
+	off_t offs = 0;
 	ctx->scr_data_len = 0;
 	ctx->scr_data[ctx->scr_data_len++] = 0;
-	memcpy(ctx->scr_data + ctx->scr_data_len, bank_msg, bank_msg_len + 1);
-	ctx->scr_data_len += bank_msg_len + 1;
+	memcpy(ctx->scr_data + ctx->scr_data_len, bank_msg, sizeof(bank_msg));
+	ctx->scr_data_len += sizeof(bank_msg);
 	ctx->scr_data[ctx->scr_data_len++] = 0;
 /* Номер заказа в системе */
-	memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data, 7);
-	ctx->scr_data_len += 7;
+	memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data + offs, id_len);
+	ctx->scr_data_len += id_len;
 	ctx->scr_data[ctx->scr_data_len++] = 0;
 	ctx->scr_data[ctx->scr_data_len++] = 0;
+	offs += id_len;
 /* Технологический номер кассы */
-	memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data + 7, 5);
-	ctx->scr_data_len += 5;
+	memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data + offs, BANK_TERM_ID_LEN);
+	ctx->scr_data_len += BANK_TERM_ID_LEN;
 	ctx->scr_data[ctx->scr_data_len++] = 0;
 	ctx->scr_data[ctx->scr_data_len++] = 0;
+	offs += BANK_TERM_ID_LEN;
 /* Сумма заказа */
-	memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data + 12, 9);
-	ctx->scr_data_len += 9;
+	memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data + offs, BANK_AMOUNT_LEN);
+	ctx->scr_data_len += BANK_AMOUNT_LEN;
 	ctx->scr_data[ctx->scr_data_len++] = 0;
 }
 
