@@ -1284,7 +1284,7 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 						*ecode = E_NO_BANK;
 						return p - 2;
 					}
-					p = check_bank_info(p, txt + l - p, para_len(p - txt) == BANK_PARA_LEN_OLD ?
+					p = check_bank_info(p, txt + l - p, para_len(p - resp_buf) == BANK_PARA_LEN_OLD ?
 						BANK_ID_LEN_OLD : BANK_ID_LEN_NEW, ecode);
 					if (*ecode != E_OK)
 						return p;
