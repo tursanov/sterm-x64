@@ -1,4 +1,4 @@
-/* Основной модуль для работы с POS-эмулятором. (c) A.Popov, gsr 2004, 2024 */
+/* Основной модуль для работы с POS-эмулятором. (c) A.Popov, gsr 2004, 2024-2025 */
 
 #include <sys/timeb.h>
 #include <sys/times.h>
@@ -682,8 +682,8 @@ static void on_pos_print(uint32_t t __attribute__((unused)))
 					if (pos_prn_data_len > sizeof(uint32_t)){
 						plog_write_rec(hplog, pos_prn_buf + sizeof(uint32_t),
 							pos_prn_data_len - sizeof(uint32_t), PLRT_NORMAL);
-						xlog_write_rec(hxlog, pos_prn_buf + sizeof(uint32_t),
-							pos_prn_data_len - sizeof(uint32_t), XLRT_NORMAL, 0);
+/*						xlog_write_rec(hxlog, pos_prn_buf + sizeof(uint32_t),
+							pos_prn_data_len - sizeof(uint32_t), XLRT_NORMAL, 0);*/
 					}
 					pos_prn_data_len = 0;
 				}
