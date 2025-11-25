@@ -12,10 +12,6 @@ END_MSG		= "Modules build complete."
 CLN_BEGIN_MSG	= "Cleaning modules using Linux kernel tools..."
 CLN_END_MSG	= "Modules clean complete."
 
-ifeq ($(shell test -t 1 && echo true), true)
-	TTY_OUT = true
-endif
-
 all:		begin_msg $(SUBDIRS) modules_install end_msg
 
 begin_msg:
@@ -50,4 +46,6 @@ clean:
 		@rm -f bin/*
 
 modules_install:
+		@rm -rf bin
+		@mkdir bin
 		@$(foreach MOD, $(SUBDIRS), cp $(MODULES_DIR)/$(MOD)/$(MOD).ko bin;)
