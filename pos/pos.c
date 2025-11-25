@@ -635,30 +635,33 @@ static bool send_pos_cheque_request(const uint8_t *data, size_t len)
 	return ret;
 }
 
-/* Вызывается после получения ответа на запрос чека ИПТ */
+/* Вызывается после получения ответа на запрос квитанции ИПТ */
 void on_response_pos(void)
 {
 	static char err_msg[1024];
 	err_msg[0] = 0;
-/* 0 -- данные чека; 1 -- другой ответ, обработка не требуется; 2 -- другой ответ, требуется обработка */
+/* 0 -- данные квитанции; 1 -- другой ответ, обработка не требуется; 2 -- другой ответ, требуется обработка */
 	int non_pos_resp = 0;
 //	set_term_state(st_resp);
 	int pos_para = -1;
 	if (find_pos_data(&pos_para) && (pos_para != -1)){
 		size_t pos_len = handle_para(pos_para);
-/*		log_info("Обнаружены данные чека ИПТ (абзац #%d; %zd байт).",
+/*		log_info("Обнаружены данные квитанции ИПТ (абзац #%d; %zd байт).",
 			pos_para + 1, pos_len);*/
 		if (pos_len > 0){
+			uint32_t n = xlog_write_rec(hxlog, text_buf, pos_len, XLRT_NORMAL, 0);
 			kprn_print(text_buf, pos_len);
-			if (pos_active)
+			if (pos_active){
+				xlog_set_rec_flags(hxlog, n, 0, XLOG_REC_PRINTED);
 				pos_set_state(pos_ready);
+			}
 			pos_t0 = u_times();
 		}else{
-			snprintf(err_msg, ASIZE(err_msg), "Получены данные чека ИПТ нулевой длины.");
+			snprintf(err_msg, ASIZE(err_msg), "Получены данные квитанции ИПТ нулевой длины.");
 			non_pos_resp = 1;
 		}
 	}else{
-		snprintf(err_msg, ASIZE(err_msg), "Не найдены данные чека ИПТ.");
+		snprintf(err_msg, ASIZE(err_msg), "Не найдены данные квитанции ИПТ.");
 		non_pos_resp = 2;
 	}
 /*	if (err_msg[0] != 0)
