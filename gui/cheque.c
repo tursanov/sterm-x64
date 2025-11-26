@@ -250,6 +250,8 @@ static int doc_view_expanded_draw(C *c, int start_y) {
             	"„‘ 7%",
             	"„‘ 5/105",
             	"„‘ 7/107"
+            	"„‘ 22%",
+            	"„‘ 22/122"
 			};
 			char *p = text;
 			L *l = LIST_ITEM(li2, L);

@@ -1009,10 +1009,12 @@ static int fa_cheque_corr_2() {
 		FORM_ITEM_EDIT_TEXT(1106, "„‘ 20/120:", NULL, FORM_INPUT_TYPE_MONEY, 16)
 		FORM_ITEM_EDIT_TEXT(1107, "„‘ 10/110:", NULL, FORM_INPUT_TYPE_MONEY, 16)
 
-		FORM_ITEM_EDIT_TEXT(1108, "„‘ 5%", NULL, FORM_INPUT_TYPE_MONEY, 16)
-		FORM_ITEM_EDIT_TEXT(1109, "„‘ 7%", NULL, FORM_INPUT_TYPE_MONEY, 16)
-		FORM_ITEM_EDIT_TEXT(1110, "„‘ 5/105", NULL, FORM_INPUT_TYPE_MONEY, 16)
-		FORM_ITEM_EDIT_TEXT(1111, "„‘ 7/107", NULL, FORM_INPUT_TYPE_MONEY, 16)
+		FORM_ITEM_EDIT_TEXT(1108, "„‘ 5%:", NULL, FORM_INPUT_TYPE_MONEY, 16)
+		FORM_ITEM_EDIT_TEXT(1109, "„‘ 7%:", NULL, FORM_INPUT_TYPE_MONEY, 16)
+		FORM_ITEM_EDIT_TEXT(1110, "„‘ 5/105:", NULL, FORM_INPUT_TYPE_MONEY, 16)
+		FORM_ITEM_EDIT_TEXT(1111, "„‘ 7/107:", NULL, FORM_INPUT_TYPE_MONEY, 16)
+		FORM_ITEM_EDIT_TEXT(1112, "„‘ 22%:", NULL, FORM_INPUT_TYPE_MONEY, 16)
+		FORM_ITEM_EDIT_TEXT(1113, "„‘ 22/122:", NULL, FORM_INPUT_TYPE_MONEY, 16)
 
 		FORM_ITEM_BUTTON(1, "¥ç âì")
 		FORM_ITEM_BUTTON(0, " § ¤")
@@ -1034,8 +1036,11 @@ static int fa_cheque_corr_2() {
         int64_t vat7 = fa_form_get_vln(form, 1109);
         int64_t vat5_105 = fa_form_get_vln(form, 1110);
         int64_t vat7_107 = fa_form_get_vln(form, 1111);
+        int64_t vat22 = fa_form_get_vln(form, 1112);
+        int64_t vat22_122 = fa_form_get_vln(form, 1113);
         
-        if (vat5 >= 0 || vat7 >= 0 || vat5_105 >= 0 || vat7_107 >= 0)
+        if (vat5 >= 0 || vat7 >= 0 || vat5_105 >= 0 || vat7_107 >= 0 ||
+            vat22 >= 0 || vat22_122 >= 0)
         {
     		if (ffd_tlv_stlv_begin(1115, 360) != 0)
     		    return 1;
@@ -1047,6 +1052,10 @@ static int fa_cheque_corr_2() {
             if (vat5_105 >= 0 && fa_add_new_vat(9, vat5_105) != 0)
     		    return 1;
             if (vat7_107 >= 0 && fa_add_new_vat(10, vat7_107) != 0)
+    		    return 1;
+            if (vat22 >= 0 && fa_add_new_vat(11, vat22) != 0)
+    		    return 1;
+            if (vat22_122 >= 0 && fa_add_new_vat(12, vat22_122) != 0)
     		    return 1;
 			
 			if (ffd_tlv_stlv_end() != 0)

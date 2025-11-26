@@ -1571,7 +1571,7 @@ int kkt_xml_callback(bool check, int evt, const char *name, const char *val)
                                                  &_lMask, 0x08, &_l->t)) != 0)
                         return ret;
                 } else if (strcmp(name, "N") == 0) {
-                    if ((ret = process_int_value("L", name, val, 0, 10,
+                    if ((ret = process_int_value("L", name, val, 0, 12,
                                                  &_lMask, 0x10, &v64)) != 0)
                         return ret;
 					_l->n = (uint8_t)v64;
@@ -1755,7 +1755,7 @@ bool AD_get_state(AD_state *s) {
 	for (list_item_t *li1 = _ad->clist.head; li1 != NULL; li1 = li1->next) {
 		C *c = LIST_ITEM(li1, C);
 		size_t n = 0;
-		int order_id = 0;
+		int64_t order_id = 0;
 		int64_t cashless_sum = 0;
 
 		for (list_item_t *li2 = c->klist.head; li2 != NULL; li2 = li2->next) {
