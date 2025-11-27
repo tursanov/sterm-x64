@@ -34,7 +34,7 @@ static uint8_t *find_pattern(
 
     if (doc_type == CHEQUE || doc_type == BSO || doc_type == CHEQUE_CORR)
     {
-        if (kkt_has_param("SUPPORT_VAT_5_7"))
+        if (kkt_has_param("SUPPORT_VAT_5_7") || kkt_has_param("SUPPORT_VAT_22"))
         {
             pattern_index += 3;
         }

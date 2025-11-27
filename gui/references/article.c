@@ -52,6 +52,8 @@ static const char * str_vats[] =
 	"„‘ 7%",
 	"„‘ 5/105",
 	"„‘ 7/107",
+	"„‘ 22%",
+	"„‘ 22/122",
 };
 
 int article_get_text(void *obj, int index, char *text, size_t text_size) {

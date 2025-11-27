@@ -857,6 +857,8 @@ int AD_save() {
     return ret;
 }
 
+static uint8_t hasP1;
+
 int AD_load(uint8_t t1055, bool clear) {
     if (_ad != NULL)
         AD_destroy();
@@ -870,7 +872,8 @@ int AD_load(uint8_t t1055, bool clear) {
     if (fd == -1)
         return -1;
     int ret;
-    uint8_t hasP1 = 0;
+    
+    hasP1 = 0;
     
 	if (LOAD_INT(fd, hasP1) < 0)
 		ret = -1;
@@ -885,6 +888,15 @@ int AD_load(uint8_t t1055, bool clear) {
 			ret = 0;
 	} else if (hasP1 == 2) { // 2 версия корзины
 		printf("**** AD version 2 ****\n");
+		if (LOAD_INT(fd, hasP1) < 0
+				|| (hasP1 && (_ad->p1 = P1_load_v2(fd)) == NULL)
+				|| load_string(fd, &_ad->t1086) < 0
+				|| load_list(fd, &_ad->clist, (load_item_func_t)C_load_v2) < 0)
+			ret = -1;
+		else
+			ret = 0;
+	} else if (hasP1 == 3) { // 3 версия корзины
+		printf("**** AD version 3 ****\n");
 		if (LOAD_INT(fd, hasP1) < 0
 				|| (hasP1 && (_ad->p1 = P1_load_v2(fd)) == NULL)
 				|| load_string(fd, &_ad->t1086) < 0
@@ -1571,7 +1583,7 @@ int kkt_xml_callback(bool check, int evt, const char *name, const char *val)
                                                  &_lMask, 0x08, &_l->t)) != 0)
                         return ret;
                 } else if (strcmp(name, "N") == 0) {
-                    if ((ret = process_int_value("L", name, val, 0, 10,
+                    if ((ret = process_int_value("L", name, val, 0, 12,
                                                  &_lMask, 0x10, &v64)) != 0)
                         return ret;
 					_l->n = (uint8_t)v64;
@@ -1755,7 +1767,7 @@ bool AD_get_state(AD_state *s) {
 	for (list_item_t *li1 = _ad->clist.head; li1 != NULL; li1 = li1->next) {
 		C *c = LIST_ITEM(li1, C);
 		size_t n = 0;
-		int order_id = 0;
+		int64_t order_id = 0;
 		int64_t cashless_sum = 0;
 
 		for (list_item_t *li2 = c->klist.head; li2 != NULL; li2 = li2->next) {
