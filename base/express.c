@@ -1632,7 +1632,8 @@ int handle_para(int n_para)
 	memset(buf, 0, TEXT_BUF_LEN);
 	memcpy(buf, resp_buf + pi->offset, l);
 	memset(text_buf, 0, sizeof(text_buf));
-	uint32_t n, m = 0, ll;
+	uint32_t n, m = 0, ll, nr_kkt_bcodes = 0;
+	bool kkt_bcode_handled = false;
 	do {
 		n = 0;
 		uint8_t *p = buf;
@@ -1725,11 +1726,12 @@ int handle_para(int n_para)
 						break;
 					}
 					case LPRN_WR_BCODE2:
-						if (m == 0){	/* штрих-код обрабатывается только один раз */
+						if (!kkt_bcode_handled){	/* штрих-код обрабатывается только один раз */
 							ll = sizeof(text_buf) - i;
 							p = check_kkt_bcode(p + 1, eptr - p - 1, NULL,
 								text_buf + i, &ll);
 							i += ll;
+							nr_kkt_bcodes++;
 							break;
 						}
 						__fallthrough__;
@@ -1750,6 +1752,8 @@ int handle_para(int n_para)
 			p++;
 		}
 		m++;
+		if (nr_kkt_bcodes != 0)
+			kkt_bcode_handled = true;
 		text_buf[i] = 0;
 		l = i;
 		memset(buf, 0, TEXT_BUF_LEN);
@@ -2178,7 +2182,7 @@ bool find_pic_data(int *data, int *req)
 	*data = *req = -1;
 	int n = 0, m = 0, pic_para = -1, req_para = -1;
 	for (int i = 0; i < n_paras; i++){
-		if (map[i].dst == dst_xprn){
+		if ((map[i].dst == dst_xprn) || (map[i].dst == dst_scr2)){
 			if (++n > 1)
 				break;
 			pic_para = i;
