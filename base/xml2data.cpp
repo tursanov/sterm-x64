@@ -805,7 +805,7 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 		xml_prn += "</A>";
 		for (const auto &p : pre_subst_tbl)
 			replace(xml_prn, p.first, p.second);
-		log_dbg("XML для печати:\n%s\n", xml_prn.c_str());
+		log_info("XML для печати:\n%s\n", xml_prn.c_str());
 		xml_doc = xmlReadMemory(xml_prn.c_str(), xml_prn.size(), NULL, NULL, XML_PARSE_COMPACT);
 		if (xml_doc != NULL){
 			log_dbg("XML для печати из ответа успешно разобран.");
@@ -862,7 +862,7 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 		xml_scr += "</A>";
 		for (const auto &p : pre_subst_tbl)
 			replace(xml_scr, p.first, p.second);
-		log_dbg("XML для экрана:\n%s\n", xml_scr.c_str());
+		log_info("XML для экрана:\n%s\n", xml_scr.c_str());
 		xml_doc = xmlReadMemory(xml_scr.c_str(), xml_scr.size(), NULL, NULL, XML_PARSE_COMPACT);
 		if (xml_doc != NULL){
 			log_dbg("XML для экрана из ответа успешно разобран.");
