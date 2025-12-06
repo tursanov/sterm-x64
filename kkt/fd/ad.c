@@ -22,6 +22,9 @@ void cashier_set_name(const char *name) {
 #define strdup _strdup
 #endif
 
+static uint8_t hasP1 = AD_VERSION;
+
+
 static int strcmp2(const char *s1, const char *s2) {
     if (s1 == NULL && s2 == NULL)
         return 0;
@@ -495,6 +498,9 @@ K *K_load_v1(int fd) {
 
 K *K_load_v2(int fd) {
     K *k = K_create();
+    int32_t y32 = 0;
+    int64_t y64 = 0;
+    
     if (load_list(fd, &k->llist, (load_item_func_t)L_load_v2) < 0 ||
             LOAD_INT(fd, k->o) < 0 ||
 			LOAD_INT(fd, k->a) < 0 ||
@@ -513,13 +519,15 @@ K *K_load_v2(int fd) {
 			// v2
             load_string(fd, &k->z) < 0 ||
             LOAD_INT(fd, k->a_flag) < 0 ||
-		   	LOAD_INT(fd, k->y) < 0)	{
+		   	(hasP1 == 2 ? LOAD_INT(fd, y32) : LOAD_INT(fd, y64)) < 0) {
         K_destroy(k);
         return NULL;
     }
+    k->y = hasP1 == 2 ? y32 : y64; 
     K_after_add(k);
     return k;
 }
+
 
 C* C_create(void) {
     C *c = (C *)malloc(sizeof(C));
@@ -857,7 +865,6 @@ int AD_save() {
     return ret;
 }
 
-static uint8_t hasP1;
 
 int AD_load(uint8_t t1055, bool clear) {
     if (_ad != NULL)
@@ -886,17 +893,8 @@ int AD_load(uint8_t t1055, bool clear) {
 			ret = -1;
 		else
 			ret = 0;
-	} else if (hasP1 == 2) { // 2 версия корзины
-		printf("**** AD version 2 ****\n");
-		if (LOAD_INT(fd, hasP1) < 0
-				|| (hasP1 && (_ad->p1 = P1_load_v2(fd)) == NULL)
-				|| load_string(fd, &_ad->t1086) < 0
-				|| load_list(fd, &_ad->clist, (load_item_func_t)C_load_v2) < 0)
-			ret = -1;
-		else
-			ret = 0;
-	} else if (hasP1 == 3) { // 3 версия корзины
-		printf("**** AD version 3 ****\n");
+	} else if (hasP1 == 2 || hasP1 == 3) { // 2 или 3 версия корзины
+		printf("**** AD version %d ****\n", hasP1);
 		if (LOAD_INT(fd, hasP1) < 0
 				|| (hasP1 && (_ad->p1 = P1_load_v2(fd)) == NULL)
 				|| load_string(fd, &_ad->t1086) < 0

@@ -10,7 +10,7 @@ extern "C" {
 #include "sysdefs.h"
 #include "list.h"
 
-#define AD_VERSION	2
+#define AD_VERSION	3
 
 struct C;
 struct L;
