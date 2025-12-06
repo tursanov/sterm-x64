@@ -256,7 +256,21 @@ static int doc_view_expanded_draw(C *c, int start_y) {
 			char *p = text;
 			L *l = LIST_ITEM(li2, L);
 			p += sprintf(p, "%s: %.1lld.%.2lld", l->s, (long long)l->t / 100, (long long)l->t % 100);
-			if ((l->n >= 1 && l->n <= 4) || (l->n >= 7 && l->n <= 12)) {
+			
+			if (l->n == 0)
+			{
+				sprintf(p, " (… Žš…Š’ „‘)");
+			}
+			else if (l->n == 5)
+			{
+				sprintf(p, " („‘ 0%%)");
+			}
+			else if (l->n == 6)
+			{
+				sprintf(p, " (…‡ „‘)");
+			}
+			else
+			{
 				sprintf(p, " (¢ â.ç. %s: %.1lld.%.2lld)", svat[l->n - 1],
 					(long long)l->c / 100, (long long)l->c % 100);
 			}
