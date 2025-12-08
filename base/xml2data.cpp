@@ -515,7 +515,7 @@ static bool transform_xml(xmlDocPtr xml, const char *xslt_id, uint8_t *out, size
 	bool ret = false, embedded = (strlen(xslt_id) != 2);
 	const char *path = NULL;
 	if (embedded){
-		char embd_path[PATH_MAX];
+		static char embd_path[PATH_MAX];
 		snprintf(embd_path, ASIZE(embd_path), XSLT_FOLDER "/%s.xsl", xslt_id);
 		path = embd_path;
 	}else
@@ -799,7 +799,7 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 				"C=\"%c\" SS=\"%s\" PP=\"%s\" N=\"%s\">\r\n",
 			(recode == RECODE_NONE) ? "us-ascii" : "cp866",
 			get_dst_char(dst),
-			recode, scr_transform_idx, prn_transform_idx, *xslt_name ? xslt_name : "S");
+			recode, scr_transform_idx, prn_transform_idx, *xslt_name ? xslt_name : "P");
 		string xml_prn(hdr);
 		xml_prn += xml0.get();
 		xml_prn += "</A>";
