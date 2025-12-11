@@ -1291,6 +1291,14 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 					n_dsts++;
 					break;
 				case X_KPRN:
+					if (!cfg.has_kkt){
+						*ecode = E_NODEVICE;
+						return p -2;
+					}else if (kkt == NULL){
+						*ecode = E_NO_KKT;
+						return p -2;
+					}
+					goto main_chk;
 				case X_KKT:
 					if (!cfg.has_kkt || (kkt == NULL)){
 						*ecode = E_NO_KKT;
