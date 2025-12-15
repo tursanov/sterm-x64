@@ -40,9 +40,13 @@ static struct xml_data xml_data[MAX_PARAS];
 
 struct xml_data *get_xml_data(int n_para)
 {
+	log_dbg("n_para = %d.", n_para);
 	struct xml_data *ret = NULL;
 	if ((n_para >= 0) && (n_para < ASIZE(xml_data)))
 		ret = xml_data + n_para;
+	if (ret != NULL)
+		log_dbg("scr_data = %p; scr_data_len = %zu; prn_data = %p; prn_data_len = %zu.",
+			ret->scr_data, ret->scr_data_len, ret->prn_data, ret->prn_data_len);
 	return ret;
 }
 
@@ -890,6 +894,7 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 		}
 	}
 	if ((prn_transform == TransformType::None) && (dst == dst_log)){
+		xml_data->prn_data = new uint8_t[xml_data->scr_data_len];
 		memcpy(xml_data->prn_data, xml_data->scr_data, xml_data->scr_data_len);
 		xml_data->prn_data_len = xml_data->scr_data_len;
 	}

@@ -885,10 +885,10 @@ static uint8_t *check_sprn(uint8_t *txt, int l, int *ecode)
 				break;
 			case st_data_dle:
 				if ((b == X_PARA_END_N) || (b == X_PARA_END)){
+					txt += i - 1;
 					if (b1 == LPRN_FORM_FEED)
 						st = st_ok;
 					else{
-						txt += i - 1;
 						*ecode = E_NO_LPRN_CUT;
 						st = st_err;
 					}
@@ -930,6 +930,7 @@ static uint8_t *check_kprn(uint8_t *txt, int l, int n_para, int *ecode)
 					txt += xd->cmd_len;
 					st = st_data;
 				}else if ((b == X_PARA_END_N) || (b == X_PARA_END)){
+					txt -= 2;
 					if (xml || (b1 == KKT_FF) || (b1 == KKT_END_BLOCK))
 						st = st_ok;
 					else{
@@ -980,7 +981,7 @@ static uint8_t *check_kkt_xml(uint8_t *txt, int l, int *ecode)
 	text_buf[len] = 0;
 	parse_kkt_xml((const char *)text_buf, true, kkt_xml_callback, ecode);
 	if (*ecode == E_OK)
-		ret = txt + len + 2;
+		ret = txt + len;
 	else
 		ret = txt;
 	return ret;
@@ -1331,6 +1332,7 @@ main_chk:				has_dst = true;
 				case X_REQ:
 					has_dst = false;
 					n_para++;
+					log_dbg("b = 0x%.2hhx; n_para = %d.", b, n_para);
 					break;
 				case X_REPEAT:
 				case X_ATTR:
