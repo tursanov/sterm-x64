@@ -65,7 +65,6 @@ extern int req_type;
 #define E_OK		0x00	/* Нет ошибки */
 #define E_NOETX		0x02	/* Нет ETX */
 #define E_REPKEYS	0x04	/* Повторная команда записи в ОЗУ ключей */
-#define E_XPROM		0x05	/* Внешняя команда записи в ДЗУ */
 #define E_NOSPROM	0x06	/* Конец записи в ДЗУ без начала записи */
 #define E_NESTEDOUT	0x07	/* Вложенные команды вывода на внешнее устройство */
 #define E_NOEPROM	0x08	/* Нет конца записи в ДЗУ */

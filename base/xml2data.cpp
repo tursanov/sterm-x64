@@ -699,7 +699,7 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 	data_ptr(uint8_t, scr_xslt);
 	uint16_t scr_xslt_len = read_hex_word(p + idx);
 	if (number_error){
-		*ecode = E_XML_LEN;
+		*ecode = E_XML_XSLT_LEN;
 		return p + idx;
 	}else if ((idx + scr_xslt_len) > l){
 		*ecode = E_XML_SHORT;
@@ -716,7 +716,7 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 	data_ptr(uint8_t, prn_xslt);
 	uint16_t prn_xslt_len = read_hex_word(p + idx);
 	if (number_error){
-		*ecode = E_XML_LEN;
+		*ecode = E_XML_XSLT_LEN;
 		return p + idx;
 	}else if ((idx + prn_xslt_len) > l){
 		*ecode = E_XML_SHORT;
