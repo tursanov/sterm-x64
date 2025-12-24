@@ -680,23 +680,20 @@ static void on_pos_print(uint32_t t __attribute__((unused)))
 {
 	if (pos_prn_data_len > 0){
 		if (cfg.tickets_on_kkt){
-			if (is_pos_prn_special()){
-				if (pos_prn_buf[pos_prn_data_len - 1] == KKT_FF){
-					if (pos_prn_data_len > sizeof(uint32_t)){
+			if (pos_prn_buf[pos_prn_data_len - 1] == KKT_FF){
+				if (is_pos_prn_special()){
+					if (pos_prn_data_len > sizeof(uint32_t))
 						plog_write_rec(hplog, pos_prn_buf + sizeof(uint32_t),
 							pos_prn_data_len - sizeof(uint32_t), PLRT_NORMAL);
-/*						xlog_write_rec(hxlog, pos_prn_buf + sizeof(uint32_t),
-							pos_prn_data_len - sizeof(uint32_t), XLRT_NORMAL, 0);*/
-					}
 					pos_prn_data_len = 0;
-				}
-				pos_set_state(pos_ready);
-			}else if (send_pos_cheque_request(pos_prn_buf, pos_prn_data_len)){
-				plog_write_rec(hplog, pos_prn_buf, pos_prn_data_len, PLRT_NORMAL);
-				pos_prn_data_len = 0;
-				pos_set_state(pos_printing);
-			}else
-				pos_set_error(POS_ERROR_CLASS_PRINTER, POS_ERR_PRN, 0);
+					pos_set_state(pos_ready);
+				}else if (send_pos_cheque_request(pos_prn_buf, pos_prn_data_len)){
+					plog_write_rec(hplog, pos_prn_buf, pos_prn_data_len, PLRT_NORMAL);
+					pos_prn_data_len = 0;
+					pos_set_state(pos_printing);
+				}else
+					pos_set_error(POS_ERROR_CLASS_PRINTER, POS_ERR_PRN, 0);
+			}
 		}else{
 			plog_write_rec(hplog, pos_prn_buf, pos_prn_data_len, PLRT_NORMAL);
 			pos_set_state(pos_printing);
