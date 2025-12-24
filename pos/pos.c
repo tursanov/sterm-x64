@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "gui/scr.h"
-#include "kkt/cmd.h"
 #include "log/express.h"
 #include "log/pos.h"
 #include "pos/command.h"
@@ -679,8 +678,8 @@ void on_response_pos(void)
 static void on_pos_print(uint32_t t __attribute__((unused)))
 {
 	if (pos_prn_data_len > 0){
-		if (cfg.tickets_on_kkt){
-			if (pos_prn_buf[pos_prn_data_len - 1] == KKT_FF){
+		if (is_pos_prn_stream_complete()){
+			if (cfg.tickets_on_kkt){
 				if (is_pos_prn_special()){
 					if (pos_prn_data_len > sizeof(uint32_t))
 						plog_write_rec(hplog, pos_prn_buf + sizeof(uint32_t),
@@ -693,19 +692,20 @@ static void on_pos_print(uint32_t t __attribute__((unused)))
 					pos_set_state(pos_printing);
 				}else
 					pos_set_error(POS_ERROR_CLASS_PRINTER, POS_ERR_PRN, 0);
-			}
-		}else{
-			plog_write_rec(hplog, pos_prn_buf, pos_prn_data_len, PLRT_NORMAL);
-			pos_set_state(pos_printing);
-			if (xprn_print(pos_prn_buf, pos_prn_data_len)){
-				pos_prn_data_len = 0;
-				if (pos_get_state() == pos_printing){
-					pos_set_state(pos_ready);
+			}else{
+				plog_write_rec(hplog, pos_prn_buf, pos_prn_data_len, PLRT_NORMAL);
+				pos_set_state(pos_printing);
+				if (xprn_print(pos_prn_buf, pos_prn_data_len)){
+					pos_prn_data_len = 0;
+					if (pos_get_state() == pos_printing){
+						pos_set_state(pos_ready);
 /* NB: мы не можем использовать здесь t, т.к. xprn_print -- блокирующая функция */
-					pos_t0 = u_times();
+						pos_t0 = u_times();
+					}
 				}
 			}
-		}
+		}else
+			pos_set_state(pos_ready);
 	}else
 		pos_set_state(pos_ready);
 }
