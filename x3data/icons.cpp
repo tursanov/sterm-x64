@@ -309,6 +309,8 @@ static const size_t MAX_COMPRESSED_ICON_LEN = 65536;
 static uint8_t icon_buf[MAX_COMPRESSED_ICON_LEN];
 /* Текущий размер принятых данных сжатой пиктограммы */
 static size_t icon_buf_idx = 0;
+/* Максимальный размер данных изображения */
+static const size_t MAX_BMP_DATA_LEN = 524288;		/* 512K */
 
 /* Автозапрос для получения пиктограммы по частям */
 static uint8_t icon_auto_req[REQ_BUF_LEN];
@@ -405,8 +407,9 @@ static bool store_icon(const IconInfo &gi)
 		return false;
 	}
 	size_t bmp_len = bmp_hdr.bfSize;
-	if (bmp_len > 262144){
-		log_err("Размер файла BMP (%u) превышает максимально допустимый.", bmp_len);
+	if (bmp_len > MAX_BMP_DATA_LEN){
+		log_err("Размер файла BMP (%u) превышает максимально допустимый (%u).",
+			bmp_len, MAX_BMP_DATA_LEN);
 		return false;
 	}
 	scoped_ptr<uint8_t> bmp_data(new uint8_t[bmp_len]);

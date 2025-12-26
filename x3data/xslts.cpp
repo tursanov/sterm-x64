@@ -218,6 +218,8 @@ static const size_t MAX_COMPRESSED_XSLT_LEN = 65536;
 static uint8_t xslt_buf[MAX_COMPRESSED_XSLT_LEN];
 /* Текущий размер принятых данных сжатой таблицы XSLT */
 static size_t xslt_buf_idx = 0;
+/* Максимальный размер данных таблицы XSLT */
+static const size_t MAX_XSLT_DATA_LEN = 524288;		/* 512K */
 
 /* Автозапрос для получения таблиц XSLT по частям */
 static uint8_t xslt_auto_req[REQ_BUF_LEN];
@@ -260,8 +262,8 @@ static bool store_xslt(const XSLTInfo &xi)
 		return false;
 	}else
 		log_info("Данные таблицы XSLT декодированы; длина после декодирования %zu байт.", len);
-	scoped_ptr<uint8_t> xslt_data(new uint8_t[MAX_COMPRESSED_XSLT_LEN]);	/* FIXME */
-	size_t xslt_data_len = MAX_COMPRESSED_XSLT_LEN;
+	scoped_ptr<uint8_t> xslt_data(new uint8_t[MAX_XSLT_DATA_LEN]);
+	size_t xslt_data_len = MAX_XSLT_DATA_LEN;
 	int rc = uncompress(xslt_data.get(), &xslt_data_len, xslt_buf, len);
 	if (rc == Z_OK)
 		log_info("Данные таблицы XSLT распакованы; длина данных после распаковки %u байт.", xslt_data_len);

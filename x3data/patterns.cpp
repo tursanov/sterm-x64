@@ -229,7 +229,7 @@ static char *next_str(char *buf, size_t len)
 	return ret;
 }
 
-static const size_t MAX_KKT_PATTERNS_DATA_LEN = 65536;
+static const size_t MAX_KKT_PATTERNS_DATA_LEN = 524288;		/* 512K */
 
 /* Декодирование шаблонов печати ККТ, распаковка и сохранение в файлы на диске */
 static bool store_patterns()
