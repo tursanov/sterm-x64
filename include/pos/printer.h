@@ -26,7 +26,7 @@ static inline bool is_pos_prn_stream_complete(void)
 {
 	bool ret = false;
 	if (pos_prn_data_len > 0){
-		uint8_t b = pos_prn_buf[pos_prn_data_len];
+		uint8_t b = pos_prn_buf[pos_prn_data_len - 1];
 		ret = (b == KKT_FF) || (b == KKT_END_BLOCK);
 	}
 	return ret;
