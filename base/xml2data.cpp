@@ -530,40 +530,26 @@ static bool transform_xml(xmlDocPtr xml, const char *xslt_id, uint8_t *out, size
 	if (xslt != NULL){
 		xmlDocPtr doc = xsltApplyStylesheet(xslt, xml, NULL);
 		if (doc != NULL){
-			char out_path[PATH_MAX];
-			snprintf(out_path, ASIZE(out_path), XSLT_FOLDER "/out.bin");
-			int len = xsltSaveResultToFilename(out_path, doc, xslt, 0);
-			if (len != -1){
-				log_dbg("%d байт записано в файл %s.", len, out_path);
-				int fd = open(out_path, O_RDONLY);
-				if (fd != -1){
-					char *buf = new char[len + 1];
-					int rc = read(fd, buf, len);
-					if (rc == len){
-						buf[len] = 0;
-						string str;
-						str.assign(buf, buf + len);
-						for (const auto &p : subst_tbl)
-							replace(str, p.first, p.second);
-						size_t data_len = str.size();
-						if (data_len > out_len)
-							data_len = out_len;
-						else
-							out_len = data_len;
-						if (out_len > 0)
-							memcpy(out, str.c_str(), out_len);
-						ret = true;
-					}else if (rc == -1)
-						log_sys_err("Ошибка чтения из %s:", out_path);
-					else
-						log_err("Из %s прочитано %d байт вместо %d.", out_path, rc, len);
-					delete [] buf;
-				}else
-					log_sys_err("Ошибка открытия файла %s для чтения:", out_path);
-				if (close(fd) != 0)
-					log_sys_err("Ошибка закрытия файла %s:", out_path);
+			xmlChar *buf = NULL;
+			int len = 0, rc = xsltSaveResultToString(&buf, &len, doc, xslt);
+			if ((rc == 0) && (buf != NULL) && (len > 0)){
+				string str;
+				str.assign(buf, buf + len);
+				for (const auto &p : subst_tbl)
+					replace(str, p.first, p.second);
+				size_t data_len = str.size();
+				if (data_len > out_len)
+					data_len = out_len;
+				else
+					out_len = data_len;
+				if (out_len > 0)
+					memcpy(out, str.c_str(), out_len);
+				ret = true;
 			}else
-				log_err("Ошибка записи результата трансформации в файл %s.", path);
+				log_err("Ошибка xsltSaveResultToString: rc = %d; buf = %p; len = %d.",
+					rc, buf, len);
+			if (buf != NULL)
+				xmlFree(buf);
 		}else
 			log_err("Ошибка трансформации XML.");
 	}else
