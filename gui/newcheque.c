@@ -496,8 +496,8 @@ static bool read_doc(window_t *parent, window_t *win, uint32_t doc_no) {
 		return false;
 	}
 
-	if (doc_type != 3) {
-		window_show_error(win, 9998, "Данный документ не является чеком");
+	if (doc_type != 3 && doc_type != 31) {
+		window_show_error(win, 9998, "Данный документ не является чеком (БСО)");
 		return false;
 	}
 

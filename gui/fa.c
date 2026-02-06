@@ -760,9 +760,9 @@ uint8_t tax_systems_bits[] = { 0x01, 0x02, 0x04, 0x10, 0x20 };
 const char *str_short_kkt_modes[] = { "ШФД", "АВТОН.Р.", "АВТОМАТ.Р.",
 		"УСЛУГИ", "БСО", "ИНТЕРНЕТ" };
 const char *str_kkt_modes[] = { "Шифрование", "Автономный режим", "Автоматический режим",
-		"Применение в сфере услуг", "Режим БСО", "Применение в Интернет" };
+		"Применение в сфере услуг", "Применение в Интернет" };
 size_t str_kkt_mode_count = ASIZE(str_kkt_modes);
-uint8_t kkt_modes_bits[] = { 0x01, 0x02, 0x04, 0x08, 0x10, 0x20 };
+uint8_t kkt_modes_bits[] = { 0x01, 0x02, 0x04, 0x08, 0x20 };
 
 static int fa_fill_registration_tlv(form_t *form) {
 	ffd_tlv_reset();
