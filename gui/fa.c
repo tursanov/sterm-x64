@@ -758,7 +758,7 @@ size_t str_tax_system_count = ASIZE(str_tax_systems);
 uint8_t tax_systems_bits[] = { 0x01, 0x02, 0x04, 0x10, 0x20 };
 
 const char *str_short_kkt_modes[] = { "ШФД", "АВТОН.Р.", "АВТОМАТ.Р.",
-		"УСЛУГИ", "БСО", "ИНТЕРНЕТ" };
+		"УСЛУГИ", "ИНТЕРНЕТ" };
 const char *str_kkt_modes[] = { "Шифрование", "Автономный режим", "Автоматический режим",
 		"Применение в сфере услуг", "Применение в Интернет" };
 size_t str_kkt_mode_count = ASIZE(str_kkt_modes);
@@ -787,7 +787,7 @@ static int fa_fill_registration_tlv(form_t *form) {
 		return -1;
 	}
 
-	uint16_t reg_mode_tags[] = { 1056, 1002, 1001, 1109, 1110, 1108 };
+	uint16_t reg_mode_tags[] = { 1056, 1002, 1001, 1109, 1108 };
 	for (int i = 0; i < ASIZE(reg_mode_tags); i++)
 		if ((reg_kkt_modes & (1 << i)) != 0)
 			ffd_tlv_add_uint8(reg_mode_tags[i], 1);
@@ -804,7 +804,7 @@ void fa_registration() {
 		FORM_ITEM_BITSET(1062, "Системы налогообложения:", str_tax_systems, str_tax_systems,
 		        tax_systems_bits, str_tax_system_count, 0)
 		FORM_ITEM_EDIT_TEXT(1037, "Регистрационный номер ККТ:", NULL, FORM_INPUT_TYPE_NUMBER, 16)
-		FORM_ITEM_BITSET(9998, "Режимы работы:", str_short_kkt_modes, str_kkt_modes, kkt_modes_bits, 6, 0)
+		FORM_ITEM_BITSET(9998, "Режимы работы:", str_short_kkt_modes, str_kkt_modes, kkt_modes_bits, str_kkt_mode_count, 0)
 		FORM_ITEM_EDIT_TEXT(1036, "Номер автомата:", NULL, FORM_INPUT_TYPE_TEXT, 20)
 
 		FORM_ITEM_EDIT_TEXT(1021, "Кассир:", cashier_name, FORM_INPUT_TYPE_TEXT, 64)
@@ -931,7 +931,7 @@ void fa_reregistration() {
 		FORM_ITEM_BITSET(1062, "Системы налогообложения:", str_tax_systems, str_tax_systems, 
 		        tax_systems_bits, str_tax_system_count, 0)
 		FORM_ITEM_EDIT_TEXT(1037, "Регистрационный номер ККТ:", NULL, FORM_INPUT_TYPE_NUMBER, 16)
-		FORM_ITEM_BITSET(9998, "Режимы работы:", str_short_kkt_modes, str_kkt_modes, kkt_modes_bits, 6, 0)
+		FORM_ITEM_BITSET(9998, "Режимы работы:", str_short_kkt_modes, str_kkt_modes, kkt_modes_bits, str_kkt_mode_count, 0)
 		FORM_ITEM_EDIT_TEXT(1036, "Номер автомата:", NULL, FORM_INPUT_TYPE_TEXT, 20)
 		
 		FORM_ITEM_EDIT_TEXT(1021, "Кассир:", cashier_name, FORM_INPUT_TYPE_TEXT, 64)
