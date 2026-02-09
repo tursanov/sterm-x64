@@ -758,17 +758,23 @@ size_t str_tax_system_count = ASIZE(str_tax_systems);
 uint8_t tax_systems_bits[] = { 0x01, 0x02, 0x04, 0x10, 0x20 };
 
 const char *str_short_kkt_modes[] = { "ШФД", "АВТОН.Р.", "АВТОМАТ.Р.",
-		"УСЛУГИ", "ИНТЕРНЕТ" };
+		"УСЛУГИ", "БСО", "ИНТЕРНЕТ" };
 const char *str_kkt_modes[] = { "Шифрование", "Автономный режим", "Автоматический режим",
-		"Применение в сфере услуг", "Применение в Интернет" };
+		"Применение в сфере услуг", "БСО", "Применение в Интернет" };
 size_t str_kkt_mode_count = ASIZE(str_kkt_modes);
-uint8_t kkt_modes_bits[] = { 0x01, 0x02, 0x04, 0x08, 0x20 };
+uint8_t kkt_modes_bits[] = { 0x01, 0x02, 0x04, 0x08, 0x10, 0x20 };
 
 static int fa_fill_registration_tlv(form_t *form) {
 	ffd_tlv_reset();
 
 	int tax_systems = form_get_int_data(form, 1062, 0, 0);
 	int reg_kkt_modes = form_get_int_data(form, 9998, 0, 0);
+	
+	if ((reg_kkt_modes & REG_MODE_BSO) != 0)
+	{
+		fa_show_error(form, 9998, "Работа в режиме БСО не допускается! Уберите флаг БСО из списка режимов.");
+	    return -1;
+	}
 
 	if (fa_tlv_add_cashier(form) != 0 ||
 		fa_tlv_add_string(form, 1048, true) != 0 ||
