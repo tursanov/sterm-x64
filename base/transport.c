@@ -38,7 +38,7 @@ uint8_t resp_buf[RESP_BUF_LEN];
 /* Длина ответа */
 int resp_len = 0;
 /* Ответ получен полностью */
-bool full_resp;
+static bool resp_complete;
 /* Смещение начала прикладного ответа */
 int text_offset = 0;
 /* Длина прикладного ответа */
@@ -400,7 +400,7 @@ static void process_tcpip(void)
 					}
 					if ((expected_len > 0) && (resp_len >= expected_len)){
 						resp_len = expected_len;
-						full_resp = true;
+						resp_complete = true;
 						set_term_state(st_resp);
 						_log_data(resp_buf, resp_len, xlog_in);
 						c_state = cs_ready;
@@ -477,8 +477,8 @@ static int strip_resp(void)
 /* Проверка присутствия полного ответа */
 static bool is_full_resp(void)
 {
-	if (full_resp){
-		full_resp = false;
+	if (resp_complete){
+		resp_complete = false;
 		strip_resp();
 		return true;
 	}else

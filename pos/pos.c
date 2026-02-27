@@ -1,6 +1,6 @@
 /* Основной модуль для работы с POS-эмулятором. (c) A.Popov, gsr 2004, 2024-2025 */
 
-#include <sys/timeb.h>
+#include <sys/time.h>
 #include <sys/times.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -30,16 +30,15 @@ static struct pos_data_buf pos_buf;
 #ifdef __POS_DEBUG__
 bool pos_dump(struct pos_data_buf *buf)
 {
-	struct timeb tp;
-	struct tm *tm;
 	int i;
 	uint8_t *p;
 	if (buf == NULL)
 		return false;
-	ftime(&tp);
-	tm = localtime(&tp.time);
-	printf("%.2d:%.2d:%.2d.%.3hu\n", tm->tm_hour, tm->tm_min, tm->tm_sec,
-			tp.millitm);
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	struct tm *tm = localtime(&tv.tv_sec);
+	printf("%.2d:%.2d:%.2d.%.3lu\n", tm->tm_hour, tm->tm_min, tm->tm_sec,
+			tv.tv_usec / 1000);
 	for (i = 0, p = buf->un.data; i < buf->data_len; i++, p++){
 		if (((i & 0x07) == 0) && i)
 			printf("%c", (i & 0x0f) ? ' ' : '\n');
@@ -505,12 +504,11 @@ void pos_print_state(int st)
 void pos_set_state(int st)
 {
 #if defined __POS_DEBUG__
-	struct timeb tp;
-	struct tm *tm;
-	ftime(&tp);
-	tm = localtime(&tp.time);
-	printf("%.2d:%.2d:%.2d.%.3hu ", tm->tm_hour, tm->tm_min, tm->tm_sec,
-			tp.millitm);
+	struct timev tv;
+	gettimeofday(&tv, NULL);
+	struct tm *tm = localtime(&tv.tv_sec);
+	printf("%.2d:%.2d:%.2d.%.3lu ", tm->tm_hour, tm->tm_min, tm->tm_sec,
+			tv.tv_usec / 1000);
 	pos_print_state(pos_state);
 	printf("->");
 	pos_print_state(st);

@@ -3,7 +3,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <sys/timeb.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <ctype.h>
 #include <errno.h>
@@ -26,11 +26,11 @@
 #if defined __FDO_DEBUG__
 __attribute__((format (printf, 2, 3))) static void __dbg(const char *fn, const char *fmt, ...)
 {
-	struct timeb tb;
-	ftime(&tb);
-	struct tm *tm = localtime(&tb.time);
-	fprintf(stderr, "%.2d:%.2d:%.2d.%.3d %s: ", tm->tm_hour, tm->tm_min, tm->tm_sec,
-		tb.millitm, fn);
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	struct tm *tm = localtime(&tv.tv_sec);
+	fprintf(stderr, "%.2d:%.2d:%.2d.%.3ld %s: ", tm->tm_hour, tm->tm_min, tm->tm_sec,
+		tv.tv_usec / 1000, fn);
 	va_list ap;
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
@@ -144,7 +144,7 @@ static bool fdo_sleep(uint32_t ms)
 	ms /= 10;
 	uint32_t t0 = u_times();
 	while ((fdo_thread_state == fdo_thread_active) && ((u_times() - t0) < ms))
-		pthread_yield();
+		sched_yield();
 	return ret;
 }
 
@@ -155,15 +155,15 @@ static bool fdo_sleep(uint32_t ms)
 /* Таймаут приёма данных от ОФД */
 #define FDO_RECV_TIMEOUT		3000	/* 3 сек */
 
-#define get_timeb(t) \
-	struct timeb t; \
-	ftime(&t)
+#define get_timeval(t) \
+	struct timeval t; \
+	gettimeofday(&t, NULL)
 
-static uint32_t time_diff(const struct timeb *t0)
+static uint32_t time_diff(const struct timeval *t0)
 {
-	get_timeb(t);
-	return (t.time - t0->time) * 1000 +
-		((time_t)t.millitm - (time_t)t0->millitm);
+	get_timeval(t);
+	return (t.tv_sec - t0->tv_sec) * 1000 +
+		((time_t)t.tv_usec - (time_t)t0->tv_usec) / 1000;
 }
 
 static int fdo_sock = -1;
@@ -342,7 +342,7 @@ static uint16_t fdo_send(const uint8_t *data, size_t len)
 	uint16_t ret = FDO_SEND_ERROR;
 	size_t sent_len = 0;
 	uint32_t dt = 0;
-	get_timeb(t0);
+	get_timeval(t0);
 	while (sent_len < len){
 		bool flag = false;
 		struct pollfd fds = {
@@ -494,7 +494,7 @@ static void *fdo_thread_proc(void *arg __attribute__((unused)))
 				cfg.has_kkt && (kkt != NULL))
 			fdo_poll_kkt();
 		else
-			pthread_yield();
+			sched_yield();
 	}
 	return NULL;
 }

@@ -396,21 +396,21 @@ static bool klog_add_rec(struct log_handle *hlog)
 	return ret;
 }
 
-static inline uint64_t timeb_to_ms(const struct timeb *t)
+static inline uint64_t timeval_to_ms(const struct timeval *t)
 {
-	return t->time * 1000 + t->millitm;
+	return t->tv_sec * 1000 + t->tv_usec / 1000;
 }
 
-static uint32_t get_op_time(const struct timeb *t0)
+static uint32_t get_op_time(const struct timeval *t0)
 {
-	struct timeb t;
-	ftime(&t);
-	return (uint32_t)(timeb_to_ms(&t) - timeb_to_ms(t0));
+	struct timeval t;
+	gettimeofday(&t, NULL);
+	return (uint32_t)(timeval_to_ms(&t) - timeval_to_ms(t0));
 }
 
 /* Заполнение заголовка записи контрольной ленты */
 static void klog_init_rec_hdr(struct log_handle *hlog, struct klog_rec_header *hdr,
-	const struct timeb *t0)
+	const struct timeval *t0)
 {
 	hdr->tag = KLOG_REC_TAG;
 	hlog->hdr->cur_number++;
@@ -418,8 +418,8 @@ static void klog_init_rec_hdr(struct log_handle *hlog, struct klog_rec_header *h
 	hdr->stream = KLOG_STREAM_CTL;
 	hdr->len = 0;
 	hdr->req_len = hdr->resp_len = 0;
-	time_t_to_date_time(t0->time, &hdr->dt);
-	hdr->ms = t0->millitm;
+	time_t_to_date_time(t0->tv_sec, &hdr->dt);
+	hdr->ms = t0->tv_usec / 1000;
 	hdr->op_time = get_op_time(t0);
 	hdr->addr.gaddr = cfg.gaddr;
 	hdr->addr.iaddr = cfg.iaddr;
@@ -553,9 +553,9 @@ static uint32_t adjust_last_empty_rec(struct log_handle *hlog)
 		logdbg("%s: Ошибка чтения записи #%u.\n", __func__, rec_idx);
 		return ret;
 	}else if (KLOG_STREAM(klog_rec_hdr.stream) == KLOG_STREAM_FDO){
-		struct timeb t0 = {
-			.time		= date_time_to_time_t(&klog_rec_hdr.dt),
-			.millitm	= klog_rec_hdr.ms
+		struct timeval t0 = {
+			.tv_sec		= date_time_to_time_t(&klog_rec_hdr.dt),
+			.tv_usec	= klog_rec_hdr.ms * 1000
 		};
 		uint32_t op_time = get_op_time(&t0);
 		if ((op_time > klog_rec_hdr.op_time) &&
@@ -612,7 +612,7 @@ static uint32_t klog_write_fdo_empty(struct log_handle *hlog, const uint8_t *req
 }
 
 /* Занесение записи на ККЛ. Возвращает номер записи */
-uint32_t klog_write_rec(struct log_handle *hlog, const struct timeb *t0,
+uint32_t klog_write_rec(struct log_handle *hlog, const struct timeval *t0,
 	const uint8_t *req, uint16_t req_len,
 	uint8_t status, const uint8_t *resp, uint16_t resp_len, uint32_t flags)
 {

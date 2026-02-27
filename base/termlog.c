@@ -1,6 +1,6 @@
 /* Журналы работы приложения. (c) gsr, 2014-2016, 2024 */
 
-#include <sys/timeb.h>
+#include <sys/time.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -50,15 +50,15 @@ bool log_internal(int lvl, const char *file, const char *fn, uint32_t line, uint
 {
 	if ((lvl > log_lvl) || (file == NULL) || (fn == NULL) || (fmt == NULL))
 		return false;
-	struct timeb tb;
-	ftime(&tb);
-	struct tm *tm = localtime(&tb.time);
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	struct tm *tm = localtime(&tv.tv_sec);
 	va_list ap;
 	va_start(ap, fmt);
-	printf("%s %.2u:%.2u:%.2u.%.3u", log_level_str(lvl),
-		tm->tm_hour, tm->tm_min, tm->tm_sec, tb.millitm);
-	tb.time += time_delta;
-	tm = localtime(&tb.time);
+	printf("%s %.2u:%.2u:%.2u.%.3ld", log_level_str(lvl),
+		tm->tm_hour, tm->tm_min, tm->tm_sec, tv.tv_usec / 1000);
+	tv.tv_sec += time_delta;
+	tm = localtime(&tv.tv_sec);
 	printf(" [%.2u:%.2u:%.2u]: %s [%s:%u]: ", tm->tm_hour, tm->tm_min, tm->tm_sec,
 		fn, file, line);
 	vprintf(fmt, ap);

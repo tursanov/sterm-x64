@@ -141,7 +141,7 @@ SUBDIRS =		\
 	prn		\
 	x3data		\
 	helpers		\
-	scripts		\
+	scripts	#	\
 	modules
 
 .PHONY:	$(SUBDIRS)
