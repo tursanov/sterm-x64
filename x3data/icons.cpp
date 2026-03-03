@@ -1,5 +1,6 @@
 /* Работа с пиктограммами БПУ/ККТ. (c) gsr 2015-2016, 2019, 2022, 2024 */
 
+#include <cstring>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -245,7 +246,8 @@ static void check_stored_icons(const list<IconInfo> &x3_icons, list<IconInfo> &i
 /* Ищем пиктограммы для удаления */
 /*	log_dbg("Ищем пиктограммы для удаления...");
 	for (const auto &p : stored_icons){
-		if (find_if(x3_icons, [p](const IconInfo &gi) {return gi.id() == p.id();}) == x3_icons.end()){
+		if (find_if(x3_icons.cbegin(), x3_icons.cend(),
+				[p](const IconInfo &gi) {return gi.id() == p.id();}) == x3_icons.cend()){
 			log_dbg("Пиктограмма %s #%d (%hc) помечена для удаления.", p.name().c_str(), p.nr(), p.id());
 			icons_to_remove.push_back(p);
 		}
@@ -412,7 +414,7 @@ static bool store_icon(const IconInfo &gi)
 			bmp_len, MAX_BMP_DATA_LEN);
 		return false;
 	}
-	scoped_ptr<uint8_t> bmp_data(new uint8_t[bmp_len]);
+	const unique_ptr<uint8_t> bmp_data(new uint8_t[bmp_len]);
 	rc = uncompress(bmp_data.get(), &bmp_len, icon_buf, len);
 	if (rc != Z_OK){
 		log_err("Ошибка распаковки BMP (%d).", rc);
@@ -619,7 +621,8 @@ static void check_xprn_icons(const list<IconInfo> &stored_icons, list<IconInfo> 
 /* Ищем пиктограммы для загрузки */
 	log_dbg("Ищем пиктограммы для загрузки...");
 	for (const auto &p : stored_icons){
-		auto p1 = find_if(xprn_icons, [p](const IconInfo &gi) {return gi.id() == p.id();});
+		auto p1 = find_if(xprn_icons.cbegin(), xprn_icons.cend(),
+			[p](const IconInfo &gi) {return gi.id() == p.id();});
 		if (p1 == xprn_icons.end()){
 			log_dbg("Пиктограмма %s #%d (%hc) отсутствует в БПУ и будет туда загружена.",
 				p.name().c_str(), p.nr(), p.id());
@@ -636,7 +639,8 @@ static void check_xprn_icons(const list<IconInfo> &stored_icons, list<IconInfo> 
 /* Ищем пиктограммы для удаления */
 	log_dbg("Ищем пиктограммы для удаления...");
 	for (const auto &p : xprn_icons){
-		if (find_if(stored_icons, [p](const IconInfo &gi) {return gi.id() == p.id();}) == stored_icons.end()){
+		if (find_if(stored_icons.cbegin(), stored_icons.cend(),
+				[p](const IconInfo &gi) {return gi.id() == p.id();}) == stored_icons.cend()){
 			log_dbg("Пиктограмма %s #%d (%hc) помечена для удаления.", p.name().c_str(), p.nr(), p.id());
 			icons_to_erase.push_back(p);
 		}
@@ -727,10 +731,12 @@ static bool update_icons_vtsv(const list<IconInfo> &icons_to_load, const list<Ic
 		return false;
 	bool ok = true;
 	for (const auto &p : icons_to_load){
-		auto p1 = find_if(icons_failed, [p](const IconInfo &gi) {return gi.id() == p.id();});
+		auto p1 = find_if(icons_failed.cbegin(), icons_failed.cend(),
+			[p](const IconInfo &gi) {return gi.id() == p.id();});
 		if (p1 != icons_failed.end())
 			continue;
-		p1 = find_if(xprn_icons, [p](const IconInfo &gi) {return gi.id() == p.id();});
+		p1 = find_if(xprn_icons.cbegin(), xprn_icons.cend(),
+			[p](const IconInfo &gi) {return gi.id() == p.id();});
 		if (p1 == xprn_icons.end()){
 			log_dbg("Пиктограмма %s #%d (%hc) отсутствует в БПУ после загрузки.",
 				p.name().c_str(), p.nr(), p.id());
@@ -862,7 +868,8 @@ static void check_kkt_icons(const list<IconInfo> &stored_icons, list<IconInfo> &
 /* Ищем пиктограммы для загрузки */
 	log_dbg("Ищем пиктограммы для загрузки...");
 	for (const auto &p : stored_icons){
-		auto p1 = find_if(kkt_icons, [p](const IconInfo &gi) {return gi.id() == p.id();});
+		auto p1 = find_if(kkt_icons.cbegin(), kkt_icons.cend(),
+			[p](const IconInfo &gi) {return gi.id() == p.id();});
 		if (p1 == kkt_icons.end()){
 			log_dbg("Пиктограмма %s #%d (%hc) отсутствует в ККТ и будет туда загружена.",
 				p.name().c_str(), p.nr(), p.id());
@@ -879,7 +886,8 @@ static void check_kkt_icons(const list<IconInfo> &stored_icons, list<IconInfo> &
 /* Ищем пиктограммы для удаления */
 	log_dbg("Ищем пиктограммы для удаления...");
 	for (const auto &p : kkt_icons){
-		if (find_if(stored_icons, [p](const IconInfo &gi) {return gi.id() == p.id();}) == stored_icons.end()){
+		if (find_if(stored_icons.cbegin(), stored_icons.cend(),
+				[p](const IconInfo &gi) {return gi.id() == p.id();}) == stored_icons.cend()){
 			log_dbg("Пиктограмма %s #%d (%hc) помечена для удаления.", p.name().c_str(), p.nr(), p.id());
 			icons_to_erase.push_back(p);
 		}

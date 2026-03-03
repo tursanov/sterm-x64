@@ -1,5 +1,6 @@
 /* Работа с шаблонами печати ККТ. (c) gsr 2022, 2024 */
 
+#include <cstring>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -247,7 +248,7 @@ static bool store_patterns()
 	}else
 		log_info("Данные шаблонов печати ККТ декодированы; "
 			"длина после декодирования %u байт.", len);
-	scoped_ptr<uint8_t> patterns_data(new uint8_t[MAX_KKT_PATTERNS_DATA_LEN]);
+	const unique_ptr<uint8_t> patterns_data(new uint8_t[MAX_KKT_PATTERNS_DATA_LEN]);
 	size_t patterns_data_len = MAX_KKT_PATTERNS_DATA_LEN;
 	int rc = uncompress(patterns_data.get(), &patterns_data_len, patterns_buf, len);
 	if (rc == Z_OK)
@@ -266,8 +267,8 @@ static bool store_patterns()
 		return false;
 	}
 	bool ret = false;
-	boost::container::vector<string> names;
-	boost::container::vector<size_t> lengths;
+	vector<string> names;
+	vector<size_t> lengths;
 	char fname[PATH_MAX];
 	size_t flen;
 	for (size_t i = 0; i <= nr_files; i++){

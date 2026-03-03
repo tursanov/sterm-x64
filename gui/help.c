@@ -104,7 +104,7 @@ char *get_hlp_line(int n)
 	struct help_line *p=hlp_lines;
 	int i;
 	if ((n < 0) || (n >= n_hlp_lines))
-		return false;
+		return NULL;
 	for (i=0; i < n; i++)
 		p=p->next;
 	return p->str;

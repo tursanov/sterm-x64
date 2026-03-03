@@ -1,5 +1,6 @@
 /* Трансформация XML, полученного из "Экспресс". (c) gsr 2024 */
 
+#include <cstring>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <libxml/parser.h>
@@ -10,6 +11,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <regex.h>
+#include <unistd.h>
 #include "gui/scr.h"
 #include "kkt/cmd.h"
 #include "x3data/common.hpp"
@@ -96,8 +98,8 @@ void shr_xml_data(void)
 	}
 }
 
-static vector<std::pair<string, string>> subst_tbl;
-static vector<std::pair<string, string>> pre_subst_tbl;
+static vector<pair<string, string>> subst_tbl;
+static vector<pair<string, string>> pre_subst_tbl;
 
 static ssize_t get_c_str(const char *buf, char *str, size_t str_len)
 {
@@ -270,7 +272,7 @@ static int find_selector(const struct dirent *entry)
 	return regexec(&reg, entry->d_name, 0, NULL, 0) == REG_NOERROR;
 }
 
-static ssize_t read_subst_tbl(const char *id, vector<std::pair<string, string>> &tbl)
+static ssize_t read_subst_tbl(const char *id, vector<pair<string, string>> &tbl)
 {
 	tbl.clear();
 	char path[PATH_MAX];
@@ -306,7 +308,7 @@ static ssize_t read_subst_tbl(const char *id, vector<std::pair<string, string>> 
 		while (fgets(str, ASIZE(str), f) != NULL){
 			if (!is_comment_str(str)){
 				if (parse_subst_entry(str, name, val)){
-					tbl.push_back(std::pair<string, string>(name, val));
+					tbl.push_back(pair<string, string>(name, val));
 					ret++;
 				}
 			}
@@ -439,7 +441,7 @@ static void preprocess_data(vector<uint8_t> &data)
 #if 0
 typedef struct _XsltErrorCtx {
 	uint8_t recode;
-	const vector<std::pair<string, string>> &subst_tbl;
+	const vector<pair<string, string>> &subst_tbl;
 } XsltErrorCtx;
 
 tstring xslt_err;
@@ -614,7 +616,7 @@ enum class TransformType {
 uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *xml_data)
 {
 	const size_t MAX_DATA_LEN = 65536;
-#define data_ptr(t, n)	scoped_ptr<t> n(new t[MAX_DATA_LEN])
+#define data_ptr(t, n)	const unique_ptr<t> n(new t[MAX_DATA_LEN])
 	if (subst_tbl.empty())
 		read_subst_tbl("00", subst_tbl);
 	if (pre_subst_tbl.empty())

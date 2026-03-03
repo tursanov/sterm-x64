@@ -4,23 +4,18 @@
 
 typedef void (*InitializationNotify_t)(bool done, const char *message);
 
-#include <boost/container/list.hpp>
-using boost::container::list;
-
-#include <boost/container/string.hpp>
-using boost::container::string;
-
-#include <boost/smart_ptr/scoped_ptr.hpp>
-using boost::scoped_ptr;
-
-#include <boost/container/vector.hpp>
-using boost::container::vector;
-
-#include <boost/range/algorithm/equal.hpp>
-using boost::range::equal;
-
-#include <boost/range/algorithm/find_if.hpp>
-using boost::range::find_if;
+#include <algorithm>
+#include <list>
+#include <memory>
+#include <string>
+#include <vector>
+using std::equal;
+using std::find_if;
+using std::list;
+using std::pair;
+using std::string;
+using std::unique_ptr;
+using std::vector;
 
 /* Команды для работы со сжатым изображением */
 /* Признак начала команды */

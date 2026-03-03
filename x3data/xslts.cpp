@@ -1,5 +1,6 @@
 /* Работа с таблицами XSLT. (c) gsr 2023, 2024 */
 
+#include <cstring>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -74,7 +75,8 @@ bool XSLTInfo::parse(const uint8_t *data, size_t len)
 	int y, d;
 	if (sscanf((const char *)data, "<%c%2s%2d%3d%c", &pr, idx, &y, &d, &ch) == 5){
 		pr = toupper(pr);
-		if ((pr == 'T') && (ch == '>') && isIdxValid(idx) && (y > 14) && (d > 0) && (d < 367)){
+		if ((pr == 'T') && (ch == '>') && isIdxValid(idx) &&
+				(y > 14) && (y < 100) && (d > 0) && (d < 367)){
 			snprintf(nm, ASIZE(nm), "%c%.2s%.2d%.3d", pr, idx, y, d);
 			struct tm tm;
 			tm.tm_year = 100 + y;
@@ -262,7 +264,7 @@ static bool store_xslt(const XSLTInfo &xi)
 		return false;
 	}else
 		log_info("Данные таблицы XSLT декодированы; длина после декодирования %zu байт.", len);
-	scoped_ptr<uint8_t> xslt_data(new uint8_t[MAX_XSLT_DATA_LEN]);
+	const unique_ptr<uint8_t> xslt_data(new uint8_t[MAX_XSLT_DATA_LEN]);
 	size_t xslt_data_len = MAX_XSLT_DATA_LEN;
 	int rc = uncompress(xslt_data.get(), &xslt_data_len, xslt_buf, len);
 	if (rc == Z_OK)

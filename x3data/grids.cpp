@@ -1,5 +1,6 @@
 /* Работа с разметками бланков БПУ/ККТ. (c) gsr 2015-2016, 2019, 2022, 2024 */
 
+#include <cstring>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -281,7 +282,8 @@ static void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &g
 /* Ищем разметки для удаления */
 /*	log_dbg("Ищем разметки для удаления...");
 	for (const auto &p : stored_grids){
-		if (find_if(x3_grids, [p](const GridInfo &gi) {return gi.id() == p.id();}) == x3_grids.end()){
+		if (find_if(x3_grids.cbegin(), x3_grids.cend(),
+				[p](const GridInfo &gi) {return gi.id() == p.id();}) == x3_grids.cend()){
 			log_dbg("Разметка %s #%d (%hc) помечена для удаления.", p.name().c_str(), p.nr(), p.id());
 			grids_to_remove.push_back(p);
 		}
@@ -447,7 +449,7 @@ static bool store_grid(const GridInfo &gi)
 			bmp_len, MAX_BMP_DATA_LEN);
 		return false;
 	}
-	scoped_ptr<uint8_t> bmp_data(new uint8_t[bmp_len]);
+	const unique_ptr<uint8_t> bmp_data(new uint8_t[bmp_len]);
 	rc = uncompress(bmp_data.get(), &bmp_len, grid_buf, len);
 	if (rc != Z_OK){
 		log_err("Ошибка распаковки BMP (%d).", rc);
@@ -654,7 +656,8 @@ static void check_xprn_grids(const list<GridInfo> &stored_grids, list<GridInfo> 
 /* Ищем разметки для загрузки */
 	log_dbg("Ищем разметки для загрузки...");
 	for (const auto &p : stored_grids){
-		auto p1 = find_if(xprn_grids, [p](const GridInfo &gi) {return gi.id() == p.id();});
+		auto p1 = find_if(xprn_grids.cbegin(), xprn_grids.cend(),
+			[p](const GridInfo &gi) {return gi.id() == p.id();});
 		if (p1 == xprn_grids.end()){
 			log_dbg("Разметка %s #%d (%hc) отсутствует в БПУ и будет туда загружена.",
 				p.name().c_str(), p.nr(), p.id());
@@ -671,7 +674,8 @@ static void check_xprn_grids(const list<GridInfo> &stored_grids, list<GridInfo> 
 /* Ищем разметки для удаления */
 	log_dbg("Ищем разметки для удаления...");
 	for (const auto &p : xprn_grids){
-		if (find_if(stored_grids, [p](const GridInfo &gi) {return gi.id() == p.id();}) == stored_grids.end()){
+		if (find_if(stored_grids.cbegin(), stored_grids.cend(),
+				[p](const GridInfo &gi) {return gi.id() == p.id();}) == stored_grids.cend()){
 			log_dbg("Разметка %s #%d (%hc) помечена для удаления.", p.name().c_str(), p.nr(), p.id());
 			grids_to_erase.push_back(p);
 		}
@@ -762,7 +766,8 @@ static bool update_grids_vtsv(const list<GridInfo> &grids_to_load, const list<Gr
 		return false;
 	bool ok = true;
 	for (const auto &p : grids_to_load){
-		auto p1 = find_if(grids_failed, [p](const GridInfo &gi) {return gi.id() == p.id();});
+		auto p1 = find_if(grids_failed.cbegin(), grids_failed.cend(),
+			[p](const GridInfo &gi) {return gi.id() == p.id();});
 		if (p1 != grids_failed.end())
 			continue;
 		p1 = find_if(xprn_grids, [p](const GridInfo &gi) {return gi.id() == p.id();});
@@ -897,7 +902,8 @@ static void check_kkt_grids(const list<GridInfo> &stored_grids, list<GridInfo> &
 /* Ищем разметки для загрузки */
 	log_dbg("Ищем разметки для загрузки...");
 	for (const auto &p : stored_grids){
-		auto p1 = find_if(kkt_grids, [p](const GridInfo &gi) {return gi.id() == p.id();});
+		auto p1 = find_if(kkt_grids.cbegin(), kkt_grids.cend(),
+			[p](const GridInfo &gi) {return gi.id() == p.id();});
 		if (p1 == kkt_grids.end()){
 			log_dbg("Разметка %s #%d (%c) отсутствует в ККТ и будет туда загружена.",
 				p.name().c_str(), p.nr(), p.id());
@@ -914,7 +920,8 @@ static void check_kkt_grids(const list<GridInfo> &stored_grids, list<GridInfo> &
 /* Ищем разметки для удаления */
 	log_dbg("Ищем разметки для удаления...");
 	for (const auto &p : kkt_grids){
-		if (find_if(stored_grids, [p](const GridInfo &gi) {return gi.id() == p.id();}) == stored_grids.end()){
+		if (find_if(stored_grids.cbegin(), stored_grids.cend(),
+				[p](const GridInfo &gi) {return gi.id() == p.id();}) == stored_grids.cend()){
 			log_dbg("Разметка %s #%d (%c) помечена для удаления.", p.name().c_str(), p.nr(), p.id());
 			grids_to_erase.push_back(p);
 		}
