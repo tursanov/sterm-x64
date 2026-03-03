@@ -64,7 +64,7 @@ static struct ping_rec {
 } hosts[NR_HOSTS];
 
 static int icmp_sock = -1;
-static int tcp_sock[NR_HOSTS] = {[0 ... ASIZE(tcp_sock) - 1] = -1};
+static int tcp_sock[NR_HOSTS] = {[0 ... NR_HOSTS - 1] = -1};
 
 enum {
 	tcp_st_start,

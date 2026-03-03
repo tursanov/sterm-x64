@@ -775,7 +775,7 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 	}
 	data_ptr(uint8_t, out_buf);
 	size_t out_buf_len = 0;
-	char hdr[256];
+	char hdr[512];
 	xmlDocPtr xml_doc = NULL;
 	if (prn_transform == TransformType::None){
 		if (dst != dst_log){

@@ -122,8 +122,6 @@ int get_key_arg_len(void)
 bool walk_keys(bool fwd)
 {
 	int i;
-	if (keys == NULL)
-		return false;
 	for (i=0; i < kset->key_group_len; i++){
 		if (fwd){
 			if (kset->n_key < (kset->key_group_len-1))
@@ -140,18 +138,12 @@ bool walk_keys(bool fwd)
 
 char get_key(void)
 {
-	if (keys == NULL)
-		return 0;
-	else
-		return kset->key_group_ptr[kset->n_key];
+	return kset->key_group_ptr[kset->n_key];
 }
 
 bool mark_key(void)
 {
-	if (keys == NULL)
-		return false;
-	else
-		return kset->key_group_map[kset->n_key]=true;
+	return kset->key_group_map[kset->n_key]=true;
 }
 
 bool has_key_group(void)
