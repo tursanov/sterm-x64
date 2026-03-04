@@ -787,7 +787,7 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 		snprintf(hdr, ASIZE(hdr), "<?xml version=\"1.0\" encoding=\"%s\"?>\r\n"
 				"<A H=\"20\" W=\"80\" T=\"P%c\" D=\"T\" "
 				"C=\"%c\" SS=\"%s\" PP=\"%s\" N=\"%s\">\r\n",
-			(recode == RECODE_NONE) ? "us-ascii" : "cp866",
+			(recode == RECODE_NONE) ? "windows-1251" : "cp866",
 			get_dst_char(dst),
 			recode, scr_transform_idx, prn_transform_idx, *xslt_name ? xslt_name : "P");
 		string xml_prn(hdr);
@@ -844,7 +844,7 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 		snprintf(hdr, ASIZE(hdr), "<?xml version=\"1.0\" encoding=\"%s\"?>\r\n"
 				"<A H=\"20\" W=\"80\" T=\"S%c\" D=\"T\" "
 				"C=\"%c\" SS=\"%s\" PP=\"%s\" N=\"%s\">\r\n",
-			(recode == RECODE_NONE) ? "us-ascii" : "cp866",
+			(recode == RECODE_NONE) ? "windows-1251" : "cp866",
 			get_dst_char(dst),
 			recode, scr_transform_idx, prn_transform_idx, *xslt_name ? xslt_name : "S");
 		string xml_scr(hdr);
