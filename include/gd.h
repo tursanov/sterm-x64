@@ -113,7 +113,7 @@ enum {
 #define RANDOM_VAL (uint16_t)rand() % 0x1000
 
 #define TERM_NUMBER_LEN		13
-typedef char term_number[TERM_NUMBER_LEN];
+typedef uint8_t term_number[TERM_NUMBER_LEN];
 
 #define PRN_NUMBER_LEN		13
 

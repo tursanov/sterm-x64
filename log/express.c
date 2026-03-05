@@ -371,7 +371,7 @@ static void xlog_init_rec_hdr(struct log_handle *hlog,
 	hdr->addr.iaddr = cfg.iaddr;
 	hdr->term_version = STERM_VERSION;
 	hdr->term_check_sum = term_check_sum;
-	get_tki_field(&tki, TKI_NUMBER, (uint8_t *)hdr->tn);
+	get_tki_field(&tki, TKI_NUMBER, hdr->tn, sizeof(hdr->tn));
 	fill_prn_number(hdr->xprn_number, cfg.has_xprn ? cfg.xprn_number : "",
 		sizeof(hdr->xprn_number));
 	fill_prn_number(hdr->aprn_number, cfg.has_aprn ? cfg.aprn_number : "",

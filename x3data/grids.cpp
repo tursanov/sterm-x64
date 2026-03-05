@@ -449,7 +449,7 @@ static bool store_grid(const GridInfo &gi)
 			bmp_len, MAX_BMP_DATA_LEN);
 		return false;
 	}
-	const unique_ptr<uint8_t> bmp_data(new uint8_t[bmp_len]);
+	const unique_ptr<uint8_t[]> bmp_data = make_unique<uint8_t[]>(bmp_len);
 	rc = uncompress(bmp_data.get(), &bmp_len, grid_buf, len);
 	if (rc != Z_OK){
 		log_err("Ошибка распаковки BMP (%d).", rc);

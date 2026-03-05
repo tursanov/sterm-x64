@@ -25,7 +25,7 @@ extern "C" {
 #define IPLIR_PSW_DATA		"/sdata/iplirpsw.dat"
 
 /* Информация о терминале (не изменяется при обновлении терминала */
-struct term_key_info{
+struct term_key_info {
 	struct md5_hash check_sum;	/* контрольная сумма остальных данных */
 	struct md5_hash srv_keys[NR_SRV_KEYS];	/* настроечные ключи */
 	struct md5_hash dbg_keys[NR_DBG_KEYS];	/* отладочные ключи */
@@ -60,7 +60,8 @@ extern void decrypt_data(uint8_t *p, int l);
 
 extern bool read_tki(const char *path, bool create);
 extern bool write_tki(const char *path);
-extern bool get_tki_field(const struct term_key_info *info, int name, uint8_t *val);
+extern bool get_tki_field(const struct term_key_info *info, int name, uint8_t *val, size_t len)
+	__attribute__((access(write_only, 3, 4)));
 extern bool set_tki_field(struct term_key_info *info, int name, const uint8_t *val);
 extern void check_tki(void);
 extern void check_usb_bind(void);

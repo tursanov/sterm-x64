@@ -248,7 +248,7 @@ static bool store_patterns()
 	}else
 		log_info("Данные шаблонов печати ККТ декодированы; "
 			"длина после декодирования %u байт.", len);
-	const unique_ptr<uint8_t> patterns_data(new uint8_t[MAX_KKT_PATTERNS_DATA_LEN]);
+	const unique_ptr<uint8_t[]> patterns_data = make_unique<uint8_t[]>(MAX_KKT_PATTERNS_DATA_LEN);
 	size_t patterns_data_len = MAX_KKT_PATTERNS_DATA_LEN;
 	int rc = uncompress(patterns_data.get(), &patterns_data_len, patterns_buf, len);
 	if (rc == Z_OK)

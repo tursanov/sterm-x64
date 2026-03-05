@@ -1552,7 +1552,7 @@ static bool draw_optn_help(void)
 	GCPtr pGC = CreateGC(DISCX / 2 + 3, 2 * titleCY + 3, DISCX / 2 - 4, DISCY / 2 - 34);
 	FontPtr pFont = CreateFont(_("fonts/terminal10x18.fnt"), true);
 	term_number tn;
-	get_tki_field(&tki, TKI_NUMBER, (uint8_t *)tn);
+	get_tki_field(&tki, TKI_NUMBER, tn, sizeof(tn));
 	
 	ClearGC(pMemGC, clBtnFace);
 	SetFont(pMemGC, pFont);

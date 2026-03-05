@@ -367,8 +367,8 @@ static bool load_term_props(void)
 /* Чтение номеров ключей DALLAS из файла tki */
 void get_dallas_keys(void)
 {
-	get_tki_field(&tki, TKI_SRV_KEYS, (uint8_t *)srv_keys);
-	get_tki_field(&tki, TKI_DBG_KEYS, (uint8_t *)dbg_keys);
+	get_tki_field(&tki, TKI_SRV_KEYS, (uint8_t *)srv_keys, sizeof(srv_keys));
+	get_tki_field(&tki, TKI_DBG_KEYS, (uint8_t *)dbg_keys, sizeof(dbg_keys));
 }
 
 /* Определение типа ключа DS1990A */
@@ -2388,8 +2388,6 @@ static const char *get_kkt_patterns_ver(void)
 /* Вывод на экран информации о терминале */
 static void show_term_info(void)
 {
-	static char buf[512];
-	term_number tn;
 	online = false;
 	guess_term_state();
 	set_term_astate(ast_none);
@@ -2397,8 +2395,10 @@ static void show_term_info(void)
 	hide_cursor();
 	scr_visible = false;
 	set_term_busy(true);
-	get_tki_field(&tki, TKI_NUMBER, (uint8_t *)tn);
+	term_number tn;
+	get_tki_field(&tki, TKI_NUMBER, tn, sizeof(tn));
 	init_devices();
+	static char buf[512];
 	snprintf(buf, sizeof(buf),
 		"%29s: \"Экспресс-2А-К\"\n"
 		"%29s:  " _s(STERM_VERSION_MAJOR) "."

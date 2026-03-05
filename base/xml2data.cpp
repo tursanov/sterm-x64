@@ -616,7 +616,7 @@ enum class TransformType {
 uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *xml_data)
 {
 	const size_t MAX_DATA_LEN = 65536;
-#define data_ptr(t, n)	const unique_ptr<t> n(new t[MAX_DATA_LEN])
+#define data_ptr(t, n)	const unique_ptr<t[]> n = make_unique<t[]>(MAX_DATA_LEN)
 	if (subst_tbl.empty())
 		read_subst_tbl("00", subst_tbl);
 	if (pre_subst_tbl.empty())
@@ -747,7 +747,7 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 	idx += xml_idx + XML_HDR_LEN;
 	data_ptr(char, xml0);
 	memcpy(xml0.get(), p + idx, xml_len);
-	xml0.get()[xml_len] = 0;
+	xml0[xml_len] = 0;
 	idx += xml_len;
 	xml_data->cmd_len = idx;
 	log_dbg("cmd_len = %zu.", xml_data->cmd_len);

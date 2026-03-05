@@ -30,11 +30,10 @@
 static bool read_term_number(struct md5_hash *number)
 {
 	bool ret = false;
-	uint8_t nr[TERM_NUMBER_LEN], buf[32];
-	int l;
 	if (read_tki(STERM_TKI_NAME, false)){
-		get_tki_field(&tki, TKI_NUMBER, nr);
-		l = base64_encode(nr, sizeof(nr), buf);
+		uint8_t nr[TERM_NUMBER_LEN], buf[32];
+		get_tki_field(&tki, TKI_NUMBER, nr, sizeof(nr));
+		ssize_t l = base64_encode(nr, sizeof(nr), buf);
 		encrypt_data(buf, l);
 		get_md5(buf, l, number);
 		ret = true;

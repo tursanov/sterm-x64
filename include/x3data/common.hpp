@@ -5,16 +5,17 @@
 typedef void (*InitializationNotify_t)(bool done, const char *message);
 
 #include <algorithm>
-#include <list>
-#include <memory>
-#include <string>
-#include <vector>
 using std::equal;
 using std::find_if;
+#include <list>
 using std::list;
 using std::pair;
-using std::string;
+#include <memory>
+using std::make_unique;
 using std::unique_ptr;
+#include <string>
+using std::string;
+#include <vector>
 using std::vector;
 
 /* Команды для работы со сжатым изображением */

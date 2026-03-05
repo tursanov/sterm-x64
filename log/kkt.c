@@ -425,7 +425,7 @@ static void klog_init_rec_hdr(struct log_handle *hlog, struct klog_rec_header *h
 	hdr->addr.iaddr = cfg.iaddr;
 	hdr->term_version = STERM_VERSION;
 	hdr->term_check_sum = term_check_sum;
-	get_tki_field(&tki, TKI_NUMBER, (uint8_t *)hdr->tn);
+	get_tki_field(&tki, TKI_NUMBER, hdr->tn, sizeof(hdr->tn));
 	memset(hdr->kkt_nr, 0, sizeof(hdr->kkt_nr));
 	memcpy(hdr->kkt_nr, kkt_nr, sizeof(hdr->kkt_nr));
 	memcpy(hdr->dsn, dsn, DS_NUMBER_LEN);

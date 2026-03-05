@@ -264,7 +264,7 @@ static bool store_xslt(const XSLTInfo &xi)
 		return false;
 	}else
 		log_info("Данные таблицы XSLT декодированы; длина после декодирования %zu байт.", len);
-	const unique_ptr<uint8_t> xslt_data(new uint8_t[MAX_XSLT_DATA_LEN]);
+	const unique_ptr<uint8_t[]> xslt_data = make_unique<uint8_t[]>(MAX_XSLT_DATA_LEN);
 	size_t xslt_data_len = MAX_XSLT_DATA_LEN;
 	int rc = uncompress(xslt_data.get(), &xslt_data_len, xslt_buf, len);
 	if (rc == Z_OK)
