@@ -1,4 +1,4 @@
-/* Работа с таблицами XSLT. (c) gsr 2023, 2024 */
+/* Работа с таблицами XSLT. (c) gsr 2023, 2024, 2026 */
 
 #include <cstring>
 #include <sys/stat.h>
