@@ -1,5 +1,6 @@
 /* Общие функции. (c) gsr 2024 */
 
+#include <cstring>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
@@ -116,7 +117,7 @@ bool compress_picture(const uint8_t *src, size_t len, size_t w,
 				prev_ln.assign(ln.cbegin(), ln.cend());
 				m++;
 			}else{
-				bool eq = equal(ln, prev_ln);
+				bool eq = (ln == prev_ln);
 				if (!eq || (m == UINT8_MAX) || (i == (len - 1))){
 					if (eq)
 						m++;
@@ -233,7 +234,7 @@ const uint8_t *read_bmp(const char *path, size_t &len, size_t &w, size_t &h,
 		}
 		if (bmi.biHeight > 0){
 			int w = bmi.biWidth / 8;
-			scoped_ptr<uint8_t> buf(new uint8_t[w]);
+			const unique_ptr<uint8_t[]> buf = make_unique<uint8_t[]>(w);
 			for (int offs1 = 0, offs2 = data_len - w; offs1 < offs2; offs1 += w, offs2 -= w){
 				memcpy(buf.get(), pic_data + offs1, w);
 				memcpy(pic_data + offs1, pic_data + offs2, w);

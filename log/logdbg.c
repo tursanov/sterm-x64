@@ -1,6 +1,6 @@
 /* Запись отладочной информации при работе с контрольными лентами. (c) gsr, 2019 */
 
-#include <sys/timeb.h>
+#include <sys/time.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <time.h>
@@ -17,12 +17,12 @@ bool logdbg(const char *fmt, ...)
 #define LOG_DBG_FILE	_("logdbg.txt")
 	FILE *f = fopen(LOG_DBG_FILE, "a");
 	if (f != NULL){
-		struct timeb tb;
-		ftime(&tb);
-		struct tm *tm = localtime(&tb.time);
-		fprintf(f, "%.2d.%.2d %.2d:%.2d:%.2d.%.3hu  ",
+		struct timeval tv;
+		gettimeofday(&tv, NULL);
+		struct tm *tm = localtime(&tv.tv_sec);
+		fprintf(f, "%.2d.%.2d %.2d:%.2d:%.2d.%.3lu  ",
 			tm->tm_mday, tm->tm_mon + 1, tm->tm_hour, tm->tm_min, tm->tm_sec,
-			tb.millitm);
+			tv.tv_usec / 1000);
 		vfprintf(f, fmt, ap);
 		fflush(f);
 		fclose(f);

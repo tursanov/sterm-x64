@@ -157,11 +157,8 @@ sterm:	$(OBJS)
 	@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE) -L /usr/lib/vipnet -lstdc++ -lvpn_api -lz -lxml2 -lxslt
 
 mk_env:
-ifdef TTY_OUT
-	$(info 123)
-endif
 	@if [ ! -f $(STERM_HOME)/sterm.dat ]; then\
-		./helpers/mw --write-tki=$(STERM_HOME)/sterm.dat --number --chipset=cardless;\
+		./helpers/mw --write-tki=$(STERM_HOME)/sterm.dat --number;\
 	fi
 	@./helpers/mw --read-tki=$(STERM_HOME)/sterm.dat --all
 

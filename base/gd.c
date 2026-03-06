@@ -179,7 +179,7 @@ static uint8_t get_tcap_byte(void)
 static void write_term_info(void)
 {
 	term_number tn;
-	get_tki_field(&tki, TKI_NUMBER, (uint8_t *)tn);
+	get_tki_field(&tki, TKI_NUMBER, tn, sizeof(tn));
 	req_buf[req_len++] = TERM_INFO_MARK;
 /* Идентификатор терминала */
 	req_buf[req_len++] = term_id[0];

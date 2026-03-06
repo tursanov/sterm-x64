@@ -506,7 +506,7 @@ static bool sync_input_window(int n)
 static bool set_input_window(int n)
 {
 	struct input_window *p;
-	if ((n < 0) || (n >= MAX_WINDOWS) || (inp_buf[n].buf == NULL))
+	if ((n < 0) || (n >= MAX_WINDOWS))
 		return false;
 	if (scr_is_req())
 		sync_input_window(cur_window);

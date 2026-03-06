@@ -1,5 +1,6 @@
-/* Трансформация XML, полученного из "Экспресс". (c) gsr 2024 */
+/* Трансформация XML, полученного из "Экспресс". (c) gsr 2024, 2026 */
 
+#include <cstring>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <libxml/parser.h>
@@ -10,6 +11,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <regex.h>
+#include <unistd.h>
 #include "gui/scr.h"
 #include "kkt/cmd.h"
 #include "x3data/common.hpp"
@@ -614,7 +616,7 @@ enum class TransformType {
 uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *xml_data)
 {
 	const size_t MAX_DATA_LEN = 65536;
-#define data_ptr(t, n)	scoped_ptr<t> n(new t[MAX_DATA_LEN])
+#define data_ptr(t, n)	const unique_ptr<t[]> n = make_unique<t[]>(MAX_DATA_LEN)
 	if (subst_tbl.empty())
 		read_subst_tbl("00", subst_tbl);
 	if (pre_subst_tbl.empty())
@@ -745,7 +747,7 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 	idx += xml_idx + XML_HDR_LEN;
 	data_ptr(char, xml0);
 	memcpy(xml0.get(), p + idx, xml_len);
-	xml0.get()[xml_len] = 0;
+	xml0[xml_len] = 0;
 	idx += xml_len;
 	xml_data->cmd_len = idx;
 	log_dbg("cmd_len = %zu.", xml_data->cmd_len);
@@ -773,7 +775,7 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 	}
 	data_ptr(uint8_t, out_buf);
 	size_t out_buf_len = 0;
-	char hdr[256];
+	char hdr[512];
 	xmlDocPtr xml_doc = NULL;
 	if (prn_transform == TransformType::None){
 		if (dst != dst_log){

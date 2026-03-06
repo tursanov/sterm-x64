@@ -1,6 +1,6 @@
 /* Основной модуль для работы с ККТ. (c) gsr 2018-2020, 2024 */
 
-#include <sys/timeb.h>
+#include <sys/time.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -371,8 +371,8 @@ static bool do_transaction(uint8_t prefix, uint8_t cmd, void *param)
 	bool ret = true;
 	parser_t parser = get_parser(prefix, cmd);
 	uint32_t timeout = get_timeout(prefix, cmd);
-	struct timeb t0;
-	ftime(&t0);
+	struct timeval t0;
+	gettimeofday(&t0, NULL);
 	//printf("%s: parser = %p; timeout = %u; kkt_tx_len = %zu\n",
 	//	__func__, parser, timeout, kkt_tx_len);
 	if (kkt_tx_len > 0){
