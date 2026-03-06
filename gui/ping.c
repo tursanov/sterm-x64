@@ -19,11 +19,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "cfg.h"
 #include "devinfo.h"
 #include "genfunc.h"
 #include "kbd.h"
 #include "paths.h"
 #include "sterm.h"
+#include "tki.h"
 #include "gui/exgdi.h"
 #include "gui/ping.h"
 #include "pos/tcp.h"
@@ -193,9 +195,25 @@ static bool send_ping(struct ping_rec *rec, uint32_t t)
 	pkt->icmp_type = ICMP_ECHO;
 	pkt->icmp_code = 0;
 	pkt->icmp_cksum = 0;
-	pkt->icmp_seq = htons(rec->seq++);
 	pkt->icmp_id = htons(rec->id);
-	strcpy((char *)pkt->icmp_data, ICMP_DATA);
+	pkt->icmp_seq = htons(rec->seq++);
+	struct ping_data *data = (struct ping_data *)pkt->icmp_data;
+	data->sig = STERM_PING_SIG;
+	data->uptime = UINT32_MAX;
+	FILE *f = fopen("/proc/uptime", "r");
+	if (f != NULL){
+		fscanf(f, "%u", &data->uptime);
+		fclose(f);
+	}
+	data->t = time(NULL);
+	data->version[0] = STERM_VERSION_MAJOR;
+	data->version[1] = STERM_VERSION_MINOR;
+	data->version[2] = STERM_VERSION_RELEASE;
+	data->crc = term_check_sum;
+	if (!get_tki_field(&tki, TKI_NUMBER, data->nr, sizeof(data->nr)))
+		memset(data->nr, 0, sizeof(data->nr));
+	data->gaddr = cfg.gaddr;
+	data->iaddr = cfg.iaddr;
 	pkt->icmp_cksum = in_cksum((uint16_t *)pkt, sizeof(packet));
 	struct sockaddr_in sa = {
 		.sin_family	= AF_INET,

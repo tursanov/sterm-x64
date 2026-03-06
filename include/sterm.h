@@ -18,15 +18,6 @@ extern "C" {
 #include "kbd.h"
 #include "gui/gdi.h"
 
-/* Версия терминала */
-struct build_version{
-	uint32_t version;
-	uint32_t subversion;
-	uint32_t modification;
-};
-
-extern struct build_version term_build;
-
 extern char *term_string;	/* название терминала */
 
 extern bool menu_active;
