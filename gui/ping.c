@@ -2,7 +2,7 @@
  * Проверка линии TCP/IP посылкой icmp-пакетов (ping).
  * 11.05.2019 добавлена проверка ОФД путём установки соединения TCP.
  * 08.11.2024 процессинговые серверы проверяются так же, как и ОФД.
- * (c) gsr, Alex P. Popov 2002, 2004, 2005, 2019.
+ * (c) gsr, Alex P. Popov 2002, 2004, 2005, 2019, 2024, 2026.
  */
 
 #include <sys/socket.h>
@@ -114,7 +114,7 @@ static void make_host_name(int n, uint32_t ip)
 			hosts[n].id = (ip == INADDR_NONE) ? 0 : rand() & 0xffff;
 			hosts[n].nr_replies = 0;
 		}
-		hosts[n].seq = 0;
+		hosts[n].seq = 1;
 		hosts[n].t0 = 0;
 	}
 }
@@ -193,8 +193,8 @@ static bool send_ping(struct ping_rec *rec, uint32_t t)
 	pkt->icmp_type = ICMP_ECHO;
 	pkt->icmp_code = 0;
 	pkt->icmp_cksum = 0;
-	pkt->icmp_seq = rec->seq++;
-	pkt->icmp_id = rec->id;
+	pkt->icmp_seq = htons(rec->seq++);
+	pkt->icmp_id = htons(rec->id);
 	strcpy((char *)pkt->icmp_data, ICMP_DATA);
 	pkt->icmp_cksum = in_cksum((uint16_t *)pkt, sizeof(packet));
 	struct sockaddr_in sa = {
@@ -225,8 +225,8 @@ static int parse_reply(char *buf, int sz, struct sockaddr_in *from)
 		if (hosts[i].ip.s_addr != from->sin_addr.s_addr)
 			continue;
 		else if ((icmp_pkt->icmp_type == ICMP_ECHOREPLY) &&
-				(icmp_pkt->icmp_id == hosts[i].id) &&
-				(icmp_pkt->icmp_seq < hosts[i].seq)){
+				(ntohs(icmp_pkt->icmp_id) == hosts[i].id) &&
+				(ntohs(icmp_pkt->icmp_seq) < hosts[i].seq)){
 			hosts[i].nr_replies++;
 			ret = i;
 			break;
@@ -510,7 +510,7 @@ static char *get_ping_line(int n)
 			tcp_st_str(hosts[n].state));
 	}else
 		snprintf(line, sizeof(line), "%-*s%-*s%d из %hu", DESC_WIDTH, desc,
-			IP_WIDTH, inet_ntoa(ip), hosts[n].nr_replies, hosts[n].seq);
+			IP_WIDTH, inet_ntoa(ip), hosts[n].nr_replies, hosts[n].seq - 1);
 	return line;
 }
 
@@ -561,7 +561,7 @@ bool process_ping(struct kbd_event *e)
 		bool rc = false;
 		if (need_tcp_check(i))
 			rc = tcp_process(i, t);
-		else if ((hosts[i].seq < NR_PINGS) &&
+		else if ((hosts[i].seq < (NR_PINGS + 1)) &&
 				(t - hosts[i].t0) > ICMP_PING_INTERVAL)
 			rc = send_ping(hosts + i, t);
 		if (rc){
