@@ -60,8 +60,7 @@ extern void decrypt_data(uint8_t *p, int l);
 
 extern bool read_tki(const char *path, bool create);
 extern bool write_tki(const char *path);
-extern bool get_tki_field(const struct term_key_info *info, int name, uint8_t *val, size_t len)
-	__attribute__((access(write_only, 3, 4)));
+extern bool get_tki_field(const struct term_key_info *info, int name, uint8_t *val, size_t len);
 extern bool set_tki_field(struct term_key_info *info, int name, const uint8_t *val);
 extern void check_tki(void);
 extern void check_usb_bind(void);
