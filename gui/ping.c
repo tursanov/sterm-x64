@@ -3,6 +3,7 @@
  * 11.05.2019 добавлена проверка ОФД путём установки соединения TCP.
  * 08.11.2024 процессинговые серверы проверяются так же, как и ОФД.
  * 06.03.2026 исправлена ошибка формирования ICMP-пакетов, изменён состав данных.
+ * 09.03.2026 при анализе ответов ICMP используется буфер данных.
  * (c) gsr, Alex P. Popov 2002, 2004, 2005, 2019, 2024, 2026.
  */
 
@@ -55,19 +56,19 @@ static inline bool need_tcp_check(int n)
 static struct ping_rec {
 	struct in_addr ip;
 	union {
-		uint16_t id;
-		uint16_t port;
-	};
-	uint16_t seq;
-	union {
-		int nr_replies;
-		int state;
+		struct {
+			uint16_t id;
+			uint16_t seq;
+			uint8_t data[NR_PINGS][PING_DATA_LEN];
+			int nr_replies;
+		} ping;
+		struct {
+			uint16_t port;
+			int state;
+		} tcp;
 	};
 	uint32_t t0;
 } hosts[NR_HOSTS];
-
-static int icmp_sock = -1;
-static int tcp_sock[NR_HOSTS] = {[0 ... NR_HOSTS - 1] = -1};
 
 enum {
 	tcp_st_start,
@@ -99,10 +100,14 @@ static const char *tcp_st_str(int tcp_st)
 	return ret;
 }
 
+static int icmp_sock = -1;
+static int tcp_sock[NR_HOSTS] = {[0 ... NR_HOSTS - 1] = -1};
+
 static void make_host_name(int n, uint32_t ip)
 {
 	if ((n >= 0) && (n < NR_HOSTS)){
-		hosts[n].ip.s_addr = ip;
+		struct ping_rec *p = hosts + n;
+		p->ip.s_addr = ip;
 		if (need_tcp_check(n)){
 			int port = 0;
 			if (ip != INADDR_NONE){
@@ -111,13 +116,14 @@ static void make_host_name(int n, uint32_t ip)
 				else if ((n >= HOST_BANK1) || (n <= HOST_BANK8))
 					port = TCP_POS_PORT_BASE + (n - HOST_BANK1) % 4;
 			}
-			hosts[n].port = port;
-			hosts[n].state = (ip == INADDR_NONE) ? tcp_st_na : tcp_st_start;
+			p->tcp.port = port;
+			p->tcp.state = (ip == INADDR_NONE) ? tcp_st_na : tcp_st_start;
 		}else{
-			hosts[n].id = (ip == INADDR_NONE) ? 0 : rand() & 0xffff;
-			hosts[n].nr_replies = 0;
+			p->ping.id = (ip == INADDR_NONE) ? 0 : rand() & 0xffff;
+			p->ping.seq = 1;
+			memset(p->ping.data, 0, sizeof(p->ping.data));
+			p->ping.nr_replies = 0;
 		}
-		hosts[n].seq = 1;
 		hosts[n].t0 = 0;
 	}
 }
@@ -196,9 +202,9 @@ static bool send_ping(struct ping_rec *rec, uint32_t t)
 	pkt->icmp_type = ICMP_ECHO;
 	pkt->icmp_code = 0;
 	pkt->icmp_cksum = 0;
-	pkt->icmp_id = htons(rec->id);
-	pkt->icmp_seq = htons(rec->seq++);
-	struct ping_data *data = (struct ping_data *)pkt->icmp_data;
+	pkt->icmp_id = htons(rec->ping.id);
+	pkt->icmp_seq = htons(rec->ping.seq);
+	struct ping_data *data = (struct ping_data *)rec->ping.data[rec->ping.seq++ - 1];
 	data->sig = STERM_PING_SIG;
 	data->uptime = UINT32_MAX;
 	FILE *f = fopen("/proc/uptime", "r");
@@ -215,6 +221,7 @@ static bool send_ping(struct ping_rec *rec, uint32_t t)
 		memset(data->nr, 0, sizeof(data->nr));
 	data->gaddr = cfg.gaddr;
 	data->iaddr = cfg.iaddr;
+	memcpy(pkt->icmp_data, data, sizeof(*data));
 	pkt->icmp_cksum = in_cksum((uint16_t *)pkt, sizeof(packet));
 	struct sockaddr_in sa = {
 		.sin_family	= AF_INET,
@@ -240,15 +247,21 @@ static int parse_reply(char *buf, int sz, struct sockaddr_in *from)
 	int hlen = ip_hdr->ihl << 2;
 	sz -= hlen;
 	struct icmp *icmp_pkt = (struct icmp *)(buf + hlen);
+	if (icmp_pkt->icmp_type != ICMP_ECHOREPLY)
+		return ret;
 	for (int i = 0; i < NR_HOSTS; i++){
-		if (hosts[i].ip.s_addr != from->sin_addr.s_addr)
-			continue;
-		else if ((icmp_pkt->icmp_type == ICMP_ECHOREPLY) &&
-				(ntohs(icmp_pkt->icmp_id) == hosts[i].id) &&
-				(ntohs(icmp_pkt->icmp_seq) < hosts[i].seq)){
-			hosts[i].nr_replies++;
-			ret = i;
-			break;
+		if ((hosts[i].ip.s_addr == from->sin_addr.s_addr) &&
+				(ntohs(icmp_pkt->icmp_id) == hosts[i].ping.id)){
+			typeof(hosts[i].ping) *p = &hosts[i].ping;
+			uint16_t seq = ntohs(icmp_pkt->icmp_seq);
+			if (seq < p->seq){
+				if (memcmp(p->data[seq - 1], icmp_pkt->icmp_data, PING_DATA_LEN) == 0){
+					memset(p->data[seq - 1], 0, PING_DATA_LEN);
+					p->nr_replies++;
+					ret = i;
+				}
+				break;
+			}
 		}
 	}
 	return ret;
@@ -281,16 +294,16 @@ static bool tcp_begin_connect(int n, uint32_t t)
 	struct ping_rec *rec = hosts + n;
 	struct sockaddr_in addr = {
 		.sin_family	= AF_INET,
-		.sin_port	= htons(rec->port),
+		.sin_port	= htons(rec->tcp.port),
 		.sin_addr	= rec->ip
 	};
 	if ((connect(tcp_sock[n], (struct sockaddr *)&addr, sizeof(addr)) != 0) &&
 			(errno != EINPROGRESS)){
 		tcp_sock_close(n);
-		rec->state = tcp_st_na;
+		rec->tcp.state = tcp_st_na;
 	}else{
 		rec->t0 = t;
-		rec->state = tcp_st_conn;
+		rec->tcp.state = tcp_st_conn;
 		ret = true;
 	}
 	return ret;
@@ -310,12 +323,12 @@ static bool tcp_connect(int n, uint32_t t)
 	if ((rc == -1) || (fds.revents & (POLLERR | POLLHUP | POLLNVAL)))
 		ret = false;
 	else if (fds.revents & POLLOUT)
-		rec->state = tcp_st_ok;
+		rec->tcp.state = tcp_st_ok;
 	else if ((t - rec->t0) > TCP_CONNECT_TIMEOUT)
 		ret = false;
 	if (!ret){
 		tcp_sock_close(n);
-		rec->state = tcp_st_na;
+		rec->tcp.state = tcp_st_na;
 	}
 	return ret;
 }
@@ -526,10 +539,10 @@ static char *get_ping_line(int n)
 		}
 		snprintf(addr, sizeof(addr), "%s:%hu", inet_ntoa(ip), port);
 		snprintf(line, sizeof(line), "%-*s%-*s%s", DESC_WIDTH, desc, IP_WIDTH, addr,
-			tcp_st_str(hosts[n].state));
+			tcp_st_str(hosts[n].tcp.state));
 	}else
 		snprintf(line, sizeof(line), "%-*s%-*s%d из %hu", DESC_WIDTH, desc,
-			IP_WIDTH, inet_ntoa(ip), hosts[n].nr_replies, hosts[n].seq - 1);
+			IP_WIDTH, inet_ntoa(ip), hosts[n].ping.nr_replies, hosts[n].ping.seq - 1);
 	return line;
 }
 
@@ -539,8 +552,8 @@ static bool tcp_process(int n, uint32_t t)
 	if (rec->ip.s_addr == INADDR_NONE)
 		return false;
 	bool rc = false;
-	int prev_tcp_st = rec->state;
-	switch (rec->state){
+	int prev_tcp_st = rec->tcp.state;
+	switch (rec->tcp.state){
 		case tcp_st_start:
 			tcp_sock[n] = tcp_sock_open();
 			if (tcp_sock[n] != -1)
@@ -552,7 +565,7 @@ static bool tcp_process(int n, uint32_t t)
 	}
 	if (!rc && (tcp_sock[n] != -1))
 		tcp_sock_close(n);
-	return prev_tcp_st != rec->state;
+	return prev_tcp_st != rec->tcp.state;
 }
 
 bool process_ping(struct kbd_event *e)
@@ -575,12 +588,12 @@ bool process_ping(struct kbd_event *e)
 	}
 	for (int i = 0; i < NR_HOSTS; i++){
 		if ((hosts[i].ip.s_addr == INADDR_NONE) ||
-				(hosts[i].nr_replies == NR_PINGS))
+				(hosts[i].ping.nr_replies == NR_PINGS))
 			continue;
 		bool rc = false;
 		if (need_tcp_check(i))
 			rc = tcp_process(i, t);
-		else if ((hosts[i].seq < (NR_PINGS + 1)) &&
+		else if ((hosts[i].ping.seq < (NR_PINGS + 1)) &&
 				(t - hosts[i].t0) > ICMP_PING_INTERVAL)
 			rc = send_ping(hosts + i, t);
 		if (rc){
