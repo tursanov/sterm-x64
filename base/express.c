@@ -947,7 +947,6 @@ static uint8_t *check_kprn(uint8_t *txt, int l, int n_para, int *ecode)
 	return txt;
 }
 
-
 /* Проверка XML для ККТ */
 static uint8_t *check_kkt_xml(uint8_t *txt, int l, int *ecode)
 {
@@ -1190,8 +1189,10 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 						p = pp;
 					break;
 				default:
-					*ecode = E_UNKNOWN;
-					return p - 1;
+					if (dst != dst_log){
+						*ecode = E_UNKNOWN;
+						return p - 1;
+					}
 			}
 		}else
 			p++;
