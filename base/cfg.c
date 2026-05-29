@@ -378,9 +378,6 @@ static struct {
 /* Внешние устройства */
 	CFG_ENTRY_BOOL		("has-xprn",		has_xprn),
 	CFG_ENTRY_STRING	("xprn-number",		xprn_number),
-	CFG_ENTRY_BOOL		("has-aprn",		has_aprn),
-	CFG_ENTRY_STRING	("aprn-number",		aprn_number),
-	CFG_ENTRY_INT		("aprn-tty",		aprn_tty),
 	CFG_ENTRY_BOOL		("has-sprn",		has_sprn),
 	CFG_ENTRY_INT		("s0",			s0),
 	CFG_ENTRY_INT		("s1",			s1),
@@ -392,6 +389,7 @@ static struct {
 	CFG_ENTRY_INT		("s7",			s7),
 	CFG_ENTRY_INT		("s8",			s8),
 	CFG_ENTRY_INT		("s9",			s9),
+	CFG_ENTRY_BOOL		("tickets-on-kkt",	tickets_on_kkt),
 /* TCP/IP (сетевая карта) */
 	CFG_ENTRY_BOOL		("use-ppp",		use_ppp),
 	CFG_ENTRY_IP		("local-ip",		local_ip),

@@ -576,18 +576,19 @@ static struct dev_lst *poll_vcom(const char *name)
 	return devs;
 }
 
+static int poll_selector(const struct dirent *entry)
+{
+	uint32_t n = 0;
+	char dummy = 0;
+	return sscanf(entry->d_name, "ttyUSB%u%c", &n, &dummy) == 1;
+}
+
 struct dev_lst *poll_devices(void)
 {
 #define USB_SERIAL_DIR		"/sys/bus/usb-serial/devices"
 #define DEV_DIR			"/dev"
-	int selector(const struct dirent *entry)
-	{
-		uint32_t n = 0;
-		char dummy = 0;
-		return sscanf(entry->d_name, "ttyUSB%u%c", &n, &dummy) == 1;
-	}
 	struct dirent **names;
-	int n = scandir(USB_SERIAL_DIR, &names, selector, alphasort);
+	int n = scandir(USB_SERIAL_DIR, &names, poll_selector, alphasort);
 	if (n == -1){
 		fprintf(stderr, "%s: ошибка просмотра каталога " USB_SERIAL_DIR ": %s\n",
 			__func__, strerror(errno));

@@ -89,7 +89,8 @@ KKT_FD_OBJS =		\
 	ad		\
 	fd		\
 	tags		\
-	tlv
+	tlv		\
+	pattern
 
 LOG_OBJS =		\
 	express		\
@@ -159,12 +160,12 @@ $(SUBDIRS):
 	@$(MAKE) -C $@ -I../ -I../../
 
 sterm:	$(OBJS)
-	@echo "\t$(LD_NAME)   $@"
+	$(LD_BANNER)
 	@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE) -L /usr/lib/vipnet -lstdc++ -lvpn_api -lz -lxml2 -lxslt
 
 mk_env:
 	@if [ ! -f $(STERM_HOME)/sterm.dat ]; then\
-		./helpers/mw --write-tki=$(STERM_HOME)/sterm.dat --number --chipset=cardless;\
+		./helpers/mw --write-tki=$(STERM_HOME)/sterm.dat --number;\
 	fi
 	@./helpers/mw --read-tki=$(STERM_HOME)/sterm.dat --all
 
