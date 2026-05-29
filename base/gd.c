@@ -14,6 +14,8 @@
 #include "gui/scr.h"
 #include "kkt/kkt.h"
 #include "log/express.h"
+#include "pos/error.h"
+#include "pos/pos.h"
 #include "prn/express.h"
 #include "prn/local.h"
 #include "cfg.h"
@@ -33,7 +35,7 @@ uint32_t init_t0 = 0;			/* время начала инициализации */
 static int init_tries;			/* число попыток инициализации */
 
 /* Идентификатор терминала (второй байт изменяется в зависимости от конфигурации) */
-static uint8_t term_id[3] = {0x6c, 0x00, 0x30};
+static uint8_t term_id[3] = {0x65, 0x00, 0x35};
 /* Счетчики гарантированной доставки */
 uint16_t ZNtz	= 0;
 uint16_t oldZNtz= 0;	/* используется при инициализации */
@@ -163,14 +165,11 @@ static uint8_t get_tcap_byte(void)
 /* 70 -- 77 */	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* . . . . . . . . */
 /* 77 -- 7f */	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* . . . . . . . . */
 	};
-	uint8_t ret = TCAP_TERM | TCAP_BNK2 | TCAP_EX_BCODE | TCAP_UNIBLANK;
-	if (cfg.has_kkt && (kkt != NULL) && cfg.fiscal_mode){
+	uint8_t ret = TCAP_XSLT;
+	if (cfg.has_kkt && cfg.fiscal_mode)
 		ret |= TCAP_KKT;
-		if (kkt_has_param("SUPPORT_ESC_R"))
-			ret |= TCAP_XSLT;
-	}
-	if (cfg.has_sprn)
-		ret |= TCAP_EX_BCODE;
+	if (cfg.tickets_on_kkt)
+		ret |= TCAP_UNIBLANK;
 	if (!cfg.bank_system)
 		ret |= TCAP_NO_POS;
 	return map[ret];
@@ -180,12 +179,21 @@ static uint8_t get_tcap_byte(void)
 static void write_term_info(void)
 {
 	term_number tn;
-	get_tki_field(&tki, TKI_NUMBER, (uint8_t *)tn);
+	get_tki_field(&tki, TKI_NUMBER, tn, sizeof(tn));
 	req_buf[req_len++] = TERM_INFO_MARK;
 /* Идентификатор терминала */
 	req_buf[req_len++] = term_id[0];
 	req_buf[req_len++] = get_tcap_byte();
-	req_buf[req_len++] = term_id[2];
+	req_buf[req_len] = term_id[2];
+	if (cfg.has_kkt && cfg.fiscal_mode /*&& (kkt != NULL)*/){
+		if (kkt_has_param("SUPPORT_VAT_5_7")){
+			if (kkt_has_param("SUPPORT_VAT_22"))
+				req_buf[req_len] = 0x42;
+			else
+				req_buf[req_len] = 0x41;
+		}
+	}
+	req_len++;
 /* Заводской номер терминала */
 	memcpy(req_buf + req_len, tn, sizeof(tn));
 	req_len += sizeof(tn);
@@ -352,6 +360,8 @@ void slayer_error(int e)
 				break;
 		}
 		c_state = cs_nc;
+		if (pos_active && (pos_state == pos_printing))
+			pos_set_error(POS_ERROR_CLASS_PRINTER, POS_ERR_PRN, 0);
 	}
 	if (cfg.tcp_cbt || (gd_error_type(e) == gde_tcp))
 		release_term_socket();

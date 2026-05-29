@@ -1,4 +1,4 @@
-/* Основные функции терминала. (c) gsr 2000-2020, 2024 */
+/* Основные функции терминала. (c) gsr 2000-2020, 2024, 2026 */
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -65,106 +65,6 @@
 #include "termlog.h"
 #include "tki.h"
 #include "transport.h"
-
-#if defined _DEBUG
-#include "pos/command.h"
-static bool do_test(void)
-{
-	static uint8_t data[] = {
-// Печать квитанции
-/*		0x31, 0x30, 0x30, 0x30, 0x00, 0x00, 0x01, 0xe3,
-		0x02, 0x00, 0x02, 0x01, 0x90, 0x05, 0x01, 0x8c,
-		0x1b, 0x73, 0x1b, 0x5b, 0x30, 0x32, 0x64, 0x1e,
-		0x07, 0x62, 0x61, 0x6e, 0x6b, 0x20, 0x77, 0x74,
-		0x62, 0x20, 0x28, 0x70, 0x61, 0x6f, 0x29, 0x0d,
-		0x0a, 0x1e, 0x0b, 0x73, 0x77, 0x65, 0x72, 0x64,
-		0x6c, 0x6f, 0x77, 0x73, 0x6b, 0x61, 0x71, 0x20,
-		0x76, 0x64, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-		0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-		0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-		0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-		0x20, 0x20, 0x20, 0x20, 0x20, 0x0d, 0x0a, 0x1e,
-		0x0b, 0x31, 0x32, 0x39, 0x36, 0x32, 0x36, 0x2c,
-		0x20, 0x67, 0x2e, 0x6d, 0x6f, 0x73, 0x6b, 0x77,
-		0x61, 0x2c, 0x20, 0x33, 0x2d, 0x71, 0x20, 0x6d,
-		0x79, 0x74, 0x69, 0x7d, 0x69, 0x6e, 0x73, 0x6b,
-		0x61, 0x71, 0x20, 0x75, 0x6c, 0x2e, 0x2c, 0x20,
-		0x64, 0x2e, 0x31, 0x30, 0x20, 0x20, 0x20, 0x20,
-		0x20, 0x20, 0x20, 0x0d, 0x0a, 0x1e, 0x0b, 0x20,
-		0x0d, 0x0a, 0x1e, 0x0b, 0x6b, 0x61, 0x73, 0x73,
-		0x61, 0x20, 0x77, 0x6e, 0x69, 0x69, 0x76, 0x74,
-		0x20, 0x33, 0x31, 0x20, 0x20, 0x20, 0x20, 0x20,
-		0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-		0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-		0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-		0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x0d, 0x0a,
-		0x1e, 0x0b, 0x6b, 0x61, 0x73, 0x73, 0x69, 0x72,
-		0x20, 0x8d, 0x8e, 0x9f, 0x81, 0x90, 0x9c, 0x20,
-		0x49, 0x44, 0x20, 0x54, 0x4d, 0x20, 0x0d, 0x0a,
-		0x49, 0x44, 0x20, 0x50, 0x4f, 0x53, 0x20, 0x56,
-		0x4e, 0x49, 0x49, 0x5a, 0x54, 0x30, 0x34, 0x20,
-		0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x0d,
-		0x0a, 0x1e, 0x07, 0x20, 0x20, 0x20, 0x6f, 0x74,
-		0x6b, 0x72, 0x79, 0x74, 0x69, 0x65, 0x20, 0x64,
-		0x6e, 0x71, 0x20, 0x20, 0x20, 0x20, 0x20, 0x0d,
-		0x0a, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-		0x20, 0x6f, 0x70, 0x65, 0x72, 0x61, 0x63, 0x69,
-		0x71, 0x20, 0x77, 0x79, 0x70, 0x6f, 0x6c, 0x6e,
-		0x65, 0x6e, 0x61, 0x0d, 0x0a, 0x1e, 0x0b, 0x6b,
-		0x6f, 0x64, 0x20, 0x6f, 0x74, 0x77, 0x65, 0x74,
-		0x61, 0x3a, 0x20, 0x38, 0x38, 0x30, 0x20, 0x20,
-		0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-		0x20, 0x20, 0x20, 0x76, 0x65, 0x74, 0x6f, 0x6e,
-		0x3a, 0x20, 0x38, 0x42, 0x30, 0x31, 0x30, 0x30,
-		0x30, 0x30, 0x30, 0x31, 0x38, 0x37, 0x38, 0x46,
-		0x45, 0x41, 0x0d, 0x0a, 0x64, 0x61, 0x74, 0x61,
-		0x3a, 0x20, 0x32, 0x36, 0x2f, 0x31, 0x31, 0x2f,
-		0x32, 0x34, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-		0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
-		0x77, 0x72, 0x65, 0x6d, 0x71, 0x3a, 0x20, 0x31,
-		0x34, 0x3a, 0x34, 0x36, 0x3a, 0x33, 0x34, 0x0d,
-		0x0a, 0x1c, 0x0b, 0x15, 0x00, 0x00, 0x01, 0x00,
-		0x4a, 0x02, 0x01, 0x00, 0x0a, 0x00, 0x02, 0x05,
-		0x00, 0x0c, 0x64, 0x65, 0x6e, 0x78, 0x20, 0x6f,
-		0x74, 0x6b, 0x72, 0x79, 0x74, 0x21, 0x00, 0x01,
-		0x00, 0x0a, 0x00, 0x04, 0x04, 0x00, 0x10, 0x00,
-		0x02, 0x02, 0x00, 0x09, 0x50, 0x72, 0x69, 0x6e,
-		0x74, 0x4d, 0x65, 0x6e, 0x75, 0x00, 0x0a, 0x70,
-		0x72, 0x6f, 0x64, 0x6f, 0x6c, 0x76, 0x69, 0x74,
-		0x78, 0x00, 0x10, 0x70, 0x6f, 0x77, 0x74, 0x6f,
-		0x72, 0x69, 0x74, 0x78, 0x20, 0x70, 0x65, 0x7e,
-		0x61, 0x74, 0x78,*/
-// FINISHMENU (запрос параметров) */
-		0x31, 0x30, 0x30, 0x30, 0x00, 0x00, 0x00, 0xac,
-		0x01, 0x00, 0x99, 0x00, 0xa7, 0x04, 0x06, 0x00,
-		0x05, 0x4d, 0x54, 0x59, 0x50, 0x45, 0x00, 0x01,
-		0xa1, 0x00, 0x0b, 0x52, 0x45, 0x53, 0x55, 0x4c,
-		0x54, 0x5f, 0x43, 0x4f, 0x44, 0x45, 0x00, 0x01,
-		0x02, 0x00, 0x06, 0x49, 0x44, 0x5f, 0x50, 0x4f,
-		0x53, 0x00, 0x08, 0x56, 0x4e, 0x49, 0x49, 0x5a,
-		0x54, 0x30, 0x34, 0x00, 0x0a, 0x4e, 0x45, 0x58,
-		0x54, 0x5f, 0x4d, 0x54, 0x59, 0x50, 0x45, 0x00,
-		0x01, 0xff, 0x00, 0x07, 0x4e, 0x50, 0x41, 0x52,
-		0x41, 0x4d, 0x53, 0x00, 0x01, 0x04, 0x00, 0x06,
-		0x50, 0x41, 0x52, 0x41, 0x4d, 0x53, 0x00, 0x54,
-		0x00, 0x07, 0x43, 0x4c, 0x45, 0x52, 0x4b, 0x49,
-		0x44, 0x00, 0x10, 0x38, 0x42, 0x30, 0x31, 0x30,
-		0x30, 0x30, 0x30, 0x30, 0x31, 0x38, 0x37, 0x38,
-		0x46, 0x45, 0x41, 0x00, 0x06, 0x54, 0x45, 0x52,
-		0x4d, 0x49, 0x44, 0x00, 0x0a, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x36, 0x34, 0x32, 0x37, 0x00,
-		0x04, 0x54, 0x49, 0x4d, 0x45, 0x00, 0x0e, 0x32,
-		0x30, 0x32, 0x34, 0x31, 0x31, 0x32, 0x36, 0x31,
-		0x34, 0x31, 0x35, 0x32, 0x39, 0x00, 0x05, 0x46,
-		0x41, 0x4d, 0x49, 0x4f, 0x00, 0x06, 0xad, 0xae,
-		0xef, 0xa1, 0xe0, 0xec,
-	};
-	fmenu = true;
-//	pos_set_state(pos_idle);
-//	show_pos();
-	return pos_test(data, sizeof(data));
-}
-#endif
 
 uint16_t term_check_sum = 0;	/* контрольная сумма терминала */
 
@@ -383,7 +283,7 @@ static bool set_term_defaults(void)
 	cfg.xprn_number[0] = 0;
 	cfg.has_aprn = false;
 	cfg.aprn_number[0] = 0;
-	cfg.has_sprn = false;
+	cfg.has_sprn = true;
 	cfg.s0 = 0;
 	cfg.s1 = 0;
 	cfg.s2 = 0;
@@ -394,6 +294,7 @@ static bool set_term_defaults(void)
 	cfg.s7 = 0;
 	cfg.s8 = 0;
 	cfg.s9 = 0;
+	cfg.tickets_on_kkt = false;
 
 	cfg.use_ppp = false;
 	cfg.local_ip = 0;
@@ -475,8 +376,8 @@ static bool load_term_props(void)
 /* Чтение номеров ключей DALLAS из файла tki */
 void get_dallas_keys(void)
 {
-	get_tki_field(&tki, TKI_SRV_KEYS, (uint8_t *)srv_keys);
-	get_tki_field(&tki, TKI_DBG_KEYS, (uint8_t *)dbg_keys);
+	get_tki_field(&tki, TKI_SRV_KEYS, (uint8_t *)srv_keys, sizeof(srv_keys));
+	get_tki_field(&tki, TKI_DBG_KEYS, (uint8_t *)dbg_keys, sizeof(dbg_keys));
 }
 
 /* Определение типа ключа DS1990A */
@@ -625,6 +526,7 @@ const char *find_term_astate(intptr_t ast, bool *x3_err)
 		{ast_pos_error,		"Ошибка ИПТ"},
 		{ast_pos_need_init,	"Проинициализируйте ИПТ"},
 		{ast_no_kkt,		"ККТ не обнаружена"},
+		{ast_kkt_error,		"Ошибка ККТ"},
 	};
 	static char buf[MAX_TERM_ASTATE_LEN + 2];	/* для учёта 0x01 */
 	const char *ret = NULL;
@@ -732,7 +634,7 @@ bool set_term_astate(intptr_t ast)
 	if ((str = find_term_astate(ast, &x3_err)) != NULL){
 		_term_aux_state = ast;
 		scr_set_rstatus(str);
-		if (x3_err && (req_type != req_regular))
+		if (x3_err && (req_type != req_regular) && (req_type != req_pos_cheque))
 			x3data_sync_report_dlg();
 		ret = true;
 	}
@@ -748,7 +650,8 @@ bool set_term_led(char c)
 void show_dest(int dst)
 {
 	switch (dst){
-		case dst_text:
+		case dst_scr:
+		case dst_scr2:
 			set_term_state(st_scr);
 			break;
 		case dst_xprn:
@@ -774,16 +677,17 @@ void show_ndest(int n)
 	p=&map[n];
 	if (!p->handled){	/* Абзац не обработан */
 		switch (p->dst){
-			case dst_text:
+			case dst_scr:
+			case dst_scr2:
 			case dst_keys:
 			case dst_hash:
 			case dst_kkt:
 			case dst_log:
+			case dst_sprn:
 				set_term_astate(ast_resp);
 				astate_for_req = ast_resp;
 				break;
 			case dst_xprn:
-			case dst_sprn:
 			case dst_kprn:
 			case dst_aprn:
 				set_term_astate(ast_prn);
@@ -811,7 +715,7 @@ bool set_term_busy(bool busy)
 /* Информация о текущем состоянии терминала */
 struct term_info{
 	int st;		/* st_* */
-	int ast;	/* ast_* */
+	intptr_t ast;	/* ast_* */
 	int m;
 	bool scr_visible;
 	bool cursor_visible;
@@ -960,6 +864,7 @@ void release_garbage(void)
 }
 
 /* Получение заголовка главного окна терминала */
+#if 0
 char *get_main_title(void)
 {
 	snprintf(main_title, sizeof(main_title), MAIN_TITLE " ("
@@ -970,6 +875,17 @@ char *get_main_title(void)
 		use_integrator ? "ИНТЕГРАТОР" : "ХОСТ");
 	return main_title;
 }
+#else
+char *get_main_title(void)
+{
+	snprintf(main_title, sizeof(main_title), MAIN_TITLE " ("
+		_s(STERM_VERSION_MAJOR) "."
+		_s(STERM_VERSION_MINOR) "."
+		_s(STERM_VERSION_RELEASE) ")  [%s]",
+		use_integrator ? "ИНТЕГРАТОР" : "ХОСТ");
+	return main_title;
+}
+#endif
 
 #if 0
 /* Вывод на экран сообщения об ошибке чтения заводского номера ППУ */
@@ -1143,6 +1059,11 @@ static void init_devices(void)
 static void init_term(bool need_init)
 {
 	bool flag = xlog_active || plog_active || klog_active;
+#if defined NDEBUG
+	set_log_lvl(Info);
+#else
+	set_log_lvl(Debug);
+#endif
 	can_reject = false;
 	err_ptr = NULL;
 	set_term_state(st_stop_iplir);
@@ -1196,7 +1117,7 @@ static void init_term(bool need_init)
 	resp_handling = resp_executing = false;
 	if (cfg.bank_system)
 		pos_init_transactions();
-	clear_bank_info();
+	reset_bank_info();
 	rollback_keys(true);
 	apc = false;
 	init_devices();
@@ -1267,11 +1188,6 @@ static inline bool open_logs(void)
 
 static bool create_term(void)
 {
-#if defined _DEBUG
-	set_log_lvl(Debug);
-#else
-	set_log_lvl(Error);
-#endif
 	if (!read_tki(STERM_TKI_NAME, false))
 		return false;
 	set_sigterm_handler();
@@ -1290,7 +1206,8 @@ static bool create_term(void)
 		fprintf(stderr, "Ошибка инициализации ИПТ.\n");
 		return false;
 	}
-	clear_bank_info();
+	clear_bank_info(&bi, true);
+	clear_bank_info(&bi_pos, true);
 	init_keys();
 	rom = create_hash(ROM_BUF_LEN);
 	if (rom == NULL){
@@ -1498,6 +1415,7 @@ static bool bad_repeat(struct kbd_event *e)
 	uint16_t ctrl_keys[] = {
 		KEY_LCTRL,
 		KEY_RCTRL,
+		KEY_A,		/* Ctrl+Ф -- циклическое переключение разрешения экрана */
 		KEY_G,		/* Ctrl+П -- печать копии экрана */
 		KEY_I,		/* Ctrl+I -- информация о терминале */
 		KEY_J,		/* Ctrl+О -- просмотр обмена в канале */
@@ -1535,6 +1453,7 @@ static int handle_kbd(struct kbd_event *e, bool check_scr, bool busy)
 		uint16_t key;
 		int cm;
 	} ctrl_keys[] = {
+		{KEY_A, cmd_switch_res},	/* изменение разрешения экрана */
 		{KEY_G, cmd_snap_shot},		/* печать копии экрана */
 		{KEY_H, cmd_view_klog},		/* просмотр ККЛ */
 		{KEY_I, cmd_term_info},		/* информация о терминале */
@@ -1548,6 +1467,7 @@ static int handle_kbd(struct kbd_event *e, bool check_scr, bool busy)
 		{KEY_T, cmd_view_error},	/* ошибка в тексте ответа */
 		{KEY_X, cmd_view_plog},		/* просмотр БКЛ */
 		{KEY_Z,	cmd_ticket_number},	/* чтение номера БСО в пригородном режиме */
+		{KEY_COMMA, cmd_pos},		/* вызов POS-терминала */
 		{KEY_F10, cmd_exit},		/* выход */
 	},
 	keys[] = {
@@ -1855,6 +1775,7 @@ static int handle_ping(struct kbd_event *e)
 	return cmd_none;
 }
 
+static void show_pos(void);
 static void show_cheque_fa(void);
 
 /* Завершение работы банковского приложения */
@@ -1894,6 +1815,7 @@ static void on_end_pos(void)
 				apc = fa_active;
 				break;
 			case DLG_BTN_RETRY:
+				rollback_bank_info();
 				reset_bi = false;
 /* FIXME: в этом случае по окончании работы с ИПТ мы не посылаем INIT CHECK (pos_new) */
 				if (pos_get_state() == pos_finish)
@@ -1909,7 +1831,7 @@ static void on_end_pos(void)
 	if (!apc && (pos_err_xdesc != NULL))
 		set_term_astate(ast_pos_error);
 	if (reset_bi)
-		clear_bank_info();
+		reset_bank_info();
 	if (!apc)
 		redraw_term(true, main_title);
 }
@@ -2059,8 +1981,8 @@ void reject_req(void)
 		mark_all();
 		show_req();
 		set_term_astate(ast_none);
-/*		if (cfg.bank_system)
-			rollback_bank_info();*/		/* FIXME */
+		if (cfg.bank_system)
+			rollback_bank_info();
 		reject();
 		xlog_write_rec(hxlog, NULL, 0, XLRT_REJECT, log_para++);
 	}else{
@@ -2154,6 +2076,7 @@ static void show_resp(void)
 			cur_para %= n_paras;
 			n++;
 			if (can_show(map[cur_para].dst)){
+				set_resp_mode(m80x20);
 				int l = handle_para(cur_para);
 				if (map[cur_para].scr_mode == m_undef)
 					set_scr_text(text_buf, l, txt_rich, true);
@@ -2315,7 +2238,7 @@ static void show_klog(void)
 	if (!cfg.has_kkt){
 		set_term_astate(ast_illegal);
 		err_beep();
-	}{
+	}else{
 		online = false;
 		guess_term_state();
 		push_term_info();
@@ -2382,12 +2305,13 @@ static void show_ping(void)
 }
 
 /* Показать окно POS-терминала */
-void show_pos(void)
+static void show_pos(void)
 {
 #define POS_WIDTH		32
 #define POS_HEIGHT		8
 	GCPtr pGC;
-	if (!cfg.bank_system || !cfg.has_xprn){
+	if (!cfg.bank_system || !(cfg.tickets_on_kkt || cfg.has_xprn) ||
+			TST_FLAG(ZBp, GDF_REQ_INIT | GDF_REQ_FIRST)){
 		set_term_astate(ast_illegal);
 		err_beep();
 	}else if (pos_get_state() != pos_idle){
@@ -2400,8 +2324,6 @@ void show_pos(void)
 		set_term_astate(ast_none);
 		push_term_info();
 		set_term_busy(true);
-		ClearScreen(clBtnFace);
-		redraw_term(false, main_title);
 		set_scr_mode(m32x8, true, false);
 		hide_cursor();
 /*		scr_visible = false;*/
@@ -2411,6 +2333,7 @@ void show_pos(void)
 		if (pos_screen_create((DISCX - font32x8->max_width * POS_WIDTH) / 2,
 				44, POS_WIDTH, POS_HEIGHT, 4, 4, font32x8,
 				bmp_up, bmp_down)){
+			add_bank_info();
 			pos_screen_draw();
 			pos_set_state(pos_init);
 		}else{
@@ -2427,10 +2350,9 @@ static inline void show_no_kkt(void){
 
 /* Показать окно фискального приложения */
 static void show_fa_with_arg(int arg) {
-//	if (!cfg.has_kkt || (kkt == NULL))
-//		show_no_kkt();
-//	else 
-if (!fa_active){
+	if (!cfg.has_kkt || (kkt == NULL))
+		show_no_kkt();
+	else if (!fa_active){
 		online = false;
 		guess_term_state();
 		push_term_info();
@@ -2451,11 +2373,30 @@ static void show_cheque_fa(void)
 	show_fa_with_arg(cmd_cheque_fa);
 }
 
+static const char *get_kkt_patterns_ver(void)
+{
+	static char patterns_dt[19];
+	const char *patterns_ver = get_local_patterns_ver();
+	struct tm *patterns_tm = NULL;
+	if (patterns_ver != NULL){
+		time_t t = jul_date_to_unix_date(patterns_ver);
+		if (t != -1)
+			patterns_tm = localtime(&t);
+	}
+	if (patterns_ver == NULL)
+		snprintf(patterns_dt, sizeof(patterns_dt), "неизвестно");
+	else if (patterns_tm == NULL)
+		snprintf(patterns_dt, sizeof(patterns_dt), "%s (неизвестно)", patterns_ver);
+	else
+		snprintf(patterns_dt, sizeof(patterns_dt), "%s (%.2u.%.2u.%.4u)",
+			patterns_ver, patterns_tm->tm_mday, patterns_tm->tm_mon + 1,
+			patterns_tm->tm_year + 1900);
+	return patterns_dt;
+}
+
 /* Вывод на экран информации о терминале */
 static void show_term_info(void)
 {
-	static char buf[512];
-	term_number tn;
 	online = false;
 	guess_term_state();
 	set_term_astate(ast_none);
@@ -2463,14 +2404,17 @@ static void show_term_info(void)
 	hide_cursor();
 	scr_visible = false;
 	set_term_busy(true);
-	get_tki_field(&tki, TKI_NUMBER, (uint8_t *)tn);
+	term_number tn;
+	get_tki_field(&tki, TKI_NUMBER, tn, sizeof(tn));
 	init_devices();
+	static char buf[512];
 	snprintf(buf, sizeof(buf),
 		"%29s: \"Экспресс-2А-К\"\n"
 		"%29s:  " _s(STERM_VERSION_MAJOR) "."
 		_s(STERM_VERSION_MINOR) "." _s(STERM_VERSION_RELEASE) "\n"
 		"%29s:  %.4hX\n"
 		"%29s:  %.*s\n"
+		"%29s:  %s\n"
 		"%29s:  %s (%s)\n"
 		"%29s:  %s\n"
 		"%29s:  %s\n"
@@ -2479,6 +2423,7 @@ static void show_term_info(void)
 		"Терминал", "Код версии",
 		"CRC", term_check_sum,
 		"Серийный номер", isizeof(tn), tn,
+		"Шаблоны печати ФД", get_kkt_patterns_ver(),
 		"IP хост-ЭВМ", inet_ntoa(dw2ip(get_x3_ip())),
 		cfg.use_p_ip ? "осн." : "доп.",
 		"Лицензия ИПТ", bank_ok ? "Есть" : "Нет",
@@ -2486,9 +2431,6 @@ static void show_term_info(void)
 		"Изготовитель", "Esc");
 	ClearScreen(clBlack);
 	message_box("Информация о терминале", buf, dlg_none, 0, al_left);
-#if defined _DEBUG
-	do_test();
-#endif
 	online = true;
 	pop_term_info();
 	ClearScreen(clBtnFace);
@@ -2911,11 +2853,13 @@ static void show_kkt_info(void)
 		show_no_kkt();
 		return;
 	}
+	fa_get_reregistration_data();
 	static char txt[4096];
 	snprintf(txt, sizeof(txt),
 			"%29s: \"%s\"\n"	/* ККТ */
 			"%29s:  %s\n"		/* Заводской номер ККТ */
-			"%29s:  %s\n"		/* Версия ПО */
+			"%29s:  %s, "		/* Версия ПО */
+			"%15s: %s\n"		/* Шаблоны печати ФД */
 			"%29s:  %s\n\n"		/* Показания RTC */
 
 			"%29s:  %s\n"		/* Заводской номер ФН */
@@ -2924,7 +2868,7 @@ static void show_kkt_info(void)
 			"%29s:  %s\n"		/* Фаза жизни ФН */
 			"%29s:  %s\n"		/* Текущий документ */
 			"%29s:  %s (%u)\n"	/* Смена */
-			"%29s:  %s\n"		/* ИНН кассира */
+			"%29s:  %lu\n"		/* ИНН кассира */
 			"%29s:  %s\n"		/* Предупреждения */
 			"%29s:  %u (%s %s)\n"	/* Последний сформ. документ */
 			"%29s:  %s\n"		/* Без квитанции ОФД */
@@ -2945,14 +2889,17 @@ static void show_kkt_info(void)
 			"%29s:  %u.%u.%u.%u\n"	/* IP-адрес ОФД */
 			"%29s:  %hu\n"		/* TCP-порт ОФД */
 
-			"%29s:  %s\n"		/* SUPPORT_1222_1224_1225 */
-			"%29s:  %s\n"		/* COMP1057WO1171 */
-			"%29s:  %s\n"		/* SUPPORT_NULL_IN_TEMPLATE */
-			"%29s:  %s\n"		/* SUPPORT_FRAGMENTATION */
-			"%29s:  %s\n",		/* SUPPORT_ESC_R */
+			"%29s:  %s, "		/* SUPPORT_1222_1224_1225 */
+			"%35s:  %s\n"		/* COMP1057WO1171 */
+			"%29s:  %s, "		/* SUPPORT_NULL_IN_TEMPLATE */
+			"%35s:  %s\n"		/* SUPPORT_FRAGMENTATION */
+			"%29s:  %s, "		/* SUPPORT_ESC_R */
+			"%35s:  %s\n"		/* SUPPORT_VAT_5_7 */
+			"%29s:  %s\n",		/* SUPPORT_VAT_22 */
 		"ККТ", kkt->name,
 		"Заводской номер ККТ", (kkt_nr == NULL) ? "НЕ УСТАНОВЛЕН" : kkt_nr,
 		"Версия ПО", (kkt_ver == NULL) ? "НЕИЗВЕСТНО" : kkt_ver,
+		"Шаблоны печати ФД", get_kkt_patterns_ver(),
 		"Показания RTC", rtc_ok ? fs_rtc_str(&rtc) : "НЕИЗВЕСТНО",
 		"Заводской номер ФН", (kkt_fs_nr == NULL) ? "НЕИЗВЕСТНО" : kkt_fs_nr,
 		"Версия ФН", fs_version.version,
@@ -2961,7 +2908,7 @@ static void show_kkt_info(void)
 		"Текуший документ", fs_status_ok ? fs_doc_type_str(fs_status.current_doc) : "НЕТ",
 		"Смена", fs_shift_ok ? (fs_shift_state.opened ? "Открыта" : "Закрыта") : "НЕТ",
 		fs_shift_ok ? fs_shift_state.shift_nr : 0,
-		"ИНН кассира", cashier_get_inn(),
+		"ИНН пользователя", user_inn,
 		"Предупреждения", fs_status_ok ? fs_alert_str(fs_status.alert_flags) : "НЕТ",
 		"Последний сформ. документ", fs_status_ok ? fs_status.last_doc_nr : 0,
 		fs_status_ok ? fs_date_str(&fs_status.dt.date) : "00.00.0000",
@@ -2990,7 +2937,9 @@ static void show_kkt_info(void)
 		"Теги ФФД 1057 без 1171", kkt_has_param("COMP1057WO1171") ? "да" : "нет",
 		"Отказ от печати ФД", kkt_has_param("SUPPORT_NULL_IN_TEMPLATE") ? "да" : "нет",
 		"Печать фрагментами", kkt_has_param("SUPPORT_FRAGMENTATION") ? "да" : "нет",
-		"Печать шаблонами", kkt_has_param("SUPPORT_ESC_R") ? "да" : "нет"
+		"Печать шаблонами", kkt_has_param("SUPPORT_ESC_R") ? "да" : "нет",
+		"Поддержка ставок НДС 5% и 7%", kkt_has_param("SUPPORT_VAT_5_7") ? "да" : "нет",
+		"Поддержка ставки НДС 22%", kkt_has_param("SUPPORT_VAT_22") ? "да" : "нет"
 	);
 	online = false;
 	guess_term_state();
@@ -3004,6 +2953,13 @@ static void show_kkt_info(void)
 	pop_term_info();
 	ClearScreen(clBtnFace);
 	redraw_term(true, main_title);
+}
+
+/* Циклическое переключение разрешеня экрана терминала */
+void switch_term_mode(void)
+{
+	if (!scr_is_resp())
+		switch_scr_mode(true);
 }
 
 /* Преобразование номера необработанных абзацев в H-байт */
@@ -3099,9 +3055,9 @@ static void print_text(void)
 	redraw_term(true, main_title);	/* в handle_menu вызывается только при нажатии Esc */
 	if ((use_xprn && cfg.has_xprn) || (!use_xprn && cfg.has_aprn)){
 		if (scr_is_req()){
-			char buf[N_XPRN_CHARS + 4];
+			uint8_t buf[N_XPRN_CHARS + 4];
 			int l = scr_get_24(buf, N_XPRN_CHARS, true);
-			recode_str(buf, l);
+			recode_str((char *)buf, l);
 			if (use_xprn)
 				xprn_print(buf, l);
 			else
@@ -3345,7 +3301,7 @@ static void print_sshot(void)
 			bool busy = term_busy;
 			guess_term_state();
 			set_term_busy(true);
-			xprn_print((char *)buf, m);
+			xprn_print(buf, m);
 			set_term_busy(busy);
 		}
 		scr_show_mode(true);
@@ -3424,11 +3380,11 @@ static int need_pos(void)
 				int64_t s = ads.cashless_total_sum;
 				if (s < 0)
 					s *= -1;
-/*				bi.amount1 = s / 100;
+				bi.amount1 = s / 100;
 				bi.amount2 = ((s % 100) + 5) / 10;
 				if (ads.order_id > 0)
 					bi.id = ads.order_id;
-				clear_bank_info(&bi_pos, true);*/	/* FIXME */
+				clear_bank_info(&bi_pos, true);
 				ret = 1;
 			}
 		}
@@ -3608,7 +3564,8 @@ static void on_response(bool *need_sync_dev_data)
 #endif
 	if (ssaver_active)
 		scr_wakeup();
-	release_garbage();
+	if (req_type != req_pos_cheque)
+		release_garbage();
 	resp_handling = true;
 	clear_hash(prom);
 	err_ptr = check_syntax(resp_buf + text_offset, text_len, &ecode);
@@ -3672,6 +3629,8 @@ static void on_response(bool *need_sync_dev_data)
 				set_term_busy(false);
 		}
 	}else{
+		if (req_type == req_pos_cheque)
+			release_garbage();
 		SET_FLAG(ZBp, GDF_REQ_SYNTAX);
 		resp_handling = false;
 		if (s_state == ss_initializing){
@@ -3761,6 +3720,7 @@ static bool process_term(void)
 		{cmd_help,		show_help,		true},
 		{cmd_exit,		NULL,			false},
 		{cmd_reset,		__reset_term,		true},
+		{cmd_switch_res,	switch_term_mode,	true},
 		{cmd_enter,		send_request,		true},
 		{cmd_print,		print_text,		true},
 		{cmd_view_xlog,		show_xlog,		true},
@@ -3799,6 +3759,7 @@ static bool process_term(void)
 		{cmd_print_plog_range,	print_plog_range,	true},
 		{cmd_find_plog_date,	find_plog_date,		true},
 		{cmd_find_plog_number,	find_plog_number,	true},
+		{cmd_pos,		show_pos,		true},
 		{cmd_term_info,		show_term_info,		true},
 		{cmd_iplir_version,	show_iplir_version,	true},
 		{cmd_kkt_info,		show_kkt_info,		true},

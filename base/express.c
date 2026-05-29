@@ -1,6 +1,6 @@
 /*
  * Синтаксический разбор и обработка текста ответа из "Экспресс".
- * (c) gsr 2009-2020, 2022, 2024.
+ * (c) gsr 2009-2020, 2022, 2024-2025.
  */
 
 #include <ctype.h>
@@ -38,6 +38,7 @@ int req_type = req_regular;
 static uint32_t log_number;		/* номер текущей записи на КЛ при обработке ответа */
 uint32_t log_para = 0;			/* номер абзаца ответа на ЦКЛ при обработке ответа */
 
+#if 0
 /* Информация для ИПТ */
 struct bank_data bd;
 
@@ -57,7 +58,6 @@ ssize_t get_bank_info(struct bank_info *items, size_t nr_items)
 		ret = nr_items;
 	for (size_t i = 0; i < nr_items; i++){
 		struct bank_info *p = items + i;
-		p->t0 = time(NULL);
 		p->req_id = bd.req_id;
 		strncpy(p->term_id, bd.term_id, BNK_TERM_ID_LEN);
 		p->term_id[BNK_TERM_ID_LEN] = 0;
@@ -72,6 +72,51 @@ ssize_t get_bank_info(struct bank_info *items, size_t nr_items)
 	}
 	return ret;
 }
+#endif
+
+/* Информация для ИПТ */
+struct bank_info bi;
+struct bank_info bi_pos;
+
+/* Очистка содержимого структуры */
+void clear_bank_info(struct bank_info *p, bool full)
+{
+	if (full){
+		p->id = 0;
+		memset(p->termid, 0x30, sizeof(p->termid));
+/*		memset(&p->dt, 0, sizeof(p->dt));*/
+	}
+	p->amount1 = p->amount2 = 0;
+}
+
+/* Сброс содержимого обеих областей памяти */
+void reset_bank_info(void)
+{
+	clear_bank_info(&bi, false);
+	clear_bank_info(&bi_pos, false);
+}
+
+/* Добавление содержимого первой области ко второй */
+void add_bank_info(void)
+{
+	bi_pos.id = bi.id;
+	memcpy(bi_pos.termid, bi.termid, sizeof(bi.termid));
+/*	memcpy(&bi_pos.dt, &bi.dt, sizeof(bi.dt));*/
+	bi_pos.amount1 += bi.amount1;
+	bi_pos.amount2 += bi.amount2;
+	while (bi_pos.amount2 > 10){
+		bi_pos.amount1++;
+		bi_pos.amount2 -= 10;
+	}
+}
+
+/* Возврат к предыдущему значению */
+void rollback_bank_info(void)
+{
+	memcpy(&bi, &bi_pos, sizeof(bi));
+	clear_bank_info(&bi_pos, false);
+}
+
 
 /* Проверка атрибутов символа (Ар2 V) */
 static bool check_attr(uint8_t bg, uint8_t fg)
@@ -170,84 +215,6 @@ static uint8_t *check_bcode(uint8_t *p, int l, int *ecode)
 	if (st == st_stop)
 		*ecode = E_OK;
 	return p + i - 1;
-}
-
-/* Проверка команды нанесения штрихового кода для ППУ (Ар2 0x1a) */
- __attribute__((unused)) static uint8_t *check_bcode2(uint8_t *p, int l, int *ecode)
-{
-	enum {
-		st_type,
-		st_x,
-		st_y,
-		st_number,
-		st_len,
-		st_data,
-		st_stop,
-	};
-	int i, n = 0, data_len = 0, st = st_type;
-	uint8_t b;
-	*ecode = E_BCODE;
-	if ((p == NULL) || (l <= 0))
-		return p;
-	for (i = 0; (i < l) && (st != st_stop); i++){
-		b = p[i];
-		switch (st){
-			case st_type:
-				if (isdigit(b)){
-					n = 0;
-					st = st_x;
-				}else
-					return p + i;
-				break;
-			case st_x:
-				if ((n == 0) && (b == 0x3b))
-					st = st_number;
-				else if (!isdigit(b))
-					return p + i;
-				else if (++n == 3){
-					n = 0;
-					st = st_y;
-				}
-				break;
-			case st_y:
-				if (!isdigit(b))
-					return p + i;
-				else if (++n == 3){
-					n = 0;
-					st = st_len;
-				}
-				break;
-			case st_number:
-				if ((b != 0x31) && (b != 0x32) && (b != 0x33))
-					return p + i;
-				n = 0;
-				st = st_len;
-				break;
-			case st_len:
-				if (!isdigit(b))
-					return p + i;
-				data_len *= 10;
-				data_len += b - 0x30;
-				if (++n == 3){
-					if (data_len == 0)
-						return p + i - 2;
-					else{
-						n = 0;
-						st = st_data;
-					}
-				}
-				break;
-			case st_data:
-				if (b < 0x30)
-					return p + i;
-				else if (++n == data_len)
-					st = st_stop;
-				break;
-		}
-	}
-	if (st == st_stop)
-		*ecode = E_OK;
-	return p + i;
 }
 
 /*
@@ -357,11 +324,6 @@ static uint8_t *check_kkt_bcode(uint8_t *p, size_t l, int *ecode,
 			memcpy(dst + dst_idx, p + idx, bc->len);
 			dst_idx += bc->len;
 			idx += bc->len;
-			FILE *f = fopen("bcode.bin", "wb");
-			if (f != NULL){
-				fwrite(dst, dst_idx, 1, f);
-				fclose(f);
-			}
 		}
 	}
 	if (dst_len != NULL)
@@ -456,7 +418,7 @@ static uint8_t *check_prom(uint8_t *txt, int l, int *ecode, int dst)
 					}else if (!check_attr(p[0], p[1])){
 						*ecode = E_ILLATTR;
 						return p;
-					}else if (dst != dst_text){
+					}else if (dst != dst_scr){
 						*ecode = E_MISPLACE;
 						return p - 2;
 					}
@@ -652,237 +614,96 @@ static uint8_t *check_rom(uint8_t *txt, int l, int *ecode)
 	return p;
 }
 
-/* Проверка банковского абзаца */
-static uint8_t *check_bank_info(uint8_t *txt, int l, int *ecode)
+/* Проверка абзаца для ИПТ */
+static uint8_t *check_bank_info(uint8_t *txt, int l, size_t id_len, int *ecode)
 {
 	enum {
-		st_req_id,
-		st_term_id,
-		st_op_type,
-		st_ticket,
-		st_reissue,
-		st_reissue_nr,
-		st_blank_nr,
-		st_amount_quot,
-		st_amount_rem,
-		st_doc_end,
+		st_id,
+		st_termid,
+		st_amount,
 		st_stop,
 		st_err,
 	};
-	int i, st = st_req_id, n = 0, m = 0;
+	int i, st = st_id, n = 0;
 	uint8_t b;
-	*ecode = E_BANK;
+	*ecode = E_OK;
 	for (i = 0; (i < l) && (st != st_stop) && (st != st_err); i++){
 		b = txt[i];
 		switch (st){
-			case st_req_id:
-				if (n < BNK_REQ_ID_LEN){
-					if (!isdigit(b))
-						st = st_err;
-				}else if (n == BNK_REQ_ID_LEN){
-					if (b == ';'){
-						n = 0;
-						st = st_term_id;
-					}else
-						st = st_err;
-				}
-				if (st == st_req_id)
+			case st_id:
+				if (!isdigit(b))
+					st = st_err;
+				else{
 					n++;
-				break;
-			case st_term_id:
-				if (n == BNK_TERM_ID_LEN){
-					if (b == ';'){
+					if (n == id_len){
 						n = 0;
-						st = st_op_type;
-					}else
-						st = st_err;
+						st = st_termid;
+					}
 				}
-				if (st == st_term_id)
-					n++;
 				break;
-			case st_op_type:
-				if (n == 0){
-					if ((b != '+') && (b =! '-') && (b != '*'))
-						st = st_err;
-				}else if (b == ';'){
+			case st_termid:
+				n++;
+				if (n == BANK_TERM_ID_LEN){
 					n = 0;
-					st = st_ticket;
-				}else
-					st = st_err;
-				if (st == st_op_type)
-					n++;
-				break;
-			case st_ticket:
-				if (n == 0){
-					if ((b != 'p') && (b != 'u'))
-						st = st_err;
-				}else if (b == ';'){
-					n = 0;
-					st = st_reissue;
+					st = st_amount;
 				}
-				if (st == st_ticket)
-					n++;
 				break;
-			case st_reissue:
-				if (n == 0){
-					if (b == '1'){
-						n = 0;
-						st = st_reissue_nr;
-					}else if (b == ';')
-						st = st_blank_nr;
-					else if (b != '0')
+			case st_amount:
+				if (n == BANK_AMOUNT_QUOT_LEN){
+					if (b != '.')
 						st = st_err;
-				}else if (b == ';')
-					st = st_blank_nr;
-				else
+				}else if (!isdigit(b))
 					st = st_err;
-				if (st == st_reissue)
-					n++;
-				break;
-			case st_reissue_nr:
-				if (n == 0){
-					if (b != '(')
-						st = st_err;
-				}else if (n < (BNK_BLANK_NR_LEN + 1)){
-					if (!isdigit(b) && ((i < 2) || (b > 4)))
-						st = st_err;
-				}else if (n == (BNK_BLANK_NR_LEN + 1)){
-					if (b != ')')
-						st = st_err;
-				}else if (b == ';'){
-					n = m = 0;
-					st = st_blank_nr;
-				}else
-					st = st_err;
-				if (st == st_reissue_nr)
-					n++;
-				break;
-			case st_blank_nr:
-				if (n < BNK_BLANK_NR_LEN){
-					if (!isdigit(b))
-						st = st_err;
-				}else if (b == '/'){
-					n = 0;
-					st = st_amount_quot;
-				}else
-					st = st_err;
-				if (st == st_blank_nr)
-					n++;
-				break;
-			case st_amount_quot:
-				if (isdigit(b)){
-					if (n == BNK_AMOUNT_MAX_LEN)
-						st = st_err;
-					else if ((i + 1) == l)
-						st = st_stop;
-				}else if (b == '.'){
-					if ((n > 0) && ((n + 1) < BNK_AMOUNT_MAX_LEN))
-						st = st_amount_rem;
-					else
-						st = st_err;
-				}else{
-					i--;
-					st = st_doc_end;
-				}
-				if (st == st_amount_quot)
-					n++;
-				break;
-			case st_amount_rem:
-				if (isdigit(b)){
-					if (n == BNK_AMOUNT_MAX_LEN)
-						st = st_err;
-					else if ((i + 1) == l)
-						st = st_stop;
-				}else{
-					i--;
-					st = st_doc_end;
-				}
-				if (st == st_amount_rem)
-					n++;
-				break;
-			case st_doc_end:
-				if (b == ';'){
-					m++;
-					if (m < BNK_MAX_DOCS){
-						n = 0;
-						st = st_blank_nr;
-					}else
-						st = st_err;
-				}else
-					st = st_err;
+				if ((st != st_err) && (++n == BANK_AMOUNT_LEN))
+					st = st_stop;
 				break;
 		}
 	}
-	if (st == st_stop)
-		*ecode = E_OK;
+	if (st != st_stop)
+		*ecode = E_BANK;
 	return txt + i;
 }
 
-/* Сканирование банковского абзаца (синтаксис уже проверен) */
-static void scan_bank_info(uint8_t *txt)
+static uint64_t read_uint64(const uint8_t *data, size_t n)
 {
-	clear_bank_info();
-	int idx = 0;
-/* Номер заказа в системе */
-	size_t len;
-	read_var_uint(txt, &len, BNK_REQ_ID_LEN, &bd.req_id);
-	idx += BNK_REQ_ID_LEN + 1;
-/* Технологический номер терминала */
-	memcpy(bd.term_id, txt + idx, BNK_TERM_ID_LEN);
-	bd.term_id[BNK_TERM_ID_LEN] = 0;
-	idx += BNK_TERM_ID_LEN + 1;
-/* Тип платежа */
-	bd.op = txt[idx];
-	idx += 2;
-/* ОД/ПВД */
-	bd.ticket = txt[idx] == 'p';
-	idx += 2;
-/* Признак переоформления */
-	if (txt[idx] == '0'){
-		bd.repayment = '0';
-		idx += 2;
-	}else if (txt[idx] == '1'){
-		bd.repayment = '1';
-		idx += 2;
-		memcpy(bd.prev_blank_nr, txt + idx, BNK_BLANK_NR_LEN);
-		bd.prev_blank_nr[BNK_BLANK_NR_LEN] = 0;
-		idx += BNK_BLANK_NR_LEN + 2;
-	}else{
-		bd.repayment = 0;
-		idx++;
-	}
-/* Информация о документах в заказе */
-	for (int i = 0; i < BNK_MAX_DOCS; i++){
-		if (!isdigit(txt[idx]))
+	if ((data == NULL) || (n > 20))
+		return 0;
+	uint64_t ret = 0;
+	for (size_t i = 0; i < n; i++){
+		uint8_t b = data[i];
+		if ((b >= 0x30) && (n <= 0x39)){
+			ret *= 10;
+			ret += b - 0x30;
+		}else{
+			ret = 0;
 			break;
-		struct bank_doc_info *di = bd.doc_info + i;
-		memcpy(di->blank_nr, txt + idx, BNK_BLANK_NR_LEN);
-		di->blank_nr[BNK_BLANK_NR_LEN] = 0;
-		idx += BNK_BLANK_NR_LEN + 1;
-		uint64_t q = 0, r = 0;
-		bool quot = true;
-		for (int j = 0; j < BNK_AMOUNT_MAX_LEN; j++){
-			uint8_t b = txt[idx++];
-			if (isdigit(b)){
-				b -= 0x30;
-				if (quot){
-					q *= 10;
-					q += b;
-				}else{
-					r *= 10;
-					r += b;
-				}
-			}else if (b == '.')
-				quot = false;
-			else if (b == ';')
-				break;
 		}
-		idx++;
-		if (r < 10)
-			r *= 10;
-		di->amount = q * 100 + r;
-		bd.nr_docs++;
 	}
+	return ret;
+}
+
+static inline uint32_t read_uint32(const uint8_t *data, size_t n)
+{
+	return (uint32_t)read_uint64(data, n);
+}
+
+static inline uint16_t read_uint16(const uint8_t *data, size_t n)
+{
+	return (uint16_t)read_uint64(data, n);
+}
+
+/* Сканирование абзаца для ИПТ */
+static void scan_bank_info(uint8_t *txt, size_t id_len)
+{
+	add_bank_info();
+	off_t offs = 0;
+	bi.id = read_uint64(txt + offs, id_len);
+	offs += id_len;
+	memcpy(&bi.termid, txt + offs, BANK_TERM_ID_LEN);
+	offs += BANK_TERM_ID_LEN;
+	bi.amount1 = read_uint32(txt + offs, BANK_AMOUNT_QUOT_LEN);
+	offs += BANK_AMOUNT_QUOT_LEN + BANK_AMOUNT_DELIM_LEN;
+	bi.amount2 = read_uint32(txt + offs, BANK_AMOUNT_DELIM_LEN);
 }
 
 /* Определение назначения абзаца ответа */
@@ -891,10 +712,13 @@ static int get_dest(uint8_t b)
 	int ret = dst_none;
 	switch (b){
 		case X_SCR:
-			ret = dst_text;
+			ret = dst_scr;
 			break;
 		case X_XPRN:
-			ret = dst_xprn;
+			if (!cfg.has_xprn && cfg.tickets_on_kkt)
+				ret = dst_scr2;
+			else
+				ret = dst_xprn;
 			break;
 		case X_APRN:
 			ret = dst_aprn;
@@ -935,9 +759,7 @@ static int get_dest(uint8_t b)
 
 static int para_len(int offset)
 {
-	int i, l = 0;
-	bool dle = false;
-	uint8_t p_end[] = {
+	static const uint8_t p_end[] = {
 		X_PARA_END_N,
 		X_SCR,
 		X_XPRN,
@@ -954,15 +776,18 @@ static int para_len(int offset)
 	};
 	if ((offset == -1) || (offset >= (text_offset + text_len)))
 		return 0;
-	for (i = offset; i < (text_offset + text_len); i++, l++){
+	int l = 0;
+	bool dle = false;
+	for (int i = offset; i < (text_offset + text_len); i++, l++){
+		uint8_t b = resp_buf[i];
 		if (dle){
 			dle = false;
-			if (memchr(p_end, resp_buf[i], sizeof(p_end)) != NULL){
+			if (memchr(p_end, b, sizeof(p_end)) != NULL){
 				l--;
 				break;
 			}
 		}else
-			dle = is_escape(resp_buf[i]);
+			dle = is_escape(b);
 	}
 	return l;
 }
@@ -1060,11 +885,10 @@ static uint8_t *check_sprn(uint8_t *txt, int l, int *ecode)
 				break;
 			case st_data_dle:
 				if ((b == X_PARA_END_N) || (b == X_PARA_END)){
-					if ((b1 == LPRN_FORM_FEED) ||
-							(b1 == LPRN_FORM_FEED1))
+					txt += i - 1;
+					if (b1 == LPRN_FORM_FEED)
 						st = st_ok;
 					else{
-						txt += i - 1;
 						*ecode = E_NO_LPRN_CUT;
 						st = st_err;
 					}
@@ -1106,6 +930,7 @@ static uint8_t *check_kprn(uint8_t *txt, int l, int n_para, int *ecode)
 					txt += xd->cmd_len;
 					st = st_data;
 				}else if ((b == X_PARA_END_N) || (b == X_PARA_END)){
+					txt -= 2;
 					if (xml || (b1 == KKT_FF) || (b1 == KKT_END_BLOCK))
 						st = st_ok;
 					else{
@@ -1121,7 +946,6 @@ static uint8_t *check_kprn(uint8_t *txt, int l, int n_para, int *ecode)
 		*ecode = E_NOPEND;
 	return txt;
 }
-
 
 /* Проверка XML для ККТ */
 static uint8_t *check_kkt_xml(uint8_t *txt, int l, int *ecode)
@@ -1156,7 +980,7 @@ static uint8_t *check_kkt_xml(uint8_t *txt, int l, int *ecode)
 	text_buf[len] = 0;
 	parse_kkt_xml((const char *)text_buf, true, kkt_xml_callback, ecode);
 	if (*ecode == E_OK)
-		ret = txt + len + 2;
+		ret = txt + len;
 	else
 		ret = txt;
 	return ret;
@@ -1168,15 +992,20 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 	uint8_t *p, *pp, *eptr, b;
 	int dst = get_dest(txt[-1]);
 	bool has_warray = false;
-	if ((txt == NULL) || (l <= 0) || (ecode == NULL) || (n_para < 0) || (n_para >= MAX_PARAS))
+	if ((txt == NULL) || (l <= 0) || (ecode == NULL) || (n_para < 0)){
+		if (ecode != NULL)
+			*ecode = E_UNKNOWN;
 		return NULL;
-	*ecode = E_OK;
-	if (para_len(txt - resp_buf) > TEXT_BUF_LEN){
+	}else if (n_para >= MAX_PARAS){
+		*ecode = E_MANY_PARAS;
+		return txt;
+	}else if (para_len(txt - resp_buf) > TEXT_BUF_LEN){
 		*ecode = E_BIGPARA;
 		return txt;
 	}
+	*ecode = E_OK;
 	if (dst == dst_sprn)
-		p = check_sprn(txt, l, ecode);
+		return check_sprn(txt, l, ecode);
 	else if (dst == dst_kprn)
 		return check_kprn(txt, l, n_para, ecode);
 	if (dst == dst_aprn)
@@ -1229,7 +1058,7 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 					if ((p + 2) > eptr){
 						*ecode = E_NOPEND;
 						return eptr - 1;
-					}else if (dst != dst_text){
+					}else if (dst != dst_scr){
 						*ecode = E_MISPLACE;
 						return p - 2;
 					}else if (!check_attr(p[0], p[1])){
@@ -1299,7 +1128,8 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 				case XPRN_WR_BCODE:
 				case XPRN_RD_BCODE:
 				case XPRN_NO_BCODE:
-					if ((dst != dst_xprn) && (dst != dst_aprn)){
+					if ((dst != dst_xprn) && (dst != dst_aprn) &&
+							(dst != dst_log) && (dst != dst_scr2)){
 						if ((b == XPRN_NO_BCODE) ||
 								((dst != dst_sprn) &&
 								 (dst != dst_log))){
@@ -1312,6 +1142,8 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 							*ecode = E_LCODEINBODY;
 							return p - 2;
 						}
+					}
+					if ((b == XPRN_WR_BCODE) || (b == XPRN_RD_BCODE)){
 						pp = check_bcode(p, txt + l - p, ecode);
 						if (*ecode != E_OK)
 							return pp;
@@ -1322,12 +1154,13 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 				case LPRN_INTERLINE:
 				case LPRN_NO_BCODE:
 				case LPRN_WR_BCODE2:
-					if ((dst != dst_sprn) && (dst != dst_log)){
+					if ((b == LPRN_NO_BCODE) && cfg.tickets_on_kkt &&
+							((dst == dst_xprn) || (dst == dst_scr2)))
+						break;
+					else if ((dst != dst_sprn) && (dst != dst_log)){
 						*ecode = E_MISPLACE;
 						return p - 2;
-					}
-					if (b == LPRN_WR_BCODE2){
-//						pp = check_bcode2(p, txt + l - p, ecode);
+					}else if (b == LPRN_WR_BCODE2){
 						pp = check_kkt_bcode(p, txt + l - p, ecode, NULL, NULL);
 						if (*ecode != E_OK)
 							return pp;
@@ -1356,8 +1189,10 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 						p = pp;
 					break;
 				default:
-					*ecode = E_UNKNOWN;
-					return p - 1;
+					if (dst != dst_log){
+						*ecode = E_UNKNOWN;
+						return p - 1;
+					}
 			}
 		}else
 			p++;
@@ -1435,7 +1270,7 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 					n_dsts++;
 					break;
 				case X_XPRN:
-					if (!cfg.has_xprn){
+					if (!cfg.has_xprn && !cfg.tickets_on_kkt){
 						*ecode = E_NODEVICE;
 						return p;
 					}
@@ -1451,12 +1286,21 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 						*ecode = E_NO_BANK;
 						return p - 2;
 					}
-					p = check_bank_info(p, txt + l - p, ecode);
+					p = check_bank_info(p, txt + l - p, para_len(p - resp_buf) == BANK_PARA_LEN_OLD ?
+						BANK_ID_LEN_OLD : BANK_ID_LEN_NEW, ecode);
 					if (*ecode != E_OK)
 						return p;
 					n_dsts++;
 					break;
 				case X_KPRN:
+					if (!cfg.has_kkt){
+						*ecode = E_NODEVICE;
+						return p -2;
+					}else if (kkt == NULL){
+						*ecode = E_NO_KKT;
+						return p -2;
+					}
+					goto main_chk;
 				case X_KKT:
 					if (!cfg.has_kkt || (kkt == NULL)){
 						*ecode = E_NO_KKT;
@@ -1467,6 +1311,7 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 					}
 					__fallthrough__;
 				case X_WR_LOG:
+				case X_SPRN:
 				case X_SCR:
 				case X_OUT:
 				case X_QOUT:
@@ -1534,7 +1379,7 @@ static void reset_resp_map(void)
 		map[i].log_handled = false;
 		map[i].jit_req = false;
 		map[i].delay = 0;
-		map[i].scr_mode = m_undef;
+		map[i].scr_mode = m80x20;
 	}
 	n_paras = 0;
 }
@@ -1550,7 +1395,7 @@ int make_resp_map(void)
 	bool next_para = false;
 	bool first_print = true;
 	reset_resp_map();
-	set_resp_mode(cfg.scr_mode);
+//	set_resp_mode(m80x20);
 	for (i = n = 0; (i <= text_len) && (n < MAX_PARAS); i++){
 		if (next_para){
 			next_para = false;
@@ -1593,7 +1438,7 @@ int make_resp_map(void)
 			}else{
 				switch (p[i]){
 					case X_80_20:
-						set_resp_mode(m80x20);
+//						set_resp_mode(m80x20);
 /*						set_scr_mode(m80x20, true, false);*/
 						break;
 					case X_SWRES:
@@ -1682,7 +1527,7 @@ int n_unhandled(void)
 /* Можно ли вывести абзац на экран */
 bool can_show(int dst)
 {
-	return	(dst == dst_text) || (dst == dst_xprn) ||
+	return	(dst == dst_scr) || (dst == dst_scr2) || (dst == dst_xprn) ||
 		(dst == dst_sprn) || (dst == dst_kprn) || (dst == dst_aprn) ||
 		(dst == dst_out) || (dst == dst_log);
 }
@@ -1797,7 +1642,8 @@ int handle_para(int n_para)
 	memset(buf, 0, TEXT_BUF_LEN);
 	memcpy(buf, resp_buf + pi->offset, l);
 	memset(text_buf, 0, sizeof(text_buf));
-	uint32_t n, m = 0, ll;
+	uint32_t n, m = 0, ll, nr_kkt_bcodes = 0;
+	bool kkt_bcode_handled = false;
 	do {
 		n = 0;
 		uint8_t *p = buf;
@@ -1890,11 +1736,12 @@ int handle_para(int n_para)
 						break;
 					}
 					case LPRN_WR_BCODE2:
-						if (m == 0){	/* штрих-код обрабатывается только один раз */
+						if (!kkt_bcode_handled){	/* штрих-код обрабатывается только один раз */
 							ll = sizeof(text_buf) - i;
 							p = check_kkt_bcode(p + 1, eptr - p - 1, NULL,
 								text_buf + i, &ll);
 							i += ll;
+							nr_kkt_bcodes++;
 							break;
 						}
 						__fallthrough__;
@@ -1915,6 +1762,8 @@ int handle_para(int n_para)
 			p++;
 		}
 		m++;
+		if (nr_kkt_bcodes != 0)
+			kkt_bcode_handled = true;
 		text_buf[i] = 0;
 		l = i;
 		memset(buf, 0, TEXT_BUF_LEN);
@@ -1992,6 +1841,7 @@ static void preexecute_resp(void)
 			case dst_xprn:
 			case dst_kprn:
 			case dst_sprn:
+			case dst_scr2:
 				no_print = false;
 				log_number = xlog_write_rec(hxlog,
 					text_buf, l, XLRT_NORMAL, log_para++);
@@ -2002,7 +1852,8 @@ static void preexecute_resp(void)
 					text_buf, l, XLRT_AUX, log_para++);
 				break;
 			case dst_bank:
-				scan_bank_info(text_buf);
+				scan_bank_info(text_buf, (l == BANK_PARA_LEN_OLD) ?
+					BANK_ID_LEN_OLD : BANK_ID_LEN_NEW);
 				log_number = xlog_write_rec(hxlog, text_buf, l,
 					XLRT_BANK, log_para++);
 				break;
@@ -2018,12 +1869,10 @@ static void preexecute_resp(void)
 					xlog_set_rec_flags(hxlog, log_number, log_para, XLOG_REC_APC);
 				log_para++;
 				break;
-			case dst_text:
+			case dst_scr:
 				if (init){
-					bool old_use_integrator = use_integrator;
 					use_integrator = check_integrator(text_buf, l);
-					if (use_integrator != old_use_integrator)
-						RedrawScr(false, get_main_title());
+					RedrawScr(false, get_main_title());
 					log_dbg("use_integrator = %d.", use_integrator);
 					check_x3_grids(text_buf, l);
 					log_dbg("need_grids_update_xprn = %d; need_grids_update_kkt = %d.",
@@ -2136,13 +1985,17 @@ static int show_lprn_error(int lprn_ret, bool rejectable)
 /* Вывод окна с сообщением об ошибке ККППУ при печати на ленте */
 static int show_kprn_error(uint8_t status, bool rejectable)
 {
-	struct custom_btn btns[3];
+	struct custom_btn btns[4];
 	int n = 0;
 	btns[n].text = "Повторная печать";
 	btns[n++].cmd = cmd_print;
 	if (rejectable){
 		btns[n].text = "Отказ от заказа";
 		btns[n++].cmd = cmd_reject;
+	}
+	if (n_unhandled() > 0){
+		btns[n].text = "Завершение обработки";
+		btns[n++].cmd = cmd_reset;
 	}
 	btns[n].text = NULL;
 	btns[n].cmd = cmd_none;
@@ -2177,14 +2030,16 @@ bool kprn_print(const uint8_t *data, size_t len)
 			ret = true;
 			break;
 		}else{
-			set_term_astate(ast_no_kkt);
+			set_term_astate(ast_kkt_error);
 			err_beep();
-			int cmd = show_kprn_error(kkt_status, can_reject);
+			int cmd = show_kprn_error(status, can_reject);
 			if (cmd == cmd_reject){
 				reject_req();
 				break;
-			}else if (cmd == cmd_reset)
+			}else if (cmd == cmd_reset){
+				reset_term(true);
 				break;
+			}
 		}
 	}
 	return ret;
@@ -2200,10 +2055,10 @@ static bool execute_prn(struct para_info *p, int l, int n_para)
 	set_term_astate(ast_none);
 	if (p->dst == dst_xprn){
 		if (cfg.has_xprn)
-			ret = printed = xprn_print((char *)text_buf, l);
+			ret = printed = xprn_print(text_buf, l);
 	}else if (p->dst == dst_aprn){
 		if (cfg.has_aprn)
-			ret = printed = aprn_print((char *)text_buf, l);
+			ret = printed = aprn_print(text_buf, l);
 	}else if (p->dst == dst_kprn){
 		if (cfg.has_kkt && (kkt != NULL))
 			ret = printed = kprn_print(text_buf, l);
@@ -2258,9 +2113,8 @@ static bool execute_prn(struct para_info *p, int l, int n_para)
 		}
 #endif		/* INSERT_SPRN_CODE_HERE */
 	}
-	if (printed){	/* FIXME */
+	if (printed)	/* FIXME */
 		xlog_set_rec_flags(hxlog, log_number, n_para, XLOG_REC_PRINTED);
-	}
 	return ret;
 }
 
@@ -2299,6 +2153,7 @@ static void execute_kkt(struct para_info *pi __attribute__((unused)), int len)
 	parse_kkt_xml((const char *)text_buf, false, kkt_xml_callback, &err);
 }
 
+#if 0
 /* Получение информации банковского абзаца во время обработки ответа */
 const struct bank_data *get_bi(void)
 {
@@ -2313,15 +2168,31 @@ const struct bank_data *get_bi(void)
 	}
 	return ret;
 }
+#endif
 
-/* Поиск абзаца данных изображения для БПУ */
+/* Получение информации банковского абзаца во время обработки ответа */
+const struct bank_info *get_bi(void)
+{
+	const struct bank_info *ret = NULL;
+	if (resp_executing){
+		for (int i = 0; i < n_paras; i++){
+			if (map[i].dst == dst_bank){
+				ret = &bi;
+				break;
+			}
+		}
+	}
+	return ret;
+}
+
+/* Получение данных изображения для БПУ */
 bool find_pic_data(int *data, int *req)
 {
 	bool ret = false;
 	*data = *req = -1;
 	int n = 0, m = 0, pic_para = -1, req_para = -1;
 	for (int i = 0; i < n_paras; i++){
-		if (map[i].dst == dst_tprn){
+		if ((map[i].dst == dst_xprn) || (map[i].dst == dst_scr2)){
 			if (++n > 1)
 				break;
 			pic_para = i;
@@ -2429,7 +2300,7 @@ bool execute_resp(void)
 					struct xml_data *xml_data = get_xml_data(cur_para);
 					if ((xml_data != NULL) && (xml_data->scr_data != NULL)){
 						xml_flag = true;
-						p->dst = dst_text;
+						p->dst = dst_scr;
 						l = handle_para(cur_para);
 					}
 				}
@@ -2519,7 +2390,12 @@ bool execute_resp(void)
 				show_req();
 				break;
 			case cmd_view_resp:
-				jump_next = true;
+				if (map[next].dst == dst_sprn){
+					cur_para = next;
+					map[cur_para].auto_handle = true;
+					parsed = false;
+				}else
+					jump_next = true;
 				break;
 			case cmd_print:
 				if ((map[next].dst == dst_xprn) ||
@@ -2544,10 +2420,11 @@ bool execute_resp(void)
 				if (can_reject){
 					reject_req();
 					return resp_executing = false;
-				}else{
-/*					set_term_astate(ast_illegal);*/
+				}else
 					err_beep();
-				}
+				break;
+			case cmd_switch_res:
+				switch_term_mode();
 				break;
 			case cmd_pgup:
 				cm_pgup(NULL);
@@ -2576,8 +2453,8 @@ bool execute_resp(void)
 		if (has_req && resp_handling)
 			send_request();
 /*		if (TST_FLAG(OBp, GDF_RESP_INIT))
-			ret = false;
-		else*/
+			ret = false;*/
+		else
 			ret = (p != NULL) ? !p->jump_next : false;
 	}
 	return ret;
