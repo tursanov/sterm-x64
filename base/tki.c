@@ -133,25 +133,37 @@ bool write_tki(const char *path)
 
 
 /* Чтение заданного поля из структуры tki */
-bool get_tki_field(const struct term_key_info *info, int name, uint8_t *val)
+bool get_tki_field(const struct term_key_info *info, int name, uint8_t *val, size_t len)
 {
-	bool ret = true;
+	bool ret = false;
+	if ((info == NULL) || (val == NULL))
+		return ret;
 	decrypt_data((uint8_t *)info, sizeof(*info));
 	switch (name){
 		case TKI_CHECK_SUM:
-			memcpy(val, &info->check_sum, sizeof(info->check_sum));
+			if (len >= sizeof(info->check_sum)){
+				memcpy(val, &info->check_sum, sizeof(info->check_sum));
+				ret = true;
+			}
 			break;
 		case TKI_SRV_KEYS:
-			memcpy(val, info->srv_keys, sizeof(info->srv_keys));
+			if (len >= sizeof(info->srv_keys)){
+				memcpy(val, info->srv_keys, sizeof(info->srv_keys));
+				ret = true;
+			}
 			break;
 		case TKI_DBG_KEYS:
-			memcpy(val, info->dbg_keys, sizeof(info->dbg_keys));
+			if (len >= sizeof(info->dbg_keys)){
+				memcpy(val, info->dbg_keys, sizeof(info->dbg_keys));
+				ret = true;
+			}
 			break;
 		case TKI_NUMBER:
-			memcpy(val, info->tn, sizeof(info->tn));
+			if (len >= sizeof(info->tn)){
+				memcpy(val, info->tn, sizeof(info->tn));
+				ret = true;
+			}
 			break;
-		default:
-			ret = false;
 	}
 	encrypt_data((uint8_t *)info, sizeof(*info));
 	return ret;
@@ -193,7 +205,7 @@ void check_tki(void)
 	decrypt_data((uint8_t *)&__tki, sizeof(__tki));
 	get_md5((uint8_t *)__tki.srv_keys, xsizefrom(__tki, srv_keys), &md5);
 	encrypt_data((uint8_t *)&__tki, sizeof(__tki));
-	get_tki_field(&__tki, TKI_CHECK_SUM, (uint8_t *)&check_sum);
+	get_tki_field(&__tki, TKI_CHECK_SUM, (uint8_t *)&check_sum, sizeof(check_sum));
 	tki_ok = cmp_md5(&md5, &check_sum);
 }
 
@@ -267,7 +279,7 @@ void check_usb_bind(void)
 {
 	usb_ok = false;
 	term_number tn1, tn2;
-	if (read_term_nr(tn1) && get_tki_field(&tki, TKI_NUMBER, (uint8_t *)tn2))
+	if (read_term_nr(tn1) && get_tki_field(&tki, TKI_NUMBER, tn2, sizeof(tn2)))
 		usb_ok = memcmp(tn1, tn2, TERM_NUMBER_LEN) == 0;
 }
 
@@ -280,7 +292,7 @@ void check_iplir_bind(void)
 		struct md5_hash buf[2];
 		get_md5_file(IPLIR_DST, buf);
 		term_number tn;
-		if (get_tki_field(&tki, TKI_NUMBER, (uint8_t *)tn)){
+		if (get_tki_field(&tki, TKI_NUMBER, tn, sizeof(tn))){
 			get_md5((uint8_t *)tn, sizeof(tn), buf + 1);
 			struct md5_hash md5;
 			get_md5((uint8_t *)buf, sizeof(buf), &md5);
@@ -300,7 +312,7 @@ void check_bank_license(void)
 	struct md5_hash bnk_lic;
 	if (read_bind_file(BANK_LICENSE, &bnk_lic)){
 		uint8_t buf[2 * TERM_NUMBER_LEN];
-		get_tki_field(&tki, TKI_NUMBER, buf);
+		get_tki_field(&tki, TKI_NUMBER, buf, sizeof(buf));
 		for (int i = 0; i < TERM_NUMBER_LEN; i++)
 			buf[sizeof(buf) - i - 1] = ~buf[i];
 		uint8_t v1[64], v2[64];

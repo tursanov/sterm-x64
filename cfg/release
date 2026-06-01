@@ -26,8 +26,14 @@ option		__CLEAR_PREV_RESP__
 # Запись обмена с ППУ в специальный файл
 #option		__LOG_LPRN__
 
+# Вывод отладочной информации при работе с ОФД
+#option		__FDO_DEBUG__
+
 # Фиктивное перемонтирование /home в remount_home
 option		__FAKE_REMOUNT__
+
+# Печать отладочных сообщений при работе с ИПТ
+#option		__POS_DEBUG__
 
 # Использование внешнего POS-терминала
 #option		__EXT_POS__
@@ -57,5 +63,5 @@ KDIR		/usr/src/linux-headers-4.9.0-12-amd64
 # Используется для статической компиляции некоторых утилит
 #option		__DO_STATIC__
 
-CFLAGS		-std=gnu11 -Wall -Wextra -Wno-sign-compare -Wno-switch -pipe -pthread -O3 -DNDEBUG -I$(INCLUDE) -D_GNU_SOURCE
-CXXFLAGS	-std=gnu++0x -Wall -Weffc++ -Wextra -Wno-sign-compare -Wno-switch -pipe -pthread -O3 -DNDEBUG -I$(INCLUDE) -D_GNU_SOURCE
+CFLAGS		-Wall -Wextra -Wno-sign-compare -Wno-switch -Wno-format-security -Wno-unused-result -pipe -pthread -O3 -DNDEBUG -I$(INCLUDE) -D_GNU_SOURCE
+CXXFLAGS	-Wall -Weffc++ -Wextra -Wno-sign-compare -Wno-switch -Wno-format-security -Wno-unused-result -pipe -pthread -O3 -DNDEBUG -I$(INCLUDE) -D_GNU_SOURCE

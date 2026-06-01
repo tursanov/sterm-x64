@@ -1,5 +1,6 @@
-/* Трансформация XML, полученного из "Экспресс". (c) gsr 2024 */
+/* Трансформация XML, полученного из "Экспресс". (c) gsr 2024, 2026 */
 
+#include <cstring>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <libxml/parser.h>
@@ -10,6 +11,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <regex.h>
+#include <unistd.h>
 #include "gui/scr.h"
 #include "kkt/cmd.h"
 #include "x3data/common.hpp"
@@ -40,9 +42,13 @@ static struct xml_data xml_data[MAX_PARAS];
 
 struct xml_data *get_xml_data(int n_para)
 {
+	log_dbg("n_para = %d.", n_para);
 	struct xml_data *ret = NULL;
 	if ((n_para >= 0) && (n_para < ASIZE(xml_data)))
 		ret = xml_data + n_para;
+	if (ret != NULL)
+		log_dbg("scr_data = %p; scr_data_len = %zu; prn_data = %p; prn_data_len = %zu.",
+			ret->scr_data, ret->scr_data_len, ret->prn_data, ret->prn_data_len);
 	return ret;
 }
 
@@ -467,79 +473,85 @@ static void XMLCDECL onXsltError(void *ctx, const char *fmt, ...) LIBXML_ATTR_FO
 }
 #endif
 
+/* Возвращает путь к файлу трансформации (в xslt_name возвращается только имя файла без расширения) */
+static const char *get_xslt_path(const char *xslt_id, char *xslt_name, size_t xslt_name_len)
+{
+	if ((xslt_id == NULL) || ((xslt_name != NULL) && (xslt_name_len < 9)))
+		return NULL;
+	if (xslt_name != NULL)
+		*xslt_name = 0;
+	char pattern[128];
+	snprintf(pattern, sizeof(pattern), "^T%s[0-9]{5}\\.[Xx][Ss][Ll]$", xslt_id);
+	int rc = regcomp(&reg, pattern, REG_EXTENDED | REG_NOSUB);
+	if (rc != REG_NOERROR){
+		log_err("Ошибка компиляции регулярного выражения для %s: %d.",
+			pattern, rc);
+		return NULL;
+	}
+	struct dirent **names = NULL;
+	int n = scandir(XSLT_FOLDER, &names, find_selector, alphasort);
+	if (n == -1){
+		log_sys_err("Ошибка поиска файла XSLT %s в каталоге " XSLT_FOLDER ":", xslt_id);
+		regfree(&reg);
+		return NULL;
+	}else if (n == 0){
+		log_err("В каталоге " XSLT_FOLDER " не найден файл XSLT %s.", xslt_id);
+		regfree(&reg);
+		if (names != NULL)
+			free(names);
+		return NULL;
+	}else if (n > 1)
+		log_warn("В каталоге " XSLT_FOLDER " обнаружено более одного файла XSLT %s (%d). "
+			"Будет использован файл %s.", xslt_id, n, names[0]->d_name);
+	static char path[PATH_MAX];
+	snprintf(path, ASIZE(path), XSLT_FOLDER "/%s", names[0]->d_name);
+	if (xslt_name != NULL){
+		int l = strlen(names[0]->d_name);
+		if (l > 4)
+			snprintf(xslt_name, xslt_name_len, "%.*s", l - 4, names[0]->d_name);
+	}
+	free(names);
+	regfree(&reg);
+	return path;
+}
+
 static bool transform_xml(xmlDocPtr xml, const char *xslt_id, uint8_t *out, size_t &out_len)
 {
 //	xslt_err.clear();
 	bool ret = false, embedded = (strlen(xslt_id) != 2);
-	char path[PATH_MAX];
-	if (embedded)
-		snprintf(path, ASIZE(path), XSLT_FOLDER "/%s.xsl", xslt_id);
-	else{
-		char pattern[128];
-		snprintf(pattern, sizeof(pattern), "^T%s[0-9]{5}\\.[Xx][Ss][Ll]$", xslt_id);
-		int rc = regcomp(&reg, pattern, REG_EXTENDED | REG_NOSUB);
-		if (rc != REG_NOERROR){
-			log_err("Ошибка компиляции регулярного выражения для %s: %d.",
-				pattern, rc);
-			return false;
-		}
-		struct dirent **names = NULL;
-		int n = scandir(XSLT_FOLDER, &names, find_selector, alphasort);
-		if (n == -1){
-			log_sys_err("Ошибка поиска файла XSLT %s в каталоге " XSLT_FOLDER ":",
-				xslt_id);
-			regfree(&reg);
-			return false;
-		}else if (n == 0){
-			log_err("В каталоге " XSLT_FOLDER " не найден файл XSLT %s.", xslt_id);
-			regfree(&reg);
-			if (names != NULL)
-				free(names);
-			return false;
-		}else if (n > 1)
-			log_warn("В каталоге " XSLT_FOLDER " обнаружено более одного файла XSLT %s (%d). "
-				"Будет использован файл %s.", xslt_id, n, names[0]->d_name);
-		snprintf(path, ASIZE(path), XSLT_FOLDER "/%s", names[0]->d_name);
-		free(names);
-		regfree(&reg);
-	}
+	const char *path = NULL;
+	if (embedded){
+		static char embd_path[PATH_MAX];
+		snprintf(embd_path, ASIZE(embd_path), XSLT_FOLDER "/%s.xsl", xslt_id);
+		path = embd_path;
+	}else
+		path = get_xslt_path(xslt_id, NULL, 0);
+	if (path == NULL)
+		return false;
 	xsltStylesheetPtr xslt = xsltParseStylesheetFile((const xmlChar *)path);
 	if (xslt != NULL){
 		xmlDocPtr doc = xsltApplyStylesheet(xslt, xml, NULL);
 		if (doc != NULL){
-			snprintf(path, ASIZE(path), XSLT_FOLDER "/out.bin");
-			int len = xsltSaveResultToFilename(path, doc, xslt, 0);
-			if (len != -1){
-				log_dbg("%d байт записано в файл %s.", len, path);
-				int fd = open(path, O_RDONLY);
-				if (fd != -1){
-					char *buf = new char[len + 1];
-					int rc = read(fd, buf, len);
-					if (rc == len){
-						buf[len] = 0;
-						string str;
-						str.assign(buf, buf + len);
-						for (const auto &p : subst_tbl)
-							replace(str, p.first, p.second);
-						size_t data_len = str.size();
-						if (data_len > out_len)
-							data_len = out_len;
-						else
-							out_len = data_len;
-						if (out_len > 0)
-							memcpy(out, str.c_str(), out_len);
-						ret = true;
-					}else if (rc == -1)
-						log_sys_err("Ошибка чтения из %s:", path);
-					else
-						log_err("Из %s прочитано %d байт вместо %d.", path, rc, len);
-					delete [] buf;
-				}else
-					log_sys_err("Ошибка открытия файла %s для чтения:", path);
-				if (close(fd) != 0)
-					log_sys_err("Ошибка закрытия файла %s:", path);
+			xmlChar *buf = NULL;
+			int len = 0, rc = xsltSaveResultToString(&buf, &len, doc, xslt);
+			if ((rc == 0) && (buf != NULL) && (len > 0)){
+				string str;
+				str.assign(buf, buf + len);
+				for (const auto &p : subst_tbl)
+					replace(str, p.first, p.second);
+				size_t data_len = str.size();
+				if (data_len > out_len)
+					data_len = out_len;
+				else
+					out_len = data_len;
+				if (out_len > 0)
+					memcpy(out, str.c_str(), out_len);
+				ret = true;
 			}else
-				log_err("Ошибка записи результата трансформации в файл %s.", path);
+				log_err("Ошибка xsltSaveResultToString: rc = %d; buf = %p; len = %d.",
+					rc, buf, len);
+			if (buf != NULL)
+				xmlFree(buf);
 		}else
 			log_err("Ошибка трансформации XML.");
 	}else
@@ -574,7 +586,7 @@ static char get_dst_char(int dst)
 {
 	char ret ='?';
 	switch (dst){
-		case dst_text:
+		case dst_scr:
 			ret = X_SCR;
 			break;
 		case dst_log:
@@ -603,13 +615,15 @@ enum class TransformType {
 
 uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *xml_data)
 {
+	const size_t MAX_DATA_LEN = 65536;
+#define data_ptr(t, n)	const unique_ptr<t[]> n = make_unique<t[]>(MAX_DATA_LEN)
 	if (subst_tbl.empty())
 		read_subst_tbl("00", subst_tbl);
 	if (pre_subst_tbl.empty())
 		read_subst_tbl("ZZ", pre_subst_tbl);
-	if ((ecode == NULL) || (xml_data == NULL))
-		return p;
 	size_t idx = 0;
+	if ((ecode == NULL) || (xml_data == NULL))
+		return p + idx;
 	if (l < 9){
 		*ecode = E_XML_SHORT;
 		return p + idx;
@@ -623,7 +637,7 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 	}
 	idx++;
 	TransformType scr_transform = TransformType::None;
-	char scr_transform_idx[3] = {0, 0, 0};
+	char scr_transform_idx[3] = {(char)p[idx], (char)p[idx + 1], 0};
 	if (p[idx] == 0x2a){
 		switch (p[idx + 1]){
 			case 0x2a:
@@ -643,14 +657,11 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 			((p[idx] == 0x5a) && (p[idx + 1] == 0x5a))){
 		*ecode = E_XML_SCR_TRANSFORM_TYPE;
 		return p + idx;
-	}else{
-		scr_transform_idx[0] = p[idx];
-		scr_transform_idx[1] = p[idx + 1];
+	}else
 		scr_transform = TransformType::Explicit;
-	}
 	idx += 2;
 	TransformType prn_transform = TransformType::None;
-	char prn_transform_idx[3] = {0, 0, 0};
+	char prn_transform_idx[3] = {(char)p[idx], (char)p[idx + 1], 0};
 	if (p[idx] == 0x2a){
 		switch (p[idx + 1]){
 			case 0x2a:
@@ -668,18 +679,15 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 			((p[idx] == 0x5a) && (p[idx + 1] == 0x5a))){
 		*ecode = E_XML_SCR_TRANSFORM_TYPE;
 		return p + idx;
-	}else{
-		prn_transform_idx[0] = p[idx];
-		prn_transform_idx[1] = p[idx + 1];
+	}else
 		prn_transform = TransformType::Explicit;
-	}
 	if ((scr_transform == TransformType::Prn) && (prn_transform == TransformType::None))
 		scr_transform = TransformType::None;
 	idx += 2;
-	uint8_t *scr_xslt = NULL;
+	data_ptr(uint8_t, scr_xslt);
 	uint16_t scr_xslt_len = read_hex_word(p + idx);
 	if (number_error){
-		*ecode = E_XML_LEN;
+		*ecode = E_XML_XSLT_LEN;
 		return p + idx;
 	}else if ((idx + scr_xslt_len) > l){
 		*ecode = E_XML_SHORT;
@@ -687,17 +695,16 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 	}
 	idx += 4;
 	if (scr_xslt_len > 0){
-		scr_xslt = new uint8_t[scr_xslt_len];
-		memcpy(scr_xslt, p + idx, scr_xslt_len);
+		memcpy(scr_xslt.get(), p + idx, scr_xslt_len);
 		idx += scr_xslt_len;
 	}else if (scr_transform == TransformType::Embedded){
 		*ecode = E_XML_NO_SCR_TRANSFORM;
 		return p + idx;
 	}
-	uint8_t *prn_xslt = NULL;
+	data_ptr(uint8_t, prn_xslt);
 	uint16_t prn_xslt_len = read_hex_word(p + idx);
 	if (number_error){
-		*ecode = E_XML_LEN;
+		*ecode = E_XML_XSLT_LEN;
 		return p + idx;
 	}else if ((idx + prn_xslt_len) > l){
 		*ecode = E_XML_SHORT;
@@ -705,8 +712,7 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 	}
 	idx += 4;
 	if (prn_xslt_len > 0){
-		prn_xslt = new uint8_t[prn_xslt_len];
-		memcpy(prn_xslt, p + idx, prn_xslt_len);
+		memcpy(prn_xslt.get(), p + idx, prn_xslt_len);
 		idx += prn_xslt_len;
 	}else if (prn_transform == TransformType::Embedded){
 		*ecode = E_XML_NO_PRN_TRANSFORM;
@@ -739,54 +745,22 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 		return p + idx;
 	}
 	idx += xml_idx + XML_HDR_LEN;
-	char *xml0 = new char[xml_len + 1];
-	memcpy(xml0, p + idx, xml_len);
+	data_ptr(char, xml0);
+	memcpy(xml0.get(), p + idx, xml_len);
 	xml0[xml_len] = 0;
 	idx += xml_len;
 	xml_data->cmd_len = idx;
 	log_dbg("cmd_len = %zu.", xml_data->cmd_len);
 	if (recode == RECODE_CP866)
-		recode_str(xml0, -1);
-	xmlDocPtr xml_doc = NULL;
-	uint8_t *out_buf = NULL;
-	size_t out_buf_len = 0;
-	const size_t MAX_DATA_LEN = 65536;
-	char hdr[256];
-	string xml_scr, xml_prn;
-	if ((scr_transform != TransformType::None) && (scr_transform != TransformType::Prn)){
-		snprintf(hdr, ASIZE(hdr), "<?xml version=\"1.0\" encoding=\"%s\"?>\r\n"
-				"<A H=\"%d\" W=\"%d\" T=\"S%c\" D=\"P\">\r\n",
-			(recode == RECODE_NONE) ? "us-ascii" : "cp866",
-			(cur_mode == m32x8) ? 8  : 20,
-			(cur_mode == m32x8) ? 32 : 80,
-			get_dst_char(dst));
-		xml_scr.assign(hdr);
-		xml_scr += xml0;
-		xml_scr += "</A>";
-		for (const auto &p : pre_subst_tbl)
-			replace(xml_scr, p.first, p.second);
-	}
-	if (prn_transform != TransformType::None){
-		snprintf(hdr, ASIZE(hdr), "<?xml version=\"1.0\" encoding=\"%s\"?>\r\n"
-				"<A H=\"%d\" W=\"%d\" T=\"P%c\" D=\"P\">\r\n",
-			(recode == RECODE_NONE) ? "us-ascii" : "cp866",
-			(cur_mode == m32x8) ? 8  : 20,
-			(cur_mode == m32x8) ? 32 : 80,
-			get_dst_char(dst));
-		xml_prn.assign(hdr);
-		xml_prn += xml0;
-		xml_prn += "</A>";
-		for (const auto &p : pre_subst_tbl)
-			replace(xml_prn, p.first, p.second);
-	}
+		recode_str(xml0.get(), -1);
 	const char *scr_xslt_id = NULL, *prn_xslt_id = NULL;
 	if (prn_transform == TransformType::Embedded){
-		if (store_embedded_xslt(prn_xslt, prn_xslt_len, "pscr"))
+		if (store_embedded_xslt(prn_xslt.get(), prn_xslt_len, "pscr"))
 			prn_xslt_id = "pscr";
 	}else if (prn_transform == TransformType::Explicit)
 		prn_xslt_id = prn_transform_idx;
 	if (scr_transform == TransformType::Embedded){
-		if (store_embedded_xslt(scr_xslt, scr_xslt_len, "escr"))
+		if (store_embedded_xslt(scr_xslt.get(), scr_xslt_len, "escr"))
 			scr_xslt_id = "escr";
 	}else if (scr_transform == TransformType::Prn)
 		scr_xslt_id = prn_xslt_id;
@@ -799,23 +773,40 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 		*ecode = E_XML_PRN_TRANSFORM_TYPE;
 		return p + 1;
 	}
-	out_buf = new uint8_t[MAX_DATA_LEN];
+	data_ptr(uint8_t, out_buf);
+	size_t out_buf_len = 0;
+	char hdr[512];
+	xmlDocPtr xml_doc = NULL;
 	if (prn_transform == TransformType::None){
 		if (dst != dst_log){
 			xml_data->prn_data = new uint8_t[xml_len];
-			memcpy(xml_data->prn_data, xml0, xml_len);
+			memcpy(xml_data->prn_data, xml0.get(), xml_len);
 			xml_data->prn_data_len = xml_len;
 		}
 	}else{
+		char xslt_name[256] = {0};
+		get_xslt_path(prn_xslt_id, xslt_name, sizeof(xslt_name));
+		snprintf(hdr, ASIZE(hdr), "<?xml version=\"1.0\" encoding=\"%s\"?>\r\n"
+				"<A H=\"20\" W=\"80\" T=\"P%c\" D=\"T\" "
+				"C=\"%c\" SS=\"%s\" PP=\"%s\" N=\"%s\">\r\n",
+			(recode == RECODE_NONE) ? "windows-1251" : "cp866",
+			get_dst_char(dst),
+			recode, scr_transform_idx, prn_transform_idx, *xslt_name ? xslt_name : "P");
+		string xml_prn(hdr);
+		xml_prn += xml0.get();
+		xml_prn += "</A>";
+		for (const auto &p : pre_subst_tbl)
+			replace(xml_prn, p.first, p.second);
+		log_info("XML для печати:\n%s\n", xml_prn.c_str());
 		xml_doc = xmlReadMemory(xml_prn.c_str(), xml_prn.size(), NULL, NULL, XML_PARSE_COMPACT);
 		if (xml_doc != NULL){
 			log_dbg("XML для печати из ответа успешно разобран.");
 			out_buf_len = MAX_DATA_LEN;
-			bool rc = transform_xml(xml_doc, prn_xslt_id, out_buf, out_buf_len);
+			bool rc = transform_xml(xml_doc, prn_xslt_id, out_buf.get(), out_buf_len);
 			xmlFreeDoc(xml_doc);
 			if (rc){
 				xml_data->prn_data = new uint8_t[out_buf_len];
-				memcpy(xml_data->prn_data, out_buf, out_buf_len);
+				memcpy(xml_data->prn_data, out_buf.get(), out_buf_len);
 				xml_data->prn_data_len = out_buf_len;
 			}else{
 				free_xml_data(xml_data);
@@ -838,11 +829,11 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 	}
 	if (scr_transform == TransformType::None){
 		xml_data->scr_data = new uint8_t[xml_len];
-		memcpy(xml_data->scr_data, xml0, xml_len);
+		memcpy(xml_data->scr_data, xml0.get(), xml_len);
 		xml_data->scr_data_len = xml_len;
 	}else if (scr_transform == TransformType::Prn){
 		log_dbg("На экране будет отображён результат трансформации для принтера.");
-		vector<uint8_t> scr_data(out_buf, out_buf + out_buf_len);
+		vector<uint8_t> scr_data(out_buf.get(), out_buf.get() + out_buf_len);
 		preprocess_data(scr_data);
 		if (!scr_data.empty()){
 			xml_data->scr_data = new uint8_t[scr_data.size()];
@@ -850,14 +841,28 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 			xml_data->scr_data_len = scr_data.size();
 		}
 	}else{
+		char xslt_name[256] = {0};
+		get_xslt_path(scr_xslt_id, xslt_name, sizeof(xslt_name));
+		snprintf(hdr, ASIZE(hdr), "<?xml version=\"1.0\" encoding=\"%s\"?>\r\n"
+				"<A H=\"20\" W=\"80\" T=\"S%c\" D=\"T\" "
+				"C=\"%c\" SS=\"%s\" PP=\"%s\" N=\"%s\">\r\n",
+			(recode == RECODE_NONE) ? "windows-1251" : "cp866",
+			get_dst_char(dst),
+			recode, scr_transform_idx, prn_transform_idx, *xslt_name ? xslt_name : "S");
+		string xml_scr(hdr);
+		xml_scr += xml0.get();
+		xml_scr += "</A>";
+		for (const auto &p : pre_subst_tbl)
+			replace(xml_scr, p.first, p.second);
+		log_info("XML для экрана:\n%s\n", xml_scr.c_str());
 		xml_doc = xmlReadMemory(xml_scr.c_str(), xml_scr.size(), NULL, NULL, XML_PARSE_COMPACT);
 		if (xml_doc != NULL){
 			log_dbg("XML для экрана из ответа успешно разобран.");
 			out_buf_len = MAX_DATA_LEN;
-			bool rc = transform_xml(xml_doc, scr_xslt_id, out_buf, out_buf_len);
+			bool rc = transform_xml(xml_doc, scr_xslt_id, out_buf.get(), out_buf_len);
 			xmlFreeDoc(xml_doc);
 			if (rc){
-				vector<uint8_t> scr_data(out_buf, out_buf + out_buf_len);
+				vector<uint8_t> scr_data(out_buf.get(), out_buf.get() + out_buf_len);
 				preprocess_data(scr_data);
 				if (!scr_data.empty()){
 					xml_data->scr_data = new uint8_t[scr_data.size()];
@@ -877,15 +882,9 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 		}
 	}
 	if ((prn_transform == TransformType::None) && (dst == dst_log)){
+		xml_data->prn_data = new uint8_t[xml_data->scr_data_len];
 		memcpy(xml_data->prn_data, xml_data->scr_data, xml_data->scr_data_len);
 		xml_data->prn_data_len = xml_data->scr_data_len;
 	}
-	if (scr_xslt != NULL)
-		delete [] scr_xslt;
-	if (prn_xslt != NULL)
-		delete [] prn_xslt;
-	delete [] xml0;
-	if (out_buf != NULL)
-		delete [] out_buf;
 	return p + idx;
 }
