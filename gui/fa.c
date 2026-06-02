@@ -25,6 +25,7 @@
 #include "gui/newcheque.h"
 #include "gui/archivefn.h"
 #include "kkt/fd/fd.h"
+#include "kkt/fd/pattern.h"
 #include "kkt/kkt.h"
 #include "kkt/fdo.h"
 #include "ds1990a.h"
@@ -40,6 +41,7 @@ static struct menu *fa_menu = NULL;
 static struct menu *fa_sales_menu = NULL;
 int fa_arg = cmd_fa;
 static bool fs_debug = false;
+static bool support_1222_1224_1225;
 
 static bool process_fa_cmd(int cmd);
 
@@ -286,7 +288,10 @@ bool init_fa(int arg)
 	fdo_suspend();
 	fa_check_fn();
 	fa_get_reregistration_data();
+	kkt_reload_patterns(user_inn);
 	fdo_resume();
+
+	support_1222_1224_1225 = kkt_has_param("SUPPORT_1222_1224_1225");
 
 	if (arg == cmd_fa) {
 		ClearScreen(clBlack);
@@ -311,6 +316,7 @@ form_t *open_shift_form = NULL;
 form_t *close_shift_form = NULL;
 form_t *cheque_corr_form = NULL;
 form_t *close_fs_form = NULL;
+form_t *cheque_corr_form_2 = NULL;
 
 void release_fa(void)
 {
@@ -334,12 +340,17 @@ void release_fa(void)
 		form_destroy(cheque_corr_form);
 		cheque_corr_form = NULL;
 	}
+	if (cheque_corr_form_2) {
+		form_destroy(cheque_corr_form_2);
+		cheque_corr_form_2 = NULL;
+	}
 	if (close_fs_form) {
 		form_destroy(close_fs_form);
 		close_fs_form = NULL;
 	}
 	cheque_release();
 	cheque_docs_release();
+	kkt_free_patterns();
 	if (fa_menu) {
 		release_menu(fa_menu,false);
 		fa_menu = NULL;
@@ -452,6 +463,21 @@ static uint64_t form_data_to_vln(form_data_t *data) {
 		}
 	}*/
 	return value;
+}
+
+static int64_t fa_form_get_vln(form_t* form, uint16_t tag) {
+	form_data_t data;
+
+	if (!form_get_data(form, tag, 1, &data)) {
+		fa_show_error(form, tag, "Указан неверный тэг");
+		return -1;
+	}
+
+	if (data.size == 0) {
+		return -1;
+	}
+
+	return form_data_to_vln(&data);
 }
 
 static int fa_tlv_add_vln_ex(form_t *form, uint16_t tag, bool required,

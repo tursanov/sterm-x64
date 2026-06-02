@@ -212,7 +212,7 @@ static int doc_view_collapsed_draw(C *c, int start_y) {
 
 static int doc_view_expanded_draw(C *c, int start_y) {
 	int y = start_y;
-	char text[1024];
+	char text[2048];
 
 	SetTextColor(screen, clBlack);
 
@@ -252,16 +252,45 @@ static int doc_view_expanded_draw(C *c, int start_y) {
 				"„‘ 10%",
 				"„‘ 20/120",
 				"„‘ 10/110",
+				"",
+				"",
+				"„‘ 5%",
+				"„‘ 7%",
+				"„‘ 5/105",
+				"„‘ 7/107",
+				"„‘ 22%",
+				"„‘ 22/122"
 			};
 			char *p = text;
 			L *l = LIST_ITEM(li2, L);
 			p += sprintf(p, "%s: %.1lld.%.2lld", l->s, (long long)l->t / 100, (long long)l->t % 100);
-			if (l->n >= 1 && l->n <= 4) {
+			
+			if (l->n == 0)
+			{
+				sprintf(p, " (… Žš…Š’ „‘)");
+			}
+			else if (l->n == 5)
+			{
+				sprintf(p, " („‘ 0%%)");
+			}
+			else if (l->n == 6)
+			{
+				sprintf(p, " (…‡ „‘)");
+			}
+			else
+			{
 				sprintf(p, " (¢ â.ç. %s: %.1lld.%.2lld)", svat[l->n - 1],
 					(long long)l->c / 100, (long long)l->c % 100);
 			}
-			TextOut(screen, GAP*4, y, text);
-			y += fnt->max_height;
+			
+			#define MAX_CH 90
+			int len = strlen(text);
+			p = text;
+			for (int i = 0; i < len; i+= MAX_CH, p += MAX_CH)
+			{
+			    TextOutN(screen, GAP*4, y, p, MAX_CH);
+			    y += fnt->max_height;
+			}
 		}
 	}
 	if (scroll_enabled || expanded_top_n > 0) {
@@ -739,7 +768,7 @@ static void change_cashier() {
 	form_destroy(form);
 }
 
-bool cheque_process(const struct kbd_event *_e) {
+static bool cheque_process(const struct kbd_event *_e) {
 	struct kbd_event e = *_e;
 
 	if (e.key == KEY_CAPS && e.pressed && !e.repeated) {
