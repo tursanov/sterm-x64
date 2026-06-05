@@ -39,7 +39,7 @@ typedef struct {
 	uint16_t max_length;
 } ffd_stlv_t;
 
-#define STLV_MAX_LEVEL	4
+#define STLV_MAX_LEVEL	5
 static ffd_stlv_t stlvs[STLV_MAX_LEVEL];
 static ffd_stlv_t* max_stlv = &stlvs[STLV_MAX_LEVEL - 1];
 static ffd_stlv_t* stlv = NULL;
@@ -272,10 +272,11 @@ int ffd_tlv_stlv_begin(uint16_t tag, uint16_t max_length)
 	tlv->tag = tag;
 	tlv->length = 0;
 
-	if (!stlv)
+	if (!stlv) {
 		stlv = &stlvs[0];
-	else
+	} else {
 		stlv++;
+    }
 	stlv->tlv = tlv;
 	stlv->max_length = max_length;
 
@@ -291,8 +292,11 @@ int ffd_tlv_stlv_end()
 			return -1;
 		if (stlv == stlvs)
 			stlv = NULL;
-		else
+		else {
+		    uint16_t stlv_length = stlv->tlv->length;
 			stlv--;
+			stlv->tlv->length += stlv_length + sizeof(ffd_tlv_t);
+        }
 	} else
 		return -1;
 

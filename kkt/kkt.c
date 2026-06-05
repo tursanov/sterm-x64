@@ -1,6 +1,6 @@
 /* Основной модуль для работы с ККТ. (c) gsr 2018-2020, 2024 */
 
-#include <sys/timeb.h>
+#include <sys/time.h>
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -11,7 +11,6 @@
 #include "log/kkt.h"
 #include "x3data/common.h"
 #include "cfg.h"
-#include "termlog.h"
 
 /* Текстовое описание статуса */
 const char *kkt_status_str(uint8_t status)
@@ -372,12 +371,15 @@ static bool do_transaction(uint8_t prefix, uint8_t cmd, void *param)
 	bool ret = true;
 	parser_t parser = get_parser(prefix, cmd);
 	uint32_t timeout = get_timeout(prefix, cmd);
-	struct timeb t0;
-	ftime(&t0);
+	struct timeval t0;
+	gettimeofday(&t0, NULL);
+	//printf("%s: parser = %p; timeout = %u; kkt_tx_len = %zu\n",
+	//	__func__, parser, timeout, kkt_tx_len);
 	if (kkt_tx_len > 0){
 		ssize_t rc = kkt_io_write(&timeout);
-		if (rc > 0)
-			log_data("kkt", "ТМ --> ККТ", kkt_tx, rc);
+		//printf("%s: rc = %zd\n", __func__, rc);
+		if (rc != kkt_tx_len)
+			ret = kkt_on_com_error(timeout);
 	}
 	if (ret){
 		begin_rx();
@@ -405,7 +407,6 @@ static bool do_transaction(uint8_t prefix, uint8_t cmd, void *param)
 			((cmd == KKT_SRV_BEGIN_DOC) || (cmd == KKT_SRV_SEND_DOC) ||
 			 (cmd == KKT_SRV_END_DOC)))
 		flags = KLOG_REC_APC;
-	log_data("kkt", "ККТ --> ТМ", kkt_rx, kkt_rx_len);
 	klog_write_rec(hklog, &t0, kkt_tx, kkt_tx_len, kkt_status, kkt_rx, kkt_rx_len, flags);
 	return ret;
 }
@@ -1249,23 +1250,25 @@ uint8_t kkt_reset_fs(uint8_t b)
 	return kkt_status;
 }
 
-/* Напечатать проездной документ */
+/*
+ * Напечатать проездной документ.
+ * NB: команда Ар2 Q уже стоит в начале каждого фрагмента, поэтому не вставляется.
+ */
 uint8_t kkt_print_vf(const uint8_t *data, size_t len)
 {
-	printf("%s: data = %p; len = %zu\n", __func__, data, len);
 	assert(data != NULL);
 	assert(len > 0);
 	if (kkt_lock()){
+		tx_prefix = KKT_NUL;
+		tx_cmd = KKT_VF;
 		for (int i = 0, offs = 0, l = 0; i < len; i++, l++){
 			uint8_t b = data[i];
 			if ((b == KKT_END_BLOCK) || (b == KKT_FF)){
 				if ((b == KKT_END_BLOCK) && !kkt_has_param("SUPPORT_FRAGMENTATION"))
 					b = KKT_FF;
-				if (prepare_cmd(KKT_NUL, KKT_VF) &&
-						write_data(data + offs, l) && write_byte(b) &&
+				kkt_tx_len = 0;
+				if (write_data(data + offs, l) && write_byte(b) &&
 						kkt_open_dev_if_need()){
-					printf("%s: begin printing: offs = %d; l = %d\n",
-						__func__, offs, l);
 /*					FILE *f = fopen("kkt.bin", "wb");
 					if (f != NULL){
 						fwrite(kkt_tx, kkt_tx_len, 1, f);

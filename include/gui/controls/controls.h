@@ -13,4 +13,8 @@ extern "C" {
 #include "listbox.h"
 #include "listview.h"
 
+#if defined __cplusplus
+}
+#endif
+
 #endif // CONTROLS_H

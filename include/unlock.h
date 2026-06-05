@@ -32,6 +32,7 @@ extern bool check_term_number(const struct md5_hash *number,
 	const struct fuzzy_md5 *known_number, int n);
 /* Вывод на экран сообщения об успешной разблокировке терминала */
 extern void print_unlock_msg(const char *name);
+
 #if defined __cplusplus
 }
 #endif

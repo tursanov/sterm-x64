@@ -18,15 +18,6 @@ extern "C" {
 #include "kbd.h"
 #include "gui/gdi.h"
 
-/* Версия терминала */
-struct build_version{
-	uint32_t version;
-	uint32_t subversion;
-	uint32_t modification;
-};
-
-extern struct build_version term_build;
-
 extern char *term_string;	/* название терминала */
 
 extern bool menu_active;
@@ -61,6 +52,7 @@ enum {
 	cmd_view_keys,
 	cmd_options,
 	cmd_calculator,
+	cmd_switch_res,
 	cmd_help,
 	cmd_view_xlog,
 	cmd_xlog_menu,
@@ -173,6 +165,7 @@ extern bool	has_kkt_data;
 
 extern int	astate_for_req;
 
+extern void	switch_term_mode(void);
 extern uint8_t	n2hbyte(int n);
 extern void	show_error(void);
 extern void	show_dest(int dst);

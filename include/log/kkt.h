@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-#include <sys/timeb.h>
+#include <sys/time.h>
 #include <pthread.h>
 #include <time.h>
 #include "kkt/kkt.h"
@@ -77,7 +77,7 @@ extern struct log_handle *hklog;
 
 /* Данные текущей записи контрольной ленты */
 /* NB: данный буфер используется как для чтения, так и для записи */
-extern uint8_t klog_data[LOG_BUF_LEN];
+extern uint8_t klog_data[KLOG_BUF_LEN];
 /* Длина данных */
 extern uint32_t klog_data_len;
 /* Индекс текущего обрабатываемого байта в log_data */
@@ -90,7 +90,7 @@ extern uint32_t klog_index_for_number(struct log_handle *hlog, uint32_t number);
 extern bool  klog_can_print_range(struct log_handle *hlog);
 extern bool  klog_can_print(struct log_handle *hlog);
 extern bool  klog_can_find(struct log_handle *hlog);
-extern uint32_t klog_write_rec(struct log_handle *hlog, const struct timeb *t0,
+extern uint32_t klog_write_rec(struct log_handle *hlog, const struct timeval *t0,
 	const uint8_t *req, uint16_t req_len,
 	uint8_t status, const uint8_t *resp, uint16_t resp_len, uint32_t flags);
 extern bool  klog_read_rec(struct log_handle *hlog, uint32_t index);

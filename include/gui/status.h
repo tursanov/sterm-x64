@@ -77,6 +77,7 @@ enum {
 	ast_pos_error,
 	ast_pos_need_init,
 	ast_no_kkt,
+	ast_kkt_error,
 	ast_max,
 };
 

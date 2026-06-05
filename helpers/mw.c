@@ -33,7 +33,7 @@ static char *key_file;		/* имя файла ключей DALLAS */
 static bool tki_read = true;	/* флаг чтения/записи файла tki */
 static bool can_repeat_keys = false;	/* флаг возможности ввода дублирующихся ключей */
 
-/* Об'ект действия */
+/* Объект действия */
 enum {
 	subj_none,
 	subj_srv_keys,		/* настроечные ключи DS1990A */
@@ -72,9 +72,9 @@ static void print_dallas_key(struct md5_hash *md5, int ds_type)
 	struct md5_hash zero_md5 = ZERO_MD5_HASH;
 	if (md5 == NULL)
 		return;
-	printf("%*c:", DESCR_WIDTH, ds_key_char(ds_type));
+	printf("%*c: ", DESCR_WIDTH, ds_key_char(ds_type));
 	if (memcmp(md5, &zero_md5, sizeof(*md5)) == 0)
-		printf(" не введен");
+		printf("не введен");
 	else
 		print_md5(md5);
 	printf("\n");
@@ -85,12 +85,11 @@ static void print_dallas(void)
 {
 	struct md5_hash srv_keys[NR_SRV_KEYS];
 	struct md5_hash dbg_keys[NR_DBG_KEYS];
-	int i;
-	get_tki_field(&tki, TKI_SRV_KEYS, (uint8_t *)srv_keys);
-	for (i = 0; i < NR_SRV_KEYS; i++)
+	get_tki_field(&tki, TKI_SRV_KEYS, (uint8_t *)srv_keys, sizeof(srv_keys));
+	for (int i = 0; i < NR_SRV_KEYS; i++)
 		print_dallas_key(srv_keys + i, key_srv);
-	get_tki_field(&tki, TKI_DBG_KEYS, (uint8_t *)dbg_keys);
-	for (i = 0; i < NR_DBG_KEYS; i++)
+	get_tki_field(&tki, TKI_DBG_KEYS, (uint8_t *)dbg_keys, sizeof(dbg_keys));
+	for (int i = 0; i < NR_DBG_KEYS; i++)
 		print_dallas_key(dbg_keys + i, key_dbg);
 }
 
@@ -99,7 +98,7 @@ static void print_term_number(void)
 {
 	int i, c;
 	term_number tn;
-	get_tki_field(&tki, TKI_NUMBER, (uint8_t *)tn);
+	get_tki_field(&tki, TKI_NUMBER, tn, sizeof(tn));
 	printf("%*s: ", DESCR_WIDTH, "заводской номер");
 	for (i = 0; i < sizeof(tn); i++){
 		c = tn[i];

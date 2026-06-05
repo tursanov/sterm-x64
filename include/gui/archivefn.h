@@ -7,4 +7,8 @@ extern "C" {
 
 int archivefn_execute();
 
+#if defined __cplusplus
+}
+#endif
+
 #endif // ARCHIVEFN_H

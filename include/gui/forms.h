@@ -55,6 +55,7 @@ typedef struct form_item_info_t {
 			size_t item_count;
 			const char **short_items;
 			const char **items;
+			uint8_t *bits;
 			int value;
 		} bitset;
 	};
@@ -78,9 +79,9 @@ typedef struct form_item_info_t {
 	{ FORM_ITEM_TYPE_COMBOBOX, \
 	id, name, { .combobox = { text, input_type, max_length, item_count, items, -1, 1 } } },
 
-#define FORM_ITEM_BITSET(id, name, short_items, items, item_count, value) \
+#define FORM_ITEM_BITSET(id, name, short_items, items, bits, item_count, value) \
 	{ FORM_ITEM_TYPE_BITSET, \
-	id, name, { .bitset = { item_count, short_items, items, value } } },
+	id, name, { .bitset = { item_count, short_items, items, bits, value } } },
 
 #define END_FORM() }; *__f = form_create(__n, __items, ASIZE(__items)); } \
 	else form_draw(*__f); }

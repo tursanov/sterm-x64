@@ -40,7 +40,7 @@ enum {
 	SERR_SYNTAX,	/* С:04 - синтаксическая ошибка */
 	SERR_TIMEOUT,	/* С:05 - таймаут инициализации */
 	SERR_LENGTH,	/* С:06 - фактическая длина данных по TCP/IP больше ожидаемой */
-	SERR_STOP,	/* С:07 - инициализация прекращена из-за ошибки */
+	SERR_STOP,	/* С:07 - инициализация прекращкна из-за ошибки */
 	SERR_HANDSHAKE,	/* С:08 - инициализационный ответ на прикладной запрос */
 	SERR_APPONINIT,	/* С:09 - прикладной текст в ответ на инициализацию */
 	SERR_SPECIAL,	/* С:xx - специальный ответ от хост-ЭВМ */
@@ -77,8 +77,8 @@ enum {
 /* Длина префикса запроса */
 #define REQ_PREFIX_LEN		6
 /* Длина суффикса запроса */
-#define REQ_SUFFIX_LEN		91
-/* Минимальная длина запроса по TCP/IP */
+#define REQ_SUFFIX_LEN		105
+/* Минимальная длина запроса */
 #define MIN_REQ_LEN		(REQ_PREFIX_LEN + REQ_SUFFIX_LEN)
 
 /* Маркеры гарантированной доставки */
@@ -103,9 +103,9 @@ enum {
 #define GDF_RESP_INIT		0x20	/* ответ при инициализации */
 #define GDF_RESP_APP		0x40	/* прикладной ответ */
 
-#define SET_FLAG(f, v) (f |= v)
-#define CLR_FLAG(f, v) (f &= ~v)
-#define TST_FLAG(f, v) (f & v)
+#define SET_FLAG(f, v) (f |= (v))
+#define CLR_FLAG(f, v) (f &= ~(v))
+#define TST_FLAG(f, v) (f & (v))
 
 /* Работа со счетчиками гарантированной доставки */
 #define INC_VAL(w) ({ w++; w %= 0x1000; w; })
@@ -113,7 +113,7 @@ enum {
 #define RANDOM_VAL (uint16_t)rand() % 0x1000
 
 #define TERM_NUMBER_LEN		13
-typedef char term_number[TERM_NUMBER_LEN];
+typedef uint8_t term_number[TERM_NUMBER_LEN];
 
 #define PRN_NUMBER_LEN		13
 

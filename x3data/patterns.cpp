@@ -1,5 +1,6 @@
-/* Работа с шаблонами печати ККТ. (c) gsr 2022, 2024 */
+/* Работа с шаблонами печати ККТ. (c) gsr 2022, 2024, 2026 */
 
+#include <cstring>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -21,7 +22,7 @@
 /* Версия шаблонов печати в "Экспресс" */
 static string x3_kkt_patterns_version;
 
-static time_t jul_date_to_unix_date(const char *jul_date)
+time_t jul_date_to_unix_date(const char *jul_date)
 {
 	if ((jul_date == NULL) || (strlen(jul_date) != 5))
 		return -1;
@@ -43,13 +44,34 @@ static int pattern_selector(const struct dirent *entry)
 	return regexec(&reg, entry->d_name, 0, NULL, 0) == REG_NOERROR;
 }
 
-static time_t get_local_patterns_date()
+#define PATTERNS_REGEX	"^S00[0-9]{5}$"
+
+const char *get_local_patterns_ver(void)
+{
+	const char *ret = NULL;
+	static char ver[6];
+	int rc = regcomp(&reg, PATTERNS_REGEX, REG_EXTENDED | REG_NOSUB);
+	if (rc != REG_NOERROR)
+		return ret;
+	struct dirent **names;
+	int n = scandir(PATTERNS_FOLDER, &names, pattern_selector, alphasort);
+	if (n == 1){
+		snprintf(ver, sizeof(ver), "%s", names[0]->d_name + 3);
+		ret = ver;
+	}
+	if (n > 0)
+		free(names);
+	regfree(&reg);
+	return ret;
+}
+
+static time_t get_local_patterns_date(void)
 {
 	if (!create_folder_if_need(PATTERNS_FOLDER)){
 		log_err("Каталог " PATTERNS_FOLDER " не существует и не может быть создан.");
 		return -1;
 	}
-	int rc = regcomp(&reg, "^S00[0-9]{5}$", REG_EXTENDED | REG_NOSUB);
+	int rc = regcomp(&reg, PATTERNS_REGEX, REG_EXTENDED | REG_NOSUB);
 	if (rc != REG_NOERROR){
 		log_err("Ошибка компиляции регулярного выражения для: %d.", rc);
 		return -1;
@@ -64,10 +86,13 @@ static time_t get_local_patterns_date()
 		log_err("В каталоге " PATTERNS_FOLDER " не найден файл даты.");
 		regfree(&reg);
 		return -1;
-	}else if (n > 1)
-		log_info("В каталоге " PATTERNS_FOLDER " найдено более одного файла даты (%d); "
-			"будет использован %s.", n, names[0]->d_name);
-	else
+	}else if (n > 1){
+/*		log_info("В каталоге " PATTERNS_FOLDER " найдено более одного файла даты (%d); "
+			"будет использован %s.", n, names[0]->d_name);*/
+		log_info("В каталоге " PATTERNS_FOLDER " найдено более одного файла даты (%d).", n);
+		regfree(&reg);
+		return -1;
+	}else
 		log_dbg("Обнаружен файл %s.", names[0]->d_name);
 	time_t ret = jul_date_to_unix_date(names[0]->d_name + 3);
 	free(names);
@@ -205,7 +230,7 @@ static char *next_str(char *buf, size_t len)
 	return ret;
 }
 
-static const size_t MAX_KKT_PATTERNS_DATA_LEN = 65536;
+static const size_t MAX_KKT_PATTERNS_DATA_LEN = 524288;		/* 512K */
 
 /* Декодирование шаблонов печати ККТ, распаковка и сохранение в файлы на диске */
 static bool store_patterns()
@@ -223,7 +248,7 @@ static bool store_patterns()
 	}else
 		log_info("Данные шаблонов печати ККТ декодированы; "
 			"длина после декодирования %u байт.", len);
-	scoped_ptr<uint8_t> patterns_data(new uint8_t[MAX_KKT_PATTERNS_DATA_LEN]);
+	const unique_ptr<uint8_t[]> patterns_data = make_unique<uint8_t[]>(MAX_KKT_PATTERNS_DATA_LEN);
 	size_t patterns_data_len = MAX_KKT_PATTERNS_DATA_LEN;
 	int rc = uncompress(patterns_data.get(), &patterns_data_len, patterns_buf, len);
 	if (rc == Z_OK)
@@ -242,8 +267,8 @@ static bool store_patterns()
 		return false;
 	}
 	bool ret = false;
-	boost::container::vector<string> names;
-	boost::container::vector<size_t> lengths;
+	vector<string> names;
+	vector<size_t> lengths;
 	char fname[PATH_MAX];
 	size_t flen;
 	for (size_t i = 0; i <= nr_files; i++){

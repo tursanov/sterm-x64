@@ -1,6 +1,10 @@
 #ifndef SERIALIZE_H
 #define SERIALIZE_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "list.h"
 
 int s_open(const char *file_name, int open_for_write);
@@ -20,5 +24,9 @@ int load_list(int fd, list_t *list, load_item_func_t load_item_func);
 
 #define SAVE_INT(fd, v) save_int((fd), (v), sizeof(v))
 #define LOAD_INT(fd, v) load_int((fd), (uint64_t *)&(v), sizeof(v))
+
+#if defined __cplusplus
+}
+#endif
 
 #endif // SERIALIZE_H

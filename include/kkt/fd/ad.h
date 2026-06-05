@@ -1,6 +1,10 @@
 #ifndef AD_H
 #define AD_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <stdio.h>
 #include <express.h>
@@ -335,5 +339,9 @@ extern int kkt_xml_callback(bool check, int evt, const char *name, const char *v
 
 extern void get_subcart_documents(char type, list_t *documents, const char *doc_no);
 extern void process_non_cash_documents(list_t *documents, int invoice);
+
+#if defined __cplusplus
+}
+#endif
 
 #endif // AD_H

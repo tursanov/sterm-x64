@@ -12,4 +12,8 @@ void cheque_reissue_docs_release(void);
 int cheque_reissue_docs_draw(void);
 void cheque_reissue_docs_execute(void);
 
+#if defined __cplusplus
+}
+#endif
+
 #endif // CHEQUE_REISSUE_DOCS_H

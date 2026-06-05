@@ -1,5 +1,6 @@
-/* Работа с таблицами XSLT. (c) gsr 2023, 2024 */
+/* Работа с таблицами XSLT. (c) gsr 2023, 2024, 2026 */
 
+#include <cstring>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -74,7 +75,8 @@ bool XSLTInfo::parse(const uint8_t *data, size_t len)
 	int y, d;
 	if (sscanf((const char *)data, "<%c%2s%2d%3d%c", &pr, idx, &y, &d, &ch) == 5){
 		pr = toupper(pr);
-		if ((pr == 'T') && (ch == '>') && isIdxValid(idx) && (y > 14) && (d > 0) && (d < 367)){
+		if ((pr == 'T') && (ch == '>') && isIdxValid(idx) &&
+				(y > 14) && (y < 100) && (d > 0) && (d < 367)){
 			snprintf(nm, ASIZE(nm), "%c%.2s%.2d%.3d", pr, idx, y, d);
 			struct tm tm;
 			tm.tm_year = 100 + y;
@@ -218,6 +220,8 @@ static const size_t MAX_COMPRESSED_XSLT_LEN = 65536;
 static uint8_t xslt_buf[MAX_COMPRESSED_XSLT_LEN];
 /* Текущий размер принятых данных сжатой таблицы XSLT */
 static size_t xslt_buf_idx = 0;
+/* Максимальный размер данных таблицы XSLT */
+static const size_t MAX_XSLT_DATA_LEN = 524288;		/* 512K */
 
 /* Автозапрос для получения таблиц XSLT по частям */
 static uint8_t xslt_auto_req[REQ_BUF_LEN];
@@ -260,8 +264,8 @@ static bool store_xslt(const XSLTInfo &xi)
 		return false;
 	}else
 		log_info("Данные таблицы XSLT декодированы; длина после декодирования %zu байт.", len);
-	scoped_ptr<uint8_t> xslt_data(new uint8_t[MAX_COMPRESSED_XSLT_LEN]);	/* FIXME */
-	size_t xslt_data_len = MAX_COMPRESSED_XSLT_LEN;
+	const unique_ptr<uint8_t[]> xslt_data = make_unique<uint8_t[]>(MAX_XSLT_DATA_LEN);
+	size_t xslt_data_len = MAX_XSLT_DATA_LEN;
 	int rc = uncompress(xslt_data.get(), &xslt_data_len, xslt_buf, len);
 	if (rc == Z_OK)
 		log_info("Данные таблицы XSLT распакованы; длина данных после распаковки %u байт.", xslt_data_len);

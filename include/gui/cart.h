@@ -1,6 +1,10 @@
 #ifndef UI_CART_H
 #define UI_CART_H
 
+#if defined __cplusplus
+extern "C" {
+#endif
+
 #include "kkt/fd/ad.h"
 #include "kbd.h"
 
@@ -98,5 +102,9 @@ void pos_day_open();
 void pos_day_close();
 void pos_service_operations();
 
+
+#if defined __cplusplus
+}
+#endif
 
 #endif // UI_CART_H

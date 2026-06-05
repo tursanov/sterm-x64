@@ -190,13 +190,13 @@ bool plog_print_current(struct log_gui_context *ctx)
 	ctx->modal = true;
 	if (!plog_print_header())
 		goto exit;
-	if (xprn_print((char *)log_prn_buf, log_prn_data_len)){
+	if (xprn_print(log_prn_buf, log_prn_data_len)){
 		if (!plog_print_rec())
 			goto exit;
-		if (xprn_print((char *)log_prn_buf, log_prn_data_len)){
+		if (xprn_print(log_prn_buf, log_prn_data_len)){
 			if (!plog_print_footer())
 				goto exit;
-			flag = xprn_print((char *)log_prn_buf, log_prn_data_len);
+			flag = xprn_print(log_prn_buf, log_prn_data_len);
 		}
 	}
 exit:
@@ -224,15 +224,14 @@ bool plog_print_range(struct log_gui_context *ctx, uint32_t from, uint32_t to)
 		log_draw(ctx);
 /* Печать заголовка */
 		if ((n == 0) && (!plog_print_header() ||
-				!xprn_print((char *)log_prn_buf, log_prn_data_len)))
+				!xprn_print(log_prn_buf, log_prn_data_len)))
 			break;
 /* Печать записей */
-		if (!plog_print_rec() || !xprn_print((char *)log_prn_buf,
-				log_prn_data_len))
+		if (!plog_print_rec() || !xprn_print(log_prn_buf, log_prn_data_len))
 			break;
 /* Печать концевика */
 		if (flag && (!plog_print_footer() ||
-				!xprn_print((char *)log_prn_buf, log_prn_data_len)))
+				!xprn_print(log_prn_buf, log_prn_data_len)))
 			break;
 	}
 	ctx->modal = false;

@@ -69,4 +69,8 @@ bool control_set_enabled(struct control_t *control, bool enabled);
 void fill_rect(GCPtr screen, int x, int y, int width, int height, int border_width,
 		Color border_color, int bg_color);
 
+#if defined __cplusplus
+}
+#endif
+
 #endif // CONTROL_H

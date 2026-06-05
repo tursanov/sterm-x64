@@ -269,7 +269,7 @@ static void print_xchange(void)
 /* Буфер готов, выводим его на печать */
 	recode_str(buf, l);
 	printing = true;
-	xprn_print(buf, l);
+	xprn_print((const uint8_t *)buf, l);
 	printing = false;
 }
 

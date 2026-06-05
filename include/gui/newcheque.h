@@ -11,4 +11,8 @@ bool newcheque_load();
 
 int newcheque_destroy();
 
+#if defined __cplusplus
+}
+#endif
+
 #endif // NEWCHEQUE_H

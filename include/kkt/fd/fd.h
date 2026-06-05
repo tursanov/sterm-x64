@@ -102,5 +102,8 @@ int fd_close_fs();
 // признак того, что оформление документа началось
 extern bool last_cheque_process_started;
 
+#if defined __cplusplus
+}
+#endif
 
 #endif

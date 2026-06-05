@@ -30,4 +30,8 @@ extern int agents_destroy();
 extern agent_t* get_agent_by_id(int id);
 extern int get_agent_id_by_index(int index);
 
+#if defined __cplusplus
+}
+#endif
+
 #endif // REF_AGENT_H

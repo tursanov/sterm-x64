@@ -67,9 +67,12 @@ kkt_tag_t tags[] = {
 	{ 1109, "признак расчетов за услуги", tag_type_byte },
 	{ 1110, "признак АС БСО", tag_type_byte },
 	{ 1111, "общее количество ФД за смену", tag_type_uint32 },
+	{ 1115, "суммы НДС чека", tag_type_stlv },
 	{ 1116, "номер первого непереданного документа", tag_type_uint32 },
 	{ 1117, "адрес электронной почты отправителя чека", tag_type_string },
 	{ 1118, "количество кассовых чеков (БСО) за смену", tag_type_uint32 },
+	{ 1119, "сумма НДС чека", tag_type_stlv },
+	{ 1120, "сумма НДС", tag_type_vln },
 	{ 1126, "признак проведения лотереи", tag_type_byte },
 	{ 1129, "счетчики операций \"приход\"", tag_type_stlv },
 	{ 1130, "счетчики операций \"возврат прихода\"", tag_type_stlv },
@@ -197,7 +200,7 @@ tag_type_t tags_get_tlv_text(ffd_tlv_t *tlv, char *text, size_t text_size) {
 			break;
 		case tag_type_unixtime:
 			{ 
-				time_t t = *(time_t *)data;
+				time_t t = (time_t)*(int32_t *)data;
 				struct tm tm = *gmtime(&t);
 				strftime(s, text_size - l, "%d.%m.%Y %H:%M", &tm);
 			}
@@ -257,3 +260,35 @@ tag_type_t tags_get_tlv_text(ffd_tlv_t *tlv, char *text, size_t text_size) {
 
 	return t->type;
 }
+
+void dump_stlv(uint8_t *p, size_t size, int level) {
+	char text[2048];
+	char tmp[8] = {0};
+
+	memset(tmp, ' ', level);
+	tmp[level] = 0;
+
+	size_t i = 0;
+	while (i < size) {
+		ffd_tlv_t *t = (ffd_tlv_t *)p;
+
+		tag_type_t type = tags_get_tlv_text(t, text, sizeof(text));
+		printf("%s%s\n", tmp, text);
+
+		if (type == tag_type_stlv)
+			dump_stlv(p + 4, t->length, level + 1);
+
+		size_t l = t->length + sizeof(*t);
+		i += l;
+		p += l;
+	}
+}
+
+void dump_current_tlv()
+{
+    uint8_t *tlv = ffd_tlv_data();
+    size_t tlv_size = ffd_tlv_size();
+    
+    dump_stlv(tlv, tlv_size, 0);
+}
+

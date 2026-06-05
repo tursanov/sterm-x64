@@ -16,5 +16,8 @@ void cheque_begin_op(const char *title);
 void cheque_end_op();
 
 
+#if defined __cplusplus
+}
+#endif
 
 #endif // CHEQUE_H

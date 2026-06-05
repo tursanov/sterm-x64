@@ -29,10 +29,12 @@ extern int req_type;
 
 /* Команды "Экспресс" */
 #define X_DLE		0x1b	/* Esc префикс команды */
+/* Эти команды использовались в ответах "Экспресс-2", их назначение неизвестно */
 #define X_WRITE		0x31	/* 1 запись */
 #define X_READ_ALL	0x32	/* 2 читать полный буфер */
 #define X_CLEAR		0x35	/* 5 стирание/запись */
 #define X_READ		0x36	/* 6 читать буфер */
+/* Актуальные команды "Экспресс" */
 #define X_DELAY		0x42	/* B пауза */
 #define X_RD_PROM	0x43	/* C чтение из ДЗУ */
 #define X_PARA_END_N	0x44	/* D конец абзаца; перейти к следующему */
@@ -63,7 +65,6 @@ extern int req_type;
 #define E_OK		0x00	/* Нет ошибки */
 #define E_NOETX		0x02	/* Нет ETX */
 #define E_REPKEYS	0x04	/* Повторная команда записи в ОЗУ ключей */
-#define E_XPROM		0x05	/* Внешняя команда записи в ДЗУ */
 #define E_NOSPROM	0x06	/* Конец записи в ДЗУ без начала записи */
 #define E_NESTEDOUT	0x07	/* Вложенные команды вывода на внешнее устройство */
 #define E_NOEPROM	0x08	/* Нет конца записи в ДЗУ */
@@ -89,6 +90,7 @@ extern int req_type;
 #define E_ARRUNK	0x81	/* Несуществующая команда в ДЗУ или ОЗУ констант */
 #define E_BIGPARA	0x82	/* Слишком длинный абзац */
 #define E_SHORT		0x83	/* Длина прикладного текста после обработки меньше либо равна 0 */
+#define E_MANY_PARAS	0x84	/* Количество абзацев в ответе больше максимально допустимого (26) */
 #define E_BCODE		0x86	/* Ошибка в команде штрихового кода */
 #define E_SWPOS		0x87	/* Неверное расположение команды переключения разрешения */
 #define E_SWOP		0x89	/* Неверный операнд команды переключения разрешения */
@@ -128,21 +130,21 @@ extern int req_type;
 
 /* Устройство для вывода абзаца ответа */
 enum {
-	dst_none,	/*  0 */
-	dst_sys,	/*  1 */
-	dst_text,	/*  2 */
-	dst_xprn,	/*  3 ОПУ */
-	dst_tprn = dst_xprn,
-	dst_aprn,	/*  4 ДПУ */
-	dst_sprn,	/*  5 БПУ */
-	dst_out,	/*  6 */
-	dst_qout,	/*  7 */
-	dst_hash,	/*  8 */
-	dst_keys,	/*  9 */
-	dst_bank,	/* 10 */
-	dst_log,	/* 11 */
-	dst_kkt,	/* 12 */
-	dst_kprn,	/* 13 */
+	dst_none,	/* нет */
+	dst_sys,	/* псевдоабзац (Ар2 5, Ар2 D, Ар2 \, Ар2 Z */
+	dst_scr,	/* экран */
+	dst_scr2,	/* ОПУ при его отсутствии (аналог ТПУ ПАК РМК) */
+	dst_xprn,	/* ОПУ */
+	dst_aprn,	/* ДПУ */
+	dst_sprn,	/* БПУ */
+	dst_out,	/* ОЗУ заказа */
+	dst_qout,	/* ОЗУ заказа без вывода на экран */
+	dst_hash,	/* ОЗУ констант */
+	dst_keys,	/* ОЗУ ключей */
+	dst_bank,	/* ИПТ */
+	dst_log,	/* КЛ1 */
+	dst_kkt,	/* ККТ */
+	dst_kprn,	/* ККПУ */
 };
 
 /* Информация об абзаце ответа */
@@ -160,6 +162,7 @@ struct para_info{
 	int xml_idx;		/* индекс в таблице XML (-1, если записи для абзаца нет */
 };
 
+#if 0
 /* Информация из абзаца для ИПТ */
 #define BNK_REQ_ID_LEN		7
 #define BNK_TERM_ID_LEN		6
@@ -188,7 +191,6 @@ struct bank_data {
 
 /* Запись в банковской корзине */
 struct bank_info {
-	time_t t0;					/* время создания записи */
 	uint32_t req_id;				/* номер заказа в системе */
 	char term_id[BNK_TERM_ID_LEN + 1];		/* технологический номер терминала */
 	char op;					/* тип платежа (-;+;*) */
@@ -205,6 +207,38 @@ extern struct bank_data bd;
 extern void clear_bank_info(void);
 /* Получение информации о банковском абзаце */
 extern ssize_t get_bank_info(struct bank_info *items, size_t nr_items);
+#endif
+
+/* Информация для ИПТ */
+#define BANK_ID_LEN_OLD		7
+#define BANK_ID_LEN_NEW		12
+#define BANK_TERM_ID_LEN	5
+#define BANK_AMOUNT_QUOT_LEN	7
+#define BANK_AMOUNT_DELIM_LEN	1
+#define BANK_AMOUNT_REM_LEN	1
+#define BANK_AMOUNT_LEN		(BANK_AMOUNT_QUOT_LEN + BANK_AMOUNT_DELIM_LEN + BANK_AMOUNT_REM_LEN)
+
+#define BANK_PARA_LEN_OLD	(BANK_ID_LEN_OLD + BANK_TERM_ID_LEN + BANK_AMOUNT_LEN)
+#define BANK_PARA_LEN_NEW	(BANK_ID_LEN_NEW + BANK_TERM_ID_LEN + BANK_AMOUNT_LEN)
+
+struct bank_info {
+	uint64_t id;
+	char termid[BANK_TERM_ID_LEN];
+	uint32_t amount1;
+	uint32_t amount2;
+};
+
+extern struct bank_info bi;
+extern struct bank_info bi_pos;
+
+/* Очистка содержимого структуры */
+extern void clear_bank_info(struct bank_info *p, bool full);
+/* Сброс содержимого обеих областей памяти */
+extern void reset_bank_info(void);
+/* Добавление содержимого первой области ко второй */
+extern void add_bank_info(void);
+/* Возврат к предыдущему значению */
+extern void rollback_bank_info(void);
 
 /* Номер абзаца ответа на КЛ при обработке ответа */
 extern uint32_t log_para;
@@ -238,7 +272,8 @@ extern bool check_raw_resp(void);
 extern int handle_para(int n_para);
 
 /* Получение информации банковского абзаца во время обработки ответа */
-extern const struct bank_data *get_bi(void);
+//extern const struct bank_data *get_bi(void);
+extern const struct bank_info *get_bi(void);
 
 /* Получение данных изображения для БПУ */
 extern bool find_pic_data(int *data, int *req);

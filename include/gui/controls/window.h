@@ -59,4 +59,8 @@ static inline void * window_get_ptr_data(window_t *w, int id, int what) {
 
 void window_show_error(window_t *w, int id, const char *text);
 
+#if defined __cplusplus
+}
+#endif
+
 #endif

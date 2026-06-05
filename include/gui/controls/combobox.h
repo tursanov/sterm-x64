@@ -20,4 +20,8 @@ control_t* edit_combobox_create(int id, GCPtr gc, int x, int y, int width, int h
 	const char **items, size_t item_count);
 
 
+#if defined __cplusplus
+}
+#endif
+
 #endif // COMBOBOX_H

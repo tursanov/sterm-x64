@@ -38,4 +38,8 @@ void lvform_destroy(lvform_t *lvform);
 int lvform_execute(lvform_t *lvform);
 void lvform_draw(lvform_t *lvform);
 
+#if defined __cplusplus
+}
+#endif
+
 #endif // LVFORM_H

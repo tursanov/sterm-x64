@@ -37,14 +37,12 @@ static int out_data_len;
 #if 0
 static void serial_dump(void)
 {
-	struct timeb tp;
-	struct tm *tm;
-	int i;
-	ftime(&tp);
-	tm = localtime(&tp.time);
-	printf("%.2d:%.2d:%.2d.%.3hu\n", tm->tm_hour, tm->tm_min, tm->tm_sec,
-			tp.millitm);
-	for (i = 0; i < in_data_len; i++){
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	struct tm *tm = localtime(&tv.tv_sec);
+	printf("%.2d:%.2d:%.2d.%.3lu\n", tm->tm_hour, tm->tm_min, tm->tm_sec,
+			tv.tv_usec / 1000);
+	for (int i = 0; i < in_data_len; i++){
 		if (((i & 0x07) == 0) && i)
 			printf("%c", (i & 0x0f) ? ' ' : '\n');
 		printf("%.2hx ", (uint16_t)in_data[(in_data_head + i) % sizeof(in_data)]);

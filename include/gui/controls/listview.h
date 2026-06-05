@@ -22,4 +22,8 @@ control_t* listview_create(int id, GCPtr gc, int x, int y, int width, int height
 		listview_selected_changed_t selected_changed_func,
         int selected_index);
 
+#if defined __cplusplus
+}
+#endif
+
 #endif // LISTVIEW

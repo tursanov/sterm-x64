@@ -1,29 +1,22 @@
-/* Общие определения для всех файлов. (c) gsr 2024 */
+/* Общие определения для всех файлов. (c) gsr 2024, 2026 */
 
 #pragma once
 
 typedef void (*InitializationNotify_t)(bool done, const char *message);
 
-#include <boost/container/list.hpp>
-using boost::container::list;
-
-#include <boost/container/map.hpp>
-using boost::container::container_detail::pair;
-
-#include <boost/container/string.hpp>
-using boost::container::string;
-
-#include <boost/smart_ptr/scoped_ptr.hpp>
-using boost::scoped_ptr;
-
-#include <boost/container/vector.hpp>
-using boost::container::vector;
-
-#include <boost/range/algorithm/equal.hpp>
-using boost::range::equal;
-
-#include <boost/range/algorithm/find_if.hpp>
-using boost::range::find_if;
+#include <algorithm>
+using std::equal;
+using std::find_if;
+#include <list>
+using std::list;
+using std::pair;
+#include <memory>
+using std::make_unique;
+using std::unique_ptr;
+#include <string>
+using std::string;
+#include <vector>
+using std::vector;
 
 /* Команды для работы со сжатым изображением */
 /* Признак начала команды */
@@ -32,6 +25,9 @@ static const uint8_t CPIC_ESC = 0x1b;
 static const uint8_t CPIC_REP_CHAR = 0x43;
 /* Повтор предыдущей линии */
 static const uint8_t CPIC_REP_LINE = 0x4c;
+
+/* Проверка существования каталога и создание его при необходимости */
+extern bool create_folder_if_need(const char *path);
 
 /* Сжатие файла изображения (w и h задаются в точках) */
 extern bool compress_picture(const uint8_t *src, size_t len, size_t w, size_t h,

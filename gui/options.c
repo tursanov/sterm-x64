@@ -105,7 +105,8 @@ struct optn_group{
 /* Функции обратного вызова */
 static void on_iplir_change(struct optn_item *item);
 static void on_xprn_change(struct optn_item *item);
-static void on_aprn_change(struct optn_item *item);
+static void on_tickets_on_kkt_change(struct optn_item *item);
+//static void on_aprn_change(struct optn_item *item);
 static void on_bank_change(struct optn_item *item);
 static void on_kkt_change(struct optn_item *item);
 static void on_fdo_iface_change(struct optn_item *item);
@@ -125,7 +126,7 @@ static bool scheme_changed = false;
  * только один раз.
  */
 bool lprn_params_read = false;
-static const char lprn_hdr[] = "БПУ-----------";
+//static const char lprn_hdr[] = "БПУ-----------";
 
 /* TCP/IP */
 static const char *optn_use_ppp[] = {"Сетевая карта", "PPP"};
@@ -329,16 +330,10 @@ static struct optn_item dev_optn_items[] = {
 		has_xprn, on_xprn_change),
 	OPTN_STR_EDIT("Номер ОПУ", "Заводской номер основного\r\nпечатающего устройства",
 		PRN_NUMBER_LEN, xprn_number, NULL),
-	OPTN_BOOL2("ДПУ", "Наличие дополнительного принтера\r\n"
-		"в составе терминала", has_aprn, on_aprn_change),
-	OPTN_STR_EDIT("Номер ДПУ", "Заводской номер дополнительного\r\n"
-		"печатающего устройства", PRN_NUMBER_LEN, aprn_number, NULL),
-	OPTN_STR_ENUM("Порт ДПУ", "Последовательный порт, к которому\r\n"
-		"подключается ДПУ", optn_com_port, ini_int, aprn_tty, NULL),
-	OPTN_BOOL2("БПУ", "Наличие в составе терминала БПУ",
+/*	OPTN_BOOL2("БПУ", "Наличие в составе терминала БПУ",
 		has_sprn, NULL),
-	OPTN_STATIC("Номер БПУ", (const char *)lprn_number, sizeof(lprn_number)),
-	OPTN_STATIC("------Параметры печати", lprn_hdr, sizeof(lprn_hdr) - 1),
+	OPTN_STATIC("Номер БПУ", (const char *)lprn_number, sizeof(lprn_number)),*/
+/*	OPTN_STATIC("------Параметры печати", lprn_hdr, sizeof(lprn_hdr) - 1),
 	OPTN_INT_EDIT("Длина бланка", "Длина документа в мм", s0, NULL),
 	OPTN_INT_EDIT("Ширина бланка", "Ширина документа в мм", s1, NULL),
 	OPTN_INT_EDIT("Расст. до штрих-кода", "Расстояние до считываемого\r\n"
@@ -355,7 +350,12 @@ static struct optn_item dev_optn_items[] = {
 	OPTN_INT_EDIT("Коррекция отреза", "Константа коррекции отреза\r\n"
 		"по реперной метке в точках\r\n(1 точка = 1/8 мм)", s8, NULL),
 	OPTN_INT_EDIT("Коррекция левой гр. КЛ", "Константа коррекции левой границы\r\n"
-		"контрольной ленты в точках\r\n(1 точка = 1/8 мм)", s9, NULL),
+		"контрольной ленты в точках\r\n(1 точка = 1/8 мм)", s9, NULL),*/
+	OPTN_BOOL1("Печать на ККТ", "Печать проездных документов на ККТ\r\n"
+		"ВНИМАНИЕ: категорически запрещается\r\n"
+		"устанавливать переключатель в положение\r\n"
+		"\"Да\" без специального указания!",
+		tickets_on_kkt, on_tickets_on_kkt_change),
 };
 
 /* TCP/IP */
@@ -928,6 +928,7 @@ static bool __optn_set_item_enable(int offset, bool enable)
 #define optn_enable_item(fld) optn_set_item_enable(fld, true)
 #define optn_disable_item(fld) optn_set_item_enable(fld, false)
 
+#if 0
 /*
  * Разрешение/запрещение редактирования параметров БСО БПУ в зависимости
  * от режима работы.
@@ -950,6 +951,7 @@ static void adjust_sprn_params(bool enable)
 		}
 	}
 }
+#endif
 
 /* Работа с меню настроек */
 static bool optn_create_menu(void)
@@ -1053,6 +1055,8 @@ static bool optn_read_group(const struct term_cfg *cfg, int group)
 		if (items[i].offset < 0)
 			continue;
 		const uint8_t *p = (uint8_t *)cfg + items[i].offset;
+		if (items[i].offset == xoffsetof(*cfg, tickets_on_kkt))
+			items[i].enabled = !cfg->tickets_on_kkt;
 		switch (items[i].at){
 			case ini_bool:
 				items[i].vv.flag = *((const bool *)p);
@@ -1571,7 +1575,7 @@ static bool draw_optn_help(void)
 	GCPtr pGC = CreateGC(DISCX / 2 + 3, 2 * titleCY + 3, DISCX / 2 - 4, DISCY / 2 - 34);
 	FontPtr pFont = CreateFont(_("fonts/terminal10x18.fnt"), true);
 	term_number tn;
-	get_tki_field(&tki, TKI_NUMBER, (uint8_t *)tn);
+	get_tki_field(&tki, TKI_NUMBER, tn, sizeof(tn));
 	
 	ClearGC(pMemGC, clBtnFace);
 	SetFont(pMemGC, pFont);
@@ -2017,32 +2021,12 @@ static int get_pos_port(void)
 	return ret;
 }
 
-static int get_aprn_port(void)
-{
-	struct optn_item *itm =
-		optn_item_by_offset(has_aprn);
-	if ((itm == NULL) || !itm->vv.flag)
-		return -1;
-	itm = optn_item_by_offset(aprn_tty);
-	return (itm == NULL) ? -1 : itm->vv.i;
-}
-
 /* Проверка введенных данных о принтерах */
 static bool on_exit_devices(const struct optn_group *group __attribute__((unused)))
 {
 	char *message = NULL;
-	int aprn_port = get_aprn_port();
-	int ppp_port = get_ppp_port();
-	int pos_port = get_pos_port();
 	struct optn_item *itm;
 /* Проверка портов */
-	if (aprn_port != -1){
-		if (aprn_port == ppp_port)
-			message = "Выбранный порт уже используется для "
-				"подключения модема";
-		else if (aprn_port == pos_port)
-			message = "Выбранный порт уже используется в ИПТ";
-	}
 	if (message != NULL){
 		message_box(NULL, message, dlg_yes, 0, al_center);
 		return false;
@@ -2053,14 +2037,6 @@ static bool on_exit_devices(const struct optn_group *group __attribute__((unused
 		itm = optn_item_by_offset(xprn_number);
 		if ((itm != NULL) && !prn_number_correct((uint8_t *)itm->vv.s))
 			message = "Неверный номер ОПУ";
-	}
-	if (message == NULL){
-		itm = optn_item_by_offset(has_aprn);
-		if ((itm != NULL) && itm->vv.flag){
-			itm = optn_item_by_offset(aprn_number);
-			if ((itm != NULL) && !prn_number_correct((uint8_t *)itm->vv.s))
-				message = "Неверный номер ДПУ";
-		}
 	}
 	if (message != NULL){
 		message_box(NULL, message, dlg_yes, 0, al_center);
@@ -2115,15 +2091,9 @@ static bool on_exit_ppp(const struct optn_group *group __attribute__((unused)))
 {
 	int ppp_port = get_ppp_port();
 	int pos_port = get_pos_port();
-	int aprn_port = get_aprn_port();
 	const char *message = NULL;
-	if (ppp_port != -1){
-		if (ppp_port == pos_port)
-			message = "Выбранный порт уже используется в ИПТ";
-		else if (ppp_port == aprn_port)
-			message = "Выбранный порт уже используется для "
-				"подключения ДПУ";
-	}
+	if ((ppp_port != -1) && (ppp_port == pos_port))
+		message = "Выбранный порт уже используется в ИПТ";
 	bool ret = true;
 	if (message != NULL){
 		message_box(NULL, message, dlg_yes, 0, al_center);
@@ -2138,15 +2108,9 @@ static bool on_exit_bank_system(const struct optn_group *group)
 		return false;
 	int pos_port = get_pos_port();
 	int ppp_port = get_ppp_port();
-	int aprn_port = get_aprn_port();
 	const char *message = NULL;
-	if (pos_port != -1){
-		if (pos_port == ppp_port)
-			message = "Выбранный порт уже используется в PPP";
-		else if (pos_port == aprn_port)
-			message = "Выбранный порт уже используется для "
-				"подключения ДПУ";
-	}
+	if ((pos_port != -1) && (pos_port == ppp_port))
+		message = "Выбранный порт уже используется в PPP";
 	bool ret = true;
 	if (message != NULL){
 		message_box(NULL, message, dlg_yes, 0, al_center);
@@ -2197,7 +2161,6 @@ bool process_options(const struct kbd_event *e)
 					break;
 				case cmd_dev_optn:
 //					get_lprn_params();
-					adjust_sprn_params(false);
 					optn_set_group(OPTN_GROUP_DEVICES);
 					break;
 				case cmd_tcpip_optn:
@@ -2258,6 +2221,26 @@ static void on_xprn_change(struct optn_item *item)
 		optn_set_item_enable(xprn_number, item->vv.flag);
 }
 
+/* Вызывается при включении печати проездных документов на ККТ */
+static void on_tickets_on_kkt_change(struct optn_item *item)
+{
+	if (!item->v.flag && item->vv.flag){
+		int rc = message_box("ВНИМАНИЕ!", "Настройка \"Печать на ККТ\" "
+				"может быть изменена из положения \"Нет\" в положение \"Да\" "
+				"без взможности возврата в положение \"Нет\".\n\n"
+				"Изменение настройки \"Печать на ККТ\" в положение \"Да\" "
+				"должна быть выполнена только после получения особого указания.\n\n"
+				"Нажатие на кнопку \"OK\" после изменения настройки \"Печать на ККТ\" "
+				"в положение \"Да\" без получения особого указания "
+				"приведёт к неработоспособности терминала.\n\n"
+				"Вы подтверждаете продолжение?", dlg_yes_no, 1, al_center);
+		draw_options();
+       		if (rc == DLG_BTN_NO)
+			item->vv.flag = false;
+	}
+}
+
+#if 0
 /* Вызывается при включении/выключении флага наличия ДПУ */
 static void on_aprn_change(struct optn_item *item)
 {
@@ -2267,6 +2250,7 @@ static void on_aprn_change(struct optn_item *item)
 	optn_set_item_enable(aprn_number, flag);
 	optn_set_item_enable(aprn_tty, flag);
 }
+#endif
 
 /* Вызывается при изменении параметра "Связь с ИПТ" */
 static void on_bank_change(struct optn_item *item)

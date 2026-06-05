@@ -90,7 +90,7 @@ extern int		scr_handle_kbd(struct kbd_event *e);
 extern void		store_orig_scr_text(void);
 extern void		restore_orig_scr_text(void);
 extern int		get_scr_text(uint8_t *buf, int len);
-extern int		scr_get_24(char *buf,int l,bool strip);
+extern int		scr_get_24(uint8_t *buf,int l,bool strip);
 extern int		scr_snap_shot(uint8_t *buf,int l);
 extern int		set_scr_text(uint8_t *s,int l,int t, bool need_redraw);
 extern int		set_scr_request(uint8_t *s, int req_len, bool show);

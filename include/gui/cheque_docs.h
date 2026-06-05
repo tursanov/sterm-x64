@@ -12,4 +12,8 @@ void cheque_docs_release(void);
 int cheque_docs_draw(void);
 void cheque_docs_execute(void);
 
+#if defined __cplusplus
+}
+#endif
+
 #endif // CHEQUE_DOCS_H

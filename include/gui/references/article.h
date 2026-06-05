@@ -22,4 +22,8 @@ extern list_t articles;
 
 extern int articles_destroy();
 
+#if defined __cplusplus
+}
+#endif
+
 #endif // ARTICLE_H

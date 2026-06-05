@@ -119,7 +119,7 @@ static struct hint_entry main_hints[NR_HINTS]={
 	{"Ctrl+Ч",	"КЛ ИПТ",		_("pict/log.bmp")},
 	{"Ctrl+Р",	"КЛ ККТ",		_("pict/log.bmp")},
 	{"Ctrl+Ш",	"Инфо",			_("pict/info.bmp")},
-	{"Ctrl+Щ",		"ККТ",		_("pict/kkt.bmp")},
+	{"Ctrl+Щ",	"ККТ",			_("pict/kkt.bmp")},
 };
 
 /* Геометрия экрана 80x20 */
@@ -506,7 +506,7 @@ static bool sync_input_window(int n)
 static bool set_input_window(int n)
 {
 	struct input_window *p;
-	if ((n < 0) || (n >= MAX_WINDOWS) || (inp_buf[n].buf == NULL))
+	if ((n < 0) || (n >= MAX_WINDOWS))
 		return false;
 	if (scr_is_req())
 		sync_input_window(cur_window);
@@ -592,9 +592,10 @@ int set_scr_mode(int m, bool need_redraw, bool is_main)
 /* Переключение режима экрана */
 void switch_scr_mode(bool need_redraw)
 {
-	if (cur_mode == m80x20)
-		/*set_scr_mode(m32x8, need_redraw, true)*/;
-	else
+	if (cur_mode == m80x20){
+		if (!scr_is_resp())
+			set_scr_mode(m32x8, need_redraw, true);
+	}else
 		set_scr_mode(m80x20, need_redraw, true);
 	set_resp_mode(cur_mode);
 }
@@ -602,16 +603,17 @@ void switch_scr_mode(bool need_redraw)
 /* Корректировка режима экрана */
 static bool adjust_scr_mode(void)
 {
+	bool ret = false;
 	if (scr_is_resp()){
 		if ((resp_mode != m_undef) && (cur_mode != resp_mode)){
-			set_scr_mode(resp_mode,false,false);
-			return true;
+			set_scr_mode(resp_mode, false, false);
+			ret = true;
 		}
 	}else if (cur_mode != main_mode){
-		set_scr_mode(main_mode,false,false);
-		return true;
+		set_scr_mode(main_mode, false, false);
+		ret = true;
 	}
-	return false;
+	return ret;
 }
 
 /* Установка режима просмотра ответа */
@@ -846,7 +848,9 @@ bool show_hints(void)
 					glyph = NULL;
 				else if (kkt == NULL)
 					glyph = _("pict/kkt_err.bmp");
-				else if (!kkt_has_param("SUPPORT_ESC_R"))
+				else if (!kkt_has_param("SUPPORT_ESC_R")
+				        || !kkt_has_param("SUPPORT_VAT_5_7")
+                        || !kkt_has_param("SUPPORT_VAT_22"))
 					glyph = _("pict/kkt_warn.bmp");
 			}
 			glyphs[i] = glyph ? CreateBitmap(glyph) : NULL;
@@ -2040,6 +2044,7 @@ bool quick_astate(int ast)
 		case ast_pos_error:
 		case ast_pos_need_init:
 		case ast_no_kkt:
+		case ast_kkt_error:
 			return true;
 		default:
 			return false;
@@ -2300,7 +2305,7 @@ int get_scr_text(uint8_t *buf, int len)
 
 /* Получение первых l символов ОЗУ заказа */
 /* NB: возможен выход за правую границу буфера */
-int scr_get_24(char *buf, int l, bool strip)
+int scr_get_24(uint8_t *buf, int l, bool strip)
 {
 	uint8_t *p = inp_buf[cur_window].buf;
 	int i, n = 0;
@@ -2647,6 +2652,7 @@ int set_scr_text(uint8_t *s, int l, int t, bool need_redraw)
 		hide_cursor();
 		adjust_scr_mode();
 		bool wrap = false;
+		sg = &sg80x20;
 		for (int n = 0; (s - ss) < l; s++){
 			if (is_escape(*s))
 				dle = true;

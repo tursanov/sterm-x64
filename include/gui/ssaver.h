@@ -12,4 +12,8 @@ extern bool 	draw_ssaver(void);
 extern bool 	process_ssaver(struct kbd_event *e);
 
 
+#if defined __cplusplus
+}
+#endif
+
 #endif /* SSAVER_H */

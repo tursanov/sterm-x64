@@ -176,7 +176,7 @@ static const char *make_l_str(char *buf, L* l)
     
     if (l->n == 0)
     {
-        sprintf(v, "(… Ž„‹…†ˆ’ €‹ŽƒƒŽ‹Ž†…ˆž „‘)");
+        sprintf(v, "(… Ž„‹…†ˆ’ €‹ŽƒŽŽ‹Ž†…ˆž „‘)");
     }
     else
     {

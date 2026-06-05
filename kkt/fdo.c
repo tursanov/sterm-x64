@@ -3,7 +3,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <sys/timeb.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <ctype.h>
 #include <errno.h>
@@ -17,26 +17,29 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include "cfg.h"
 #include "kkt/cmd.h"
 #include "kkt/fs.h"
 #include "kkt/kkt.h"
+#include "cfg.h"
 
 /* Отладочная печать */
+#if defined __FDO_DEBUG__
 __attribute__((format (printf, 2, 3))) static void __dbg(const char *fn, const char *fmt, ...)
 {
-	struct timeb tb;
-	ftime(&tb);
-	struct tm *tm = localtime(&tb.time);
-	fprintf(stderr, "%.2d:%.2d:%.2d.%.3d %s: ", tm->tm_hour, tm->tm_min, tm->tm_sec,
-		tb.millitm, fn);
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	struct tm *tm = localtime(&tv.tv_sec);
+	fprintf(stderr, "%.2d:%.2d:%.2d.%.3ld %s: ", tm->tm_hour, tm->tm_min, tm->tm_sec,
+		tv.tv_usec / 1000, fn);
 	va_list ap;
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
 }
-
 #define dbg(fmt, arg...) __dbg(__func__, fmt "\n", ## arg)
+#else
+#define dbg(fmt, arg...) do {} while (0)
+#endif
 
 /* Заголовок сеансового уровня */
 struct fdo_session_header {
@@ -93,46 +96,7 @@ enum {
 /* Состояние потока для работы с ОФД */
 static volatile int fdo_thread_state = fdo_thread_active;
 
-#if 0
-/* Для сигнализации об изменении состояния потока используется механизм сигналов */
-#define SIG_THREAD_STATE_CHANGED	SIGRTMIN
-
-static void sig_handler(int arg /*__attribute__((used))*/)
-{
-	dbg("arg = %d.", arg);
-}
-
-static bool fdo_set_sig_handler(void)
-{
-	struct sigaction sa = {
-		.sa_handler = sig_handler,
-		.sa_flags = 0,
-		.sa_restorer = NULL
-	};
-	sigemptyset(&sa.sa_mask);
-	bool ret = (sigaction(SIG_THREAD_STATE_CHANGED, &sa, NULL) == 0);
-	if (!ret)
-		dbg("ошибка sigaction(): %s.", strerror(errno));
-	return ret;
-}
-
-static bool fdo_reset_sig_handler(void)
-{
-	struct sigaction sa = {
-		.sa_handler = SIG_DFL,
-		.sa_flags = 0,
-		.sa_restorer = NULL
-	};
-	sigemptyset(&sa.sa_mask);
-	bool ret = (sigaction(SIG_THREAD_STATE_CHANGED, &sa, NULL) == 0);
-	if (!ret)
-		dbg("ошибка sigaction(): %s.", strerror(errno));
-	return ret;
-}
-#endif
-
 static pthread_mutex_t fdo_mtx = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
-static pthread_mutex_t susp_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 bool fdo_lock(void)
 {
@@ -153,13 +117,7 @@ static bool fdo_set_thread_state(int state)
 		if (state == fdo_thread_active)
 			fdo_reset_rx();
 		fdo_unlock();
-/*		int rc = pthread_kill(fdo_thread, SIG_THREAD_STATE_CHANGED);
-		if (rc == 0){*/
-			pthread_mutex_lock(&susp_mtx);
-			pthread_mutex_unlock(&susp_mtx);
-			ret = true;
-/*		}else
-			dbg("ошибка pthread_kill(): %s.", strerror(errno));*/
+		ret = true;
 	}
 	return ret;
 }
@@ -186,16 +144,7 @@ static bool fdo_sleep(uint32_t ms)
 	ms /= 10;
 	uint32_t t0 = u_times();
 	while ((fdo_thread_state == fdo_thread_active) && ((u_times() - t0) < ms))
-		pthread_yield();
-/*	if (ms == 0)
-		ret = pthread_yield() == 0;
-	else{
-		struct timespec ts = {
-			.tv_sec = ms / 1000,
-			.tv_nsec = (ms % 1000) * 1000000
-		};
-		ret = nanosleep(&ts, NULL) == 0;
-	}*/
+		sched_yield();
 	return ret;
 }
 
@@ -206,15 +155,15 @@ static bool fdo_sleep(uint32_t ms)
 /* Таймаут приёма данных от ОФД */
 #define FDO_RECV_TIMEOUT		3000	/* 3 сек */
 
-#define get_timeb(t) \
-	struct timeb t; \
-	ftime(&t)
+#define get_timeval(t) \
+	struct timeval t; \
+	gettimeofday(&t, NULL)
 
-static uint32_t time_diff(const struct timeb *t0)
+static uint32_t time_diff(const struct timeval *t0)
 {
-	get_timeb(t);
-	return (t.time - t0->time) * 1000 +
-		((time_t)t.millitm - (time_t)t0->millitm);
+	get_timeval(t);
+	return (t.tv_sec - t0->tv_sec) * 1000 +
+		((time_t)t.tv_usec - (time_t)t0->tv_usec) / 1000;
 }
 
 static int fdo_sock = -1;
@@ -263,6 +212,7 @@ static bool fdo_sock_open_if_need(void)
 	return (fdo_sock == -1) ? fdo_sock_open() : true;
 }
 
+#if defined __FDO_DEBUG__
 static int fdo_get_sock_error(void)
 {
 	int err = 0;
@@ -271,6 +221,7 @@ static int fdo_get_sock_error(void)
 		err = errno;
 	return err;
 }
+#endif
 
 static bool fdo_parse_addr(const uint8_t *data, size_t len, uint32_t *ip, uint16_t *port)
 {
@@ -314,13 +265,6 @@ static bool fdo_parse_addr(const uint8_t *data, size_t len, uint32_t *ip, uint16
 	return !err;
 }
 
-/*static void *debug_thread_proc(void *arg)
-{
-	usleep(100);
-	pthread_kill((pthread_t)arg, SIG_THREAD_STATE_CHANGED);
-	return NULL;
-}*/
-
 /* Установка соединения с ОФД */
 static uint16_t fdo_connect(const uint8_t *data, size_t len)
 {
@@ -349,8 +293,6 @@ static uint16_t fdo_connect(const uint8_t *data, size_t len)
 			.events		= POLLOUT,
 			.revents	= 0
 		};
-/*		pthread_t tid = 0;
-		pthread_create(&tid, NULL, debug_thread_proc, (void *)pthread_self());*/
 		int rc = poll(&fds, 1, FDO_CONNECT_TIMEOUT);
 		if (rc == -1){
 			if (errno == EINTR)
@@ -400,7 +342,7 @@ static uint16_t fdo_send(const uint8_t *data, size_t len)
 	uint16_t ret = FDO_SEND_ERROR;
 	size_t sent_len = 0;
 	uint32_t dt = 0;
-	get_timeb(t0);
+	get_timeval(t0);
 	while (sent_len < len){
 		bool flag = false;
 		struct pollfd fds = {
@@ -548,16 +490,11 @@ static void fdo_poll_kkt(void)
 static void *fdo_thread_proc(void *arg __attribute__((unused)))
 {
 	while (fdo_thread_state != fdo_thread_stopped){
-		if (fdo_thread_state == fdo_thread_suspended)
-/*			pause();*/
-			pthread_yield();
-		else if ((fdo_thread_state == fdo_thread_active) &&
-				cfg.has_kkt && (kkt != NULL)){
-			pthread_mutex_lock(&susp_mtx);
+		if ((fdo_thread_state == fdo_thread_active) &&
+				cfg.has_kkt && (kkt != NULL))
 			fdo_poll_kkt();
-			pthread_mutex_unlock(&susp_mtx);
-		}else
-			pthread_yield();
+		else
+			sched_yield();
 	}
 	return NULL;
 }
@@ -565,9 +502,7 @@ static void *fdo_thread_proc(void *arg __attribute__((unused)))
 bool fdo_init(void)
 {
 	bool ret = false;
-/*	if (!fdo_set_sig_handler())
-		;
-	else*/ if (pthread_create(&fdo_thread, NULL, fdo_thread_proc, NULL) == 0){
+	if (pthread_create(&fdo_thread, NULL, fdo_thread_proc, NULL) == 0){
 		dbg("модуль ОФД готов к работе.");
 		ret = true;
 	}else
@@ -580,6 +515,5 @@ void fdo_release(void)
 	fdo_stop_thread();
 	pthread_mutex_unlock(&fdo_mtx);
 	fdo_sock_close();
-/*	fdo_reset_sig_handler();*/
 	dbg("модуль ОФД завершил работу.");
 }

@@ -84,7 +84,7 @@ BNKLIC_OBJS =		\
 	$(addsuffix .o, $(BNKLIC_SCRIPTS_OBJS))
 
 bnklic:		$(BNKLIC_OBJS)
-		@echo "\t$(LD_NAME)   $@"
+		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 ## dircmp
@@ -96,7 +96,7 @@ DIRCMP_OBJS =		\
 	$(addsuffix .o, $(DIRCMP_SCRIPTS_OBJS))
 
 dircmp:		$(DIRCMP_OBJS)
-		@echo "\t$(LD_NAME)   $@"
+		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 ## dsd
@@ -111,7 +111,7 @@ DSD_OBJS =		\
 	$(addsuffix .o, $(DSD_SCRIPTS_OBJS))
 
 dsd:		$(DSD_OBJS)
-		@echo "\t$(LD_NAME)   $@"
+		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 ## lprnlic
@@ -127,7 +127,7 @@ LPRNLIC_OBJS =		\
 	$(addsuffix .o, $(LPRNLIC_SCRIPTS_OBJS))
 
 lprnlic:	$(LPRNLIC_OBJS)
-		@echo "\t$(LD_NAME)   $@"
+		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 ## mwl
@@ -146,7 +146,7 @@ MWL_OBJS =		\
 	$(addsuffix .o, $(MWL_SCRIPTS_OBJS))
 
 mwl:		$(MWL_OBJS)
-		@echo "\t$(LD_NAME)   $@"
+		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 ## rmbnklic
@@ -164,7 +164,7 @@ RMBNKLIC_OBJS =		\
 	$(addsuffix .o, $(RMBNKLIC_SCRIPTS_OBJS))
 
 rmbnklic:	$(RMBNKLIC_OBJS)
-		@echo "\t$(LD_NAME)   $@"
+		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 ## rmbnklicx
@@ -184,7 +184,7 @@ RMBNKLICX_OBJS =	\
 	$(addsuffix .o, $(RMBNKLICX_SCRIPTS_OBJS))
 
 rmbnklicx:	$(RMBNKLICX_OBJS)
-		@echo "\t$(LD_NAME)   $@"
+		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 ## rmlprnlic
@@ -202,7 +202,7 @@ RMLPRNLIC_OBJS =	\
 	$(addsuffix .o, $(RMLPRNLIC_SCRIPTS_OBJS))
 
 rmlprnlic:	$(RMLPRNLIC_OBJS)
-		@echo "\t$(LD_NAME)   $@"
+		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 ## rmlprnlicx
@@ -222,7 +222,7 @@ RMLPRNLICX_OBJS =	\
 	$(addsuffix .o, $(RMLPRNLICX_SCRIPTS_OBJS))
 
 rmlprnlicx:	$(RMLPRNLICX_OBJS)
-		@echo "\t$(LD_NAME)   $@"
+		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 ## tpld
@@ -239,7 +239,7 @@ TPLD_OBJS =		\
 	$(addsuffix .o, $(TPLD_SCRIPTS_OBJS))
 
 tpld:		$(TPLD_OBJS)
-		@echo "\t$(LD_NAME)   $@"
+		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 ## tstbeep
@@ -254,7 +254,7 @@ TSTBEEP_OBJS =		\
 	$(addsuffix .o, $(TSTBEEP_SCRIPTS_OBJS))
 
 tstbeep:	$(TSTBEEP_OBJS)
-		@echo "\t$(LD_NAME)   $@"
+		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 ## tstcom
@@ -269,7 +269,7 @@ TSTCOM_OBJS =		\
 	$(addsuffix .o, $(TSTCOM_SCRIPTS_OBJS))
 
 tstcom:		$(TSTCOM_OBJS)
-		@echo "\t$(LD_NAME)   $@"
+		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 ## unlkbnk
@@ -286,7 +286,7 @@ UNLKBNK_OBJS =		\
 	$(addsuffix .o, $(UNLKBNK_SCRIPTS_OBJS))
 
 unlkbnk:	$(UNLKBNK_OBJS)
-		@echo "\t$(LD_NAME)   $@"
+		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 ## unlklprn
@@ -303,7 +303,7 @@ UNLKLPRN_OBJS =		\
 	$(addsuffix .o, $(UNLKLPRN_SCRIPTS_OBJS))
 
 unlklprn:	$(UNLKLPRN_OBJS)
-		@echo "\t$(LD_NAME)   $@"
+		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 clean:
