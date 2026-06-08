@@ -1467,7 +1467,6 @@ static int handle_kbd(struct kbd_event *e, bool check_scr, bool busy)
 		{KEY_T, cmd_view_error},	/* ошибка в тексте ответа */
 		{KEY_X, cmd_view_plog},		/* просмотр БКЛ */
 		{KEY_Z,	cmd_ticket_number},	/* чтение номера БСО в пригородном режиме */
-		{KEY_COMMA, cmd_pos},		/* вызов POS-терминала */
 		{KEY_F10, cmd_exit},		/* выход */
 	},
 	keys[] = {
@@ -3759,7 +3758,6 @@ static bool process_term(void)
 		{cmd_print_plog_range,	print_plog_range,	true},
 		{cmd_find_plog_date,	find_plog_date,		true},
 		{cmd_find_plog_number,	find_plog_number,	true},
-		{cmd_pos,		show_pos,		true},
 		{cmd_term_info,		show_term_info,		true},
 		{cmd_iplir_version,	show_iplir_version,	true},
 		{cmd_kkt_info,		show_kkt_info,		true},

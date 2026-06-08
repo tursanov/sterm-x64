@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+#include "gui/gdi.h"
 #include "kkt/fd/ad.h"
 #include "kbd.h"
 

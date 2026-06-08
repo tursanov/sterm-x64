@@ -247,7 +247,7 @@ static size_t rereg_data_len = sizeof(rereg_data);
 int64_t user_inn = 0;
 uint8_t reg_tax_systems = 0;
 
-static int fa_get_reregistration_data() {
+int fa_get_reregistration_data() {
 	int ret;
 	rereg_data_len = sizeof(rereg_data);
 	if ((ret = kkt_get_last_reg_data(rereg_data, &rereg_data_len)) == 0 && rereg_data_len > 0) {
@@ -1349,7 +1349,7 @@ void fa_cheque() {
 							            ffd_tlv_add_string(1171, l->h);
 							        }
 							    ffd_tlv_stlv_end();
-
+							}
 						}
 						ffd_tlv_stlv_end();
 					}

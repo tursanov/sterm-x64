@@ -128,15 +128,15 @@ bool log_data(const char *prefix, const char *title, const uint8_t *data, size_t
 #define LINE_LEN	16
 #define HALF_LINE_LEN	(LINE_LEN / 2)
 	static char path[PATH_MAX];
-	struct timeb tb;
-	ftime(&tb);
-	struct tm *tm = localtime(&tb.time);
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	struct tm *tm = localtime(&tv.tv_sec);
 	snprintf(path, sizeof(path), LOG_FOLDER "/%s-%.4u-%.2u-%.2u.txt",
 		prefix, tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday);
 	FILE *f = fopen(path, "a");
 	if (f == NULL)
 		return false;
-	fprintf(f, "%.2u:%.2u:%.2u.%.3hu", tm->tm_hour, tm->tm_min, tm->tm_sec, tb.millitm);
+	fprintf(f, "%.2u:%.2u:%.2u.%.3ld", tm->tm_hour, tm->tm_min, tm->tm_sec, tv.tv_usec / 1000);
 	if (title != NULL)
 		fprintf(f, " [%s]", title);
 	fputc('\n', f);
@@ -164,9 +164,9 @@ bool log_data(const char *prefix, const char *title, const uint8_t *data, size_t
 	}
 	fflush(f);
 	fclose(f);
-	if (tb.time > (last_write_date + SECONDS_IN_DAY)){
+	if (tv.tv_sec > (last_write_date + SECONDS_IN_DAY)){
 		del_excess_logs(LOG_FOLDER, prefix, "txt", MAX_LOG_FILES);
-		last_write_date = (tb.time / SECONDS_IN_DAY) * SECONDS_IN_DAY;
+		last_write_date = (tv.tv_sec / SECONDS_IN_DAY) * SECONDS_IN_DAY;
 	}
 	return true;
 }

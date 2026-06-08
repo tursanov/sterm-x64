@@ -31,6 +31,9 @@ struct pic_header {
 /* Вычисление контрольной суммы CRC32 x^30 + x^27 + x^18 + x^3 + x^1 блока данных */
 extern uint32_t pic_crc32(const uint8_t *data, size_t len);
 
+/* Проверка существования каталога и создание его при необходимости */
+extern bool create_folder_if_need(const char *path);
+
 #if defined __cplusplus
 }
 #endif
