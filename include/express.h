@@ -1,4 +1,4 @@
-/* Прикладной протокол "Экспресс". (c) gsr 2000-2004, 2009, 2018, 2020, 2024 */
+/* Прикладной протокол "Экспресс". (c) gsr 2000-2004, 2009, 2018, 2020, 2024-2026 */
 
 #if !defined EXPRESS_H
 #define EXPRESS_H
@@ -162,44 +162,50 @@ struct para_info{
 	int xml_idx;		/* индекс в таблице XML (-1, если записи для абзаца нет */
 };
 
-#if 0
 /* Информация из абзаца для ИПТ */
-#define BNK_REQ_ID_LEN		7
-#define BNK_TERM_ID_LEN		6
-#define BNK_BLANK_NR_LEN	14
-#define BNK_AMOUNT_MIN_LEN	1
-#define BNK_AMOUNT_MAX_LEN	10
-#define BNK_MAX_DOCS		4
+#define BANK_REQ_ID_LEN_OLD	7
+#define BANK_REQ_ID_LEN_NEW	12
+#define BANK_TERM_ID_LEN	6
+#define BANK_BLANK_NR_LEN	14
+#define BANK_AMOUNT_MIN_LEN	1
+#define BANK_AMOUNT_MAX_LEN	10
+#define BANK_INFO_MIN_LEN(idl)	(idl + 1 + BANK_TERM_ID_LEN + 5 + BANK_BLANK_NR_LEN + 1 + \
+		BANK_AMOUNT_MIN_LEN)
+#define BANK_INFO_MIN_LEN_OLD	BANK_INFO_MIN_LEN(BANK_REQ_ID_LEN_OLD)
+#define BANK_INFO_MIN_LEN_NEW	BANK_INFO_MIN_LEN(BANK_REQ_ID_LEN_NEW)
+#define BANK_MAX_DOCS		4
+#define BANK_INFO_DELIM		';'
+#define BANK_INFO_DELIM2	'/'
 
 /* Информация о документе в заказе */
 struct bank_doc_info {
-	char blank_nr[BNK_BLANK_NR_LEN + 1];		/* номер документа */
+	char blank_nr[BANK_BLANK_NR_LEN + 1];		/* номер документа */
 	uint64_t amount;				/* сумма в копейках */
 };
 
 /* Информация о банковском абзаце */
 struct bank_data {
 	uint32_t req_id;				/* номер заказа в системе */
-	char term_id[BNK_TERM_ID_LEN + 1];		/* технологический номер терминала */
+	char term_id[BANK_TERM_ID_LEN + 1];		/* технологический номер терминала */
 	char op;					/* тип платежа (-;+;*) */
 	bool ticket;					/* ОД/ПВД */
 	char repayment;					/* признак переоформления */
-	char prev_blank_nr[BNK_BLANK_NR_LEN + 1];	/* номер предыдущего документа */
-	struct bank_doc_info doc_info[BNK_MAX_DOCS];	/* информация о документах в заказе */
+	char prev_blank_nr[BANK_BLANK_NR_LEN + 1];	/* номер предыдущего документа */
+	struct bank_doc_info doc_info[BANK_MAX_DOCS];	/* информация о документах в заказе */
 	size_t nr_docs;					/* количество документов в заказе */
 };
 
 /* Запись в банковской корзине */
 struct bank_info {
 	uint32_t req_id;				/* номер заказа в системе */
-	char term_id[BNK_TERM_ID_LEN + 1];		/* технологический номер терминала */
+	char term_id[BANK_TERM_ID_LEN + 1];		/* технологический номер терминала */
 	char op;					/* тип платежа (-;+;*) */
 	bool ticket;					/* ОД/ПВД */
-	char blank_nr[BNK_BLANK_NR_LEN + 1];		/* номер документа */
+	char blank_nr[BANK_BLANK_NR_LEN + 1];		/* номер документа */
 	char repayment;					/* признак переоформления */
-	char prev_blank_nr[BNK_BLANK_NR_LEN + 1];	/* номер предыдущего документа */
+	char prev_blank_nr[BANK_BLANK_NR_LEN + 1];	/* номер предыдущего документа */
 	uint64_t amount;				/* сумма в копейках */
-};
+} __attribute__((__packed__));
 
 /* Данные банковского абзаца */
 extern struct bank_data bd;
@@ -207,8 +213,8 @@ extern struct bank_data bd;
 extern void clear_bank_info(void);
 /* Получение информации о банковском абзаце */
 extern ssize_t get_bank_info(struct bank_info *items, size_t nr_items);
-#endif
 
+#if 0
 /* Информация для ИПТ */
 #define BANK_ID_LEN_OLD		7
 #define BANK_ID_LEN_NEW		12
@@ -239,6 +245,7 @@ extern void reset_bank_info(void);
 extern void add_bank_info(void);
 /* Возврат к предыдущему значению */
 extern void rollback_bank_info(void);
+#endif
 
 /* Номер абзаца ответа на КЛ при обработке ответа */
 extern uint32_t log_para;
@@ -272,8 +279,8 @@ extern bool check_raw_resp(void);
 extern int handle_para(int n_para);
 
 /* Получение информации банковского абзаца во время обработки ответа */
-//extern const struct bank_data *get_bi(void);
-extern const struct bank_info *get_bi(void);
+extern const struct bank_data *get_bi(void);
+//extern const struct bank_info *get_bi(void);
 
 /* Получение данных изображения для БПУ */
 extern bool find_pic_data(int *data, int *req);

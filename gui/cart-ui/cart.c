@@ -798,10 +798,10 @@ bank_items_t * get_bank_items(list_t *sel)
         
         if (r->order_id == 0 && d->name && strcmp(d->name, "‚‘") != 0)
         {
-            r->order_id = d->k->y->req_id;
+            r->order_id = d->k->y->id;
         }
         
-        if (d->k->y->op == '*')
+//        if (d->k->y->op == '*')
         {
             r->is_fast_payment = true;
         }
@@ -867,10 +867,10 @@ bank_items_t * get_bank_items(list_t *sel)
     {
         D *d = LIST_ITEM(sel->head, D);
         
-        int len = strlen(d->k->y->term_id);
+        int len = strlen(d->k->y->termid);
         if (len >= 4)
         {
-            uint8_t railway_code = d->k->y->term_id[3];
+            uint8_t railway_code = d->k->y->termid[3];
             
             sprintf(r->rfnd_info, "PAKOSN/%2x/%ld;PAKPVD/%2x/%ld\x1dINN:%ld",
                 railway_code, r->primary_sum, railway_code, r->secondary_sum, user_inn);
@@ -1011,7 +1011,7 @@ void process_non_cash_items(selected_docs_t *sd)
                         ? BANK_STATE_NONE
                         : BANK_STATE_SUCCESS;
                         
-                    if (k->y->op != '*')
+//                    if (k->y->op != '*')
                     {
                         list_add(&_ad->archive_items, k);
                     }
