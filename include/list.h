@@ -27,20 +27,19 @@ typedef struct list_t {
 #define LIST_INIT(name, delete_func) \
 	list_t name = { NULL, NULL, 0, (list_item_delete_func_t)(delete_func) }
 	
-list_t *list_create();	
-
-int list_add(list_t *list, void *obj);
-int list_add_if_not_exist(list_t *list, void *obj);
-int list_add_head(list_t *list, void *obj);
-int list_add_item(list_t *list, list_item_t *item);
-int list_remove_item(list_t *list, list_item_t *item);
-int list_remove(list_t *list, void *obj);
-int list_remove_at(list_t *list, int i);
-int list_remove_if(list_t *list, void *arg, list_item_func_t func);
-int list_clear(list_t* list);
-int list_compare(list_t *list1, list_t *list2, void *arg, list_item_compare_func_t func);
-int list_foreach(list_t* list, void *arg, list_item_func_t func);
-list_item_t *list_item_at(list_t *list, int index);
+extern list_t *list_create();	
+extern int list_add(list_t *list, void *obj);
+extern int list_add_if_not_exist(list_t *list, void *obj);
+extern int list_add_head(list_t *list, void *obj);
+extern int list_add_item(list_t *list, list_item_t *item);
+extern int list_remove_item(list_t *list, list_item_t *item);
+extern int list_remove(list_t *list, void *obj);
+extern int list_remove_at(list_t *list, int i);
+extern int list_remove_if(list_t *list, void *arg, list_item_func_t func);
+extern int list_clear(list_t* list);
+extern int list_compare(list_t *list1, list_t *list2, void *arg, list_item_compare_func_t func);
+extern int list_foreach(list_t* list, void *arg, list_item_func_t func);
+extern list_item_t *list_item_at(list_t *list, int index);
 
 #define LIST_ITEM(i, type) ((i) ? ((type *)((i)->obj)) : NULL)
 #define USE_LIST_ITEM(x, i, type) type * x = LIST_ITEM(i, type)

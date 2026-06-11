@@ -1,6 +1,6 @@
-/* Основной модуль для работы с POS-эмулятором. (c) A.Popov, gsr 2004, 2024 */
+/* Основной модуль для работы с POS-эмулятором. (c) A.Popov, gsr 2004, 2024-2025 */
 
-#include <sys/timeb.h>
+#include <sys/time.h>
 #include <sys/times.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -8,6 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 #include "gui/scr.h"
+#include "log/express.h"
 #include "log/pos.h"
 #include "pos/command.h"
 #include "pos/error.h"
@@ -792,41 +793,6 @@ void pos_process(void)
 		if (pos_state == handlers[i].state){
 			handlers[i].handler(u_times());
 			break;
-		}
-	}
-}
-
-/* Вызывается после получения ответа на запрос чека ИПТ */
-void on_response_pos(void)
-{
-	static char err_msg[1024];
-	err_msg[0] = 0;
-/* 0 -- данные чека; 1 -- другой ответ, обработка не требуется; 2 -- другой ответ, требуется обработка */
-	int non_pos_resp = 0;
-//	set_term_state(st_resp);
-	int pos_para = -1;
-	size_t pos_len = 0;
-	if (find_pos_data(&pos_para) && (pos_para != -1)){
-		pos_len = handle_para(pos_para);
-		log_info("Обнаружены данные чека ИПТ (абзац #%d; %zd байт).",
-			pos_para + 1, pos_len);
-		if (pos_len > 0){
-			kprn_print(text_buf, pos_len);
-		}else{
-			snprintf(err_msg, ASIZE(err_msg), "Получены данные чека ИПТ нулевой длины.");
-			non_pos_resp = 1;
-		}
-	}else{
-		snprintf(err_msg, ASIZE(err_msg), "Не найдены данные чека ИПТ.");
-		non_pos_resp = 2;
-	}
-	if (err_msg[0] != 0)
-		log_err(err_msg);
-	if (non_pos_resp != 0){
-		req_type = req_regular;
-		if (non_pos_resp == 2){
-			log_dbg("Переходим к обработке ответа.");
-			execute_resp();
 		}
 	}
 }

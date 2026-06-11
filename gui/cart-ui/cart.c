@@ -798,7 +798,7 @@ bank_items_t * get_bank_items(list_t *sel)
         
         if (r->order_id == 0 && d->name && strcmp(d->name, "‚‘") != 0)
         {
-            r->order_id = d->k->y->id;
+            r->order_id = d->k->y->req_id;
         }
         
 //        if (d->k->y->op == '*')
@@ -867,10 +867,10 @@ bank_items_t * get_bank_items(list_t *sel)
     {
         D *d = LIST_ITEM(sel->head, D);
         
-        int len = strlen(d->k->y->termid);
+        int len = strlen(d->k->y->term_id);
         if (len >= 4)
         {
-            uint8_t railway_code = d->k->y->termid[3];
+            uint8_t railway_code = d->k->y->term_id[3];
             
             sprintf(r->rfnd_info, "PAKOSN/%2x/%ld;PAKPVD/%2x/%ld\x1dINN:%ld",
                 railway_code, r->primary_sum, railway_code, r->secondary_sum, user_inn);

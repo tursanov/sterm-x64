@@ -813,8 +813,7 @@ static void scan_bank_info(uint8_t *txt, size_t id_len)
 	clear_bank_info();
 	int idx = 0;
 /* Номер заказа в системе */
-	size_t len;
-	read_var_uint(txt, &len, id_len, &bd.req_id);
+	bd.req_id = read_uint64(txt, id_len);
 	idx += id_len + 1;
 /* Технологический номер терминала */
 	memcpy(bd.term_id, txt + idx, BANK_TERM_ID_LEN);

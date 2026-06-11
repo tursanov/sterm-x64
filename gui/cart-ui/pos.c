@@ -23,20 +23,20 @@ static struct pos_response* run_pos_operation(uint8_t mtype)
 
 void pos_check_last_operation()
 {
-    struct pos_response* resp = run_pos_operation(0xa0);
+    /*struct pos_response* resp = */run_pos_operation(0xa0);
 }
 
 void pos_day_open()
 {
-    struct pos_response* resp = run_pos_operation(0xa1);
+    /*struct pos_response* resp = */run_pos_operation(0xa1);
 }
 
 void pos_day_close()
 {
-    struct pos_response* resp = run_pos_operation(0xa2);
+    /*struct pos_response* resp = */run_pos_operation(0xa2);
 }
 
 void pos_service_operations()
 {
-    struct pos_response* resp = run_pos_operation(0xa6);
+    /*struct pos_response* resp = */run_pos_operation(0xa6);
 }

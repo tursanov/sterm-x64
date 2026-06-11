@@ -1117,7 +1117,7 @@ static void init_term(bool need_init)
 	resp_handling = resp_executing = false;
 	if (cfg.bank_system)
 		pos_init_transactions();
-	reset_bank_info();
+	clear_bank_info();
 	rollback_keys(true);
 	apc = false;
 	init_devices();
@@ -1206,8 +1206,7 @@ static bool create_term(void)
 		fprintf(stderr, "Ошибка инициализации ИПТ.\n");
 		return false;
 	}
-	clear_bank_info(&bi, true);
-	clear_bank_info(&bi_pos, true);
+	clear_bank_info();
 	init_keys();
 	rom = create_hash(ROM_BUF_LEN);
 	if (rom == NULL){
@@ -1774,7 +1773,6 @@ static int handle_ping(struct kbd_event *e)
 	return cmd_none;
 }
 
-static void show_pos(void);
 static void show_cheque_fa(void);
 
 /* Завершение работы банковского приложения */
@@ -1814,7 +1812,6 @@ static void on_end_pos(void)
 				apc = fa_active;
 				break;
 			case DLG_BTN_RETRY:
-				rollback_bank_info();
 				reset_bi = false;
 /* FIXME: в этом случае по окончании работы с ИПТ мы не посылаем INIT CHECK (pos_new) */
 				if (pos_get_state() == pos_finish)
@@ -1830,7 +1827,7 @@ static void on_end_pos(void)
 	if (!apc && (pos_err_xdesc != NULL))
 		set_term_astate(ast_pos_error);
 	if (reset_bi)
-		reset_bank_info();
+		clear_bank_info();
 	if (!apc)
 		redraw_term(true, main_title);
 }
@@ -1980,8 +1977,8 @@ void reject_req(void)
 		mark_all();
 		show_req();
 		set_term_astate(ast_none);
-		if (cfg.bank_system)
-			rollback_bank_info();
+/*		if (cfg.bank_system)
+			rollback_bank_info();*/		/* FIXME */
 		reject();
 		xlog_write_rec(hxlog, NULL, 0, XLRT_REJECT, log_para++);
 	}else{
@@ -2304,7 +2301,7 @@ static void show_ping(void)
 }
 
 /* Показать окно POS-терминала */
-static void show_pos(void)
+void show_pos(void)
 {
 #define POS_WIDTH		32
 #define POS_HEIGHT		8
@@ -2332,7 +2329,6 @@ static void show_pos(void)
 		if (pos_screen_create((DISCX - font32x8->max_width * POS_WIDTH) / 2,
 				44, POS_WIDTH, POS_HEIGHT, 4, 4, font32x8,
 				bmp_up, bmp_down)){
-			add_bank_info();
 			pos_screen_draw();
 			pos_set_state(pos_init);
 		}else{
@@ -3379,11 +3375,11 @@ static int need_pos(void)
 				int64_t s = ads.cashless_total_sum;
 				if (s < 0)
 					s *= -1;
-				bi.amount1 = s / 100;
+/*				bi.amount1 = s / 100;
 				bi.amount2 = ((s % 100) + 5) / 10;
 				if (ads.order_id > 0)
 					bi.id = ads.order_id;
-				clear_bank_info(&bi_pos, true);
+				clear_bank_info(&bi_pos, true);*/	/* FIXME */
 				ret = 1;
 			}
 		}

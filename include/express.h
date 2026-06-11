@@ -185,7 +185,7 @@ struct bank_doc_info {
 
 /* Информация о банковском абзаце */
 struct bank_data {
-	uint32_t req_id;				/* номер заказа в системе */
+	uint64_t req_id;				/* номер заказа в системе */
 	char term_id[BANK_TERM_ID_LEN + 1];		/* технологический номер терминала */
 	char op;					/* тип платежа (-;+;*) */
 	bool ticket;					/* ОД/ПВД */
@@ -197,7 +197,7 @@ struct bank_data {
 
 /* Запись в банковской корзине */
 struct bank_info {
-	uint32_t req_id;				/* номер заказа в системе */
+	uint64_t req_id;				/* номер заказа в системе */
 	char term_id[BANK_TERM_ID_LEN + 1];		/* технологический номер терминала */
 	char op;					/* тип платежа (-;+;*) */
 	bool ticket;					/* ОД/ПВД */

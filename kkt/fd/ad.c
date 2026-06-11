@@ -2992,7 +2992,7 @@ bool other_action(D* d, __attribute__((unused)) SubCart *vsc, D* v)
     if (v->group == NULL
         && ((d->name && v->name && strcmp(d->name, v->name) == 0) || d->name == v->name)
         && (v->name && strcmp(v->name, "‚Ž‡‚€’") == 0 ? v->k->v == d->k->v : true)
-        && v->k->y->t0 == d->k->y->t0)
+        /*&& v->k->y->t0 == d->k->y->t0*/)
     {
         v->group = d->group;
         list_add_if_not_exist(d->group, v);

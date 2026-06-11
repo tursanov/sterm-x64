@@ -153,7 +153,8 @@ static void xlog_fill_scr_special(struct log_gui_context *ctx)
 static void xlog_fill_scr_bank(struct log_gui_context *ctx)
 {
 	static const char bank_msg[] = "bank";
-	size_t id_len = xlog_data_len == BANK_PARA_LEN_OLD ? BANK_ID_LEN_OLD : BANK_ID_LEN_NEW;
+	size_t id_len = (xlog_data[BANK_REQ_ID_LEN_OLD] == BANK_INFO_DELIM) ?
+		BANK_REQ_ID_LEN_OLD : BANK_REQ_ID_LEN_NEW;
 	off_t offs = 0;
 	ctx->scr_data_len = 0;
 	ctx->scr_data[ctx->scr_data_len++] = 0;
@@ -165,17 +166,17 @@ static void xlog_fill_scr_bank(struct log_gui_context *ctx)
 	ctx->scr_data_len += id_len;
 	ctx->scr_data[ctx->scr_data_len++] = 0;
 	ctx->scr_data[ctx->scr_data_len++] = 0;
-	offs += id_len;
+	offs += id_len + 1;
 /* Технологический номер кассы */
 	memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data + offs, BANK_TERM_ID_LEN);
 	ctx->scr_data_len += BANK_TERM_ID_LEN;
 	ctx->scr_data[ctx->scr_data_len++] = 0;
 	ctx->scr_data[ctx->scr_data_len++] = 0;
-	offs += BANK_TERM_ID_LEN;
-/* Сумма заказа */
-	memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data + offs, BANK_AMOUNT_LEN);
+	offs += BANK_TERM_ID_LEN + 1;
+/* Сумма заказа */	/* FIXME */
+/*	memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data + offs, BANK_AMOUNT_LEN);
 	ctx->scr_data_len += BANK_AMOUNT_LEN;
-	ctx->scr_data[ctx->scr_data_len++] = 0;
+	ctx->scr_data[ctx->scr_data_len++] = 0;*/
 }
 
 /* Занесение в экранный буфер записи типа XLRT_IPCHANGE */

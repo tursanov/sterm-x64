@@ -3,6 +3,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+list_t *list_create(list_item_delete_func_t delete_func)
+{
+	list_t *list = malloc(sizeof(list_t));
+	list->head = list->tail = NULL;
+	list->count = 0;
+	list->delete_func = delete_func;
+	return list;
+}
+
 int list_add_item(list_t *list, list_item_t *item) {
 	item->next = NULL;
 	item->prev = list->tail;
@@ -42,6 +51,15 @@ int list_add(list_t *list, void *obj) {
     item->obj = obj;
 
 	return list_add_item(list, item);
+}
+
+int list_add_if_not_exist(list_t *list, void *obj)
+{
+	for (list_item_t *li = list->head; li != NULL; li = li->next){
+		if (li->obj == obj)
+			return -1;
+	}
+	return list_add(list, obj);
 }
 
 int list_add_head(list_t *list, void *obj)

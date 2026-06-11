@@ -880,7 +880,7 @@ bool cheque_execute(void) {
 
 	do {
 		kbd_get_event(&e);
-	} while ((ret = cart_process(&e)) > 0);
+	} while ((ret = cheque_process(&e)) > 0);
 
 	return current_c != NULL;
 }

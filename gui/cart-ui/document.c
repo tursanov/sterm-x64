@@ -146,7 +146,7 @@ const char *ui_doc_get_n(ui_subcart_t *sc, ui_doc_t *d, char *buf)
     
     if (k->y && (t == 'D' || t == 'H' || t == 'I' || t == 'E'))
     {
-        sprintf(buf, "%7lu", k->y->id);
+        sprintf(buf, "%7lu", k->y->req_id);
     }
     else if (t == 'C' || t == 'G')
     {
