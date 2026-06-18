@@ -555,7 +555,7 @@ static void on_pos_init(uint32_t t __attribute__((unused)))
 	if (pos_open() && pos_send_init(true)){
 		pos_write_scr(&pos_buf_rx, "ИДЕТ СОЕДИНЕНИЕ С POS-ЭМУЛЯТОРОМ",
 				GREEN, BLACK);
-		pos_parse_resp(&pos_buf_rx);
+		pos_parse_resp(&pos_buf_rx);	/* вывод надписи на экран */
 		pos_set_state(pos_ready);
 	}else
 		pos_set_error(POS_ERROR_CLASS_SYSTEM,

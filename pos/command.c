@@ -823,7 +823,7 @@ struct pos_response *pos_query(const struct pos_query_params *params)
 	set_pos_query_params(params);
 	clr_pos_resp(&pos_resp);
 	show_pos();
-	if (pos_state == pos_new)
+	if ((pos_state == pos_new) || (pos_state == pos_idle))
 		return NULL;
 	while (pos_state != pos_new){
 		if (get_cmd(false, true) == cmd_reset){

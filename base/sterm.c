@@ -1789,7 +1789,7 @@ static void on_end_pos(void)
 				.cmd	= DLG_BTN_YES,
 			},
 			{
-				.text	= "Повтор рачета",
+				.text	= "Повтор расчета",
 				.cmd	= DLG_BTN_RETRY,
 			},
 			{

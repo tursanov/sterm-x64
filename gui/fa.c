@@ -1550,16 +1550,16 @@ static bool process_fa_cmd(int cmd) {
 		case cmd_archive_fa:
 			fa_archive();
 			break;
-        case cmd_pos_check_last_operation:
-			break;
+		case cmd_pos_check_last_operation:
 			pos_check_last_operation();
-	    case cmd_pos_day_open:
+			break;
+		case cmd_pos_day_open:
 			pos_day_open();
 			break;
-	    case cmd_pos_day_close:
+		case cmd_pos_day_close:
 			pos_day_close();
 			break;
-	    case cmd_pos_service_operations:
+		case cmd_pos_service_operations:
 			pos_service_operations();
 			break;
 		default:
