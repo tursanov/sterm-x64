@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 #include <sys/times.h>
 #include <sys/types.h>
-#include <vipnet/vpn_api.h>
+#include <vipnet-core/vpn_api.h>
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>

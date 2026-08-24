@@ -1,8 +1,8 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <vipnet/cipher_api.h>
-#include <vipnet/vpn_api.h>
+#include <vipnet-core/cipher_api.h>
+#include <vipnet-core/vpn_api.h>
 #include <stdio.h>
 #include <string.h>
 
