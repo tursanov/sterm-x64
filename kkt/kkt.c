@@ -11,6 +11,7 @@
 #include "log/kkt.h"
 #include "x3data/common.h"
 #include "cfg.h"
+#include "termlog.h"
 
 /* Текстовое описание статуса */
 const char *kkt_status_str(uint8_t status)

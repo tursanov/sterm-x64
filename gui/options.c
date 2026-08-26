@@ -104,16 +104,18 @@ struct optn_group{
 
 /* Функции обратного вызова */
 static void on_iplir_change(struct optn_item *item);
+#if 0
 static void on_xprn_change(struct optn_item *item);
 static void on_tickets_on_kkt_change(struct optn_item *item);
-//static void on_aprn_change(struct optn_item *item);
+static void on_aprn_change(struct optn_item *item);
+#endif
 static void on_bank_change(struct optn_item *item);
 static void on_kkt_change(struct optn_item *item);
 static void on_fdo_iface_change(struct optn_item *item);
 static void on_scheme_change(struct optn_item *item);
 
 /* Функции обратного вызова для групп */
-static bool on_exit_devices(const struct optn_group *group);
+//static bool on_exit_devices(const struct optn_group *group);
 static bool on_exit_check_ip(const struct optn_group *group);
 static bool on_exit_ppp(const struct optn_group *group);
 static bool on_exit_bank_system(const struct optn_group *group);
@@ -125,7 +127,7 @@ static bool scheme_changed = false;
  * Параметры БПУ при входе в меню "Внешние устройства" должны читаться
  * только один раз.
  */
-bool lprn_params_read = false;
+//bool lprn_params_read = false;
 //static const char lprn_hdr[] = "БПУ-----------";
 
 /* TCP/IP */
@@ -325,11 +327,12 @@ static struct optn_item sys_optn_items[] = {
 };
 
 /* Внешние устройства */
+#if 0
 static struct optn_item dev_optn_items[] = {
-	OPTN_BOOL2("ОПУ", "Наличие основного принтера в составе\r\nтерминала",
+/*	OPTN_BOOL2("ОПУ", "Наличие основного принтера в составе\r\nтерминала",
 		has_xprn, on_xprn_change),
 	OPTN_STR_EDIT("Номер ОПУ", "Заводской номер основного\r\nпечатающего устройства",
-		PRN_NUMBER_LEN, xprn_number, NULL),
+		PRN_NUMBER_LEN, xprn_number, NULL),*/
 /*	OPTN_BOOL2("БПУ", "Наличие в составе терминала БПУ",
 		has_sprn, NULL),
 	OPTN_STATIC("Номер БПУ", (const char *)lprn_number, sizeof(lprn_number)),*/
@@ -351,12 +354,13 @@ static struct optn_item dev_optn_items[] = {
 		"по реперной метке в точках\r\n(1 точка = 1/8 мм)", s8, NULL),
 	OPTN_INT_EDIT("Коррекция левой гр. КЛ", "Константа коррекции левой границы\r\n"
 		"контрольной ленты в точках\r\n(1 точка = 1/8 мм)", s9, NULL),*/
-	OPTN_BOOL1("Печать на ККТ", "Печать проездных документов на ККТ\r\n"
+/*	OPTN_BOOL1("Печать на ККТ", "Печать проездных документов на ККТ\r\n"
 		"ВНИМАНИЕ: категорически запрещается\r\n"
 		"устанавливать переключатель в положение\r\n"
 		"\"Да\" без специального указания!",
-		tickets_on_kkt, on_tickets_on_kkt_change),
+		tickets_on_kkt, on_tickets_on_kkt_change),*/
 };
+#endif
 
 /* TCP/IP */
 static struct optn_item ip_optn_items[] = {
@@ -505,7 +509,7 @@ static struct optn_item kbd_optn_items[] = {
 enum {
 	OPTN_GROUP_MENU = -1,
 	OPTN_GROUP_SYSTEM,
-	OPTN_GROUP_DEVICES,
+//	OPTN_GROUP_DEVICES,
 	OPTN_GROUP_TCPIP,
 	OPTN_GROUP_PPP,
 	OPTN_GROUP_BANK,
@@ -517,8 +521,8 @@ enum {
 
 static struct optn_group optn_groups[] = {
 	{"Системные настройки", sys_optn_items, ASIZE(sys_optn_items), NULL},
-	{"Внешние устройства", dev_optn_items, ASIZE(dev_optn_items),
-		on_exit_devices},
+/*	{"Внешние устройства", dev_optn_items, ASIZE(dev_optn_items),
+		on_exit_devices},*/
 	{"Настройки TCP/IP", ip_optn_items, ASIZE(ip_optn_items),
 		on_exit_check_ip},
 	{"Настройки PPP", ppp_optn_items, ASIZE(ppp_optn_items),
@@ -958,7 +962,7 @@ static bool optn_create_menu(void)
 {
 	optn_menu = new_menu(false, false);
 	add_menu_item(optn_menu, new_menu_item("Системные установки", cmd_sys_optn, true));
-	add_menu_item(optn_menu, new_menu_item("Внешние устройства", cmd_dev_optn, true));
+//	add_menu_item(optn_menu, new_menu_item("Внешние устройства", cmd_dev_optn, true));
 	add_menu_item(optn_menu, new_menu_item("Настройки TCP/IP", cmd_tcpip_optn, true));
 	add_menu_item(optn_menu, new_menu_item("Настройки PPP", cmd_ppp_optn, true));
 	add_menu_item(optn_menu, new_menu_item("ИПТ \"Экспресс\"", cmd_bank_optn, bank_ok));
@@ -1224,7 +1228,7 @@ void init_options(void)
 	for (i = 0; i < ASIZE(optn_groups); i++)
 		optn_read_group(&cfg, i);
 	optn_set_group(OPTN_GROUP_MENU);
-	lprn_params_read = false;
+//	lprn_params_read = false;
 }
 
 void release_options(bool need_clear)
@@ -2022,6 +2026,7 @@ static int get_pos_port(void)
 }
 
 /* Проверка введенных данных о принтерах */
+#if 0
 static bool on_exit_devices(const struct optn_group *group __attribute__((unused)))
 {
 	char *message = NULL;
@@ -2044,6 +2049,7 @@ static bool on_exit_devices(const struct optn_group *group __attribute__((unused
 	}else
 		return true;
 }
+#endif
 
 /* Проверка ip-адреса */
 static bool check_ip_addr(const char *val)
@@ -2159,10 +2165,10 @@ bool process_options(const struct kbd_event *e)
 				case cmd_sys_optn:
 					optn_set_group(OPTN_GROUP_SYSTEM);
 					break;
-				case cmd_dev_optn:
+/*				case cmd_dev_optn:
 //					get_lprn_params();
 					optn_set_group(OPTN_GROUP_DEVICES);
-					break;
+					break;*/
 				case cmd_tcpip_optn:
 					optn_set_group(OPTN_GROUP_TCPIP);
 					break;
@@ -2214,6 +2220,7 @@ static void on_iplir_change(struct optn_item *item)
 		item->enabled = !iplir_disabled;
 }
 
+#if 0
 /* Вызывается при включении/выключении флага наличия ОПУ */
 static void on_xprn_change(struct optn_item *item)
 {
@@ -2239,6 +2246,7 @@ static void on_tickets_on_kkt_change(struct optn_item *item)
 			item->vv.flag = false;
 	}
 }
+#endif
 
 #if 0
 /* Вызывается при включении/выключении флага наличия ДПУ */

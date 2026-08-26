@@ -279,11 +279,11 @@ static bool set_term_defaults(void)
 #endif
 	cfg.use_iplir = false;
 
-	cfg.has_xprn = true;
+	cfg.has_xprn = false;
 	cfg.xprn_number[0] = 0;
 	cfg.has_aprn = false;
 	cfg.aprn_number[0] = 0;
-	cfg.has_sprn = true;
+	cfg.has_sprn = false;
 	cfg.s0 = 0;
 	cfg.s1 = 0;
 	cfg.s2 = 0;
@@ -294,7 +294,7 @@ static bool set_term_defaults(void)
 	cfg.s7 = 0;
 	cfg.s8 = 0;
 	cfg.s9 = 0;
-	cfg.tickets_on_kkt = false;
+	cfg.tickets_on_kkt = true;
 
 	cfg.use_ppp = false;
 	cfg.local_ip = 0;
@@ -383,7 +383,9 @@ void get_dallas_keys(void)
 /* Определение типа ключа DS1990A */
 int get_key_type(void)
 {
-#if defined __REAL_KEYS__
+#if defined __MAC_AS_KEY__
+	return ds_read(dsn) ? key_srv : key_none;
+#elif defined __REAL_KEYS__
 	if (xprn_printing)
 		return kt;
 	struct md5_hash md5;

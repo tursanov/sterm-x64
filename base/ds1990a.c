@@ -1,8 +1,16 @@
-/* Работа с ключами DS1990A. (c) gsr 2000-2004. */
+/* Работа с ключами DS1990A. (c) gsr 2000-2004, 2026. */
 
+#include "sysdefs.h"
+#if defined __MAC_AS_KEY__
+#include <net/if.h>
+#include <netinet/in.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#else
 #include <sys/ipc.h>
 #include <sys/sem.h>
 #include <sys/shm.h>
+#endif		/* __MAC_AS_KEY__ */
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -15,9 +23,9 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
-#include "sys/ioctls.h"
 #include "ds1990a.h"
 
+#if !defined __MAC_AS_KEY__
 #define SH_NULL		(void *)(-1)
 
 /* Файл для создания key_t с помощью ftok */
@@ -80,14 +88,64 @@ static bool ds_release_sem(void)
 	};
 	return semid == -1 ? false : semop(semid, sb, ASIZE(sb)) == 0;
 }
+#endif		/* __MAC_AS_KEY__ */
 
 /* Начало работы со считывателем */
 bool ds_init(void)
 {
+#if defined __MAC_AS_KEY__
+	return true;
+#else
 	return create_shm() && create_sem();
+#endif
 }
 
 /* Чтение номера ключа DS1990A */
+#if defined __MAC_AS_KEY__
+#if IFHWADDRLEN != 6
+#error "IFHWADDRLEN must be 6"
+#endif
+static uint8_t ds_crc(const uint8_t *data, size_t len)
+{
+	uint8_t crc = 0;
+	for (int i = 0; i < len; i++){
+		crc ^= data[i];
+		for (int j = 0; j < 8; j++){
+			uint8_t flag = crc & 1;
+			crc >>= 1;
+			if (flag)
+				crc ^= 0x8c;
+		}
+	}
+	return crc;
+}
+
+bool ds_read(ds_number dsn)
+{
+	static bool mac_read = false;
+	static uint8_t key_nr[DS_NUMBER_LEN];
+	if (!mac_read){
+		int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+		if (sock != -1){
+			const char *ifname = "eth0";
+			struct ifreq ifr;
+			ifr.ifr_addr.sa_family = AF_INET;
+			snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", ifname);
+			if (ioctl(sock, SIOCGIFHWADDR, &ifr) != -1){
+				key_nr[0] = 1;
+				memcpy(key_nr + 1, ifr.ifr_hwaddr.sa_data, IFHWADDRLEN);
+				key_nr[IFHWADDRLEN + 1] = ds_crc(key_nr, IFHWADDRLEN + 1);
+				mac_read = true;
+			}
+			close(sock);
+		}
+	}
+	if (!mac_read)
+		memset(key_nr, 0, sizeof(key_nr));
+	memcpy(dsn, key_nr, sizeof(key_nr));
+	return mac_read;
+}
+#else
 bool ds_read(ds_number dsn)
 {
 	int i;
@@ -101,6 +159,7 @@ bool ds_read(ds_number dsn)
 		memset(dsn, 0, DS_NUMBER_LEN);
 	return flag;
 }
+#endif		/* __MAC_AS_KEY__ */
 
 /* Определение хеша для заданного номера DS1990A */
 bool ds_hash(ds_number dsn, struct md5_hash *md5)

@@ -66,7 +66,7 @@ enum {
 	cmd_wakeup,
 	cmd_view_error,
 	cmd_sys_optn,
-	cmd_dev_optn,
+//	cmd_dev_optn,
 	cmd_tcpip_optn,
 	cmd_ppp_optn,
 	cmd_bank_optn,

@@ -477,6 +477,10 @@ bool read_cfg(void)
 	} while (retval != scan_eof);
 	translate_color_scheme(cfg.color_scheme,
 		&cfg.rus_color, &cfg.lat_color, &cfg.bg_color);
+	cfg.has_xprn = false;
+	cfg.has_aprn = false;
+	cfg.has_sprn = false;
+	cfg.tickets_on_kkt = true;
 	return true;
 }
 

@@ -14,6 +14,7 @@
 #include "gui/scr.h"
 #include "kkt/kkt.h"
 #include "log/express.h"
+#include "pos/command.h"
 #include "pos/error.h"
 #include "pos/pos.h"
 #include "prn/express.h"
@@ -35,7 +36,7 @@ uint32_t init_t0 = 0;			/* время начала инициализации */
 static int init_tries;			/* число попыток инициализации */
 
 /* Идентификатор терминала (второй байт изменяется в зависимости от конфигурации) */
-static uint8_t term_id[3] = {0x65, 0x00, 0x35};
+static uint8_t term_id[3] = {0x6c, 0x00, 0x35};
 /* Счетчики гарантированной доставки */
 uint16_t ZNtz	= 0;
 uint16_t oldZNtz= 0;	/* используется при инициализации */
@@ -170,7 +171,9 @@ static uint8_t get_tcap_byte(void)
 		ret |= TCAP_KKT;
 	if (cfg.tickets_on_kkt)
 		ret |= TCAP_UNIBLANK;
-	if (!cfg.bank_system)
+	if (cfg.bank_system && ubt_supported)
+		ret |= TCAP_BNK2;
+	else
 		ret |= TCAP_NO_POS;
 	return map[ret];
 }

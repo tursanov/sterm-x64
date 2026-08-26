@@ -10,9 +10,6 @@ extern "C" {
 #include "cfg.h"
 #include "kbd.h"
 
-/* Параметры ППУ были успешно прочитаны */
-extern bool	lprn_params_read;
-
 extern int	optn_cm;
 
 extern void	init_options(void);

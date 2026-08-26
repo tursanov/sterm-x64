@@ -461,6 +461,7 @@ static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_o
 		pos_send_empty();
 	}else if (pos_info_empty())
 		make_pos_info();
+	ubt_supported = !pos_info_empty();
 	return true;
 }
 
