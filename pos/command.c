@@ -19,7 +19,7 @@
 bool pos_incomplete_op = false;
 
 /* Поддержка ЕБТ в ИПТ */
-bool ubt_supported = false;
+bool pos_ubt_supported = false;
 
 /* Параметры запроса ИПТ */
 static struct pos_query_params pos_query_params;
@@ -359,6 +359,7 @@ static uint32_t get_srv_list(const char *txt)
 static void make_pos_info(void)
 {
 	int n = 0;
+	pos_ubt_supported = false;
 	for (int i = 0; i < resp_param_list.count; i++){
 		pos_response_param_t *p = resp_param_list.params + i;
 		switch (get_param_type(p->name)){
@@ -367,6 +368,9 @@ static void make_pos_info(void)
 					free((void *)pos_info.version);
 				pos_info.version = strdup(p->value);
 				n++;
+				break;
+			case POS_PARAM_UBT:
+				pos_ubt_supported = true;
 				break;
 			case POS_PARAM_TYPES:
 				if (pos_info.op_types != NULL)
@@ -461,7 +465,6 @@ static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_o
 		pos_send_empty();
 	}else if (pos_info_empty())
 		make_pos_info();
-	ubt_supported = !pos_info_empty();
 	return true;
 }
 
@@ -840,6 +843,7 @@ bool pos_prepare_request_info(void)
 {
 	static const struct param_info params[] = {
 		{POS_PARAM_VERSION_STR,		POS_PARAM_VERSION,	true},
+		{POS_PARAM_UBT_STR,		POS_PARAM_UBT,		true},
 		{POS_PARAM_TYPES_STR,		POS_PARAM_TYPES,	false},
 		{POS_PARAM_MODEL_STR,		POS_PARAM_MODEL,	false},
 		{POS_PARAM_SERIALNO_STR,	POS_PARAM_SERIALNO,	false},

@@ -171,7 +171,7 @@ static uint8_t get_tcap_byte(void)
 		ret |= TCAP_KKT;
 	if (cfg.tickets_on_kkt)
 		ret |= TCAP_UNIBLANK;
-	if (cfg.bank_system && ubt_supported)
+	if (cfg.bank_system && pos_ubt_supported)
 		ret |= TCAP_BNK2;
 	else
 		ret |= TCAP_NO_POS;

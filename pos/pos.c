@@ -521,6 +521,7 @@ bool pos_reinit(void)
 }
 
 /* Обработка различных состояний конечного автомата POS-эмулятора */
+
 static void on_pos_new(uint32_t t __attribute__((unused)))
 {
 	pos_close(true);
