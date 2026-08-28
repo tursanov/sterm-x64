@@ -115,9 +115,6 @@ enum {
 /* Имеются незавершённые операции ИПТ */
 extern bool pos_incomplete_op;
 
-/* Поддержка ЕБТ в ИПТ */
-extern bool pos_ubt_supported;
-
 /* Получена команда FINISHMENU */
 extern bool fmenu;
 

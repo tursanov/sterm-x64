@@ -9,6 +9,15 @@ extern "C" {
 
 #include "sysdefs.h"
 
+/* Возможности ИПТ */
+#define POS_CAPS_UNK	0x80000000	/* неизвестно */
+#define POS_CAPS_UBT	0x00000001	/* единая банковская транзакция, ЕБТ (Unified Bank Transaction) */
+#define POS_CAPS_FPS	0x00000002	/* система быстрых платежей, СБП (Fast Payment System) */
+
+extern bool pos_caps_supported(uint32_t caps);
+extern bool pos_caps_set(uint32_t caps);
+extern void pos_caps_reset(void);
+
 /* Блок данных для обмена с POS-эмулятором */
 struct pos_message_block {
 	uint16_t stream;		/* поток для вывода данных */

@@ -18,9 +18,6 @@
 /* Имеются незавершённые операции ИПТ */
 bool pos_incomplete_op = false;
 
-/* Поддержка ЕБТ в ИПТ */
-bool pos_ubt_supported = false;
-
 /* Параметры запроса ИПТ */
 static struct pos_query_params pos_query_params;
 
@@ -359,7 +356,7 @@ static uint32_t get_srv_list(const char *txt)
 static void make_pos_info(void)
 {
 	int n = 0;
-	pos_ubt_supported = false;
+	uint32_t pos_caps = 0;
 	for (int i = 0; i < resp_param_list.count; i++){
 		pos_response_param_t *p = resp_param_list.params + i;
 		switch (get_param_type(p->name)){
@@ -370,12 +367,21 @@ static void make_pos_info(void)
 				n++;
 				break;
 			case POS_PARAM_UBT:
-				pos_ubt_supported = true;
+				if (p->value[0] == 1)
+					pos_caps |= POS_CAPS_UBT;
+				n++;
 				break;
 			case POS_PARAM_TYPES:
 				if (pos_info.op_types != NULL)
 					free((void *)pos_info.op_types);
 				pos_info.op_types = strdup(p->value);
+				for (const char *p = pos_info.op_types; *p; p = strchr(p, ',') + 1){
+					static const char fps[] = "SBP";
+					if (strncmp(p, fps, sizeof(fps) - 1) == 0){
+						pos_caps |= POS_CAPS_FPS;
+						break;
+					}
+				}
 				n++;
 				break;
 			case POS_PARAM_MODEL:
@@ -408,6 +414,7 @@ static void make_pos_info(void)
 				break;
 		}
 	}
+	pos_caps_set(pos_caps);
 	if (n > 0)
 		pos_reinit();
 }

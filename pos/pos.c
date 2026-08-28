@@ -22,6 +22,29 @@
 #include "termlog.h"
 #include "transport.h"
 
+/* Возможности ИПТ */
+static uint32_t pos_caps = POS_CAPS_UNK;
+
+bool pos_caps_supported(uint32_t caps)
+{
+	return (pos_caps != POS_CAPS_UNK) && ((pos_caps & caps) == caps);
+}
+
+bool pos_caps_set(uint32_t caps)
+{
+	bool ret = false;
+	if (pos_caps == POS_CAPS_UNK){
+		pos_caps = caps;
+		ret = true;
+	}
+	return ret;
+}
+
+void pos_caps_reset(void)
+{
+	pos_caps = POS_CAPS_UNK;
+}
+
 /* Флаги потоков, присутствующих в ответе */
 uint32_t stream_flags;
 

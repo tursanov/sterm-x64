@@ -14,7 +14,6 @@
 #include "gui/scr.h"
 #include "kkt/kkt.h"
 #include "log/express.h"
-#include "pos/command.h"
 #include "pos/error.h"
 #include "pos/pos.h"
 #include "prn/express.h"
@@ -170,10 +169,12 @@ static uint8_t get_tcap_byte(void)
 	if (cfg.has_kkt && cfg.fiscal_mode)
 		ret |= TCAP_KKT;
 	if (cfg.tickets_on_kkt)
-		ret |= TCAP_UNIBLANK;
-	if (cfg.bank_system && pos_ubt_supported)
+		ret |= (TCAP_EX_BCODE | TCAP_UNIBLANK);
+	if (cfg.bank_system && pos_caps_supported(POS_CAPS_UBT)){
 		ret |= TCAP_BNK2;
-	else
+		if (pos_caps_supported(POS_CAPS_FPS))
+			ret |= TCAP_FPS;
+	}else
 		ret |= TCAP_NO_POS;
 	return map[ret];
 }

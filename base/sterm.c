@@ -408,7 +408,7 @@ int get_key_type(void)
 /* ...иначе это ключ кассира */
 	return key_reg;
 #else
-	return key_dbg;
+	return key_reg;
 #endif		/* __REAL_KEYS__ */
 }
 
