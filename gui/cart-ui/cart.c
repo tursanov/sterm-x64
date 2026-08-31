@@ -17,6 +17,8 @@
 #include "pos/pos.h"
 #include "pos/command.h"
 
+#include "kkt/kkt.h"
+
 #include "kkt/fd/fd.h"
 #include "kkt/fd/tlv.h"
 #include "kkt/kkt.h"
@@ -1257,17 +1259,33 @@ bool print_cheque(SubCart *sc, list_t *klist)
 				ffd_tlv_add_fvln(1023, 1, 0);
 				if (l->n > 0)
 					ffd_tlv_add_uint8(1199, l->n);
-				if (l->n >= 1 && l->n <= 4) {
+					
+				if ((l->n >= 1 && l->n <= 4) || l->n >= 7) {
 					printf("ADD 1198, %lld\n", (long long)l->c);
 					ffd_tlv_add_vln(1198, l->c);
 					printf("ADD 1200, %lld\n", (long long)l->c);
 					ffd_tlv_add_vln(1200, l->c);
 				}
+				
 				if (l->i == 0) {
 					// если ИНН == 0, но есть l->z, значит перевозчик не российский.
 					if (l->z && l->z[0] != 0) {
 						ffd_tlv_add_fixed_string(1226, "000000000000", 12);
+
+						if (_support_1222_1224_1225)
+						{
+						    ffd_tlv_add_uint8(1222, 64);
+					    	ffd_tlv_stlv_begin(1224, 512);
+					        	ffd_tlv_add_string(1225, l->z);
+					      	    if (l->h && strcmp(l->h, agent_phone) != 0) {
+					        	    ffd_tlv_add_string(1171, l->h);
+					        	}
+					   	 	ffd_tlv_stlv_end();
+						}
+
 					}
+					
+					
 				} else if (l->i != user_inn) {
 					char inn[12+1];
 					if (c->p > 9999999999ll)
@@ -1275,7 +1293,19 @@ bool print_cheque(SubCart *sc, list_t *klist)
 					else
 						sprintf(inn, "%.10ld", l->i);
 					ffd_tlv_add_fixed_string(1226, inn, 12);
+					
+					if (_support_1222_1224_1225)
+					{
+					    ffd_tlv_add_uint8(1222, 64);
+					    ffd_tlv_stlv_begin(1224, 512);
+					        ffd_tlv_add_string(1225, l->z);
+					        if (l->h && strcmp(l->h, agent_phone) != 0) {
+					            ffd_tlv_add_string(1171, l->h);
+					        }
+					    ffd_tlv_stlv_end();
+					}
 				}
+				
 				ffd_tlv_stlv_end();
 			}
 			doc_count++;

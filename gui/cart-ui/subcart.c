@@ -9,6 +9,8 @@
 #include "gui/controls/button.h"
 #include "pos/command.h"
 
+bool _support_1222_1224_1225 = false;
+
 static const char* sc_tab_title[MAX_SUB_CART][CART_MAX_TAB_COL] =
 {
 	{ "N документа", "Дата и время", "Операция", "", "Сумма " },
@@ -62,6 +64,8 @@ static void ui_subcart_set_title(ui_subcart_t* sc)
 
 void ui_subcart_init(ui_subcart_t *sc, SubCart *val, bool tab_selected)
 {
+	_support_1222_1224_1225 = kkt_has_param("SUPPORT_1222_1224_1225");
+
 	sc->val = val;
 	sc->doc_count = val->documents.count;
 	sc->docs = __calloc(sc->doc_count, ui_doc_t);

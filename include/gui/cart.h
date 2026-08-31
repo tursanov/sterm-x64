@@ -9,6 +9,9 @@ extern "C" {
 #include "kkt/fd/ad.h"
 #include "kbd.h"
 
+bool _support_1222_1224_1225;
+
+
 #define MAX_DOCS    35
 
 #define CART_XGAP	5
