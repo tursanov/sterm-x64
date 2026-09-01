@@ -7,6 +7,7 @@
 #include "gui/cart.h"
 #include "gui/forms.h"
 #include "gui/controls/button.h"
+#include "kkt/kkt.h"
 #include "pos/command.h"
 
 bool _support_1222_1224_1225 = false;
