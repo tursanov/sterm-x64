@@ -157,8 +157,18 @@ bool cashier_set_name(const char *name) {
 	return false;
 }
 
+static char cashier_name_alt[64+1] = {0};
+
+
 const char *cashier_get_name() {
 	return cashier_name;
+}
+
+const char *cashier_get_name_alt() {
+    strcpy(cashier_name_alt, cashier_name);
+    recode_str(cashier_name_alt, -1);
+    
+	return cashier_name_alt;
 }
 
 const char *cashier_get_post() {

@@ -21,6 +21,7 @@ extern bool cashier_destroy();
 extern bool cashier_set(const char *name, const char *post, const char *inn);
 extern bool cashier_set_name(const char *name);
 extern const char *cashier_get_name();
+extern const char *cashier_get_name_alt();
 extern const char *cashier_get_post();
 extern const char *cashier_get_inn();
 extern const char *cashier_get_cashier();

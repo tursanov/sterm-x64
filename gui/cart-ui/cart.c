@@ -974,7 +974,7 @@ void process_non_cash_items(selected_docs_t *sd)
                 ? "CHECK"
                 : "PAY"
             : NULL,
-        .famio = cashier_get_name(),
+        .famio = cashier_get_name_alt(),
         .rfnd_info = bi->rfnd_info,
         .mtype = code
     };
