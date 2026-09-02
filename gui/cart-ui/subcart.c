@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sysdefs.h"
+
 #include "kbd.h"
+#include "kkt/kkt.h"
 #include "gui/gdi.h"
 #include "gui/cart.h"
 #include "gui/forms.h"

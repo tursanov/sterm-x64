@@ -8,95 +8,58 @@
 #include "kkt/kkt.h"
 #include "kkt/fd/tags.h"
 #include "kkt/fdo.h"
+#include "kkt/fd/pattern.h"
 #include <limits.h>
 
 static char last_error[1024] = { 0 };
-
 bool last_cheque_process_started = false;
 
-#define DIR_NAME "/home/sterm/patterns"
-
-uint8_t *load_pattern(uint8_t doc_type, const uint8_t *pattern_footer,
-	size_t pattern_footer_size, size_t *pattern_size)
+static uint8_t *find_pattern(
+    uint8_t doc_type,
+    const uint8_t* pattern_footer,
+    size_t pattern_footer_size,
+    int pattern_index,
+    size_t *result_pattern_size)
 {
-#define PATTERN_FORMAT DIR_NAME "/%s"
-	char file_name[PATH_MAX];
-	FILE *f;
-	int ret;
-	long file_size;
-	uint8_t *pattern = NULL;
+    if (pattern_index == -1)
+    {
+        if (doc_type == CALC_REPORT)
+        {
+            pattern_index = 0;
+        }
+        else
+        {
+            pattern_index = 1;
+        }
+    }
 
-	switch (doc_type) {
-		case REGISTRATION:
-		case RE_REGISTRATION:
-			sprintf(file_name, PATTERN_FORMAT, "registration_pattern.dat");
-			break;
-		case OPEN_SHIFT:
-			sprintf(file_name, PATTERN_FORMAT, "open_shift_pattern.dat");
-			break;
-		case CALC_REPORT:
-			sprintf(file_name, PATTERN_FORMAT, "calc_report_pattern.dat");
-			break;
-		case CHEQUE:
-		case BSO:
-			sprintf(file_name, PATTERN_FORMAT, "cheque_pattern.dat");
-			break;
-		case CHEQUE_CORR:
-		case BSO_CORR:
-			sprintf(file_name, PATTERN_FORMAT, "cheque_corr_pattern.dat");
-			break;
-		case CLOSE_SHIFT:
-			sprintf(file_name, PATTERN_FORMAT, "close_shift_pattern.dat");
-			break;
-		case CLOSE_FS:
-			sprintf(file_name, PATTERN_FORMAT, "close_fs_pattern.dat");
-			break;
-	}
-
-	printf("file_name: %s\n", file_name);
-
-	if ((f = fopen(file_name, "rb")) == NULL) {
-		perror("fopen");
-		sprintf(last_error, "Ошибка открытия файла шаблона (%d)", errno);
-		return NULL;
-	}
-
-	if ((ret = fseek(f, 0, SEEK_END)) != 0) {
-		perror("fseek end");
-		sprintf(last_error, "Ошибка позиционирования файла шаблона (%d)", errno);
-		goto LOut;
-	}
-	file_size = ftell(f);
-	if (file_size < 0) {
-		perror("ftell");
-		sprintf(last_error, "Ошибка получения длины файла шаблона (%d)", errno);
-		goto LOut;
-	}
-	if ((ret = fseek(f, 0, SEEK_SET)) != 0) {
-		sprintf(last_error, "Ошибка получения длины файла шаблона (%d)", errno);
-		perror("fseek set");
-		goto LOut;
-	}
-	printf("file_size: %ld\n", file_size);
-	if ((pattern = (uint8_t *)malloc(file_size + pattern_footer_size + 1)) == NULL) {
-		sprintf(last_error, "Ошибка выделения памяти для шаблона (%d)", errno);
-		perror("malloc");
-		goto LOut;
-	}
-
-	if ((ret = fread(pattern, file_size, 1, f) != 1)) {
-		sprintf(last_error, "Ошибка чтения файла шаблона (%d)", errno);
-		perror("read");
-		free(pattern);
-		pattern = NULL;
-		goto LOut;
-	}
-	memcpy(pattern + file_size, pattern_footer, pattern_footer_size);
-	*pattern_size = (size_t)file_size + pattern_footer_size;
-
-LOut:
-	fclose(f);
-	return pattern;
+    if (doc_type == CHEQUE || doc_type == BSO || doc_type == CHEQUE_CORR || doc_type == BSO_CORR)
+    {
+        if (kkt_has_param("SUPPORT_VAT_5_7") || kkt_has_param("SUPPORT_VAT_22"))
+        {
+            pattern_index += 3;
+        }
+    }
+    
+    size_t pattern_size;
+    const uint8_t *pattern = kkt_find_pattern(doc_type, pattern_index, &pattern_size);
+    
+    if (pattern == NULL)
+    {
+        sprintf(last_error, "Шаблон для печати с типом документа %.2d и индексом %d не найден в списке шаблонов.",
+            doc_type, pattern_index);
+        return NULL;
+    }
+    
+    uint8_t *result_pattern = (uint8_t *)malloc(pattern_size + pattern_footer_size);
+    memcpy(result_pattern, pattern, pattern_size);
+    if (pattern_footer_size > 0) {
+        memcpy(result_pattern + pattern_size, pattern_footer, pattern_footer_size);
+    }
+    
+    *result_pattern_size = pattern_size + pattern_footer_size;
+    
+    return result_pattern;
 }
 
 static void set_fn_error(char *s, uint8_t *err_info, size_t err_info_len __attribute__((unused)))
@@ -644,10 +607,12 @@ int fd_create_doc(uint8_t doc_type, const uint8_t *pattern_footer, size_t patter
 	printf("timeout_factor: %u\n", timeout_factor);
 	
 	printf("------------------------------------\n");
-
-   	if ((pattern = load_pattern(doc_type, pattern_footer,
-				   	pattern_footer_size, &pattern_size)) == NULL) {
-		printf("load_pattern fail\n");
+	
+    if ((pattern = find_pattern(
+            doc_type,
+            pattern_footer,
+            pattern_footer_size, -1, &pattern_size)) == NULL) {
+		printf("find_pattern fail\n");
 		fdo_resume();
 		return -1;
 	}
@@ -710,12 +675,15 @@ int fd_print_last_doc(uint8_t doc_type) {
 	struct kkt_last_printed_info lpi;
 	uint8_t *pattern_footer = NULL;
 	size_t pattern_footer_size = 0;
-
-   	if ((pattern = load_pattern(doc_type, pattern_footer,
-				   	pattern_footer_size, &pattern_size)) == NULL) {
-		printf("load_pattern fail\n");
+	
+    if ((pattern = find_pattern(
+            doc_type,
+            pattern_footer,
+            pattern_footer_size, 3, &pattern_size)) == NULL) {
+		printf("find_pattern fail\n");
 		return -1;
 	}
+	
 
 	err_info_len = sizeof(err_info);
 	
@@ -763,9 +731,11 @@ int fd_print_doc(uint8_t doc_type, uint32_t doc_no) {
 	uint8_t *pattern_footer = NULL;
 	size_t pattern_footer_size = 0;
 
-   	if ((pattern = load_pattern(doc_type, pattern_footer,
-				   	pattern_footer_size, &pattern_size)) == NULL) {
-		printf("load_pattern fail\n");
+    if ((pattern = find_pattern(
+            doc_type,
+            pattern_footer,
+            pattern_footer_size, 3, &pattern_size)) == NULL) {
+		printf("find_pattern fail\n");
 		return -1;
 	}
 

@@ -21,7 +21,6 @@
 
 #include "kkt/fd/fd.h"
 #include "kkt/fd/tlv.h"
-#include "kkt/kkt.h"
 #include "kkt/fdo.h"
 
 int cart_start_y = 0;
