@@ -13,7 +13,7 @@ static struct pos_response* run_pos_operation(uint8_t mtype)
         .ords = NULL,
         .type = NULL,
         .subtype = NULL,
-        .famio = cashier_get_name(),
+        .famio = cashier_get_name_alt(),
         .rfnd_info = NULL,
         .mtype = mtype
     };
