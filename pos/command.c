@@ -470,8 +470,11 @@ static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_o
 		fmenu = false;
 		make_pos_resp(&pos_resp);
 		pos_send_empty();
-	}else if (pos_info_empty())
+	}else if (pos_info_empty()){
 		make_pos_info();
+		if (pos_get_state() == pos_qready)
+			pos_set_state(pos_idle);
+	}
 	return true;
 }
 

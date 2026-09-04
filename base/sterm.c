@@ -1117,9 +1117,9 @@ static void init_term(bool need_init)
 	xprn_flush();
 	aprn_flush();
 	resp_handling = resp_executing = false;
+	clear_bank_info();
 	if (cfg.bank_system)
 		pos_init_transactions();
-	clear_bank_info();
 	rollback_keys(true);
 	apc = false;
 	init_devices();

@@ -560,14 +560,14 @@ static void on_pos_init_check(uint32_t t)
 	if (pos_serial_peek_msg()){
 		pos_serial_get_msg(&pos_buf_rx);
 		if (pos_parse_resp(&pos_buf_rx)){
-			pos_close(true);
-			pos_set_state(pos_idle);
+			if (pos_send_init(true))
+				pos_set_state(pos_qready);
+			else
+				pos_set_state(pos_new);
 		}else
 			pos_set_state(pos_new);
-	}else if (dt > MAX_POS_TIMEOUT){
-		pos_close(true);
+	}else if (dt > MAX_POS_TIMEOUT)
 		pos_set_state(pos_new);
-	}
 }
 
 static void on_pos_idle(uint32_t t __attribute__((unused)))
@@ -609,6 +609,27 @@ static void on_pos_ready(uint32_t t)
 				pos_set_error(POS_ERROR_CLASS_SYSTEM,
 					POS_ERR_TIMEOUT, 0);
 		}else if ((pos_get_state() == pos_ready) && pos_serial_is_free())
+			pos_send_empty();
+	}
+}
+
+static void on_pos_qready(uint32_t t)
+{
+	uint32_t dt = t - pos_t0;
+	if (pos_serial_peek_msg()){
+		pos_serial_get_msg(&pos_buf_rx);
+		pos_parse_resp(&pos_buf_rx);
+		if (pos_buf_rx.un.hdr.msg.nr_blocks == 0){
+			if (!pos_info_req_sent)
+				pos_info_req_sent = pos_prepare_request_info() &&
+					pos_send_params_req();
+		}
+	}else if (dt > POS_TIMEOUT){
+		if (!poll_ok){
+			if (dt > MAX_POS_TIMEOUT)
+				pos_set_error(POS_ERROR_CLASS_SYSTEM,
+					POS_ERR_TIMEOUT, 0);
+		}else if ((pos_get_state() == pos_qready) && pos_serial_is_free())
 			pos_send_empty();
 	}
 }
@@ -798,6 +819,7 @@ void pos_process(void)
 		{pos_idle,		on_pos_idle},
 		{pos_init,		on_pos_init},
 		{pos_ready,		on_pos_ready},
+		{pos_qready,		on_pos_qready},
 		{pos_enter,		on_pos_enter},
 		{pos_print,		on_pos_print},
 		{pos_printing,		on_pos_printing},
