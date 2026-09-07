@@ -52,30 +52,6 @@ static const char *log_level_str(int lvl)
 	return ret;
 }
 
-bool log_internal(int lvl, const char *file, const char *fn, uint32_t line, uint32_t nr_err, const char *fmt, ...)
-{
-	if ((lvl > log_lvl) || (file == NULL) || (fn == NULL) || (fmt == NULL))
-		return false;
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	struct tm *tm = localtime(&tv.tv_sec);
-	va_list ap;
-	va_start(ap, fmt);
-	printf("%s %.2u:%.2u:%.2u.%.3ld", log_level_str(lvl),
-		tm->tm_hour, tm->tm_min, tm->tm_sec, tv.tv_usec / 1000);
-	tv.tv_sec += time_delta;
-	tm = localtime(&tv.tv_sec);
-	printf(" [%.2u:%.2u:%.2u]: %s [%s:%u]: ", tm->tm_hour, tm->tm_min, tm->tm_sec,
-		fn, file, line);
-	vprintf(fmt, ap);
-	va_end(ap);
-	if (nr_err != UINT32_MAX)
-		printf(" %s", strerror(errno));
-	else
-		putchar('\n');
-	return true;
-}
-
 static const char *cur_pattern = NULL;
 static regex_t reg;
 
@@ -117,14 +93,59 @@ static ssize_t del_excess_logs(const char *folder, const char *prefix, const cha
 	return ret;
 }
 
+static time_t last_write_date = 0;
+#define SECONDS_IN_DAY	(24 * 3600)
+static const char *log_name_prefix = "log";
+
+static inline bool create_log_folder_if_need(void)
+{
+	return create_folder_if_need(LOG_FOLDER);
+}
+
+bool log_internal(int lvl, const char *file, const char *fn, uint32_t line, uint32_t nr_err, const char *fmt, ...)
+{
+	if ((lvl > log_lvl) || (file == NULL) || (fn == NULL) || (fmt == NULL))
+		return false;
+	else if (!create_log_folder_if_need())
+		return false;
+	static char path[PATH_MAX];
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	struct tm *tm = localtime(&tv.tv_sec);
+	snprintf(path, sizeof(path), LOG_FOLDER "/%s-%.4u-%.2u-%.2u.txt",
+		log_name_prefix, tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday);
+	FILE *f = fopen(path, "a");
+	if (f == NULL)
+		return false;
+	va_list ap;
+	va_start(ap, fmt);
+	fprintf(f, "%s %.2u:%.2u:%.2u.%.3ld", log_level_str(lvl),
+		tm->tm_hour, tm->tm_min, tm->tm_sec, tv.tv_usec / 1000);
+	tv.tv_sec += time_delta;
+	tm = localtime(&tv.tv_sec);
+	fprintf(f, " [%.2u:%.2u:%.2u]: %s [%s:%u]: ", tm->tm_hour, tm->tm_min, tm->tm_sec,
+		fn, file, line);
+	vfprintf(f, fmt, ap);
+	va_end(ap);
+	if (nr_err != UINT32_MAX)
+		fprintf(f, " %s", strerror(errno));
+	else
+		fputc('\n', f);
+	fflush(f);
+	fclose(f);
+	if (tv.tv_sec > (last_write_date + SECONDS_IN_DAY)){
+		del_excess_logs(LOG_FOLDER, log_name_prefix, "txt", MAX_LOG_FILES);
+		last_write_date = (tv.tv_sec / SECONDS_IN_DAY) * SECONDS_IN_DAY;
+	}
+	return true;
+}
+
 bool log_data(const char *prefix, const char *title, const uint8_t *data, size_t len)
 {
-	static time_t last_write_date = 0;
 	if ((prefix == NULL) || (data == NULL) || (len == 0))
 		return false;
-	else if (!create_folder_if_need(LOG_FOLDER))
+	else if (!create_log_folder_if_need())
 		return false;
-#define SECONDS_IN_DAY	(24 * 3600)
 #define LINE_LEN	16
 #define HALF_LINE_LEN	(LINE_LEN / 2)
 	static char path[PATH_MAX];

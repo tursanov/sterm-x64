@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include "gui/scr.h"
 #include "gui/status.h"
+#include "pos/pos.h"
 #include "prn/express.h"
 #include "genfunc.h"
 #include "cfg.h"
@@ -418,10 +419,19 @@ static void process_tcpip(void)
 /* Проверка возможности послать запрос */
 bool can_send_request(void)
 {
+	bool ret = true;
 	if (c_state == cs_sent)
-		return (u_times() - wresp_t0) >= TCP_WRESP_SILENT_INTERVAL;
-	else
-		return true;
+		ret = (u_times() - wresp_t0) >= TCP_WRESP_SILENT_INTERVAL;
+	if (ret && cfg.bank_system){
+		switch (pos_state){
+			case pos_new:
+			case pos_init_check:
+			case pos_init:
+			case pos_qready:
+				ret = false;
+		}
+	}
+	return ret;
 }
 
 /* Инициализация транспортного уровня */
@@ -511,9 +521,10 @@ bool process_transport(void)
 			return false;
 	}
 	process_tcpip();
-	if ((s_state == ss_new) || (s_state == ss_winit))
-		begin_initialization();
-	else if (is_full_resp()){	/* есть ответ от ЭВМ */
+	if ((s_state == ss_new) || (s_state == ss_winit)){
+		if (can_send_request())
+			begin_initialization();
+	}else if (is_full_resp()){	/* есть ответ от ЭВМ */
 		reaction_time = u_times() - req_time;
 /* Проверка минимальной длины ответа */
 		if (!check_min_resp_len())

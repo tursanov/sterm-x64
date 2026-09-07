@@ -415,8 +415,8 @@ static void make_pos_info(void)
 		}
 	}
 	pos_caps_set(pos_caps);
-	if (n > 0)
-		pos_reinit();
+/*	if (n > 0)
+		pos_reinit();*/
 }
 
 static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_only)
@@ -472,8 +472,10 @@ static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_o
 		pos_send_empty();
 	}else if (pos_info_empty()){
 		make_pos_info();
-		if (pos_get_state() == pos_qready)
+		if (pos_get_state() == pos_qready){
+			pos_send_finish();
 			pos_set_state(pos_idle);
+		}
 	}
 	return true;
 }
@@ -839,7 +841,7 @@ struct pos_response *pos_query(const struct pos_query_params *params)
 	show_pos();
 	if ((pos_state == pos_new) || (pos_state == pos_idle))
 		return NULL;
-	while (pos_state != pos_new){
+	while ((pos_state != pos_new) && (pos_state != pos_idle)){
 		if (get_cmd(false, true) == cmd_reset){
 			if (reset_term(false))
 				return NULL;

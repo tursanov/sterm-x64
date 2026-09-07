@@ -14,6 +14,7 @@ extern "C" {
 #define POS_CAPS_UBT	0x00000001	/* единая банковская транзакция, ЕБТ (Unified Bank Transaction) */
 #define POS_CAPS_FPS	0x00000002	/* система быстрых платежей, СБП (Fast Payment System) */
 
+extern bool pos_caps_known(void);
 extern bool pos_caps_supported(uint32_t caps);
 extern bool pos_caps_set(uint32_t caps);
 extern void pos_caps_reset(void);
@@ -173,11 +174,12 @@ extern bool pos_create(void);
 extern void pos_release(void);
 extern int  pos_get_state(void);
 extern void pos_set_state(int st);
-extern bool pos_reinit(void);
+//extern bool pos_reinit(void);
 extern void pos_process(void);
 extern bool pos_send_empty(void);
 extern bool pos_send_params_resp(void);
 extern bool pos_send_params_req(void);
+extern bool pos_send_finish(void);
 
 struct pos_query_params {
 	uint64_t amount;

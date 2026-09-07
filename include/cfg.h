@@ -131,7 +131,7 @@ struct term_cfg{
 	bool		kbd_beeps;	/* звуковая индикация нажатия клавиш */
 };
 
-extern struct term_cfg	cfg;		/* параметры терминала */
+extern struct term_cfg	cfg;		/* настройки терминала */
 
 extern bool read_cfg(void);
 extern bool write_cfg(void);

@@ -408,7 +408,7 @@ int get_key_type(void)
 /* ...иначе это ключ кассира */
 	return key_reg;
 #else
-	return key_reg;
+	return key_dbg;
 #endif		/* __REAL_KEYS__ */
 }
 
@@ -854,8 +854,8 @@ void release_garbage(void)
 		pos_error_clear();
 		pos_set_state(pos_break);
 		pos_active = false;
-	}else
-		pos_set_state(pos_new);
+	}/*else
+		pos_set_state(pos_new);*/
 	if (fa_active)
 		release_fa();
 	end_message_box();
@@ -1118,8 +1118,10 @@ static void init_term(bool need_init)
 	aprn_flush();
 	resp_handling = resp_executing = false;
 	clear_bank_info();
-	if (cfg.bank_system)
+	if (cfg.bank_system){
+		pos_caps_reset();
 		pos_init_transactions();
+	}
 	rollback_keys(true);
 	apc = false;
 	init_devices();

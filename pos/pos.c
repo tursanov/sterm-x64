@@ -25,6 +25,11 @@
 /* Возможности ИПТ */
 static uint32_t pos_caps = POS_CAPS_UNK;
 
+bool pos_caps_known(void)
+{
+	return pos_caps != POS_CAPS_UNK;
+}
+
 bool pos_caps_supported(uint32_t caps)
 {
 	return (pos_caps != POS_CAPS_UNK) && ((pos_caps & caps) == caps);
@@ -432,7 +437,7 @@ bool pos_send_params_req(void)
 }
 
 
-static bool pos_send_finish(void)
+bool pos_send_finish(void)
 {
 	pos_req_begin(&pos_buf_tx);
 	pos_req_save_command_finish(&pos_buf_tx);
@@ -533,7 +538,7 @@ static void pos_close(bool close_com)
 		pos_serial_close();
 }
 
-bool pos_reinit(void)
+/*bool pos_reinit(void)
 {
 	bool ret = pos_send_finish();
 	if (ret){
@@ -541,7 +546,7 @@ bool pos_reinit(void)
 		ret = pos_send_init(false);
 	}
 	return ret;
-}
+}*/
 
 /* Обработка различных состояний конечного автомата POS-эмулятора */
 
@@ -560,14 +565,16 @@ static void on_pos_init_check(uint32_t t)
 	if (pos_serial_peek_msg()){
 		pos_serial_get_msg(&pos_buf_rx);
 		if (pos_parse_resp(&pos_buf_rx)){
-			if (pos_send_init(true))
+			if (pos_caps_known())
+				pos_set_state(pos_idle);
+			else if (pos_send_init(true))
 				pos_set_state(pos_qready);
 			else
-				pos_set_state(pos_new);
+				pos_set_state(pos_idle);
 		}else
-			pos_set_state(pos_new);
-	}else if (dt > MAX_POS_TIMEOUT)
-		pos_set_state(pos_new);
+			pos_set_state(pos_idle);
+	}else if (dt > POS_TIMEOUT)
+		pos_set_state(pos_idle);
 }
 
 static void on_pos_idle(uint32_t t __attribute__((unused)))
@@ -683,8 +690,8 @@ void on_response_pos(void)
 	int pos_para = -1;
 	if (find_pos_data(&pos_para) && (pos_para != -1)){
 		size_t pos_len = handle_para(pos_para);
-/*		log_info("Обнаружены данные квитанции ИПТ (абзац #%d; %zd байт).",
-			pos_para + 1, pos_len);*/
+		log_info("Обнаружены данные квитанции ИПТ (абзац #%d; %zd байт).",
+			pos_para + 1, pos_len);
 		if (pos_len > 0){
 			uint32_t n = xlog_write_rec(hxlog, text_buf, pos_len, XLRT_NORMAL, 0);
 			kprn_print(text_buf, pos_len);
@@ -701,12 +708,12 @@ void on_response_pos(void)
 		snprintf(err_msg, ASIZE(err_msg), "Не найдены данные квитанции ИПТ.");
 		non_pos_resp = 2;
 	}
-/*	if (err_msg[0] != 0)
-		log_err(err_msg);*/
+	if (err_msg[0] != 0)
+		log_err(err_msg);
 	if (non_pos_resp != 0){
 		req_type = req_regular;
 		if (non_pos_resp == 2){
-//			log_dbg("Переходим к обработке ответа.");
+			log_dbg("Переходим к обработке ответа.");
 			release_garbage();
 			execute_resp();
 		}
@@ -763,7 +770,7 @@ static void on_pos_printing(uint32_t t)
 
 static void on_pos_finish(uint32_t t __attribute__((unused)))
 {
-	pos_set_state(pos_new);
+	pos_set_state(pos_idle);
 }
 
 static void on_pos_break(uint32_t t __attribute__((unused)))
