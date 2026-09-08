@@ -19,7 +19,9 @@
 bool pos_incomplete_op = false;
 
 /* Параметры запроса ИПТ */
-static struct pos_query_params pos_query_params;
+static struct pos_query_params pos_query_params/* = {
+	.mtype = MTYPE_UNKNOWN,
+}*/;
 
 static void clr_pos_query_params(void)
 {
@@ -742,7 +744,7 @@ bool pos_req_save_command_response_parameters(struct pos_data_buf *buf)
 		pos_request_param_t *p = req_param_list.params + i;
 		if (p->type == POS_PARAM_UNKNOWN)
 			continue;
-		else if ((p->type == POS_PARAM_MTYPE) && !pos_info_req_sent)
+		else if ((p->type == POS_PARAM_MTYPE) && (pos_get_state() == pos_qready))
 			continue;
 		else if (!pos_write_resp_param(buf, p->name, p->type, p->required))
 			return false;
@@ -839,9 +841,9 @@ struct pos_response *pos_query(const struct pos_query_params *params)
 	set_pos_query_params(params);
 	clr_pos_resp(&pos_resp);
 	show_pos();
-	if ((pos_state == pos_new) || (pos_state == pos_idle))
+	if ((pos_get_state() == pos_new) || (pos_get_state() == pos_idle))
 		return NULL;
-	while ((pos_state != pos_new) && (pos_state != pos_idle)){
+	while ((pos_get_state() != pos_new) && (pos_get_state() != pos_idle)){
 		if (get_cmd(false, true) == cmd_reset){
 			if (reset_term(false))
 				return NULL;

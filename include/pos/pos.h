@@ -141,8 +141,6 @@ enum {
 	pos_ewait,		/* ожидание после вывода на экран сообщения об ошибке */
 };
 
-extern int pos_state;
-
 /* Результат завершения работы с ИПТ */
 struct pos_param {
         const char *name;

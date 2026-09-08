@@ -364,7 +364,7 @@ void slayer_error(int e)
 				break;
 		}
 		c_state = cs_nc;
-		if (pos_active && (pos_state == pos_printing))
+		if (pos_active && (pos_get_state() == pos_printing))
 			pos_set_error(POS_ERROR_CLASS_PRINTER, POS_ERR_PRN, 0);
 	}
 	if (cfg.tcp_cbt || (gd_error_type(e) == gde_tcp))

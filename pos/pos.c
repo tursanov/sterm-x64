@@ -342,7 +342,7 @@ bool pos_req_stream_end(struct pos_data_buf *buf)
 	return true;
 }
 
-int pos_state = pos_new;
+static int pos_state = pos_new;
 /* Используется для периодического опроса POS-эмулятора */
 uint32_t pos_t0 = 0;
 /* На пустой запрос пришел ответ в течение заданного таймаута */
@@ -483,17 +483,18 @@ int pos_get_state(void)
 	return pos_state;
 }
 
-void pos_print_state(int st)
+static const char *pos_get_state_str(int st)
 {
 	static struct {
 		int st;
-		char *name;
-	} states[] = {
+		const char *txt;
+	} map[] = {
 		{pos_new,		"pos_new"},
 		{pos_init_check,	"pos_init_check"},
 		{pos_idle,		"pos_idle"},
 		{pos_init,		"pos_init"},
 		{pos_ready,		"pos_ready"},
+		{pos_qready,		"pos_qready"},
 		{pos_enter,		"pos_enter"},
 		{pos_print,		"pos_print"},
 		{pos_printing,		"pos_printing"},
@@ -504,19 +505,25 @@ void pos_print_state(int st)
 		{pos_wait,		"pos_wait"},
 		{pos_ewait,		"pos_ewait"},
 	};
-	int i;
-	for (i = 0; i < ASIZE(states); i++){
-		if (st == states[i].st){
-			printf(states[i].name);
+	const char *ret = NULL;
+	for (int i = 0; i < ASIZE(map); i++){
+		if (st == map[i].st){
+			ret = map[i].txt;
 			break;
 		}
 	}
-	if (i == ASIZE(states))
-		printf("???");
+	if (ret == NULL){
+		static char buf[10];
+		snprintf(buf, sizeof(buf), "[%d]", st);
+		ret = buf;
+	}
+	return ret;
 }
 
 void pos_set_state(int st)
 {
+	if (pos_state != st)
+		log_dbg("%s -> %s.", pos_get_state_str(pos_state), pos_get_state_str(st));
 	pos_state = st;
 }
 
@@ -583,7 +590,7 @@ static void on_pos_idle(uint32_t t __attribute__((unused)))
 
 static void on_pos_init(uint32_t t __attribute__((unused)))
 {
-	if (pos_open() && pos_send_init(true)){
+	if (pos_open() && pos_send_init(false)){
 		pos_write_scr(&pos_buf_rx, "ИДЕТ СОЕДИНЕНИЕ С POS-ЭМУЛЯТОРОМ",
 				GREEN, BLACK);
 		pos_parse_resp(&pos_buf_rx);	/* вывод надписи на экран */
@@ -842,8 +849,9 @@ void pos_process(void)
 		return;
 	pos_serial_receive();
 	pos_serial_transmit();
+	int state = pos_get_state();
 	for (i = 0; i < ASIZE(handlers); i++){
-		if (pos_state == handlers[i].state){
+		if (state == handlers[i].state){
 			handlers[i].handler(u_times());
 			break;
 		}

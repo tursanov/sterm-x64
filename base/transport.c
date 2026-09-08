@@ -423,7 +423,7 @@ bool can_send_request(void)
 	if (c_state == cs_sent)
 		ret = (u_times() - wresp_t0) >= TCP_WRESP_SILENT_INTERVAL;
 	if (ret && cfg.bank_system){
-		switch (pos_state){
+		switch (pos_get_state()){
 			case pos_new:
 			case pos_init_check:
 			case pos_init:
