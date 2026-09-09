@@ -1368,7 +1368,7 @@ static void handle_channel(void)
 {
 	bool flag;
 	if (((_term_aux_state == ast_rejected) || (_term_aux_state == ast_repeat)) &&
-		(_term_state == st_none))
+			(_term_state == st_none))
 		guess_term_state();
 	flag = process_transport();
 	if (!full_resp)
@@ -2306,14 +2306,19 @@ static void show_ping(void)
 	}
 }
 
+bool can_show_pos(void)
+{
+	return cfg.bank_system && cfg.tickets_on_kkt &&
+		(TST_FLAG(ZBp, GDF_REQ_INIT | GDF_REQ_FIRST) == 0);
+}
+
 /* Показать окно POS-терминала */
 void show_pos(void)
 {
 #define POS_WIDTH		32
 #define POS_HEIGHT		8
 	GCPtr pGC;
-	if (!cfg.bank_system || !(cfg.tickets_on_kkt || cfg.has_xprn) ||
-			TST_FLAG(ZBp, GDF_REQ_INIT | GDF_REQ_FIRST)){
+	if (!can_show_pos()){
 		set_term_astate(ast_illegal);
 		err_beep();
 	}else if (pos_get_state() != pos_idle){
@@ -3558,8 +3563,13 @@ static bool begin_x3data_sync(void)
 /* Вызывается при приходе ответа */
 static void on_response(bool *need_sync_dev_data)
 {
+	inline void set_sync_dev_data(bool sync)
+	{
+		if (need_sync_dev_data != NULL)
+			*need_sync_dev_data = sync;
+	}
 	into_on_response = true;
-	*need_sync_dev_data = false;
+	set_sync_dev_data(false);
 #if defined __WATCH_EXPRESS__
 	watch_transaction = false;
 #endif
@@ -3591,16 +3601,16 @@ static void on_response(bool *need_sync_dev_data)
 				on_response_pos();
 			else if ((req_type == req_grid_xprn) || (req_type == req_grid_kkt)){
 				on_response_grid();
-				*need_sync_dev_data = c_state != cs_hasreq;
+				set_sync_dev_data(c_state != cs_hasreq);
 			}else if ((req_type == req_icon_xprn) || (req_type == req_icon_kkt)){
 				on_response_icon();
-				*need_sync_dev_data = c_state != cs_hasreq;
+				set_sync_dev_data(c_state != cs_hasreq);
 			}else if (req_type == req_patterns){
 				on_response_patterns();
-				*need_sync_dev_data = c_state != cs_hasreq;
+				set_sync_dev_data(c_state != cs_hasreq);
 			}else if (req_type == req_xslt){
 				on_response_xslt();
-				*need_sync_dev_data = c_state != cs_hasreq;
+				set_sync_dev_data(c_state != cs_hasreq);
 			}else if (!execute_resp() && !rejecting_req)
 				show_req();
 			if ((req_type == req_regular) && (c_state != cs_hasreq)){
@@ -3711,7 +3721,7 @@ static void do_ticket_number(void)
 }
 
 /* Основной обработчик команд терминала */
-static bool process_term(void)
+bool process_term(void)
 {
 	static struct {
 		int cm;

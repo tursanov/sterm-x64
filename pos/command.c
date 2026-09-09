@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "gui/fa.h"
 #include "gui/scr.h"
 #include "kkt/fd/ad.h"
 #include "kkt/kkt.h"
@@ -834,21 +835,23 @@ bool pos_prepare_request_params(void)
 	return pos_prepare_request(params, ASIZE(params));
 }
 
+extern bool process_term(void);
+
 struct pos_response *pos_query(const struct pos_query_params *params)
 {
-	if (params == NULL)
+	if ((params == NULL) || !can_show_pos())
 		return NULL;
 	set_pos_query_params(params);
 	clr_pos_resp(&pos_resp);
+	ClearScreen(clBlack);
 	show_pos();
-	if ((pos_get_state() == pos_new) || (pos_get_state() == pos_idle))
-		return NULL;
 	while ((pos_get_state() != pos_new) && (pos_get_state() != pos_idle)){
-		if (get_cmd(false, true) == cmd_reset){
-			if (reset_term(false))
-				return NULL;
-		}
+		process_term();
+		if (pos_get_state() == pos_new)		/* сброс терминала */
+			return NULL;
 	}
+	ClearScreen(clBlack);
+	draw_fa();
 	return &pos_resp;
 }
 
