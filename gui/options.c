@@ -1,4 +1,4 @@
-/* Настройка параметров терминала. (c) gsr & alex 2000-2004, 2018-2020. */
+/* Настройка параметров терминала. (c) gsr & alex 2000-2004, 2018-2020, 2026. */
 
 #include <sys/socket.h>
 #include <sys/times.h>
@@ -19,7 +19,7 @@
 #include "kkt/kkt.h"
 #include "log/express.h"
 #include "prn/express.h"
-#include "prn/local.h"
+#include "prn/sprn.h"
 #include "cfg.h"
 #include "devinfo.h"
 #include "iplir.h"
@@ -127,8 +127,8 @@ static bool scheme_changed = false;
  * Параметры БПУ при входе в меню "Внешние устройства" должны читаться
  * только один раз.
  */
-//bool lprn_params_read = false;
-//static const char lprn_hdr[] = "БПУ-----------";
+//bool sprn_params_read = false;
+//static const char sprn_hdr[] = "БПУ-----------";
 
 /* TCP/IP */
 static const char *optn_use_ppp[] = {"Сетевая карта", "PPP"};
@@ -335,8 +335,8 @@ static struct optn_item dev_optn_items[] = {
 		PRN_NUMBER_LEN, xprn_number, NULL),*/
 /*	OPTN_BOOL2("БПУ", "Наличие в составе терминала БПУ",
 		has_sprn, NULL),
-	OPTN_STATIC("Номер БПУ", (const char *)lprn_number, sizeof(lprn_number)),*/
-/*	OPTN_STATIC("------Параметры печати", lprn_hdr, sizeof(lprn_hdr) - 1),
+	OPTN_STATIC("Номер БПУ", (const char *)sprn_number, sizeof(sprn_number)),*/
+/*	OPTN_STATIC("------Параметры печати", sprn_hdr, sizeof(sprn_hdr) - 1),
 	OPTN_INT_EDIT("Длина бланка", "Длина документа в мм", s0, NULL),
 	OPTN_INT_EDIT("Ширина бланка", "Ширина документа в мм", s1, NULL),
 	OPTN_INT_EDIT("Расст. до штрих-кода", "Расстояние до считываемого\r\n"
@@ -1228,7 +1228,7 @@ void init_options(void)
 	for (i = 0; i < ASIZE(optn_groups); i++)
 		optn_read_group(&cfg, i);
 	optn_set_group(OPTN_GROUP_MENU);
-//	lprn_params_read = false;
+//	sprn_params_read = false;
 }
 
 void release_options(bool need_clear)
@@ -2127,22 +2127,22 @@ static bool on_exit_bank_system(const struct optn_group *group)
 
 #if 0
 /* Получение настроек БПУ */
-static void get_lprn_params(void)
+static void get_sprn_params(void)
 {
 #if defined INSERT_SPRN_CODE_HERE
 	if ((wm != wm_local) || (kt != key_dbg))
 		adjust_sprn_params(false);
 	else
 #endif		/* INSERT_SPRN_CODE_HERE */
-	if (lprn_params_read)
+	if (sprn_params_read)
 		adjust_sprn_params(true);
 	else{
-		int ret = lprn_get_params(&cfg);
-		if (ret == LPRN_RET_OK){
-			lprn_params_read = true;
+		int ret = sprn_get_params(&cfg);
+		if (ret == SPRN_RET_OK){
+			sprn_params_read = true;
 			optn_read_group(&cfg, OPTN_GROUP_DEVICES);
 			adjust_sprn_params(true);
-		}else if (ret == LPRN_RET_ERR){
+		}else if (ret == SPRN_RET_ERR){
 			ClearScreen(clBlack);
 			err_beep();
 			message_box("ОШИБКА БПУ", "Не удалось получить параметры работы БПУ.",
@@ -2166,7 +2166,7 @@ bool process_options(const struct kbd_event *e)
 					optn_set_group(OPTN_GROUP_SYSTEM);
 					break;
 /*				case cmd_dev_optn:
-//					get_lprn_params();
+//					get_sprn_params();
 					optn_set_group(OPTN_GROUP_DEVICES);
 					break;*/
 				case cmd_tcpip_optn:

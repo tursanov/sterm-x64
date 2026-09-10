@@ -15,8 +15,6 @@ extern "C" {
 #define STERM_TKI_NAME		_("sterm.dat")
 /* Имя файла банковской лицензии */
 #define BANK_LICENSE		_("bank.dat")
-/* Имя файла лицензии ППУ */
-#define LPRN_LICENSE		_("lprn.dat")
 /* Имя файла ЦКЛ */
 #define STERM_XLOG_NAME		_("express.log")
 /* Имя файла ЦКЛ в предыдущих версиях */

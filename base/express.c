@@ -1,6 +1,6 @@
 /*
  * Синтаксический разбор и обработка текста ответа из "Экспресс".
- * (c) gsr 2009-2020, 2022, 2024-2025.
+ * (c) gsr 2009-2020, 2022, 2024-2026.
  */
 
 #include <ctype.h>
@@ -16,7 +16,7 @@
 #include "log/pos.h"
 #include "prn/aux.h"
 #include "prn/express.h"
-#include "prn/local.h"
+#include "prn/sprn.h"
 #include "x3data/grids.h"
 #include "x3data/icons.h"
 #include "x3data/patterns.h"
@@ -217,7 +217,7 @@ static uint8_t *check_bcode(uint8_t *p, int l, int *ecode)
 }
 
 /*
- * Проверка команды нанесения штрихового кода для ППУ (Ар2 0x1a).
+ * Проверка команды нанесения штрихового кода для БПУ (Ар2 0x1a).
  * Формат команды нанесения штрих-кода:
  * 1b 1a LLL N T1 XXX1 YYY1 lll1 [T2 XXX2 YYY2 lll2 [...]] ddd...ddd
  * В данных могут быть либо собственно данные, либо обращение к СОЛЭБ (1b 19).
@@ -404,7 +404,7 @@ static uint8_t *check_prom(uint8_t *txt, int l, int *ecode, int dst)
 							p = pp;
 					}
 					break;
-				case LPRN_NO_BCODE:
+				case SPRN_NO_BCODE:
 					if (dst != dst_sprn){
 						*ecode = E_MISPLACE;
 						return p - 2;
@@ -1028,19 +1028,19 @@ static uint8_t *check_sprn(uint8_t *txt, int l, int *ecode)
 		b = txt[i];
 		switch (st){
 			case st_start:
-				if (b == LPRN_DLE)
+				if (b == SPRN_DLE)
 					st = st_dle;
 				else{
-					*ecode = E_NO_LPRN_CMD;
+					*ecode = E_NO_SPRN_CMD;
 					st = st_err;
 				}
 				break;
 			case st_dle:
-				if ((b == LPRN_RD_BCODE) ||
-						(b == LPRN_NO_BCODE))
+				if ((b == SPRN_RD_BCODE) ||
+						(b == SPRN_NO_BCODE))
 					st = st_data;
 				else{
-					*ecode = E_NO_LPRN_CMD;
+					*ecode = E_NO_SPRN_CMD;
 					st = st_err;
 				}
 				break;
@@ -1053,10 +1053,10 @@ static uint8_t *check_sprn(uint8_t *txt, int l, int *ecode)
 			case st_data_dle:
 				if ((b == X_PARA_END_N) || (b == X_PARA_END)){
 					txt += i - 1;
-					if (b1 == LPRN_FORM_FEED)
+					if (b1 == SPRN_FORM_FEED)
 						st = st_ok;
 					else{
-						*ecode = E_NO_LPRN_CUT;
+						*ecode = E_NO_SPRN_CUT;
 						st = st_err;
 					}
 				}else
@@ -1101,7 +1101,7 @@ static uint8_t *check_kprn(uint8_t *txt, int l, int n_para, int *ecode)
 					if (xml || (b1 == KKT_FF) || (b1 == KKT_END_BLOCK))
 						st = st_ok;
 					else{
-						*ecode = E_NO_LPRN_CUT;	/* FIXME */
+						*ecode = E_NO_SPRN_CUT;	/* FIXME */
 						st = st_err;
 					}
 				}else
@@ -1318,16 +1318,16 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 							p = pp;
 					}
 					break;
-				case LPRN_INTERLINE:
-				case LPRN_NO_BCODE:
-				case LPRN_WR_BCODE2:
-					if ((b == LPRN_NO_BCODE) && cfg.tickets_on_kkt &&
+				case SPRN_INTERLINE:
+				case SPRN_NO_BCODE:
+				case SPRN_WR_BCODE2:
+					if ((b == SPRN_NO_BCODE) && cfg.tickets_on_kkt &&
 							((dst == dst_xprn) || (dst == dst_scr2)))
 						break;
 					else if ((dst != dst_sprn) && (dst != dst_log)){
 						*ecode = E_MISPLACE;
 						return p - 2;
-					}else if (b == LPRN_WR_BCODE2){
+					}else if (b == SPRN_WR_BCODE2){
 						pp = check_kkt_bcode(p, txt + l - p, ecode, NULL, NULL);
 						if (*ecode != E_OK)
 							return pp;
@@ -1904,7 +1904,7 @@ int handle_para(int n_para)
 						}
 						break;
 					}
-					case LPRN_WR_BCODE2:
+					case SPRN_WR_BCODE2:
 						if (!kkt_bcode_handled){	/* штрих-код обрабатывается только один раз */
 							ll = sizeof(text_buf) - i;
 							p = check_kkt_bcode(p + 1, eptr - p - 1, NULL,
@@ -2063,30 +2063,30 @@ static void preexecute_resp(void)
 }
 
 #if defined INSERT_SPRN_CODE_HERE
-/* Формирование текста сообщения об ошибке ППУ */
-static const char *make_lprn_err_msg(int lprn_ret)
+/* Формирование текста сообщения об ошибке БПУ */
+static const char *make_sprn_err_msg(int sprn_ret)
 {
 	char *ret = NULL;
-	if (lprn_ret == LPRN_RET_OK){
-		if (lprn_status == 0){
-			if (lprn_sd_status > 0x01)
-				ret = lprn_get_sd_error_txt(lprn_sd_status)->txt;
+	if (sprn_ret == SPRN_RET_OK){
+		if (sprn_status == 0){
+			if (sprn_sd_status > 0x01)
+				ret = sprn_get_sd_error_txt(sprn_sd_status)->txt;
 		}else
-			ret = lprn_get_error_txt(lprn_status)->txt;
-		if ((ret == NULL) && (lprn_media != LPRN_MEDIA_BLANK) &&
-				(lprn_media != LPRN_MEDIA_BOTH))
+			ret = sprn_get_error_txt(sprn_status)->txt;
+		if ((ret == NULL) && (sprn_media != SPRN_MEDIA_BLANK) &&
+				(sprn_media != SPRN_MEDIA_BOTH))
 			ret = "НЕВЕРН\x9bЙ НОСИТЕЛЬ";
-	}else if (lprn_ret == LPRN_RET_ERR){
-		if (lprn_timeout)
+	}else if (sprn_ret == SPRN_RET_ERR){
+		if (sprn_timeout)
 			ret = "ТАЙМАУТ";
 		else
-			ret = "ОБЩАЯ ОШИБКА ППУ";
+			ret = "ОБЩАЯ ОШИБКА БПУ";
 	}
 	return ret;
 }
 
-/* Вывод окна с сообщением об ошибке ППУ в случае возможности отказа от заказа */
-static int show_lprn_error_rejectable(int lprn_ret)
+/* Вывод окна с сообщением об ошибке БПУ в случае возможности отказа от заказа */
+static int show_sprn_error_rejectable(int sprn_ret)
 {
 	static struct custom_btn btns[] = {
 		{
@@ -2107,12 +2107,12 @@ static int show_lprn_error_rejectable(int lprn_ret)
 		"%s\nВы можете повторить печать или отказаться от заказа, "
 		"выбрав соответствующую кнопку.\n"
 		"Для перемещения между кнопками используйте Tab.",
-		make_lprn_err_msg(lprn_ret));
-	return message_box("Ошибка ППУ", msg, (intptr_t)btns, 0, al_center);
+		make_sprn_err_msg(sprn_ret));
+	return message_box("Ошибка БПУ", msg, (intptr_t)btns, 0, al_center);
 }
 
-/* Вывод окна с сообщением об ошибке ППУ в случае невозможности отказа от заказа */
-static int show_lprn_error_nonrejectable(int lprn_ret)
+/* Вывод окна с сообщением об ошибке БПУ в случае невозможности отказа от заказа */
+static int show_sprn_error_nonrejectable(int sprn_ret)
 {
 	static struct custom_btn btns[] = {
 		{
@@ -2127,12 +2127,12 @@ static int show_lprn_error_nonrejectable(int lprn_ret)
 	static char msg[256];
 	snprintf(msg, sizeof(msg), "При попытке печати на БСО произошла ошибка:\n"
 		"%s\nВы можете повторить печать.",
-		make_lprn_err_msg(lprn_ret));
-	return message_box("Ошибка ППУ", msg, (intptr_t)btns, 0, al_center);
+		make_sprn_err_msg(sprn_ret));
+	return message_box("Ошибка БПУ", msg, (intptr_t)btns, 0, al_center);
 }
 
-/* Вывод окна с сообщением об ошибке ППУ при печати на БСО */
-static int show_lprn_error(int lprn_ret, bool rejectable)
+/* Вывод окна с сообщением об ошибке БПУ при печати на БСО */
+static int show_sprn_error(int sprn_ret, bool rejectable)
 {
 	int ret;
 	online = false;
@@ -2142,8 +2142,8 @@ static int show_lprn_error(int lprn_ret, bool rejectable)
 	scr_visible = false;*/
 	set_term_busy(true);
 /*	ClearScreen(clBlack);*/
-	ret = rejectable ? show_lprn_error_rejectable(lprn_ret) :
-		show_lprn_error_nonrejectable(lprn_ret);
+	ret = rejectable ? show_sprn_error_rejectable(sprn_ret) :
+		show_sprn_error_nonrejectable(sprn_ret);
 	online = true;
 /*	pop_term_info();
 	ClearScreen(clBtnFace);*/
@@ -2152,7 +2152,7 @@ static int show_lprn_error(int lprn_ret, bool rejectable)
 }
 #endif		/* INSERT_SPRN_CODE_HERE */
 
-/* Вывод окна с сообщением об ошибке ККППУ при печати на ленте */
+/* Вывод окна с сообщением об ошибке ККБПУ при печати на ленте */
 static int show_kprn_error(uint8_t status, bool rejectable)
 {
 	struct custom_btn btns[4];
@@ -2236,14 +2236,14 @@ static bool execute_prn(struct para_info *p, int l, int n_para)
 #if defined INSERT_SPRN_CODE_HERE
 		while (true){
 			bool sent_to_prn = false;
-			int lprn_ret = lprn_print_ticket(text_buf, l, &sent_to_prn);
+			int sprn_ret = sprn_print_ticket(text_buf, l, &sent_to_prn);
 			if (sent_to_prn)
 				can_reject = false;
-			if (lprn_ret == LPRN_RET_OK){
-				if ((lprn_status == 0) && (!cfg.has_sd_card ||
-						(lprn_sd_status <= 0x01))){
-					if ((lprn_media == LPRN_MEDIA_BLANK) ||
-							(lprn_media == LPRN_MEDIA_BOTH)){
+			if (sprn_ret == SPRN_RET_OK){
+				if ((sprn_status == 0) && (!cfg.has_sd_card ||
+						(sprn_sd_status <= 0x01))){
+					if ((sprn_media == SPRN_MEDIA_BLANK) ||
+							(sprn_media == SPRN_MEDIA_BOTH)){
 						set_term_astate(ast_none);
 						printed = true;
 						break;
@@ -2251,26 +2251,26 @@ static bool execute_prn(struct para_info *p, int l, int n_para)
 						set_term_astate(ast_sprn_ch_media);
 				}else{
 					if (sent_to_prn){
-						if (cfg.has_sd_card && (lprn_sd_status > 0x01))
-							set_term_astate(ast_lprn_sd_err);
+						if (cfg.has_sd_card && (sprn_sd_status > 0x01))
+							set_term_astate(ast_sprn_sd_err);
 						else
-							set_term_astate(ast_lprn_err);
+							set_term_astate(ast_sprn_err);
 						err_beep();
 						break;
 					}
 				}
-			}else if (lprn_ret == LPRN_RET_ERR){
+			}else if (sprn_ret == SPRN_RET_ERR){
 				if (sent_to_prn){
 					set_term_astate(ast_nosprn);
 					err_beep();
 					break;
 				}
 			}
-			if (lprn_ret == LPRN_RET_RST){
+			if (sprn_ret == SPRN_RET_RST){
 				ret = false;
 				break;
 			}else{
-				int cmd = show_lprn_error(lprn_ret, can_reject);
+				int cmd = show_sprn_error(sprn_ret, can_reject);
 				if (cmd == cmd_reject){
 					reject_req();
 					ret = false;

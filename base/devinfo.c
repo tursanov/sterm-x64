@@ -389,7 +389,7 @@ static int get_dev_type(const char *type)
 	assert(type != NULL);
 	int ret = DEV_UNKNOWN;
 	if (strcmp(type, "PRINTER") == 0)
-		ret = DEV_XPRN;
+		ret = DEV_SPRN;
 	else if (strcmp(type, "RFID") == 0)
 		ret = DEV_RFID;
 	else if (strcmp(type, "PAYMENT") == 0)

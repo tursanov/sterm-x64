@@ -13,7 +13,7 @@
 #include "log/logdbg.h"
 #include "log/pos.h"
 #include "prn/express.h"
-#include "prn/local.h"
+#include "prn/sprn.h"
 #include "cfg.h"
 #include "express.h"
 #include "gd.h"
@@ -300,8 +300,8 @@ static void plog_init_rec_hdr(struct log_handle *hlog,
 		sizeof(hdr->xprn_number));
 	fill_prn_number(hdr->aprn_number, cfg.has_aprn ? cfg.aprn_number : "",
 		sizeof(hdr->aprn_number));
-	fill_prn_number(hdr->lprn_number, cfg.has_sprn ? (const char *)lprn_number : "",
-		sizeof(hdr->lprn_number));
+	fill_prn_number(hdr->sprn_number, cfg.has_sprn ? (const char *)sprn_number : "",
+		sizeof(hdr->sprn_number));
 	memcpy(hdr->dsn, dsn, DS_NUMBER_LEN);
 	hdr->ds_type = kt;
 	hdr->crc32 = 0;
@@ -387,12 +387,12 @@ static bool plog_print_rec_header(void)
 {
 	char s[128];
 	snprintf(s, sizeof(s), "\x1e%.2hX%.2hX (\"Š‘…‘‘-2€-Š\" %.4hX %.*s) "
-			"“=%.*s “=%.*s",
+			"“=%.*s “=%.*s",
 		(uint16_t)plog_rec_hdr.addr.gaddr, (uint16_t)plog_rec_hdr.addr.iaddr,
 		plog_rec_hdr.term_check_sum,
 		isizeof(plog_rec_hdr.tn), plog_rec_hdr.tn,
 		isizeof(plog_rec_hdr.xprn_number), plog_rec_hdr.xprn_number,
-		isizeof(plog_rec_hdr.lprn_number), plog_rec_hdr.lprn_number);
+		isizeof(plog_rec_hdr.sprn_number), plog_rec_hdr.sprn_number);
 	try_fn(prn_write_str(s));
 	try_fn(prn_write_eol());
 	snprintf(s, sizeof(s), "‡€ˆ‘œ %u ’ ", plog_rec_hdr.number + 1);

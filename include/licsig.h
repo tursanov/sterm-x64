@@ -1,4 +1,4 @@
-/* Работа с признаками удаления лицензий. (c) gsr 2011, 2019 */
+/* Работа с признаками удаления лицензий. (c) gsr 2011, 2019, 2026 */
 
 #if !defined LICSIG_H
 #define LICSIG_H
@@ -22,11 +22,6 @@ extern "C" {
 #define BANK_LIC_SIGNATURE		0x8680
 /* Смещение признака удаленной лицензии ИПТ в MBR */
 #define BANK_LIC_SIGNATURE_OFFSET	0x1fa
-
-/* Признак удаленной лицензии ППУ */
-#define LPRN_LIC_SIGNATURE		0x8080
-/* Смещение признака удаленной лицензии ППУ в MBR */
-#define LPRN_LIC_SIGNATURE_OFFSET	0x1da
 
 /* Проверка присутствия признака удаления лицензии */
 extern bool check_lic_signature(off_t offs, uint16_t sig);

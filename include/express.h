@@ -75,8 +75,8 @@ extern int req_type;
 #define E_CLEAR		0x14	/* Команда очистки не в начале ответа */
 #define E_CMDINKEYS	0x15	/* Команда внутри ОЗУ ключей */
 #define E_LCODEINBODY	0x16	/* Команды работы со штрих-кодом должны быть первыми в абзаце */
-#define E_NO_LPRN_CMD	0x17	/* Отсутствуют параметры работы с БСО для ППУ */
-#define E_NO_LPRN_CUT	0x18	/* Нет команды отрезки БСО для ППУ */
+#define E_NO_SPRN_CMD	0x17	/* Отсутствуют параметры работы с БСО для БПУ */
+#define E_NO_SPRN_CUT	0x18	/* Нет команды отрезки БСО для БПУ */
 #define E_NODEVICE	0x35	/* Попытка вывода на несуществующее устройство */
 #define E_KEYOVER	0x40	/* Переполнение ОЗУ ключей */
 #define E_PROMOVER	0x50	/* Переполнение ДЗУ */

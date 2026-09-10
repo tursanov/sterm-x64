@@ -134,7 +134,7 @@ static const char *plog_get_head_line1(char *buf)
 			plog_rec_hdr.term_check_sum,
 			isizeof(plog_rec_hdr.tn), plog_rec_hdr.tn,
 			isizeof(plog_rec_hdr.xprn_number), plog_rec_hdr.xprn_number,
-			isizeof(plog_rec_hdr.lprn_number), plog_rec_hdr.lprn_number);
+			isizeof(plog_rec_hdr.sprn_number), plog_rec_hdr.sprn_number);
 	return buf;
 }
 

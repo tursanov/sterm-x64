@@ -115,7 +115,7 @@ PRN_OBJS =		\
 	aux		\
 	express		\
 	generic		\
-	local
+	sprn
 
 X3DATA_OBJS =		\
 	common		\
