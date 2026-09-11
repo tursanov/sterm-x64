@@ -564,6 +564,8 @@ static void on_pos_new(uint32_t t __attribute__((unused)))
 	pos_incomplete_op = false;
 	if (pos_open() && pos_send_init_check())
 		pos_set_state(pos_init_check);
+	else
+		pos_set_state(pos_none);
 }
 
 static void on_pos_init_check(uint32_t t)
@@ -582,10 +584,6 @@ static void on_pos_init_check(uint32_t t)
 			pos_set_state(pos_idle);
 	}else if (dt > POS_TIMEOUT)
 		pos_set_state(pos_idle);
-}
-
-static void on_pos_idle(uint32_t t __attribute__((unused)))
-{
 }
 
 static void on_pos_init(uint32_t t __attribute__((unused)))
@@ -830,7 +828,6 @@ void pos_process(void)
 	} handlers[] = {
 		{pos_new,		on_pos_new},
 		{pos_init_check,	on_pos_init_check},
-		{pos_idle,		on_pos_idle},
 		{pos_init,		on_pos_init},
 		{pos_ready,		on_pos_ready},
 		{pos_qready,		on_pos_qready},
@@ -870,15 +867,3 @@ void pos_release(void)
 	pos_release_transactions();
 	pos_set_state(pos_new);
 }
-
-#if defined _DEBUG
-bool pos_test(const uint8_t *buf, size_t len)
-{
-	log_info("buf = %p; len = %zu.", buf, len);
-	memcpy(pos_buf_rx.un.data, buf, len);
-	pos_buf_rx.data_len = len;
-	bool ret = pos_parse_resp(&pos_buf_rx);
-	log_info("ret = %d.", ret);
-	return ret;
-}
-#endif		/* _DEBUG */

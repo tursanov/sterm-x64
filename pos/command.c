@@ -117,6 +117,11 @@ void pos_clr_info(void)
 		pos_info.tms_id = NULL;
 	}
 	pos_info.servers = POS_DEF_SERVERS;
+	if (pos_info.pos_ids != NULL){
+		free((void *)pos_info.pos_ids);
+		pos_info.pos_ids = NULL;
+	}
+	pos_info.first_answer = false;
 	pos_info_req_sent = false;
 }
 
@@ -208,8 +213,8 @@ static int get_param_type(char *name)
 		{POS_PARAM_FAMIO_STR,		POS_PARAM_FAMIO},
 		{POS_PARAM_RFNDINFO_STR,	POS_PARAM_RFNDINFO},
 		{POS_PARAM_FRAGMENTATION_STR,	POS_PARAM_FRAGMENTATION},
+		{POS_PARAM_POS_IDS_STR,		POS_PARAM_POS_IDS},
 		{POS_PARAM_FIRST_ANSWER_STR,	POS_PARAM_FIRST_ANSWER},
-		{POS_PARAM_ID_POS_LIST_STR,	POS_PARAM_ID_POS_LIST},
 	};
 	if (name == NULL)
 		return POS_PARAM_UNKNOWN;
@@ -415,6 +420,16 @@ static void make_pos_info(void)
 				break;
 			case POS_PARAM_SERVERS:
 				pos_info.servers = get_srv_list(p->value);
+				n++;
+				break;
+			case POS_PARAM_POS_IDS:
+				if (pos_info.pos_ids != NULL)
+					free((void *)pos_info.pos_ids);
+				pos_info.pos_ids = strdup(p->value);
+				n++;
+				break;
+			case POS_PARAM_FIRST_ANSWER:
+				pos_info.first_answer = true;
 				n++;
 				break;
 		}
@@ -833,6 +848,7 @@ bool pos_prepare_request_params(void)
 		{POS_PARAM_NMTYPE_STR,		POS_PARAM_NMTYPE,	false},
 		{POS_PARAM_NR_PARAMS_STR,	POS_PARAM_NR_PARAMS,	false},
 		{POS_PARAM_PARAMS_STR,		POS_PARAM_PARAMS,	false},
+		{POS_PARAM_POS_IDS_STR,		POS_PARAM_POS_IDS,	false},
 	};
 	return pos_prepare_request(params, ASIZE(params));
 }
@@ -869,6 +885,8 @@ bool pos_prepare_request_info(void)
 		{POS_PARAM_OSVERSION_STR,	POS_PARAM_OSVERSION,	false},
 		{POS_PARAM_TMS_ID_STR,		POS_PARAM_TMS_ID,	false},
 		{POS_PARAM_SERVERS_STR,		POS_PARAM_SERVERS,	false},
+		{POS_PARAM_POS_IDS_STR,		POS_PARAM_POS_IDS,	false},
+		{POS_PARAM_FIRST_ANSWER_STR,	POS_PARAM_FIRST_ANSWER,	false},
 	};
 	return pos_prepare_request(params, ASIZE(params));
 }

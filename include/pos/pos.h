@@ -125,6 +125,7 @@ extern bool pos_req_stream_end(struct pos_data_buf *buf);
 /* Состояния модуля работы с POS-эмулятором */
 enum {
 	pos_new,		/* требуется посылка команды INIT_CHECK */
+	pos_none,		/* Невозможно соединиться с ИПТ */
 	pos_init_check,		/* послана команда INIT_CHECK, ожидается ответ */
 	pos_idle,		/* ожидание начала работы */
 	pos_init,		/* начало работы, необходимо послать INIT */
@@ -206,6 +207,8 @@ struct pos_info {
 	const char *tms_id;
 #define POS_DEF_SERVERS	0x00000003
 	uint32_t servers;
+	const char *pos_ids;
+	bool first_answer;
 };
 
 extern struct pos_info pos_info;

@@ -158,6 +158,9 @@ bool log_data(const char *prefix, const char *title, const uint8_t *data, size_t
 	if (f == NULL)
 		return false;
 	fprintf(f, "%.2u:%.2u:%.2u.%.3ld", tm->tm_hour, tm->tm_min, tm->tm_sec, tv.tv_usec / 1000);
+	tv.tv_sec += time_delta;
+	tm = localtime(&tv.tv_sec);
+	fprintf(f, " [%.2u:%.2u:%.2u]", tm->tm_hour, tm->tm_min, tm->tm_sec);
 	if (title != NULL)
 		fprintf(f, " [%s]", title);
 	fputc('\n', f);

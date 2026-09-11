@@ -1061,13 +1061,6 @@ static void init_devices(void)
 static void init_term(bool need_init)
 {
 	bool flag = xlog_active || plog_active || klog_active;
-	set_log_lvl(
-#if defined NDEBUG
-		Debug
-#else
-		Debug
-#endif
-	);
 	can_reject = false;
 	err_ptr = NULL;
 	set_term_state(st_stop_iplir);
@@ -1194,6 +1187,13 @@ static inline bool open_logs(void)
 
 static bool create_term(void)
 {
+	set_log_lvl(
+#if defined NDEBUG
+		Debug
+#else
+		Debug
+#endif
+	);
 	if (!read_tki(STERM_TKI_NAME, false))
 		return false;
 	set_sigterm_handler();

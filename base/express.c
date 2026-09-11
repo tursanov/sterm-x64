@@ -959,6 +959,28 @@ static int para_len(int offset)
 	return l;
 }
 
+static size_t para_len_ex(const uint8_t *data, size_t len)
+{
+	if (data == NULL)
+		return 0;
+	size_t ret = SIZE_MAX;
+	bool dle = false;
+	for (size_t i = 0; (i < len) && (ret == SIZE_MAX); i++){
+		uint8_t b = data[i];
+		if (dle){
+			switch (b){
+				case X_PARA_END_N:
+				case X_PARA_END:
+				case X_REQ:
+					ret = i - 1;
+					break;
+			}
+		}
+		dle = is_escape(b);
+	}
+	return (ret == SIZE_MAX) ? 0 : ret;
+}
+
 /* Проверка абзаца для ДПУ */
 static uint8_t *check_aprn(uint8_t *txt, int l, int *ecode)
 {
@@ -1453,7 +1475,7 @@ uint8_t *check_syntax(uint8_t *txt, int l, int *ecode)
 						*ecode = E_NO_BANK;
 						return p - 2;
 					}
-					p = check_bank_data(p, txt + l - p,
+					p = check_bank_data(p, para_len_ex(p, l),
 						p[BANK_REQ_ID_LEN_OLD] == BANK_INFO_DELIM ?
 							BANK_REQ_ID_LEN_OLD : BANK_REQ_ID_LEN_NEW,
 						ecode);
