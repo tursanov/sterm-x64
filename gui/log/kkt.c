@@ -39,8 +39,7 @@ static bool klog_show_data(struct log_gui_context *ctx, const uint8_t *data, siz
 				for (uint32_t j = 0, k = begin; j < 16; j++, k++, offs++){
 					if (k < len){
 						uint8_t b = data[k];
-						sprintf(line + offs, "%c",
-							is_print(b) ? b : ((b > 0x7f) ? b : '.'));
+						sprintf(line + offs, "%c", (b > 0x1f) ? b : '.');
 					}else
 						sprintf(line + offs, " ");
 				}
