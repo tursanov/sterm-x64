@@ -614,7 +614,7 @@ static uint8_t *check_rom(uint8_t *txt, int l, int *ecode)
 }
 
 /* Проверка абзаца для ИПТ */
-uint8_t *check_bank_data(uint8_t *txt, int l, size_t id_len, int *ecode)
+static uint8_t *check_bank_data(uint8_t *txt, int l, size_t id_len, int *ecode)
 {
 	enum {
 		st_req_id,
