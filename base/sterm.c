@@ -1185,6 +1185,15 @@ static inline bool open_logs(void)
 	return	open_log(hxlog) && (!bank_ok || open_log(hplog)) && open_log(hklog);
 }
 
+extern uint8_t *check_bank_data(uint8_t *txt, int l, size_t id_len, int *ecode);
+
+static bool test_bank_data(uint8_t *data, size_t len)
+{
+	int ecode = E_OK;
+	check_bank_data(data, len, 7, &ecode);
+	return ecode == E_OK;
+}
+
 static bool create_term(void)
 {
 	set_log_lvl(
@@ -1194,6 +1203,9 @@ static bool create_term(void)
 		Debug
 #endif
 	);
+	static char bank_data[] = "0021345;012m12;-;p;0;46462922621085/122.0";
+	if (!test_bank_data((uint8_t *)bank_data, sizeof(bank_data) - 1))
+		return false;
 	if (!read_tki(STERM_TKI_NAME, false))
 		return false;
 	set_sigterm_handler();
@@ -3345,7 +3357,11 @@ static bool need_handle_resp(void)
 static bool need_apc(void)
 {
 	bool ret = false;
-	if (cfg.kkt_apc && !cfg.ext_pos && resp_printed && has_kkt_data){
+	if (cfg.kkt_apc &&
+#if defined __EXT_POS__
+			!cfg.ext_pos &&
+#endif
+			resp_printed && has_kkt_data){
 		struct AD_state ads;
 		ret = AD_get_state(&ads);
 	}

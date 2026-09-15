@@ -122,7 +122,6 @@ extern int req_type;
 #define TCAP_XSLT	0x01	/* поддержка ответа в формате XML/XSLT (печать шаблонами) */
 #define TCAP_BNK2	0x02	/* обработка банковских абзацев нового типа */
 #define TCAP_KKT	0x04	/* ККТ */
-#define TCAP_EX_BCODE	0x08	/* БПУ поддерживает расширенные штрих-коды */
 #define TCAP_NO_POS	0x10	/* нет ИПТ */
 #define TCAP_UNIBLANK	0x20	/* печать на универсальном бланке */
 #define TCAP_FPS	0x40	/* система быстрых платежей */

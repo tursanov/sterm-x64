@@ -39,7 +39,7 @@ __attribute__((format (printf, 2, 3))) static void __dbg(const char *fn, const c
 #define dbg(fmt, arg...) __dbg(__func__, fmt "\n", ## arg)
 #else
 #define dbg(fmt, arg...) do {} while (0)
-#endif
+#endif		/* __FDO_DEBUG__ */
 
 /* Заголовок сеансового уровня */
 struct fdo_session_header {
@@ -221,7 +221,7 @@ static int fdo_get_sock_error(void)
 		err = errno;
 	return err;
 }
-#endif
+#endif		/* __FDO_FRBUG__ */
 
 static bool fdo_parse_addr(const uint8_t *data, size_t len, uint32_t *ip, uint16_t *port)
 {

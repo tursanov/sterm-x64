@@ -614,7 +614,7 @@ static uint8_t *check_rom(uint8_t *txt, int l, int *ecode)
 }
 
 /* Проверка абзаца для ИПТ */
-static uint8_t *check_bank_data(uint8_t *txt, int l, size_t id_len, int *ecode)
+uint8_t *check_bank_data(uint8_t *txt, int l, size_t id_len, int *ecode)
 {
 	enum {
 		st_req_id,
@@ -686,16 +686,16 @@ static uint8_t *check_bank_data(uint8_t *txt, int l, size_t id_len, int *ecode)
 				break;
 			case st_reissue:
 				if (n == 0){
-					if (b == '1'){
-						n = 0;
+					if (b == '1')
 						st = st_reissue_nr;
-					}else if (b == BANK_INFO_DELIM)
+					else if (b == BANK_INFO_DELIM)
 						st = st_blank_nr;
 					else if (b != '0')
 						st = st_err;
-				}else if (b == BANK_INFO_DELIM)
+				}else if (b == BANK_INFO_DELIM){
+					n = 0;
 					st = st_blank_nr;
-				else
+				}else
 					st = st_err;
 				if (st == st_reissue)
 					n++;

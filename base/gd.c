@@ -169,7 +169,7 @@ static uint8_t get_tcap_byte(void)
 	if (cfg.has_kkt && cfg.fiscal_mode)
 		ret |= TCAP_KKT;
 	if (cfg.tickets_on_kkt)
-		ret |= (TCAP_EX_BCODE | TCAP_UNIBLANK);
+		ret |= TCAP_UNIBLANK;
 	if (cfg.bank_system && pos_caps_supported(POS_CAPS_UBT)){
 		ret |= TCAP_BNK2;
 		if (pos_caps_supported(POS_CAPS_FPS))
