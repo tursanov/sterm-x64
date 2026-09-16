@@ -3618,9 +3618,11 @@ static void on_response(bool *need_sync_dev_data)
 				show_req();
 			if ((req_type == req_regular) && (c_state != cs_hasreq)){
 				if (need_apc()){
+					log_dbg("Требуется автоматическая печать чеков.");
 					show_req();
 					apc = true;
 					int np = need_pos();
+					log_dbg("need_pos вернул %d.", np);
 					if (np == 1){
 						show_pos();
 						apc = pos_active;
@@ -3629,6 +3631,7 @@ static void on_response(bool *need_sync_dev_data)
 						apc = fa_active;
 					}else
 						apc = false;
+					log_dbg("apc = %d.", apc);
 				}else if (TST_FLAG(OBp, GDF_RESP_INIT)){
 					x3data_to_sync = need_x3_sync();
 					if (x3data_to_sync != X3_SYNC_NONE){
