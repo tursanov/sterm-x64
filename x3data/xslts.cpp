@@ -128,7 +128,6 @@ static void check_stored_xslt(const list<XSLTInfo> &x3_xslt)
 		log_err("Каталог " XSLT_FOLDER " не существует и не может быть создан.");
 		return;
 	}
-	log_dbg("Ищем таблицы XSLT в каталоге " XSLT_FOLDER "...");
 	int rc = regcomp(&reg, "^T[0-9A-Z]{2}[0-9]{5}\\.[Xx][Ss][Ll]$", REG_EXTENDED | REG_NOSUB);
 	if (rc != REG_NOERROR){
 		log_err("Ошибка компиляции регулярного выражения: %d.", rc);
@@ -146,43 +145,29 @@ static void check_stored_xslt(const list<XSLTInfo> &x3_xslt)
 		static char path[PATH_MAX];
 		snprintf(path, ASIZE(path), XSLT_FOLDER "/%s", names[i]->d_name);
 		XSLTInfo xi;
-		if (xi.parse(names[i]->d_name)){
-			log_dbg("Обнаружена таблица XSLT %s #%s.", xi.name().c_str(), xi.idx());
+		if (xi.parse(names[i]->d_name))
 			stored_xslt.push_back(xi);
-		}
 	}
 	free(names);
 	regfree(&reg);
-	log_dbg("Найдено таблиц XSLT: %d.", stored_xslt.size());
 /* Ищем таблицы XSLT для закачки */
-	log_dbg("Ищем таблицы XSLT для закачки...");
 	for (const auto &p : x3_xslt){
 		bool found = false;
 		for (const auto &p1 : stored_xslt){
 			if (strcmp(p1.idx(), p.idx()) != 0)
 				continue;
-			else if (p.isNewer(p1)){
-				log_dbg("Таблица XSLT %s #%s старее экспрессовской и будет удалена.",
-					p1.name().c_str(), p1.idx());
+			else if (p.isNewer(p1))
 				xslt_to_remove.push_back(p1);
 #if !defined __KEEP_NEWER_XSLT__
-			}else if (p1.isNewer(p)){
-				log_dbg("Таблица XSLT %s #%s новее экспрессовской и будет удалена.",
-					p1.name().c_str(), p1.idx());
+			else if (p1.isNewer(p))
 				xslt_to_remove.push_back(p1);
 #endif
-			}else
+			else
 				found = true;
 		}
-		if (found)
-			log_dbg("Таблица XSLT %s #%s не требует обновления.", p.name().c_str(), p.idx());
-		else{
-			log_dbg("Таблица XSLT %s #%s отсутствует в терминале и будет загружена из \"Экспресс-3\").",
-				p.name().c_str(), p.idx());
+		if (!found)
 			xslt_to_create.push_back(p);
-		}
 	}
-	log_dbg("Найдено таблиц XSLT: для закачки: %d; для удаления: %d.", xslt_to_create.size(), xslt_to_remove.size());
 }
 
 /* Поиск в абзаце ответа идентификаторов таблиц XSLT */
@@ -196,10 +181,8 @@ static bool check_x3_xslt(const uint8_t *data, size_t len, list<XSLTInfo> &x3_xs
 		if (p == NULL)
 			break;
 		XSLTInfo xi;
-		if (xi.parse(data + i, len - 1)){
-			log_dbg("Найдена таблица XSLT %s.", xi.name().c_str());
+		if (xi.parse(data + i, len - 1))
 			x3_xslt.push_back(xi);
-		}
 		i += p - (data + i);
 	}
 	return !x3_xslt.empty();
@@ -231,7 +214,6 @@ static size_t xslt_auto_req_len = 0;
 /* Отправка начального запроса на получение таблицы XSLT */
 static void send_xslt_request(const XSLTInfo &xslt)
 {
-	log_dbg("name = %s.", xslt.name().c_str());
 	int offs = get_req_offset();
 	req_len = offs;
 	req_len += snprintf((char *)req_buf + req_len, ASIZE(req_buf) - req_len,
@@ -253,7 +235,6 @@ static void send_xslt_auto_request()
 /* Декодирование таблицы XSLT, распаковка и сохранение в файле на диске */
 static bool store_xslt(const XSLTInfo &xi)
 {
-	log_info("path = %s; idx = %s.", xi.name().c_str(), xi.idx());
 	if (xslt_buf_idx == 0){
 		log_err("Буфер данных пуст.");
 		return false;
@@ -262,14 +243,11 @@ static bool store_xslt(const XSLTInfo &xi)
 	if (!xbase64_decode(xslt_buf, xslt_buf_idx, xslt_buf, xslt_buf_idx, &len) || (len == 0)){
 		log_err("Ошибка декодирования данных.");
 		return false;
-	}else
-		log_info("Данные таблицы XSLT декодированы; длина после декодирования %zu байт.", len);
+	}
 	const unique_ptr<uint8_t[]> xslt_data = make_unique<uint8_t[]>(MAX_XSLT_DATA_LEN);
 	size_t xslt_data_len = MAX_XSLT_DATA_LEN;
 	int rc = uncompress(xslt_data.get(), &xslt_data_len, xslt_buf, len);
-	if (rc == Z_OK)
-		log_info("Данные таблицы XSLT распакованы; длина данных после распаковки %u байт.", xslt_data_len);
-	else{
+	if (rc != Z_OK){
 		log_err("Ошибка распаковки таблицы XSLT (%d).", rc);
 		return false;
 	}
@@ -282,10 +260,9 @@ static bool store_xslt(const XSLTInfo &xi)
 	}
 	bool ret = false;
 	rc = write(fd, xslt_data.get(), xslt_data_len);
-	if (rc == xslt_data_len){
-		log_info("Таблица XSLT успешно записана в файл %s.", path);
+	if (rc == xslt_data_len)
 		ret = true;
-	}else if (rc == -1)
+	else if (rc == -1)
 		log_sys_err("Ошибка записи в файл %s:", path);
 	else
 		log_err("В %s вместо %u записано %d байт.", path, xslt_data_len, rc);
@@ -301,11 +278,8 @@ static bool remove_xslt(const XSLTInfo &xi)
 {
 	static char path[PATH_MAX];
 	snprintf(path, ASIZE(path), XSLT_FOLDER "/%s.XSL", xi.name().c_str());
-	log_info("Удаляем таблицу XSLT %s...", path);
 	bool ret = unlink(path) == 0;
-	if (ret)
-		log_info("Таблица %s успешно удалена.", path);
-	else
+	if (!ret)
 		log_sys_err("Ошибка удаления таблицы XSLT %s:", path);
 	return ret;
 }
@@ -323,8 +297,6 @@ void on_response_xslt(void)
 	size_t xslt_len = 0, req_len = 0;
 	if (find_pic_data(&xslt_para, &req_para) && (xslt_para != -1)){
 		xslt_len = handle_para(xslt_para);
-		log_info("Обнаружены данные XSLT (абзац #%d; %zd байт).",
-			xslt_para + 1, xslt_len);
 		if (xslt_len > (ASIZE(xslt_buf) - xslt_buf_idx)){
 			snprintf(err_msg, ASIZE(err_msg), "Переполнение буфера данных XSLT.");
 			non_xslt_resp = 1;
@@ -334,21 +306,16 @@ void on_response_xslt(void)
 			if (req_para != -1){
 				req_len = handle_para(req_para);
 				if (req_len > 0){
-					log_info("Обнаружен автозапрос (абзац %d; %zd байт).",
-						req_para + 1, req_len);
 					memcpy(xslt_auto_req, text_buf, req_len);
 					xslt_auto_req_len = req_len;
 					send_xslt_auto_request();
 				}
 			}else{
-				log_info("Таблица XSLT %s получена полностью. Сохраняем в файл...",
-					xslt_to_create_ptr->name().c_str());
 				store_xslt(*xslt_to_create_ptr++);
 				xslt_buf_idx = 0;
-				if (xslt_to_create_ptr == xslt_to_create.cend()){
-					log_info("Загрузка таблиц XSLT завершена.");
+				if (xslt_to_create_ptr == xslt_to_create.cend())
 					x3data_sync_ok |= X3_SYNC_XSLT;
-				}else
+				else
 					send_xslt_request(*xslt_to_create_ptr);
 			}
 		}else{
@@ -368,20 +335,16 @@ void on_response_xslt(void)
 	if (non_xslt_resp != 0){
 		req_type = req_regular;
 		x3data_sync_report_dlg();
-		if (non_xslt_resp == 2){
-			log_dbg("Переходим к обработке ответа.");
+		if (non_xslt_resp == 2)
 			execute_resp();
-		}
 	}
 }
 
 /* Начало синхронизации таблиц XSLT с "Экспресс" */
 static bool sync_xslt(list<XSLTInfo> &xslt_to_create, list<XSLTInfo> &xslt_to_remove, list<XSLTInfo> &xslt_failed)
 {
-	if (!need_xslt_update()){
-		log_info("Обновление таблиц XSLT не требуется.");
+	if (!need_xslt_update())
 		return true;
-	}
 	bool ok = true;
 	char txt[256];
 	size_t n = 0;
@@ -399,7 +362,6 @@ static bool sync_xslt(list<XSLTInfo> &xslt_to_create, list<XSLTInfo> &xslt_to_re
 	for (const auto &p : xslt_to_create){
 		snprintf(txt, ASIZE(txt), "Загрузка таблицы XSLT %s (%zu из %zu)",
 			p.name().c_str(), (n + 1), xslt_to_create.size());
-		log_dbg(txt);
 		send_xslt_request(p);
 		break;
 	}
@@ -408,7 +370,6 @@ static bool sync_xslt(list<XSLTInfo> &xslt_to_create, list<XSLTInfo> &xslt_to_re
 
 bool sync_xslt()
 {
-	log_dbg("");
 	bool ret = true;
 	if (need_xslt_update()){
 		req_type = req_xslt;

@@ -213,7 +213,6 @@ static bool find_stored_grids(list<GridInfo> &stored_grids, const char *pattern)
 		snprintf(path, ASIZE(path), GRIDS_FOLDER "/%s", names[i]->d_name);
 		GridInfo gi;
 		if (gi.parse(names[i]->d_name)){
-			log_dbg("Обнаружена разметка %s #%d (%hc).", gi.name().c_str(), gi.nr(), gi.id());
 			stored_grids.push_back(gi);
 			ret = true;
 		}
@@ -249,46 +248,30 @@ static void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &g
 {
 	clr_grid_lists(grids_to_create, grids_to_remove);
 /* Создаём список разметок, хранящихся в терминале */
-	log_dbg("Ищем разметки в каталоге %s...", GRIDS_FOLDER);
 	list<GridInfo> stored_grids;
 	find_fn(stored_grids);
-	log_dbg("Найдено разметок: %d.", stored_grids.size());
 /* Ищем разметки для закачки */
-	log_dbg("Ищем разметки для закачки...");
 	for (const auto &p : x3_grids){
 		bool found = false;
 		for (const auto &p1 : stored_grids){
 			if (p1.id() != p.id())
 				continue;
-			else if (p.isNewer(p1)){
-				log_dbg("Разметка %s #%d (%hc) старее экспрессовской и будет удалена.",
-					p1.name().c_str(), p1.nr(), p1.id());
+			else if (p.isNewer(p1))
 				grids_to_remove.push_back(p1);
-			}else if (p1.isNewer(p)){
-				log_dbg("Разметка %s #%d (%hc) новее экспрессовской и будет удална.",
-					p1.name().c_str(), p1.nr(), p1.id());
+			else if (p1.isNewer(p))
 				grids_to_remove.push_back(p1);
-			}else
+			else
 				found = true;
 		}
-		if (found)
-			log_dbg("Разметка %s #%d (%hc) не требует обновления.", p.name().c_str(), p.nr(), p.id());
-		else{
-			log_dbg("Разметка %s #%d (%hc) отсутствует в терминале и будет загружена из \"Экспресс-3\").",
-				p.name().c_str(), p.nr(), p.id());
+		if (!found)
 			grids_to_create.push_back(p);
-		}
 	}
 /* Ищем разметки для удаления */
-/*	log_dbg("Ищем разметки для удаления...");
-	for (const auto &p : stored_grids){
+/*	for (const auto &p : stored_grids){
 		if (find_if(x3_grids.cbegin(), x3_grids.cend(),
-				[p](const GridInfo &gi) {return gi.id() == p.id();}) == x3_grids.cend()){
-			log_dbg("Разметка %s #%d (%hc) помечена для удаления.", p.name().c_str(), p.nr(), p.id());
+				[p](const GridInfo &gi) {return gi.id() == p.id();}) == x3_grids.cend())
 			grids_to_remove.push_back(p);
-		}
 	}*/
-	log_dbg("Найдено разметок: для закачки: %d; для удаления: %d.", grids_to_create.size(), grids_to_remove.size());
 }
 
 /* Создание списка разметок для БПУ */
@@ -316,13 +299,10 @@ static bool check_x3_grids(const uint8_t *data, size_t len, list<GridInfo> &x3_g
 			break;
 		GridInfo gi;
 		if (gi.parse(data + i, len - 1)){
-			if ((gi.prefix() == "HU") || (gi.prefix() == "L")){
-				log_dbg("Найдена разметка для БПУ: %s.", gi.name().c_str());
+			if ((gi.prefix() == "HU") || (gi.prefix() == "L"))
 				x3_grids_xprn.push_back(gi);
-			}else if (gi.prefix() == "M"){
-				log_dbg("Найдена разметка для ККТ: %s.", gi.name().c_str());
+			else if (gi.prefix() == "M")
 				x3_grids_kkt.push_back(gi);
-			}
 		}
 		i += p - (data + i);
 	}
@@ -370,17 +350,17 @@ static bool check_grid_header(const struct pic_header *hdr, uint8_t id)
 	if (hdr == NULL)
 		log_err("hdr = NULL");
 	else if (hdr->hdr_len != sizeof(*hdr))
-		log_err("len mismatch");
+		log_err("Несоответствие длины разметки.");
 	else if (hdr->id != id)
-		log_err("id mismatch");
+		log_err("Несоответствие идентификатора разметки.");
 	else if ((hdr->w < GRID_MIN_WIDTH) || (hdr->w > GRID_MAX_WIDTH))
-		log_err("illegal w");
+		log_err("Неправильная ширина разметки.");
 	else if ((hdr->h < GRID_MIN_HEIGHT) || (hdr->h > GRID_MAX_HEIGHT))
-		log_err("illegal h");
+		log_err("Неправильная высота разметки.");
 	else if (!GridInfo::isIdValid(hdr->id) || (hdr->id == 0x38))
-		log_err("illegal id");
+		log_err("Неправильный идентификатор разметки.");
 	else if ((hdr->data_len == 0) || (hdr->data_len > MAX_COMPRESSED_GRID_LEN))
-		log_err("illegal data len");
+		log_err("Неправильная длина данных разметки.");
 	else{
 		ret = true;
 		for (size_t i = 0; i < sizeof(hdr->name); i++){
@@ -388,7 +368,7 @@ static bool check_grid_header(const struct pic_header *hdr, uint8_t id)
 			if (ch == 0)
 				break;
 			else if (ch < 0x20){
-				log_err("illegal name");
+				log_err("Неправильноеимя разметки.");
 				ret = false;
 				break;
 			}
@@ -400,7 +380,6 @@ static bool check_grid_header(const struct pic_header *hdr, uint8_t id)
 /* Отправка начального запроса на получение разметки */
 static void send_grid_request(const GridInfo &grid)
 {
-	log_dbg("name = %s.", grid.name().c_str());
 	int offs = get_req_offset();
 	req_len = offs;
 	req_len += snprintf((char *)req_buf + req_len, ASIZE(req_buf) - req_len,
@@ -422,7 +401,6 @@ static void send_grid_auto_request()
 /* Декодирование разметки, распаковка и сохранение в файле на диске */
 static bool store_grid(const GridInfo &gi)
 {
-	log_info("path = %s; id = %hc.", gi.name().c_str(), gi.id());
 	if (grid_buf_idx == 0){
 		log_err("Буфер данных пуст.");
 		return false;
@@ -464,10 +442,9 @@ static bool store_grid(const GridInfo &gi)
 	}
 	bool ret = false;
 	rc = write(fd, bmp_data.get(), bmp_len);
-	if (rc == bmp_len){
-		log_info("Разметка успешно записана в файл %s.", path);
+	if (rc == bmp_len)
 		ret = true;
-	}else if (rc == -1)
+	else if (rc == -1)
 		log_sys_err("Ошибка записи в файл %s:", path);
 	else
 		log_err("В %s вместо %u записано %d байт.", path, bmp_len, rc);
@@ -482,11 +459,8 @@ static bool remove_grid(const GridInfo &gi)
 {
 	static char path[PATH_MAX];
 	snprintf(path, ASIZE(path), GRIDS_FOLDER "/%s.BMP", gi.name().c_str());
-	log_info("Удаляем разметку %s...", path);
 	bool ret = unlink(path) == 0;
-	if (ret)
-		log_info("Разметка %s успешно удалена.", path);
-	else
+	if (!ret)
 		log_sys_err("Ошибка удаления разметки %s:", path);
 	return ret;
 }
@@ -504,8 +478,6 @@ void on_response_grid(void)
 	size_t grid_len = 0, req_len = 0;
 	if (find_pic_data(&grid_para, &req_para) && (grid_para != -1)){
 		grid_len = handle_para(grid_para);
-		log_info("Обнаружены данные разметки (абзац #%d; %zd байт).",
-			grid_para + 1, grid_len);
 		if (grid_len > (ASIZE(grid_buf) - grid_buf_idx)){
 			snprintf(err_msg, ASIZE(err_msg), "Переполнение буфера данных разметки.");
 			non_grid_resp = 1;
@@ -515,30 +487,22 @@ void on_response_grid(void)
 			if (req_para != -1){
 				req_len = handle_para(req_para);
 				if (req_len > 0){
-					log_info("Обнаружен автозапрос (абзац %d; %zd байт).",
-						req_para + 1, req_len);
 					memcpy(grid_auto_req, text_buf, req_len);
 					grid_auto_req_len = req_len;
 					send_grid_auto_request();
 				}
 			}else if (req_type == req_grid_xprn){
-				log_info("Разметка %s получена полностью. Сохраняем в файл...",
-					grids_to_create_xprn_ptr->name().c_str());
 				store_grid(*grids_to_create_xprn_ptr++);
 				grid_buf_idx = 0;
 				if (grids_to_create_xprn_ptr == grids_to_create_xprn.cend()){
-					log_info("Загрузка разметок для БПУ завершена.");
 					x3data_sync_ok |= X3_SYNC_XPRN_GRIDS;
 					sync_grids_kkt();
 				}else
 					send_grid_request(*grids_to_create_xprn_ptr);
 			}else if (req_type == req_grid_kkt){
-				log_info("Разметка %s получена полностью. Сохраняем в файл...",
-					grids_to_create_kkt_ptr->name().c_str());
 				store_grid(*grids_to_create_kkt_ptr++);
 				grid_buf_idx = 0;
 				if (grids_to_create_kkt_ptr == grids_to_create_kkt.cend()){
-					log_info("Загрузка разметок для ККТ завершена.");
 					x3data_sync_ok |= X3_SYNC_KKT_GRIDS;
 					sync_icons_xprn();
 				}else
@@ -565,20 +529,16 @@ void on_response_grid(void)
 	if (non_grid_resp != 0){
 		req_type = req_regular;
 		x3data_sync_report_dlg();
-		if (non_grid_resp == 2){
-			log_dbg("Переходим к обработке ответа.");
+		if (non_grid_resp == 2)
 			execute_resp();
-		}
 	}
 }
 
 /* Начало синхронизации разметок с "Экспресс" */
 static bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, list<GridInfo> &grids_failed)
 {
-	if (!need_grids_update()){
-		log_info("Обновление разметок не требуется.");
+	if (!need_grids_update())
 		return true;
-	}
 	size_t n = 0;
 	grids_failed.clear();
 	list<GridInfo> _grids_to_create, _grids_to_remove;
@@ -591,16 +551,13 @@ static bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to
 	}
 	grids_to_remove.assign(_grids_to_remove.cbegin(), _grids_to_remove.cend());
 /* Затем закачиваем новые */
-	if (!grids_to_create.empty()){
-		log_dbg("Начинаем загрузку разметок.");
+	if (!grids_to_create.empty())
 		send_grid_request(grids_to_create.front());
-	}
 	return true;
 }
 
 bool sync_grids_xprn()
 {
-	log_dbg("");
 	bool ret = true;
 	if (need_grids_update_xprn()){
 		req_type = req_grid_xprn;
@@ -629,12 +586,10 @@ static bool find_xprn_grids(list<GridInfo> &xprn_grids)
 {
 	bool ret = false;
 	xprn_grids.clear();
-	log_info("Чтение списка разметок из БПУ...");
 	if (xprn->beginGridLst(xprnOpCallback)){
 		xprn_wait.wait();
 		if (xprn->statusOK()){
 			xprn_grids.assign(xprn->grids().cbegin(), xprn->grids().cend());
-			log_info("Найдено разметок в БПУ: %d.", xprn_grids.size());
 			ret = true;
 		}else
 			log_err("Ошибка получения списка разметок из БПУ: %s.", XPrn::status_str(xprn->status()));
@@ -654,33 +609,22 @@ static void check_xprn_grids(const list<GridInfo> &stored_grids, list<GridInfo> 
 	if (!find_xprn_grids(xprn_grids))
 		return;
 /* Ищем разметки для загрузки */
-	log_dbg("Ищем разметки для загрузки...");
 	for (const auto &p : stored_grids){
 		auto p1 = find_if(xprn_grids.cbegin(), xprn_grids.cend(),
 			[p](const GridInfo &gi) {return gi.id() == p.id();});
-		if (p1 == xprn_grids.end()){
-			log_dbg("Разметка %s #%d (%hc) отсутствует в БПУ и будет туда загружена.",
-				p.name().c_str(), p.nr(), p.id());
+		if (p1 == xprn_grids.end())
 			grids_to_load.push_back(p);
-		}else if (p.isNewer(*p1)){
-			log_dbg("Разметку %s #%d (%hc) необходимо обновить.",
-				(*p1).name().c_str(), (*p1).nr(), (*p1).id());
+		else if (p.isNewer(*p1)){
 			grids_to_load.push_back(p);
 			grids_to_erase.push_back(*p1);
-		}else
-			log_dbg("Разметка %s #%d (%hc) не требует обновления.",
-				(*p1).name().c_str(), (*p1).nr(), (*p1).id());
-	}
-/* Ищем разметки для удаления */
-	log_dbg("Ищем разметки для удаления...");
-	for (const auto &p : xprn_grids){
-		if (find_if(stored_grids.cbegin(), stored_grids.cend(),
-				[p](const GridInfo &gi) {return gi.id() == p.id();}) == stored_grids.cend()){
-			log_dbg("Разметка %s #%d (%hc) помечена для удаления.", p.name().c_str(), p.nr(), p.id());
-			grids_to_erase.push_back(p);
 		}
 	}
-	log_dbg("Найдено разметок: для загрузки: %d; для удаления: %d.", grids_to_load.size(), grids_to_erase.size());
+/* Ищем разметки для удаления */
+	for (const auto &p : xprn_grids){
+		if (find_if(stored_grids.cbegin(), stored_grids.cend(),
+				[p](const GridInfo &gi) {return gi.id() == p.id();}) == stored_grids.cend())
+			grids_to_erase.push_back(p);
+	}
 }
 
 /* Запись заданной разметки в БПУ */
@@ -691,13 +635,10 @@ static bool write_grid_to_xprn(const GridInfo &gi)
 	bool ret = false;
 	static char path[PATH_MAX];
 	snprintf(path, ASIZE(path), "%s\\%s.BMP", grid_folder, gi.name().c_str());
-	log_info("Загружаем в БПУ разметку %s...", path);
 	if (xprn->beginGridLoad(path, gi.nr(), xprnOpCallback)){
 		xprn_wait.wait();
 		ret = xprn->statusOK();
-		if (ret)
-			log_info("Разметка %s успешно загружена в БПУ.", path);
-		else
+		if (!ret)
 			log_err("Ошибка загрузки разметки %s в БПУ: %s.", path, XPrn::status_str(xprn->status()));
 	}else
 		log_err("Невозможно начать загрузку разметки %s в БПУ: %s.", path, XPrn::status_str(xprn->status()));
@@ -710,13 +651,10 @@ static bool erase_grid_from_xprn(const GridInfo &gi)
 	if (xprn == NULL)
 		return false;
 	bool ret = false;
-	log_info("Удаляем из БПУ разметки %s...", gi.name().c_str());
 	if (xprn->beginGridErase(gi.nr(), xprnOpCallback)){
 		xprn_wait.wait();
 		ret = xprn->statusOK();
-		if (ret)
-			log_info("Разметка %s успешно удалена из БПУ.", gi.name().c_str());
-		else
+		if (!ret)
 			log_err("Ошибка удаления разметки %s из БПУ: %s.", gi.name().c_str(),
 				XPrn::status_str(xprn->status()));
 	}else
@@ -759,7 +697,6 @@ static bool update_grids_vtsv(const list<GridInfo> &grids_to_load, const list<Gr
 		}*/
 	}
 /* Проверяем, что разметки успешно загрузились */
-	log_info("Проверяем записанные разметки...");
 	Sleep(3000);
 	list<GridInfo> xprn_grids;
 	if (!find_xprn_grids(xprn_grids))
@@ -772,19 +709,13 @@ static bool update_grids_vtsv(const list<GridInfo> &grids_to_load, const list<Gr
 			continue;
 		p1 = find_if(xprn_grids, [p](const GridInfo &gi) {return gi.id() == p.id();});
 		if (p1 == xprn_grids.end()){
-			log_dbg("Разметка %s #%d (%hc) отсутствует в БПУ после загрузки.",
-				p.name().c_str(), p.nr(), p.id());
 			grids_failed.push_back(p);
 			ok = false;
 		}else if (p.isNewer(*p1)){
-			log_dbg("Разметка %s #%d (%hc) не была удалена из БПУ.",
-				(*p1).name().c_str(), (*p1).nr(), (*p1).id());
 			grids_failed.push_back(p);
 			ok = false;
 		}
 	}
-	if (ok)
-		log_info("Разметки в БПУ успешно обновлены.");
 	return true; /*ret;*/
 }
 
@@ -793,7 +724,6 @@ static bool update_grids_sprn(const list<GridInfo> &stored_grids, list<GridInfo>
 	InitializationNotify_t init_notify)
 {
 /* Сначала удаляем все разметки из БПУ */
-	log_info("Удаляем все имеющиеся разметки из БПУ...");
 	init_notify(false, "Удаление разметок из БПУ");
 	if (!xprn->beginGridEraseAll(xprnOpCallback)){
 		log_err("Невозможно начать удаление разметок из БПУ: %s.", XPrn::status_str(xprn->status()));
@@ -861,27 +791,23 @@ static bool find_kkt_grids(list<GridInfo> &kkt_grids)
 {
 	bool ret = false;
 	kkt_grids.clear();
-	log_info("Чтение списка разметок из ККТ...");
 	size_t len = sizeof(grid_buf);
 	uint8_t status = kkt_get_grid_lst(grid_buf, &len);
 	if (status == KKT_STATUS_OK){
 		size_t n = grid_buf[0];
-		log_dbg("n = %zu.", n);
 		const struct pic_header *hdr = (const struct pic_header *)(grid_buf + 1);
 		for (size_t i = 0; i < n; i++, hdr++){
 			if (check_grid_header(hdr, hdr->id)){
 				char name[SPRN_MAX_GRID_NAME_LEN + 1];
 				memcpy(name, hdr->name, sizeof(hdr->name));
 				name[SPRN_MAX_GRID_NAME_LEN] = 0;
-				log_dbg("name = %s", name);
 				GridInfo gi;
 				if (gi.parse(name))
 					kkt_grids.push_back(gi);
 				else
-					log_err("parse error.");
+					log_err("Ошибка разбора.");
 			}
 		}
-		log_info("Найдено разметок в ККТ: %zu.", kkt_grids.size());
 		ret = true;
 	}else
 		log_err("Ошибка получения списка разметок из ККТ: 0x%.2hhx (%s).",
@@ -900,33 +826,22 @@ static void check_kkt_grids(const list<GridInfo> &stored_grids, list<GridInfo> &
 	if (!find_kkt_grids(kkt_grids))
 		return;
 /* Ищем разметки для загрузки */
-	log_dbg("Ищем разметки для загрузки...");
 	for (const auto &p : stored_grids){
 		auto p1 = find_if(kkt_grids.cbegin(), kkt_grids.cend(),
 			[p](const GridInfo &gi) {return gi.id() == p.id();});
-		if (p1 == kkt_grids.end()){
-			log_dbg("Разметка %s #%d (%c) отсутствует в ККТ и будет туда загружена.",
-				p.name().c_str(), p.nr(), p.id());
+		if (p1 == kkt_grids.end())
 			grids_to_load.push_back(p);
-		}else if (p.isNewer(*p1)){
-			log_dbg("Разметку %s #%d (%c) необходимо обновить.",
-				(*p1).name().c_str(), (*p1).nr(), (*p1).id());
+		else if (p.isNewer(*p1)){
 			grids_to_load.push_back(p);
 			grids_to_erase.push_back(*p1);
-		}else
-			log_dbg("Разметка %s #%d (%c) не требует обновления.",
-				(*p1).name().c_str(), (*p1).nr(), (*p1).id());
-	}
-/* Ищем разметки для удаления */
-	log_dbg("Ищем разметки для удаления...");
-	for (const auto &p : kkt_grids){
-		if (find_if(stored_grids.cbegin(), stored_grids.cend(),
-				[p](const GridInfo &gi) {return gi.id() == p.id();}) == stored_grids.cend()){
-			log_dbg("Разметка %s #%d (%c) помечена для удаления.", p.name().c_str(), p.nr(), p.id());
-			grids_to_erase.push_back(p);
 		}
 	}
-	log_dbg("Найдено разметок: для загрузки: %zu; для удаления: %zu.", grids_to_load.size(), grids_to_erase.size());
+/* Ищем разметки для удаления */
+	for (const auto &p : kkt_grids){
+		if (find_if(stored_grids.cbegin(), stored_grids.cend(),
+				[p](const GridInfo &gi) {return gi.id() == p.id();}) == stored_grids.cend())
+			grids_to_erase.push_back(p);
+	}
 }
 
 /* Запись заданной разметки в ККТ */
@@ -938,20 +853,16 @@ static bool write_grid_to_kkt(const GridInfo &gi)
 	size_t len = 0, w = 0, h = 0;
 	static char path[PATH_MAX];
 	snprintf(path, ASIZE(path), GRIDS_FOLDER "/%s.BMP", gi.name().c_str());
-	log_info("Загружаем в ККТ разметку %s...", path);
 	const uint8_t *data = read_bmp(path, len, w, h, GRID_MIN_WIDTH, GRID_MAX_WIDTH,
 		GRID_MIN_HEIGHT, GRID_MAX_HEIGHT);
-	log_dbg("w = %zu; h = %zu.", w, h);
 	if (data != NULL){
 		vector<uint8_t> cdata;
 		if (compress_picture(data, len, w, h, cdata) && !cdata.empty()){
-			log_dbg("Размер данных после сжатия: %zu байт.", cdata.size());
 			char name[SPRN_MAX_GRID_NAME_LEN + 1];
 			snprintf(name, sizeof(name), "%s.BMP", gi.name().c_str());
-			if (kkt_load_grid(cdata.data(), cdata.size(), gi.id(), w, h, name) == KKT_STATUS_OK){
-				log_info("Разметка %s успешно загружена в ККТ.", path);
+			if (kkt_load_grid(cdata.data(), cdata.size(), gi.id(), w, h, name) == KKT_STATUS_OK)
 				ret = true;
-			}else
+			else
 				log_err("Ошибка загрузки разметки %s в ККТ: 0x%.2hhx.", path, kkt_status);
 		}else
 			log_err("Ошибка сжатия разметки %s.", path);
@@ -963,12 +874,9 @@ static bool write_grid_to_kkt(const GridInfo &gi)
 static bool update_grids_kkt(const list<GridInfo> &stored_grids, list<GridInfo> &grids_failed)
 {
 /* Сначала удаляем все разметки из ККТ */
-	log_info("Удаляем все имеющиеся разметки из ККТ...");
 	set_term_state(st_kkt_grids);
 	set_term_astate((intptr_t)"УДАЛЕНИЕ ВСЕХ РАЗМЕТОК");
-	if (kkt_erase_all_grids() == KKT_STATUS_OK)
-		log_info("Разметки удалены из ККТ.");
-	else{
+	if (kkt_erase_all_grids() != KKT_STATUS_OK){
 		static char txt[MAX_TERM_ASTATE_LEN + 1];
 		log_err("Ошибка удаления разметок из ККТ: 0x%.2hhx.", kkt_status);
 		snprintf(txt, sizeof(txt), "ОШИБКА УДАЛЕНИЯ %.2hhx", kkt_status);
@@ -980,8 +888,6 @@ static bool update_grids_kkt(const list<GridInfo> &stored_grids, list<GridInfo> 
 	kkt_begin_batch_mode();
 	static char txt[MAX_TERM_ASTATE_LEN + 1];
 	for (const auto &p : stored_grids){
-		log_info("Загрузка в ККТ разметки %s (%zu из %zu)",
-			p.name().c_str(), n, stored_grids.size());
 		snprintf(txt, sizeof(txt), "%s (%zu из %zu)",
 			p.name().c_str(), n++, stored_grids.size());
 		set_term_astate((intptr_t)txt);

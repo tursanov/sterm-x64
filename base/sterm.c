@@ -558,7 +558,8 @@ const char *find_term_astate(intptr_t ast, bool *x3_err)
 					set_if_not_null(x3_err, true);
 					flag = true;
 					break;
-				}		/* fall through */
+				}
+				__fallthrough__;
 			case ast_repeat:
 			case ast_finit:
 				if (session_error != SLAYER_OK){

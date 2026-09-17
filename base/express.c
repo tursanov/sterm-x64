@@ -380,7 +380,8 @@ static uint8_t *check_prom(uint8_t *txt, int l, int *ecode, int dst)
 					if (dst == dst_sprn){
 						*ecode = E_MISPLACE;
 						return p - 2;
-					}*/		/* fall through */
+					}
+					__fallthrough__;*/
 				case XPRN_FONT:
 				case XPRN_VPOS:
 					if (dst != dst_xprn){
@@ -1310,7 +1311,8 @@ static uint8_t *check_para(uint8_t *txt, int l, int *ecode, int n_para)
 					}else if (dst != dst_xprn){
 						*ecode = E_MISPLACE;
 						return p - 2;
-					}		/* fall through */
+					}
+					__fallthrough__;
 				case XPRN_AUXLNG:
 				case XPRN_MAINLNG:
 				case XPRN_PRNOP:

@@ -87,13 +87,9 @@ static time_t get_local_patterns_date(void)
 		regfree(&reg);
 		return -1;
 	}else if (n > 1){
-/*		log_info("В каталоге " PATTERNS_FOLDER " найдено более одного файла даты (%d); "
-			"будет использован %s.", n, names[0]->d_name);*/
-		log_info("В каталоге " PATTERNS_FOLDER " найдено более одного файла даты (%d).", n);
 		regfree(&reg);
 		return -1;
-	}else
-		log_dbg("Обнаружен файл %s.", names[0]->d_name);
+	}
 	time_t ret = jul_date_to_unix_date(names[0]->d_name + 3);
 	free(names);
 	regfree(&reg);
@@ -151,7 +147,6 @@ static int clr_old_patterns()
 
 static bool check_x3_kkt_patterns(const uint8_t *data, size_t len, string &version)
 {
-	log_info("data = %p; len = %u.", data, len);
 	if ((data == NULL) || (len == 0))
 		return false;
 	static uint8_t tag[] = {0x3c, 0x53, 0x30, 0x30};	/* <S00 */
@@ -162,7 +157,6 @@ static bool check_x3_kkt_patterns(const uint8_t *data, size_t len, string &versi
 			break;
 		else if ((memcmp(data + i, tag, ASIZE(tag)) == 0) && ((p - (data + i)) == 9)){
 			version.assign((const char *)data + i + 4, 5);
-			log_info("Обнаружены шаблоны печати ККТ (версия %s).", version.c_str());
 			ret = true;
 			break;
 		}else
@@ -235,7 +229,6 @@ static const size_t MAX_KKT_PATTERNS_DATA_LEN = 524288;		/* 512K */
 /* Декодирование шаблонов печати ККТ, распаковка и сохранение в файлы на диске */
 static bool store_patterns()
 {
-	log_info("");
 	if (patterns_buf_idx == 0){
 		log_err("Буфер данных пуст.");
 		return false;
@@ -245,24 +238,17 @@ static bool store_patterns()
 			(len == 0)){
 		log_err("Ошибка декодирования данных.");
 		return false;
-	}else
-		log_info("Данные шаблонов печати ККТ декодированы; "
-			"длина после декодирования %u байт.", len);
+	}
 	const unique_ptr<uint8_t[]> patterns_data = make_unique<uint8_t[]>(MAX_KKT_PATTERNS_DATA_LEN);
 	size_t patterns_data_len = MAX_KKT_PATTERNS_DATA_LEN;
 	int rc = uncompress(patterns_data.get(), &patterns_data_len, patterns_buf, len);
-	if (rc == Z_OK)
-		log_info("Данные шаблонов печати ККТ распакованы; "
-			"длина данных после распаковки %u байт.", patterns_data_len);
-	else{
+	if (rc != Z_OK){
 		log_err("Ошибка распаковки шаблонов печати ККТ (%d).", rc);
 		return false;
 	}
 	char *p = (char *)patterns_data.get();
 	size_t nr_files = 0;
-	if (sscanf(p, "%zu", &nr_files) == 1)
-		log_info("В архиве шаблонов печати ККТ %u файлов.", nr_files);
-	else{
+	if (sscanf(p, "%zu", &nr_files) != 1){
 		log_err("Ошибка чтения количества файлов в архиве шаблонов печати ККТ.");
 		return false;
 	}
@@ -282,7 +268,6 @@ static bool store_patterns()
 			log_err("Ошибка чтения информации о файле №%u.", i);
 			break;
 		}
-		log_info("Файл №%u: %s (%u байт)", i + 1, fname, flen);
 		names.push_back(fname);
 		lengths.push_back(flen);
 	}
@@ -305,7 +290,7 @@ static bool store_patterns()
 		}
 		int rc = write(fd, data, lengths[i]);
 		if (rc == lengths[i])
-			log_info("Шаблон %s успешно записан в файл %s.", names[i].c_str(), path);
+			;
 		else if (rc == -1){
 			log_sys_err("Ошибка записи в %s:", path);
 			break;
@@ -328,8 +313,7 @@ static bool store_patterns()
 	if (fd == -1){
 		log_sys_err("Ошибка создания файла версии шаблонов печати ККТ %s:", path);
 		ret = false;
-	}else
-		log_info("Файл версии шаблонов печати ККТ %s сохранён на диске.", path);
+	}
 	close(fd);
 	return ret;
 }
@@ -347,8 +331,6 @@ void on_response_patterns(void)
 	size_t patterns_len = 0, req_len = 0;
 	if (find_pic_data(&patterns_para, &req_para) && (patterns_para != -1)){
 		patterns_len = handle_para(patterns_para);
-		log_info("Обнаружены данные шаблонов печати (абзац #%d; %zd байт).",
-			patterns_para + 1, patterns_len);
 		if (patterns_len > (ASIZE(patterns_buf) - patterns_buf_idx)){
 			snprintf(err_msg, ASIZE(err_msg), "Переполнение буфера данных шаблонов печати.");
 			non_patterns_resp = 1;
@@ -358,14 +340,11 @@ void on_response_patterns(void)
 			if (req_para != -1){
 				req_len = handle_para(req_para);
 				if (req_len > 0){
-					log_info("Обнаружен автозапрос (абзац %d; %zd байт).",
-						req_para + 1, req_len);
 					memcpy(patterns_auto_req, text_buf, req_len);
 					patterns_auto_req_len = req_len;
 					send_patterns_auto_request();
 				}
 			}else{
-				log_info("Шаблоны печати получены полностью. Сохраняем на диск...");
 				x3data_sync_ok |= X3_SYNC_KKT_PATTERNS;
 				store_patterns();
 				sync_xslt();
@@ -387,24 +366,20 @@ void on_response_patterns(void)
 	if (non_patterns_resp != 0){
 		req_type = req_regular;
 		x3data_sync_report_dlg();
-		if (non_patterns_resp == 2){
-			log_dbg("Переходим к обработке ответа.");
+		if (non_patterns_resp == 2)
 			execute_resp();
-		}
 	}
 }
 
 static bool download_patterns()
 {
 	patterns_buf_idx = 0;
-	log_info("Начинаем загрузку шаблонов печати ККТ.");
 	send_patterns_request(x3_kkt_patterns_version);
 	return true;
 }
 
 bool sync_patterns()
 {
-	log_dbg("");
 	bool ret = true;
 	if (need_patterns_update(x3_kkt_patterns_version)){
 		req_type = req_patterns;

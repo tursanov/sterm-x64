@@ -307,7 +307,8 @@ int process_menu(struct menu *mnu,struct kbd_event *e)
 				return cmd_none;
 			case KEY_ESCAPE:
 			case KEY_F10:
-				mnu->selected = -1;	/* fall through */
+				mnu->selected = -1;
+				__fallthrough__;
 			case KEY_SPACE:
 			case KEY_ENTER:
 			case KEY_NUMENTER:

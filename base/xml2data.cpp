@@ -42,13 +42,9 @@ static struct xml_data xml_data[MAX_PARAS];
 
 struct xml_data *get_xml_data(int n_para)
 {
-	log_dbg("n_para = %d.", n_para);
 	struct xml_data *ret = NULL;
 	if ((n_para >= 0) && (n_para < ASIZE(xml_data)))
 		ret = xml_data + n_para;
-	if (ret != NULL)
-		log_dbg("scr_data = %p; scr_data_len = %zu; prn_data = %p; prn_data_len = %zu.",
-			ret->scr_data, ret->scr_data_len, ret->prn_data, ret->prn_data_len);
 	return ret;
 }
 
@@ -204,7 +200,6 @@ static bool parse_subst_entry(const char *txt, string &name, string &val)
 {
 	if (txt == NULL)
 		return false;
-	log_dbg("txt = '%s'.", txt);
 	int ret = false;
 	name.clear();
 	val.clear();
@@ -315,7 +310,6 @@ static ssize_t read_subst_tbl(const char *id, vector<pair<string, string>> &tbl)
 		}
 		if (fclose(f) != 0)
 			log_sys_err("Ошибка закрытия файла замен %s:", path);
-		log_dbg("Из файла замен %s прочитано %d строк.", path, ret);
 	}else
 		log_sys_err("Ошибка открытия файла замен %s для чтения:", path);
 	free(names);
@@ -569,10 +563,9 @@ static bool store_embedded_xslt(const uint8_t *xslt, size_t xslt_len, const char
 	int fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH);
 	if (fd != -1){
 		ssize_t rc = write(fd, xslt, xslt_len);
-		if (rc == xslt_len){
-			log_dbg("Данные для трансформации записаны в %s.", path);
+		if (rc == xslt_len)
 			ret = true;
-		}else if (rc == -1)
+		else if (rc == -1)
 			log_sys_err("Ошибка записи в %s:", path);
 		else
 			log_sys_err("В %s записано %d байт вместо %d:", path, rc, xslt_len);
@@ -750,7 +743,6 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 	xml0[xml_len] = 0;
 	idx += xml_len;
 	xml_data->cmd_len = idx;
-	log_dbg("cmd_len = %zu.", xml_data->cmd_len);
 	if (recode == RECODE_CP866)
 		recode_str(xml0.get(), -1);
 	const char *scr_xslt_id = NULL, *prn_xslt_id = NULL;
@@ -797,10 +789,8 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 		xml_prn += "</A>";
 		for (const auto &p : pre_subst_tbl)
 			replace(xml_prn, p.first, p.second);
-		log_info("XML для печати:\n%s\n", xml_prn.c_str());
 		xml_doc = xmlReadMemory(xml_prn.c_str(), xml_prn.size(), NULL, NULL, XML_PARSE_COMPACT);
 		if (xml_doc != NULL){
-			log_dbg("XML для печати из ответа успешно разобран.");
 			out_buf_len = MAX_DATA_LEN;
 			bool rc = transform_xml(xml_doc, prn_xslt_id, out_buf.get(), out_buf_len);
 			xmlFreeDoc(xml_doc);
@@ -832,7 +822,6 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 		memcpy(xml_data->scr_data, xml0.get(), xml_len);
 		xml_data->scr_data_len = xml_len;
 	}else if (scr_transform == TransformType::Prn){
-		log_dbg("На экране будет отображён результат трансформации для принтера.");
 		vector<uint8_t> scr_data(out_buf.get(), out_buf.get() + out_buf_len);
 		preprocess_data(scr_data);
 		if (!scr_data.empty()){
@@ -854,10 +843,8 @@ uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *x
 		xml_scr += "</A>";
 		for (const auto &p : pre_subst_tbl)
 			replace(xml_scr, p.first, p.second);
-		log_info("XML для экрана:\n%s\n", xml_scr.c_str());
 		xml_doc = xmlReadMemory(xml_scr.c_str(), xml_scr.size(), NULL, NULL, XML_PARSE_COMPACT);
 		if (xml_doc != NULL){
-			log_dbg("XML для экрана из ответа успешно разобран.");
 			out_buf_len = MAX_DATA_LEN;
 			bool rc = transform_xml(xml_doc, scr_xslt_id, out_buf.get(), out_buf_len);
 			xmlFreeDoc(xml_doc);

@@ -14,6 +14,46 @@
 #include "sterm.h"
 #include "termlog.h"
 
+#define LOG_MAP_SIZE	10
+static struct log_map_entry {
+	const char *prefix;
+	const char *ext;
+	time_t last_write_date;
+#define SECONDS_IN_DAY	(24 * 3600)
+} log_map[LOG_MAP_SIZE];
+
+static struct log_map_entry *get_log_entry_ex(const char *prefix, const char *ext)
+{
+	struct log_map_entry *ret = NULL;
+	if ((prefix == NULL) || (ext == NULL))
+		return ret;
+	int idx = -1;
+	for (int i = 0; i < ASIZE(log_map); i++){
+		struct log_map_entry *p = log_map + i;
+		if ((p->prefix != NULL) && (p->ext != NULL)){
+			if ((strcmp(p->prefix, prefix) == 0) && (strcmp(p->ext, ext) == 0)){
+				ret = p;
+				break;
+			}
+		}else if (idx == -1){
+			idx = i;
+			break;
+		}
+	}
+	if ((ret == NULL) && (idx != -1)){
+		ret = log_map + idx;
+		ret->prefix = strdup(prefix);
+		ret->ext = strdup(ext);
+		ret->last_write_date = 0;
+	}
+	return ret;
+}
+
+static inline struct log_map_entry *get_log_entry(const char *prefix)
+{
+	return get_log_entry_ex(prefix, DEF_LOG_EXT);
+}
+
 static int log_lvl = Info;
 
 int get_log_lvl(void)
@@ -52,15 +92,7 @@ static const char *log_level_str(int lvl)
 	return ret;
 }
 
-static const char *cur_pattern = NULL;
-static regex_t reg;
-
-static int log_selector(const struct dirent *entry)
-{
-	return regexec(&reg, entry->d_name, 0, NULL, 0) == REG_NOERROR;
-}
-
-static ssize_t del_excess_logs(const char *folder, const char *prefix, const char *ext,
+static ssize_t del_excess_logs_ex(const char *folder, const char *prefix, const char *ext,
 	size_t max_files)
 {
 	if ((folder == NULL) || (prefix == NULL) || (ext == NULL))
@@ -68,17 +100,16 @@ static ssize_t del_excess_logs(const char *folder, const char *prefix, const cha
 	char pattern[256];
 	snprintf(pattern, sizeof(pattern), "^%s-[0-9]{4}-[0-9]{2}-[0-9]{2}\\.%s$",
 		prefix, ext);
-	if ((cur_pattern == NULL) || (strcmp(cur_pattern, pattern) != 0)){
-		if (cur_pattern != NULL){
-			free((void *)cur_pattern);
-			cur_pattern = NULL;
-		}
-		if (regcomp(&reg, pattern, REG_EXTENDED | REG_NOSUB) != REG_NOERROR)
-			return -1;
-		cur_pattern = strdup(pattern);
-	}
+	static regex_t reg;
+	if (regcomp(&reg, pattern, REG_EXTENDED | REG_NOSUB) != REG_NOERROR)
+		return -1;
 	struct dirent **names;
+	int log_selector(const struct dirent *entry)
+	{
+		return regexec(&reg, entry->d_name, 0, NULL, 0) == REG_NOERROR;
+	}
 	int n = scandir(folder, &names, log_selector, alphasort);
+	regfree(&reg);
 	if (n == -1)
 		return -1;
 	ssize_t ret = 0;
@@ -93,9 +124,10 @@ static ssize_t del_excess_logs(const char *folder, const char *prefix, const cha
 	return ret;
 }
 
-static time_t last_write_date = 0;
-#define SECONDS_IN_DAY	(24 * 3600)
-static const char *log_name_prefix = "log";
+static inline ssize_t del_excess_logs(const char *folder, const char *prefix, size_t max_files)
+{
+	return del_excess_logs_ex(folder, prefix, DEF_LOG_EXT, max_files);
+}
 
 static inline bool create_log_folder_if_need(void)
 {
@@ -112,8 +144,8 @@ bool log_internal(int lvl, const char *file, const char *fn, uint32_t line, uint
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
 	struct tm *tm = localtime(&tv.tv_sec);
-	snprintf(path, sizeof(path), LOG_FOLDER "/%s-%.4u-%.2u-%.2u.txt",
-		log_name_prefix, tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday);
+	snprintf(path, sizeof(path), LOG_FOLDER "/%s-%.4u-%.2u-%.2u.%s",
+		DEF_LOG_PREFIX, tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, DEF_LOG_EXT);
 	FILE *f = fopen(path, "a");
 	if (f == NULL)
 		return false;
@@ -121,21 +153,22 @@ bool log_internal(int lvl, const char *file, const char *fn, uint32_t line, uint
 	va_start(ap, fmt);
 	fprintf(f, "%s %.2u:%.2u:%.2u.%.3ld", log_level_str(lvl),
 		tm->tm_hour, tm->tm_min, tm->tm_sec, tv.tv_usec / 1000);
-	tv.tv_sec += time_delta;
-	tm = localtime(&tv.tv_sec);
+	time_t xt = tv.tv_sec + time_delta;
+	tm = localtime(&xt);
 	fprintf(f, " [%.2u:%.2u:%.2u]: %s [%s:%u]: ", tm->tm_hour, tm->tm_min, tm->tm_sec,
 		fn, file, line);
 	vfprintf(f, fmt, ap);
 	va_end(ap);
 	if (nr_err != UINT32_MAX)
-		fprintf(f, " %s", strerror(errno));
-	else
-		fputc('\n', f);
+		fprintf(f, " %s.", strerror(errno));
+	fputc('\n', f);
 	fflush(f);
 	fclose(f);
-	if (tv.tv_sec > (last_write_date + SECONDS_IN_DAY)){
-		del_excess_logs(LOG_FOLDER, log_name_prefix, "txt", MAX_LOG_FILES);
-		last_write_date = (tv.tv_sec / SECONDS_IN_DAY) * SECONDS_IN_DAY;
+	struct log_map_entry *p = get_log_entry(DEF_LOG_PREFIX);
+	if ((p == NULL) || (tv.tv_sec > (p->last_write_date + SECONDS_IN_DAY))){
+		del_excess_logs(LOG_FOLDER, DEF_LOG_PREFIX, MAX_LOG_FILES);
+		if (p != NULL)
+			p->last_write_date = (tv.tv_sec / SECONDS_IN_DAY) * SECONDS_IN_DAY;
 	}
 	return true;
 }
@@ -152,14 +185,14 @@ bool log_data(const char *prefix, const char *title, const uint8_t *data, size_t
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
 	struct tm *tm = localtime(&tv.tv_sec);
-	snprintf(path, sizeof(path), LOG_FOLDER "/%s-%.4u-%.2u-%.2u.txt",
-		prefix, tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday);
+	snprintf(path, sizeof(path), LOG_FOLDER "/%s-%.4u-%.2u-%.2u.%s",
+		prefix, tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, DEF_LOG_EXT);
 	FILE *f = fopen(path, "a");
 	if (f == NULL)
 		return false;
 	fprintf(f, "%.2u:%.2u:%.2u.%.3ld", tm->tm_hour, tm->tm_min, tm->tm_sec, tv.tv_usec / 1000);
-	tv.tv_sec += time_delta;
-	tm = localtime(&tv.tv_sec);
+	time_t xt = tv.tv_sec + time_delta;
+	tm = localtime(&xt);
 	fprintf(f, " [%.2u:%.2u:%.2u]", tm->tm_hour, tm->tm_min, tm->tm_sec);
 	if (title != NULL)
 		fprintf(f, " [%s]", title);
@@ -188,9 +221,11 @@ bool log_data(const char *prefix, const char *title, const uint8_t *data, size_t
 	}
 	fflush(f);
 	fclose(f);
-	if (tv.tv_sec > (last_write_date + SECONDS_IN_DAY)){
-		del_excess_logs(LOG_FOLDER, prefix, "txt", MAX_LOG_FILES);
-		last_write_date = (tv.tv_sec / SECONDS_IN_DAY) * SECONDS_IN_DAY;
+	struct log_map_entry *p = get_log_entry(prefix);
+	if ((p == NULL) || (tv.tv_sec > (p->last_write_date + SECONDS_IN_DAY))){
+		del_excess_logs(LOG_FOLDER, prefix, MAX_LOG_FILES);
+		if (p != NULL)
+			p->last_write_date = (tv.tv_sec / SECONDS_IN_DAY) * SECONDS_IN_DAY;
 	}
 	return true;
 }
