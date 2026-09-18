@@ -1060,7 +1060,7 @@ static void init_devices(void)
 /* Инициализация терминала */
 static void init_term(bool need_init)
 {
-	bool flag = xlog_active || plog_active || klog_active;
+    bool flag = xlog_active || plog_active || klog_active;
 #if defined NDEBUG
 	set_log_lvl(Info);
 #else

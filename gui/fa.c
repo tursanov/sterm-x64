@@ -100,6 +100,7 @@ bool cashier_load() {
 		make_cashier();
 
 		printf("cashier_name: \"%s\"\n", cashier_name);
+		printf("cashier_name_alt: \"%s\"\n", cashier_get_name_alt());
 		printf("cashier_post: \"%s\"\n", cashier_post);
 		printf("cashier_inn: \"%s\"\n", cashier_inn);
 		printf("cashier_cashier: \"%s\"\n", cashier_cashier);
