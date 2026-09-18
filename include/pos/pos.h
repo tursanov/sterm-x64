@@ -14,6 +14,7 @@ extern "C" {
 #define POS_CAPS_UBT	0x00000001	/* единая банковская транзакция, ЕБТ (Unified Bank Transaction) */
 #define POS_CAPS_FPS	0x00000002	/* система быстрых платежей, СБП (Fast Payment System) */
 
+extern bool pos_caps_known(void);
 extern bool pos_caps_supported(uint32_t caps);
 extern bool pos_caps_set(uint32_t caps);
 extern void pos_caps_reset(void);
@@ -124,10 +125,12 @@ extern bool pos_req_stream_end(struct pos_data_buf *buf);
 /* Состояния модуля работы с POS-эмулятором */
 enum {
 	pos_new,		/* требуется посылка команды INIT_CHECK */
+	pos_none,		/* Невозможно соединиться с ИПТ */
 	pos_init_check,		/* послана команда INIT_CHECK, ожидается ответ */
 	pos_idle,		/* ожидание начала работы */
 	pos_init,		/* начало работы, необходимо послать INIT */
 	pos_ready,		/* API-модуль готов к работе */
+	pos_qready,		/* работа с API-модулем без вывода информации на экран */
 	pos_enter,		/* пользователь нажал Enter */
 	pos_print,		/* начало печати */
 	pos_printing,		/* печать */
@@ -138,8 +141,6 @@ enum {
 	pos_wait,		/* ожидание после ошибки перед посылкой INIT_CHECK */
 	pos_ewait,		/* ожидание после вывода на экран сообщения об ошибке */
 };
-
-extern int pos_state;
 
 /* Результат завершения работы с ИПТ */
 struct pos_param {
@@ -172,11 +173,12 @@ extern bool pos_create(void);
 extern void pos_release(void);
 extern int  pos_get_state(void);
 extern void pos_set_state(int st);
-extern bool pos_reinit(void);
+//extern bool pos_reinit(void);
 extern void pos_process(void);
 extern bool pos_send_empty(void);
 extern bool pos_send_params_resp(void);
 extern bool pos_send_params_req(void);
+extern bool pos_send_finish(void);
 
 struct pos_query_params {
 	uint64_t amount;
@@ -205,6 +207,8 @@ struct pos_info {
 	const char *tms_id;
 #define POS_DEF_SERVERS	0x00000003
 	uint32_t servers;
+	const char *pos_ids;
+	bool first_answer;
 };
 
 extern struct pos_info pos_info;

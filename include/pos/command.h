@@ -76,6 +76,8 @@ extern pos_response_param_list_t resp_param_list;
 #define POS_PARAM_FAMIO_STR	"FAMIO"		/* используется в СБП */
 #define POS_PARAM_RFNDINFO_STR	"RFNDINFO"	/* используется при возврате */
 #define POS_PARAM_FRAGMENTATION_STR	"SUPPORT_FRAGMENTATION"	/* поддержка печати фрагментами на ККТ */
+#define POS_PARAM_POS_IDS_STR	"ID_POS_LIST"	/* используется для отладки */
+#define POS_PARAM_FIRST_ANSWER_STR	"FIRST_ANSWER"	/* используется для отладки */
 
 /* Типы параметров */
 enum {
@@ -110,6 +112,8 @@ enum {
 	POS_PARAM_FAMIO,
 	POS_PARAM_RFNDINFO,
 	POS_PARAM_FRAGMENTATION,
+	POS_PARAM_POS_IDS,
+	POS_PARAM_FIRST_ANSWER,
 };
 
 /* Имеются незавершённые операции ИПТ */

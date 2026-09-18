@@ -19,7 +19,7 @@
 #include "gui/scr.h"
 #include "prn/aux.h"
 #include "prn/express.h"
-#include "prn/local.h"
+#include "prn/sprn.h"
 #include "kkt/kkt.h"
 #include "kkt/fd/ad.h"
 #include "gd.h"
@@ -2331,7 +2331,7 @@ int scr_get_24(uint8_t *buf, int l, bool strip)
 						i += 18;
 					break;
 				case XPRN_NO_BCODE:
-				case LPRN_NO_BCODE:
+				case SPRN_NO_BCODE:
 					i++;
 					break;
 				default:
@@ -2445,7 +2445,7 @@ static uint8_t *bctl_code(uint8_t *p)
 }
 
 /*
- * Пропуск штрих-кода типа LPRN_WR_BCODE2. Возвращает указатель на последний
+ * Пропуск штрих-кода типа SPRN_WR_BCODE2. Возвращает указатель на последний
  * допустимый символ команды.
  */
 static uint8_t *skip_bcode2(uint8_t *p, int l)
@@ -2465,7 +2465,7 @@ static uint8_t *skip_bcode2(uint8_t *p, int l)
 		uint8_t b = p[i];
 		switch (st){
 			case st_start:
-				if (b == LPRN_WR_BCODE2)
+				if (b == SPRN_WR_BCODE2)
 					st = st_type;
 				else
 					st = st_err;
@@ -2675,13 +2675,13 @@ int set_scr_text(uint8_t *s, int l, int t, bool need_redraw)
 						if (p != NULL)
 							s = p + 12;
 						break;
-					case LPRN_WR_BCODE2:
+					case SPRN_WR_BCODE2:
 						s = skip_bcode2(s, ss + l - s);
 						break;
 					case XPRN_PRNOP:
 						s=scr_find_eprnop(s);
 						break;
-					case LPRN_INTERLINE:
+					case SPRN_INTERLINE:
 						s += 2;
 						break;
 					case KKT_GRID:

@@ -155,8 +155,6 @@ static void clr_pic_data()
 const uint8_t *read_bmp(const char *path, size_t &len, size_t &w, size_t &h,
 	size_t min_w, size_t max_w, size_t min_h, size_t max_h)
 {
-	log_dbg("path = %s; min_w = %zu; max_w = %zu; min_h = %zu; max_h = %zu.",
-		path, min_w, max_w, min_h, max_h);
 	clr_pic_data();
 	len = w = h = 0;
 	if (path == NULL){

@@ -25,10 +25,10 @@
 static void usage(void)
 {
 	static char *help[] = {
-		"Программа проверки кодов удаления лицензий ИПТ/ППУ.",
+		"Программа проверки кодов удаления лицензий ИПТ.",
 		"(c) ЗАО НПЦ \"Спектр\" 2006, 2011, 2019.",
 		"Использование: chkrmlic <file>",
-		"В файле <file> указываются коды удаления лицензий ИПТ/ППУ",
+		"В файле <file> указываются коды удаления лицензий ИПТ",
 		"в формате <номер терминала> <код удаления>",
 	};
 	int i;
@@ -316,9 +316,6 @@ int main(int argc, char **argv)
 						if (check_code(number, code, &t,
 								rnd_tbl_bnk, ASIZE(rnd_tbl_bnk)))
 							print_rmlic("ИПТ", number, t, true);
-						else if (check_code(number, code, &t,
-								rnd_tbl_lprn, ASIZE(rnd_tbl_lprn)))
-							print_rmlic("ППУ", number, t, true);
 						else
 							print_rmlic("???", number, t, false);
 					}else

@@ -45,7 +45,7 @@
 #include "pos/tcp.h"
 #include "prn/aux.h"
 #include "prn/express.h"
-#include "prn/local.h"
+#include "prn/sprn.h"
 #include "x3data/grids.h"
 #include "x3data/icons.h"
 #include "x3data/patterns.h"
@@ -325,7 +325,7 @@ static bool set_term_defaults(void)
 	cfg.fdo_iface = KKT_FDO_IFACE_USB;
 	cfg.fdo_ip = 0;
 	cfg.fdo_port = 0;
-	cfg.fdo_poll_period = 0;
+	cfg.fdo_poll_period = 60;
 	cfg.kkt_ip = 0;
 	cfg.kkt_netmask = 0;
 	cfg.kkt_gw = 0;
@@ -408,7 +408,7 @@ int get_key_type(void)
 /* ...иначе это ключ кассира */
 	return key_reg;
 #else
-	return key_reg;
+	return key_dbg;
 #endif		/* __REAL_KEYS__ */
 }
 
@@ -545,9 +545,9 @@ const char *find_term_astate(intptr_t ast, bool *x3_err)
 		bool flag = false;
 		switch (ast){
 			case ast_sprn_err:
-				if (lprn_status != 0){
+				if (sprn_status != 0){
 					snprintf(buf, sizeof(buf), "%s: %.2hhX",
-						p->descr, lprn_status);
+						p->descr, sprn_status);
 					flag = true;
 				}
 				break;
@@ -558,7 +558,8 @@ const char *find_term_astate(intptr_t ast, bool *x3_err)
 					set_if_not_null(x3_err, true);
 					flag = true;
 					break;
-				}		/* fall through */
+				}
+				__fallthrough__;
 			case ast_repeat:
 			case ast_finit:
 				if (session_error != SLAYER_OK){
@@ -854,8 +855,8 @@ void release_garbage(void)
 		pos_error_clear();
 		pos_set_state(pos_break);
 		pos_active = false;
-	}else
-		pos_set_state(pos_new);
+	}/*else
+		pos_set_state(pos_new);*/
 	if (fa_active)
 		release_fa();
 	end_message_box();
@@ -890,8 +891,8 @@ char *get_main_title(void)
 #endif
 
 #if 0
-/* Вывод на экран сообщения об ошибке чтения заводского номера ППУ */
-static void show_lprn_nonumber_error(void)
+/* Вывод на экран сообщения об ошибке чтения заводского номера БПУ */
+static void show_sprn_nonumber_error(void)
 {
 	online = false;
 	guess_term_state();
@@ -901,7 +902,7 @@ static void show_lprn_nonumber_error(void)
 	set_term_busy(true);
 	ClearScreen(clBlack);
 	err_beep();
-	message_box("ОШИБКА ППУ", "ППУ неработоспособно.\n"
+	message_box("ОШИБКА БПУ", "БПУ неработоспособно.\n"
 		"Требуется замена принтера.", dlg_yes, DLG_BTN_YES, al_center);
 	online = true;
 	pop_term_info();
@@ -909,24 +910,24 @@ static void show_lprn_nonumber_error(void)
 	redraw_term(true, main_title);
 }
 
-/* Инициализация ППУ */
-static bool init_lprn(void)
+/* Инициализация БПУ */
+static bool init_sprn(void)
 {
 	bool flag = false;
 	int ret;
-	if ((ret = lprn_get_status()) != LPRN_RET_OK)
+	if ((ret = sprn_get_status()) != SPRN_RET_OK)
 		;
-	else if (cfg.has_sd_card && (lprn_sd_status > 0x01)){
-		set_term_astate(ast_lprn_sd_err);
+	else if (cfg.has_sd_card && (sprn_sd_status > 0x01)){
+		set_term_astate(ast_sprn_sd_err);
 		need_lock_term = true;
-	}else if (lprn_status != 0)
+	}else if (sprn_status != 0)
 		set_term_astate(ast_sprn_err);
-	else if ((ret = lprn_init()) != LPRN_RET_OK)
-		need_lock_term = ret != LPRN_RET_RST;
-	else if (lprn_status != 0){
+	else if ((ret = sprn_init()) != SPRN_RET_OK)
+		need_lock_term = ret != SPRN_RET_RST;
+	else if (sprn_status != 0){
 		set_term_astate(ast_sprn_err);
-		if (lprn_status == 0x01)	/* номер ППУ не прописан в памяти */
-			show_lprn_nonumber_error();
+		if (sprn_status == 0x01)	/* номер БПУ не прописан в памяти */
+			show_sprn_nonumber_error();
 		need_lock_term = true;
 	}else{
 		flag = true;
@@ -935,8 +936,8 @@ static bool init_lprn(void)
 			write_cfg();
 		}
 	}
-	lprn_close();
-	if (!flag && (ret != LPRN_RET_RST)){
+	sprn_close();
+	if (!flag && (ret != SPRN_RET_RST)){
 		err_beep();
 		if (cfg.has_sprn){
 			cfg.has_sprn = false;
@@ -1077,7 +1078,7 @@ static void init_term(bool need_init)
 		aprn_init();
 	else
 		aprn_release();
-	lprn_close();
+	sprn_close();
 #if defined __WATCH_EXPRESS__
 	watch_transaction = false;
 #endif
@@ -1117,9 +1118,11 @@ static void init_term(bool need_init)
 	xprn_flush();
 	aprn_flush();
 	resp_handling = resp_executing = false;
-	if (cfg.bank_system)
-		pos_init_transactions();
 	clear_bank_info();
+	if (cfg.bank_system){
+		pos_caps_reset();
+		pos_init_transactions();
+	}
 	rollback_keys(true);
 	apc = false;
 	init_devices();
@@ -1190,6 +1193,13 @@ static inline bool open_logs(void)
 
 static bool create_term(void)
 {
+	set_log_lvl(
+#if defined NDEBUG
+		Debug
+#else
+		Debug
+#endif
+	);
 	if (!read_tki(STERM_TKI_NAME, false))
 		return false;
 	set_sigterm_handler();
@@ -1264,8 +1274,8 @@ static bool create_term(void)
 	init_kbd();
 	init_gd();
 	get_main_title();
-#if defined __LOG_LPRN__
-	lprn_create_log();
+#if defined __LOG_SPRN__
+	sprn_create_log();
 #endif
 	init_term(kt == key_reg);
 	redraw_term(true, main_title);
@@ -1364,7 +1374,7 @@ static void handle_channel(void)
 {
 	bool flag;
 	if (((_term_aux_state == ast_rejected) || (_term_aux_state == ast_repeat)) &&
-		(_term_state == st_none))
+			(_term_state == st_none))
 		guess_term_state();
 	flag = process_transport();
 	if (!full_resp)
@@ -1427,7 +1437,6 @@ static bool bad_repeat(struct kbd_event *e)
 		KEY_R,		/* Ctrl+К -- ОЗУ ключей */
 		KEY_S,		/* Ctrl+S -- основной/пригородный режим */
 		KEY_T,		/* Ctrl+Е -- ошибка в тексте ответа */
-		KEY_U,		/* Ctrl+U -- печать сохранённых образов бланков на ППУ */
 		KEY_X,		/* Ctrl+X -- БКЛ (КЛ2) */
 		KEY_Z,		/* Ctrl+Z -- получение номера БСО */
 	};
@@ -1609,7 +1618,7 @@ static uint32_t idx_to_kkt_log_stream(uint32_t idx)
 /* Обработчик окна настроек терминала */
 static int handle_options(struct kbd_event *e)
 {
-/* При вызове из process_options lprn_get_params возможно повторное вхождение */
+/* При вызове из process_options sprn_get_params возможно повторное вхождение */
 	static bool in_progress = false;
 	if (in_progress){
 		if (e->pressed && !e->repeated)
@@ -1622,12 +1631,12 @@ static int handle_options(struct kbd_event *e)
 			optn_get_items(&cfg);
 			cfg.kkt_log_stream = idx_to_kkt_log_stream(cfg.kkt_log_stream);
 #if defined INSERT_SPRN_CODE_HERE
-			if ((wm == wm_local) && lprn_params_read &&
-					(lprn_set_params(&cfg) == LPRN_RET_ERR)){
+			if ((wm == wm_local) && sprn_params_read &&
+					(sprn_set_params(&cfg) == SPRN_RET_ERR)){
 				ClearScreen(clBlack);
 				err_beep();
-				message_box("ОШИБКА ППУ", "Не удалось передать "
-					"параметры работы в ППУ.",
+				message_box("ОШИБКА БПУ", "Не удалось передать "
+					"параметры работы в БПУ.",
 					dlg_yes, DLG_BTN_YES, al_center);
 			}
 #endif		/* INSERT_SPRN_CODE_HERE */
@@ -2302,14 +2311,19 @@ static void show_ping(void)
 	}
 }
 
+bool can_show_pos(void)
+{
+	return cfg.bank_system && cfg.tickets_on_kkt &&
+		(TST_FLAG(ZBp, GDF_REQ_INIT | GDF_REQ_FIRST) == 0);
+}
+
 /* Показать окно POS-терминала */
 void show_pos(void)
 {
 #define POS_WIDTH		32
 #define POS_HEIGHT		8
 	GCPtr pGC;
-	if (!cfg.bank_system || !(cfg.tickets_on_kkt || cfg.has_xprn) ||
-			TST_FLAG(ZBp, GDF_REQ_INIT | GDF_REQ_FIRST)){
+	if (!can_show_pos()){
 		set_term_astate(ast_illegal);
 		err_beep();
 	}else if (pos_get_state() != pos_idle){
@@ -2971,7 +2985,7 @@ uint8_t n2hbyte(int n)
 
 /*
  * Пауза при обработке ответа. Также используется для блокировки терминала
- * в случае ошибок работы с ППУ. Возвращает false, если был сброс терминала.
+ * в случае ошибок работы с БПУ. Возвращает false, если был сброс терминала.
  */
 bool term_delay(int d)
 {
@@ -3008,7 +3022,7 @@ void guess_term_state(void)
 #define N_REMOTE_CHARS		40
 #define N_XPRN_CHARS		24
 #define N_APRN_CHARS		N_XPRN_CHARS
-#define N_LPRN_CHARS		40
+#define N_SPRN_CHARS		40
 
 /* Печать текста в режиме компостирования */
 static void print_text(void)
@@ -3337,7 +3351,11 @@ static bool need_handle_resp(void)
 static bool need_apc(void)
 {
 	bool ret = false;
-	if (cfg.kkt_apc && !cfg.ext_pos && resp_printed && has_kkt_data){
+	if (cfg.kkt_apc &&
+#if defined __EXT_POS__
+			!cfg.ext_pos &&
+#endif
+			resp_printed && has_kkt_data){
 		struct AD_state ads;
 		ret = AD_get_state(&ads);
 	}
@@ -3554,8 +3572,13 @@ static bool begin_x3data_sync(void)
 /* Вызывается при приходе ответа */
 static void on_response(bool *need_sync_dev_data)
 {
+	inline void set_sync_dev_data(bool sync)
+	{
+		if (need_sync_dev_data != NULL)
+			*need_sync_dev_data = sync;
+	}
 	into_on_response = true;
-	*need_sync_dev_data = false;
+	set_sync_dev_data(false);
 #if defined __WATCH_EXPRESS__
 	watch_transaction = false;
 #endif
@@ -3587,23 +3610,25 @@ static void on_response(bool *need_sync_dev_data)
 				on_response_pos();
 			else if ((req_type == req_grid_xprn) || (req_type == req_grid_kkt)){
 				on_response_grid();
-				*need_sync_dev_data = c_state != cs_hasreq;
+				set_sync_dev_data(c_state != cs_hasreq);
 			}else if ((req_type == req_icon_xprn) || (req_type == req_icon_kkt)){
 				on_response_icon();
-				*need_sync_dev_data = c_state != cs_hasreq;
+				set_sync_dev_data(c_state != cs_hasreq);
 			}else if (req_type == req_patterns){
 				on_response_patterns();
-				*need_sync_dev_data = c_state != cs_hasreq;
+				set_sync_dev_data(c_state != cs_hasreq);
 			}else if (req_type == req_xslt){
 				on_response_xslt();
-				*need_sync_dev_data = c_state != cs_hasreq;
+				set_sync_dev_data(c_state != cs_hasreq);
 			}else if (!execute_resp() && !rejecting_req)
 				show_req();
 			if ((req_type == req_regular) && (c_state != cs_hasreq)){
 				if (need_apc()){
+					log_dbg("Требуется автоматическая печать чеков.");
 					show_req();
 					apc = true;
 					int np = need_pos();
+					log_dbg("need_pos вернул %d.", np);
 					if (np == 1){
 						show_pos();
 						apc = pos_active;
@@ -3612,6 +3637,7 @@ static void on_response(bool *need_sync_dev_data)
 						apc = fa_active;
 					}else
 						apc = false;
+					log_dbg("apc = %d.", apc);
 				}else if (TST_FLAG(OBp, GDF_RESP_INIT)){
 					x3data_to_sync = need_x3_sync();
 					if (x3data_to_sync != X3_SYNC_NONE){
@@ -3649,14 +3675,14 @@ static void on_shell(void)
 /* Формирование номера бланка с контрольной суммой */
 static uint8_t *make_ticket_number(const uint8_t *src)
 {
-	static uint8_t number[LPRN_BLANK_NUMBER_LEN + 10];
+	static uint8_t number[SPRN_BLANK_NUMBER_LEN + 10];
 	int offs, i;
 	uint16_t crc;
 	uint8_t b;
 	number[0] = '(';
-	memcpy(number + 1, src, LPRN_BLANK_NUMBER_LEN);
-	number[LPRN_BLANK_NUMBER_LEN + 1] = ')';
-	crc = x3_crc(number, LPRN_BLANK_NUMBER_LEN + 2);
+	memcpy(number + 1, src, SPRN_BLANK_NUMBER_LEN);
+	number[SPRN_BLANK_NUMBER_LEN + 1] = ')';
+	crc = x3_crc(number, SPRN_BLANK_NUMBER_LEN + 2);
 	for (i = 0, offs = sizeof(number) - 1; i < 4; i++){
 		b = crc & 0x0f;
 		if (b < 10)
@@ -3670,7 +3696,7 @@ static uint8_t *make_ticket_number(const uint8_t *src)
 	return number;
 }
 
-/* Чтение из ППУ номера билета */
+/* Чтение из БПУ номера бланка */
 static void do_ticket_number(void)
 {
 	bool need_beep = true;
@@ -3680,34 +3706,34 @@ static void do_ticket_number(void)
 	else if (!scr_is_req()){
 		show_req();
 		need_beep = false;
-	}else if (lprn_get_status() != LPRN_RET_OK)
+	}else if (sprn_get_status() != SPRN_RET_OK)
 		;
-	else if (lprn_status != 0)
+	else if (sprn_status != 0)
 		set_term_astate(ast_sprn_err);
 	else{
-		if (lprn_get_media_type() != LPRN_RET_OK)
+		if (sprn_get_media_type() != SPRN_RET_OK)
 			;
-		else if (lprn_status != 0)
+		else if (sprn_status != 0)
 			set_term_astate(ast_sprn_err);
-		else if ((lprn_media != LPRN_MEDIA_BLANK) &&
-				(lprn_media != LPRN_MEDIA_BOTH))
+		else if ((sprn_media != SPRN_MEDIA_BLANK) &&
+				(sprn_media != SPRN_MEDIA_BOTH))
 			set_term_astate(ast_sprn_ch_media);
-		else if (lprn_get_blank_number() != LPRN_RET_OK)
+		else if (sprn_get_blank_number() != SPRN_RET_OK)
 			;
-		else if (lprn_status != 0)
+		else if (sprn_status != 0)
 			set_term_astate(ast_sprn_err);
 		else
 			need_beep = !input_chars(
-				make_ticket_number(lprn_blank_number),
-				sizeof(lprn_blank_number) + 10);
+				make_ticket_number(sprn_blank_number),
+				sizeof(sprn_blank_number) + 10);
 	}
-	lprn_close();
+	sprn_close();
 	if (need_beep)
 		err_beep();
 }
 
 /* Основной обработчик команд терминала */
-static bool process_term(void)
+bool process_term(void)
 {
 	static struct {
 		int cm;

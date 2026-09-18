@@ -15,8 +15,6 @@ extern "C" {
 #define STERM_TKI_NAME		_("sterm.dat")
 /* Имя файла банковской лицензии */
 #define BANK_LICENSE		_("bank.dat")
-/* Имя файла лицензии ППУ */
-#define LPRN_LICENSE		_("lprn.dat")
 /* Имя файла ЦКЛ */
 #define STERM_XLOG_NAME		_("express.log")
 /* Имя файла ЦКЛ в предыдущих версиях */
@@ -45,6 +43,9 @@ extern "C" {
 #define XPRN_FOLDER		_("xprn")
 /* Каталог, в котором хранятся логи терминала */
 #define LOG_FOLDER		_("log")
+/* Элементы имени файла логов по умолчанию */
+#define DEF_LOG_PREFIX		"log"
+#define DEF_LOG_EXT		"txt"
 
 #if defined __cplusplus
 }

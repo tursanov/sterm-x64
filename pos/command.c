@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "gui/fa.h"
 #include "gui/scr.h"
 #include "kkt/fd/ad.h"
 #include "kkt/kkt.h"
@@ -19,7 +20,9 @@
 bool pos_incomplete_op = false;
 
 /* Параметры запроса ИПТ */
-static struct pos_query_params pos_query_params;
+static struct pos_query_params pos_query_params/* = {
+	.mtype = MTYPE_UNKNOWN,
+}*/;
 
 static void clr_pos_query_params(void)
 {
@@ -114,6 +117,11 @@ void pos_clr_info(void)
 		pos_info.tms_id = NULL;
 	}
 	pos_info.servers = POS_DEF_SERVERS;
+	if (pos_info.pos_ids != NULL){
+		free((void *)pos_info.pos_ids);
+		pos_info.pos_ids = NULL;
+	}
+	pos_info.first_answer = false;
 	pos_info_req_sent = false;
 }
 
@@ -205,6 +213,8 @@ static int get_param_type(char *name)
 		{POS_PARAM_FAMIO_STR,		POS_PARAM_FAMIO},
 		{POS_PARAM_RFNDINFO_STR,	POS_PARAM_RFNDINFO},
 		{POS_PARAM_FRAGMENTATION_STR,	POS_PARAM_FRAGMENTATION},
+		{POS_PARAM_POS_IDS_STR,		POS_PARAM_POS_IDS},
+		{POS_PARAM_FIRST_ANSWER_STR,	POS_PARAM_FIRST_ANSWER},
 	};
 	if (name == NULL)
 		return POS_PARAM_UNKNOWN;
@@ -412,11 +422,21 @@ static void make_pos_info(void)
 				pos_info.servers = get_srv_list(p->value);
 				n++;
 				break;
+			case POS_PARAM_POS_IDS:
+				if (pos_info.pos_ids != NULL)
+					free((void *)pos_info.pos_ids);
+				pos_info.pos_ids = strdup(p->value);
+				n++;
+				break;
+			case POS_PARAM_FIRST_ANSWER:
+				pos_info.first_answer = true;
+				n++;
+				break;
 		}
 	}
 	pos_caps_set(pos_caps);
-	if (n > 0)
-		pos_reinit();
+/*	if (n > 0)
+		pos_reinit();*/
 }
 
 static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_only)
@@ -470,8 +490,13 @@ static bool pos_parse_response_parameters(struct pos_data_buf *buf, bool check_o
 		fmenu = false;
 		make_pos_resp(&pos_resp);
 		pos_send_empty();
-	}else if (pos_info_empty())
+	}else if (pos_info_empty()){
 		make_pos_info();
+		if (pos_get_state() == pos_qready){
+			pos_send_finish();
+			pos_set_state(pos_idle);
+		}
+	}
 	return true;
 }
 
@@ -737,7 +762,7 @@ bool pos_req_save_command_response_parameters(struct pos_data_buf *buf)
 		pos_request_param_t *p = req_param_list.params + i;
 		if (p->type == POS_PARAM_UNKNOWN)
 			continue;
-		else if ((p->type == POS_PARAM_MTYPE) && !pos_info_req_sent)
+		else if ((p->type == POS_PARAM_MTYPE) && (pos_get_state() == pos_qready))
 			continue;
 		else if (!pos_write_resp_param(buf, p->name, p->type, p->required))
 			return false;
@@ -823,25 +848,28 @@ bool pos_prepare_request_params(void)
 		{POS_PARAM_NMTYPE_STR,		POS_PARAM_NMTYPE,	false},
 		{POS_PARAM_NR_PARAMS_STR,	POS_PARAM_NR_PARAMS,	false},
 		{POS_PARAM_PARAMS_STR,		POS_PARAM_PARAMS,	false},
+		{POS_PARAM_POS_IDS_STR,		POS_PARAM_POS_IDS,	false},
 	};
 	return pos_prepare_request(params, ASIZE(params));
 }
 
+extern bool process_term(void);
+
 struct pos_response *pos_query(const struct pos_query_params *params)
 {
-	if (params == NULL)
+	if ((params == NULL) || !can_show_pos())
 		return NULL;
 	set_pos_query_params(params);
 	clr_pos_resp(&pos_resp);
+	ClearScreen(clBlack);
 	show_pos();
-	if ((pos_state == pos_new) || (pos_state == pos_idle))
-		return NULL;
-	while (pos_state != pos_new){
-		if (get_cmd(false, true) == cmd_reset){
-			if (reset_term(false))
-				return NULL;
-		}
+	while ((pos_get_state() != pos_new) && (pos_get_state() != pos_idle)){
+		process_term();
+		if (pos_get_state() == pos_new)		/* сброс терминала */
+			return NULL;
 	}
+	ClearScreen(clBlack);
+	draw_fa();
 	return &pos_resp;
 }
 
@@ -857,6 +885,8 @@ bool pos_prepare_request_info(void)
 		{POS_PARAM_OSVERSION_STR,	POS_PARAM_OSVERSION,	false},
 		{POS_PARAM_TMS_ID_STR,		POS_PARAM_TMS_ID,	false},
 		{POS_PARAM_SERVERS_STR,		POS_PARAM_SERVERS,	false},
+		{POS_PARAM_POS_IDS_STR,		POS_PARAM_POS_IDS,	false},
+		{POS_PARAM_FIRST_ANSWER_STR,	POS_PARAM_FIRST_ANSWER,	false},
 	};
 	return pos_prepare_request(params, ASIZE(params));
 }

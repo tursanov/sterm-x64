@@ -1,4 +1,4 @@
-/* Настройка параметров терминала. (c) gsr & alex 2000-2004, 2018-2020. */
+/* Настройка параметров терминала. (c) gsr & alex 2000-2004, 2018-2020, 2026. */
 
 #include <sys/socket.h>
 #include <sys/times.h>
@@ -19,7 +19,7 @@
 #include "kkt/kkt.h"
 #include "log/express.h"
 #include "prn/express.h"
-#include "prn/local.h"
+#include "prn/sprn.h"
 #include "cfg.h"
 #include "devinfo.h"
 #include "iplir.h"
@@ -109,6 +109,7 @@ static void on_xprn_change(struct optn_item *item);
 static void on_tickets_on_kkt_change(struct optn_item *item);
 static void on_aprn_change(struct optn_item *item);
 #endif
+static void on_sprn_change(struct optn_item *item);
 static void on_bank_change(struct optn_item *item);
 static void on_kkt_change(struct optn_item *item);
 static void on_fdo_iface_change(struct optn_item *item);
@@ -123,13 +124,6 @@ static bool on_exit_bank_system(const struct optn_group *group);
 static bool scheme_shown = false;
 static bool scheme_changed = false;
 
-/*
- * Параметры БПУ при входе в меню "Внешние устройства" должны читаться
- * только один раз.
- */
-//bool lprn_params_read = false;
-//static const char lprn_hdr[] = "БПУ-----------";
-
 /* TCP/IP */
 static const char *optn_use_ppp[] = {"Сетевая карта", "PPP"};
 static const char *optn_cbt[]={"Хост-ЭВМ", "Терминал"};
@@ -138,6 +132,11 @@ static const char *optn_cbt[]={"Хост-ЭВМ", "Терминал"};
 static const char *optn_dial_mode[] = {"Импульсный", "Тоновый"};
 static const char *optn_ppp_auth[] = {"Chat", "PAP", "CHAP"};
 static const char *optn_ppp_rtscts[] = {"XON/XOFF", "RTS/CTS"};
+
+/* БПУ */
+/* Параметры БПУ при входе в меню "БПУ" должны читаться только один раз */
+static bool sprn_params_read = false;
+static const char sprn_hdr[] = "БПУ-----------";
 
 /* ККТ */
 static const char *optn_fdo_iface[] = {"USB", "Ethernet", "GPRS", "Внутр."};
@@ -326,42 +325,6 @@ static struct optn_item sys_optn_items[] = {
 		use_iplir, on_iplir_change),
 };
 
-/* Внешние устройства */
-#if 0
-static struct optn_item dev_optn_items[] = {
-/*	OPTN_BOOL2("ОПУ", "Наличие основного принтера в составе\r\nтерминала",
-		has_xprn, on_xprn_change),
-	OPTN_STR_EDIT("Номер ОПУ", "Заводской номер основного\r\nпечатающего устройства",
-		PRN_NUMBER_LEN, xprn_number, NULL),*/
-/*	OPTN_BOOL2("БПУ", "Наличие в составе терминала БПУ",
-		has_sprn, NULL),
-	OPTN_STATIC("Номер БПУ", (const char *)lprn_number, sizeof(lprn_number)),*/
-/*	OPTN_STATIC("------Параметры печати", lprn_hdr, sizeof(lprn_hdr) - 1),
-	OPTN_INT_EDIT("Длина бланка", "Длина документа в мм", s0, NULL),
-	OPTN_INT_EDIT("Ширина бланка", "Ширина документа в мм", s1, NULL),
-	OPTN_INT_EDIT("Расст. до штрих-кода", "Расстояние до считываемого\r\n"
-		"штрих-кода в мм", s2, NULL),
-	OPTN_INT_EDIT("Левая граница текста", "Левая граница текста в мм", s3, NULL),
-	OPTN_INT_EDIT("Первая строка текста", "Позиция первой строки текста в мм",
-		s4, NULL),
-	OPTN_INT_EDIT("Позиция штрих-кода #1", "Позиция печати штрих-кода #1 в мм",
-		s5, NULL),
-	OPTN_INT_EDIT("Позиция штрих-кода #2", "Позиция печати штрих-кода #2 в мм",
-		s6, NULL),
-	OPTN_INT_EDIT("Межстрочный интервал", "Межстрочный интервал в точках\r\n"
-		"(1 точка = 1/8 мм)", s7, NULL),
-	OPTN_INT_EDIT("Коррекция отреза", "Константа коррекции отреза\r\n"
-		"по реперной метке в точках\r\n(1 точка = 1/8 мм)", s8, NULL),
-	OPTN_INT_EDIT("Коррекция левой гр. КЛ", "Константа коррекции левой границы\r\n"
-		"контрольной ленты в точках\r\n(1 точка = 1/8 мм)", s9, NULL),*/
-/*	OPTN_BOOL1("Печать на ККТ", "Печать проездных документов на ККТ\r\n"
-		"ВНИМАНИЕ: категорически запрещается\r\n"
-		"устанавливать переключатель в положение\r\n"
-		"\"Да\" без специального указания!",
-		tickets_on_kkt, on_tickets_on_kkt_change),*/
-};
-#endif
-
 /* TCP/IP */
 static struct optn_item ip_optn_items[] = {
 	OPTN_ENUM("Тип подключения", "Тип подключения терминала\r\nк СПД",
@@ -398,6 +361,31 @@ static struct optn_item ppp_optn_items[] = {
 		"по коммутируемой линии", OPTN_STR_EDIT_LEN, ppp_passwd, NULL),
 	OPTN_STR_ENUM("Упр. модемом", "Способ управления модемом",
 		optn_ppp_rtscts, ini_bool, ppp_crtscts, NULL),
+};
+
+/* БПУ */
+static struct optn_item sprn_optn_items[] = {
+	OPTN_BOOL2("БПУ", "Наличие в составе терминала БПУ",
+		has_sprn, on_sprn_change),
+	OPTN_STATIC("Номер БПУ", (const char *)sprn_number, sizeof(sprn_number)),
+	OPTN_STATIC("------Параметры печати", sprn_hdr, sizeof(sprn_hdr) - 1),
+	OPTN_INT_EDIT("Длина бланка", "Длина документа в мм", s0, NULL),
+	OPTN_INT_EDIT("Ширина бланка", "Ширина документа в мм", s1, NULL),
+	OPTN_INT_EDIT("Расст. до штрих-кода", "Расстояние до считываемого\r\n"
+		"штрих-кода в мм", s2, NULL),
+	OPTN_INT_EDIT("Левая граница текста", "Левая граница текста в мм", s3, NULL),
+	OPTN_INT_EDIT("Первая строка текста", "Позиция первой строки текста в мм",
+		s4, NULL),
+	OPTN_INT_EDIT("Позиция штрих-кода #1", "Позиция печати штрих-кода #1 в мм",
+		s5, NULL),
+	OPTN_INT_EDIT("Позиция штрих-кода #2", "Позиция печати штрих-кода #2 в мм",
+		s6, NULL),
+	OPTN_INT_EDIT("Межстрочный интервал", "Межстрочный интервал в точках\r\n"
+		"(1 точка = 1/8 мм)", s7, NULL),
+	OPTN_INT_EDIT("Коррекция отреза", "Константа коррекции отреза\r\n"
+		"по реперной метке в точках\r\n(1 точка = 1/8 мм)", s8, NULL),
+	OPTN_INT_EDIT("Коррекция левой гр.КЛ", "Константа коррекции левой границы\r\n"
+		"контрольной ленты в точках\r\n(1 точка = 1/8 мм)", s9, NULL),
 };
 
 /* ИПТ */
@@ -509,9 +497,9 @@ static struct optn_item kbd_optn_items[] = {
 enum {
 	OPTN_GROUP_MENU = -1,
 	OPTN_GROUP_SYSTEM,
-//	OPTN_GROUP_DEVICES,
 	OPTN_GROUP_TCPIP,
 	OPTN_GROUP_PPP,
+	OPTN_GROUP_SPRN,
 	OPTN_GROUP_BANK,
 	OPTN_GROUP_KKT,
 	OPTN_GROUP_KKT_DOCS,
@@ -521,12 +509,11 @@ enum {
 
 static struct optn_group optn_groups[] = {
 	{"Системные настройки", sys_optn_items, ASIZE(sys_optn_items), NULL},
-/*	{"Внешние устройства", dev_optn_items, ASIZE(dev_optn_items),
-		on_exit_devices},*/
 	{"Настройки TCP/IP", ip_optn_items, ASIZE(ip_optn_items),
 		on_exit_check_ip},
 	{"Настройки PPP", ppp_optn_items, ASIZE(ppp_optn_items),
 		on_exit_ppp},
+	{"БПУ", sprn_optn_items, ASIZE(sprn_optn_items), NULL},
 	{"ИПТ \"Экспресс\"", bank_optn_items, ASIZE(bank_optn_items),
 		on_exit_bank_system},
 	{"ККТ", kkt_optn_items, ASIZE(kkt_optn_items), NULL},
@@ -932,21 +919,20 @@ static bool __optn_set_item_enable(int offset, bool enable)
 #define optn_enable_item(fld) optn_set_item_enable(fld, true)
 #define optn_disable_item(fld) optn_set_item_enable(fld, false)
 
-#if 0
 /*
  * Разрешение/запрещение редактирования параметров БСО БПУ в зависимости
  * от режима работы.
  */
 static void adjust_sprn_params(bool enable)
 {
-	struct optn_group *grp = optn_groups + OPTN_GROUP_DEVICES;
+	struct optn_group *grp = optn_groups + OPTN_GROUP_SPRN;
 	struct optn_item *itm;
 	if (enable)
-		grp->n_items = ASIZE(dev_optn_items);
+		grp->n_items = ASIZE(sprn_optn_items);
 	else{
 		bool found = false;
 		for (grp->n_items = 0, itm = grp->items;
-				!found && (grp->n_items < ASIZE(dev_optn_items));
+				!found && (grp->n_items < ASIZE(sprn_optn_items));
 				grp->n_items++, itm++){
 			if (itm->offset == -1)
 				continue;
@@ -955,16 +941,15 @@ static void adjust_sprn_params(bool enable)
 		}
 	}
 }
-#endif
 
 /* Работа с меню настроек */
 static bool optn_create_menu(void)
 {
 	optn_menu = new_menu(false, false);
 	add_menu_item(optn_menu, new_menu_item("Системные установки", cmd_sys_optn, true));
-//	add_menu_item(optn_menu, new_menu_item("Внешние устройства", cmd_dev_optn, true));
 	add_menu_item(optn_menu, new_menu_item("Настройки TCP/IP", cmd_tcpip_optn, true));
 	add_menu_item(optn_menu, new_menu_item("Настройки PPP", cmd_ppp_optn, true));
+	add_menu_item(optn_menu, new_menu_item("БПУ", cmd_sprn_optn, true));
 	add_menu_item(optn_menu, new_menu_item("ИПТ \"Экспресс\"", cmd_bank_optn, bank_ok));
 	add_menu_item(optn_menu, new_menu_item("ККТ", cmd_kkt_optn, true));
 	add_menu_item(optn_menu, new_menu_item("Документы ККТ", cmd_kkt_docs_optn, true));
@@ -1228,7 +1213,7 @@ void init_options(void)
 	for (i = 0; i < ASIZE(optn_groups); i++)
 		optn_read_group(&cfg, i);
 	optn_set_group(OPTN_GROUP_MENU);
-//	lprn_params_read = false;
+	sprn_params_read = false;
 }
 
 void release_options(bool need_clear)
@@ -2127,22 +2112,22 @@ static bool on_exit_bank_system(const struct optn_group *group)
 
 #if 0
 /* Получение настроек БПУ */
-static void get_lprn_params(void)
+static void get_sprn_params(void)
 {
 #if defined INSERT_SPRN_CODE_HERE
 	if ((wm != wm_local) || (kt != key_dbg))
 		adjust_sprn_params(false);
 	else
 #endif		/* INSERT_SPRN_CODE_HERE */
-	if (lprn_params_read)
+	if (sprn_params_read)
 		adjust_sprn_params(true);
 	else{
-		int ret = lprn_get_params(&cfg);
-		if (ret == LPRN_RET_OK){
-			lprn_params_read = true;
-			optn_read_group(&cfg, OPTN_GROUP_DEVICES);
+		int ret = sprn_get_params(&cfg);
+		if (ret == SPRN_RET_OK){
+			sprn_params_read = true;
+			optn_read_group(&cfg, OPTN_GROUP_SPRN);
 			adjust_sprn_params(true);
-		}else if (ret == LPRN_RET_ERR){
+		}else if (ret == SPRN_RET_ERR){
 			ClearScreen(clBlack);
 			err_beep();
 			message_box("ОШИБКА БПУ", "Не удалось получить параметры работы БПУ.",
@@ -2165,15 +2150,15 @@ bool process_options(const struct kbd_event *e)
 				case cmd_sys_optn:
 					optn_set_group(OPTN_GROUP_SYSTEM);
 					break;
-/*				case cmd_dev_optn:
-//					get_lprn_params();
-					optn_set_group(OPTN_GROUP_DEVICES);
-					break;*/
 				case cmd_tcpip_optn:
 					optn_set_group(OPTN_GROUP_TCPIP);
 					break;
 				case cmd_ppp_optn:
 					optn_set_group(OPTN_GROUP_PPP);
+					break;
+				case cmd_sprn_optn:
+//					get_sprn_params();
+					optn_set_group(OPTN_GROUP_SPRN);
 					break;
 				case cmd_bank_optn:
 					optn_set_group(OPTN_GROUP_BANK);
@@ -2191,7 +2176,8 @@ bool process_options(const struct kbd_event *e)
 					optn_set_group(OPTN_GROUP_KBD);
 					break;
 				case cmd_store_optn:
-					optn_cm = cmd_store_optn;	/* fall through */
+					optn_cm = cmd_store_optn;
+					__fallthrough__;
 				default:
 					return false;
 			}
@@ -2218,6 +2204,13 @@ static void on_iplir_change(struct optn_item *item)
 {
 	if (item != NULL)
 		item->enabled = !iplir_disabled;
+}
+
+/* Вызывается при включении/выключении флага наличия БПУ */
+static void on_sprn_change(struct optn_item *item)
+{
+	if (item != NULL)
+		adjust_sprn_params(item->vv.flag);
 }
 
 #if 0

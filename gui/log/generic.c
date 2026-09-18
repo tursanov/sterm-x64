@@ -9,7 +9,7 @@
 #include "gui/status.h"
 #include "kkt/cmd.h"
 #include "prn/express.h"
-#include "prn/local.h"
+#include "prn/sprn.h"
 #include "cfg.h"
 #include "kbd.h"
 #include "paths.h"
@@ -292,7 +292,7 @@ int log_get_cmd_len(const uint8_t *data, uint32_t len, int index)
 		case X_REPEAT:
 			ret = 3;
 			break;
-		case LPRN_INTERLINE:
+		case SPRN_INTERLINE:
 			ret = 4;
 			break;
 		case KKT_GRID:
@@ -305,7 +305,7 @@ int log_get_cmd_len(const uint8_t *data, uint32_t len, int index)
 		case XPRN_RD_BCODE:
 			ret = log_get_bcode_len(data, len, index);
 			break;
-		case LPRN_WR_BCODE2:
+		case SPRN_WR_BCODE2:
 			ret = log_get_bcode2_len(data, len, index);
 			break;
 		case XPRN_PRNOP:

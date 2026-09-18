@@ -655,7 +655,8 @@ static int get_unprintable_len(uint8_t cmd)
 			switch (b){
 				case XPRN_PRNOP_VPOS_BK:
 				case XPRN_PRNOP_VPOS_ABS:
-					flag = false;		/* fall through */
+					flag = false;
+					__fallthrough__;
 				case XPRN_PRNOP_HPOS_RIGHT:
 				case XPRN_PRNOP_HPOS_LEFT:
 				case XPRN_PRNOP_HPOS_ABS:

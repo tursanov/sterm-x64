@@ -6,7 +6,7 @@ LOG_OBJS =		\
 	aux		\
 	express		\
 	generic		\
-	local
+	sprn
 
 OBJS = $(addsuffix .o, $(LOG_OBJS))
 

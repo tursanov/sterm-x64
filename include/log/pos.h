@@ -12,7 +12,7 @@ extern "C" {
 
 #include <time.h>
 #include "log/generic.h"
-#include "prn/local.h"
+#include "prn/sprn.h"
 #include "blimits.h"
 #include "cfg.h"
 #include "ds1990a.h"
@@ -44,7 +44,7 @@ struct plog_rec_header {
 	term_number tn;		/* заводской номер терминала, сделавшего запись */
 	uint8_t xprn_number[PRN_NUMBER_LEN];	/* заводской номер ОПУ */
 	uint8_t aprn_number[PRN_NUMBER_LEN];	/* заводской номер ДПУ */
-	uint8_t lprn_number[LPRN_NUMBER_LEN];	/* заводской номер ППУ */
+	uint8_t sprn_number[SPRN_NUMBER_LEN];	/* заводской номер БПУ */
 	ds_number dsn;		/* номер ключа DS1990A в момент создания записи */
 	int ds_type;		/* тип ключа DS1990A */
 	uint32_t crc32;		/* контрольная сумма записи вместе с заголовком */

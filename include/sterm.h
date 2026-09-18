@@ -66,9 +66,9 @@ enum {
 	cmd_wakeup,
 	cmd_view_error,
 	cmd_sys_optn,
-//	cmd_dev_optn,
 	cmd_tcpip_optn,
 	cmd_ppp_optn,
+	cmd_sprn_optn,
 	cmd_bank_optn,
 	cmd_kkt_optn,
 	cmd_kkt_docs_optn,
@@ -195,6 +195,7 @@ extern int	get_cmd(bool check_scr, bool busy);
 extern bool	reset_term(bool force);
 extern void	hangup_ppp(void);
 extern void	x3data_sync_report_dlg(void);
+extern bool	can_show_pos(void);
 extern void	show_pos(void);
 
 #define RET_NORMAL		0

@@ -63,7 +63,7 @@ extern "C" {
 #define RSTATUS_TXT_COLOR	STATUS_TXT_COLOR
 #define RSTATUS_BG_COLOR	STATUS_BG_COLOR
 #define RSTATUS_BG_COLOR_A	RGB(0xe0, 0xff, 0xff)
-/* Используется для вывода сообщений об ошибках ППУ */
+/* Используется для вывода сообщений об ошибках БПУ */
 #define RSTATUS_TXT_COLOR_ALRM	clYellow
 #define RSTATUS_BG_COLOR_ALRM	clRed
 

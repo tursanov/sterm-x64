@@ -13,7 +13,7 @@
 #include "gui/scr.h"
 #include "gui/status.h"
 #include "prn/express.h"
-#include "prn/local.h"
+#include "prn/sprn.h"
 #include "sterm.h"
 
 static int xprn = -1;
@@ -263,7 +263,7 @@ bool xprn_print(const uint8_t *txt, int l)
 			uint8_t ch = ptr[i] & 0x7f;
 			if (dle){
 				dle = false;
-				if ((ch == LPRN_NO_BCODE) && cfg.tickets_on_kkt)
+				if ((ch == SPRN_NO_BCODE) && cfg.tickets_on_kkt)
 					ch = XPRN_NO_BCODE;
 			}else
 				dle = ch == XPRN_DLE;

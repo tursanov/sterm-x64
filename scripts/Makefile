@@ -7,17 +7,13 @@ BINARIES =		\
 	bnklic		\
 	dircmp		\
 	dsd		\
-	lprnlic		\
 	mwl		\
 	rmbnklic	\
 	rmbnklicx	\
-	rmlprnlic	\
-	rmlprnlicx	\
 	tpld		\
 	tstbeep		\
 	tstcom		\
-	unlkbnk		\
-	unlklprn
+	unlkbnk
 
 BASE_OBJS =		\
 	base64		\
@@ -40,18 +36,14 @@ SCRIPTS_OBJS =		\
 	bnklic		\
 	dircmp		\
 	dsd		\
-	lprnlic		\
 	mwl		\
 	rmlic		\
 	rmbnklic	\
 	rmbnklicx	\
-	rmlprnlic	\
-	rmlprnlicx	\
 	tpld		\
 	tstbeep		\
 	tstcom		\
 	unlkbnk		\
-	unlklprn	\
 	unlock
 
 DIR_BASE = ../base/
@@ -114,22 +106,6 @@ dsd:		$(DSD_OBJS)
 		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
-## lprnlic
-LPRNLIC_BASE_OBJS =	\
-	licsig		\
-	md5
-
-LPRNLIC_SCRIPTS_OBJS =	\
-	lprnlic
-
-LPRNLIC_OBJS =		\
-	$(addprefix $(DIR_BASE), $(addsuffix .o, $(LPRNLIC_BASE_OBJS))) \
-	$(addsuffix .o, $(LPRNLIC_SCRIPTS_OBJS))
-
-lprnlic:	$(LPRNLIC_OBJS)
-		$(LD_BANNER)
-		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
-
 ## mwl
 MWL_BASE_OBJS =		\
 	base64		\
@@ -184,44 +160,6 @@ RMBNKLICX_OBJS =	\
 	$(addsuffix .o, $(RMBNKLICX_SCRIPTS_OBJS))
 
 rmbnklicx:	$(RMBNKLICX_OBJS)
-		$(LD_BANNER)
-		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
-
-## rmlprnlic
-RMLPRNLIC_BASE_OBJS =	\
-	licsig		\
-	md5		\
-	rndtbl
-
-RMLPRNLIC_SCRIPTS_OBJS =\
-	rmlprnlic	\
-	rmlic
-
-RMLPRNLIC_OBJS =	\
-	$(addprefix $(DIR_BASE), $(addsuffix .o, $(RMLPRNLIC_BASE_OBJS))) \
-	$(addsuffix .o, $(RMLPRNLIC_SCRIPTS_OBJS))
-
-rmlprnlic:	$(RMLPRNLIC_OBJS)
-		$(LD_BANNER)
-		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
-
-## rmlprnlicx
-RMLPRNLICX_BASE_OBJS =	\
-	base64		\
-	licsig		\
-	md5		\
-	rndtbl		\
-	tki
-
-RMLPRNLICX_SCRIPTS_OBJS =	\
-	rmlprnlicx	\
-	rmlic
-
-RMLPRNLICX_OBJS =	\
-	$(addprefix $(DIR_BASE), $(addsuffix .o, $(RMLPRNLICX_BASE_OBJS))) \
-	$(addsuffix .o, $(RMLPRNLICX_SCRIPTS_OBJS))
-
-rmlprnlicx:	$(RMLPRNLICX_OBJS)
 		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
@@ -286,23 +224,6 @@ UNLKBNK_OBJS =		\
 	$(addsuffix .o, $(UNLKBNK_SCRIPTS_OBJS))
 
 unlkbnk:	$(UNLKBNK_OBJS)
-		$(LD_BANNER)
-		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
-
-## unlklprn
-UNLKLPRN_BASE_OBJS =	\
-	licsig		\
-	md5
-
-UNLKLPRN_SCRIPTS_OBJS =	\
-	unlklprn	\
-	unlock
-
-UNLKLPRN_OBJS =		\
-	$(addprefix $(DIR_BASE), $(addsuffix .o, $(UNLKLPRN_BASE_OBJS))) \
-	$(addsuffix .o, $(UNLKLPRN_SCRIPTS_OBJS))
-
-unlklprn:	$(UNLKLPRN_OBJS)
 		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 

@@ -7,7 +7,6 @@ BINARIES =		\
 	chkrmlic	\
 	mkbind		\
 	mkbnklic	\
-	mklprnlic	\
 	mklog		\
 	mw
 
@@ -26,7 +25,6 @@ HELPERS_OBJS =		\
 	mkbnklic	\
 	mklic		\
 	mklog		\
-	mklprnlic	\
 	mw
 
 DIR_BASE = ../base/
@@ -110,25 +108,6 @@ MKLOG_OBJS =		\
 	$(addsuffix .o, $(MKLOG_HELPERS_OBJS))
 
 mklog:		$(MKLOG_OBJS)
-		$(LD_BANNER)
-		@$(CC) $(CFLAGS) -o $@ $^
-
-## mklprnlic
-MKLPRNLIC_BASE_OBJS =	\
-	base64		\
-	md5		\
-	tki
-
-MKLPRNLIC_HELPERS_OBJS =\
-	licsig		\
-	mklic		\
-	mklprnlic
-
-MKLPRNLIC_OBJS =	\
-	$(addprefix $(DIR_BASE), $(addsuffix .o, $(MKLPRNLIC_BASE_OBJS))) \
-	$(addsuffix .o, $(MKLPRNLIC_HELPERS_OBJS))
-
-mklprnlic:	$(MKLPRNLIC_OBJS)
 		$(LD_BANNER)
 		@$(CC) $(CFLAGS) -o $@ $^
 

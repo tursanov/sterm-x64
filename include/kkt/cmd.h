@@ -135,14 +135,14 @@ extern "C" {
 #define MAX_ECHO_LEN		4000		/* максимальная длина данных */
 
 /* Работа с разметками бланков (внутренняя команда) */
-#define KKT_GRID_LOAD		0xa8		/* загрузка разметки в БПУ */
+#define KKT_GRID_LOAD		0xa8		/* загрузка разметки */
 #define KKT_GRID_LST		0xa9		/* получение списка разметок */
 #define KKT_GRID_UPLOAD		0xaa		/* получение разметки бланка */
 #define KKT_GRID_ERASE		0xab		/* удаление разметки бланка */
 #define KKT_GRID_ERASE_ALL	0xac		/* удаление всех разметок бланков */
 
 /* Работа с пиктограммами (внутренняя команда) */
-#define KKT_ICON_LOAD		0xb8		/* загрузка пиктограмм в БПУ */
+#define KKT_ICON_LOAD		0xb8		/* загрузка пиктограмм */
 #define KKT_ICON_LST		0xb9		/* получение списка пиктограмм */
 #define KKT_ICON_UPLOAD		0xba		/* получение пиктограммы */
 #define KKT_ICON_ERASE_ALL	0xbc		/* удаление всех пиктограмм */

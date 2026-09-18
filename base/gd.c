@@ -17,7 +17,7 @@
 #include "pos/error.h"
 #include "pos/pos.h"
 #include "prn/express.h"
-#include "prn/local.h"
+#include "prn/sprn.h"
 #include "cfg.h"
 #include "genfunc.h"
 #include "numbers.h"
@@ -232,10 +232,10 @@ static void write_prn_info(void)
 		req_buf[req_len++] = recode(number[i]);
 /* Номер билетопечатающего устройства (БПУ) */
 	if (cfg.has_sprn)
-		memcpy(req_buf + req_len, lprn_number, sizeof(lprn_number));
+		memcpy(req_buf + req_len, sprn_number, sizeof(sprn_number));
 	else
-		memset(req_buf + req_len, 0x30, sizeof(lprn_number));
-	req_len += sizeof(lprn_number);
+		memset(req_buf + req_len, 0x30, sizeof(sprn_number));
+	req_len += sizeof(sprn_number);
 }
 
 /* Запись в текст заказа информации о версии терминала */
@@ -364,7 +364,7 @@ void slayer_error(int e)
 				break;
 		}
 		c_state = cs_nc;
-		if (pos_active && (pos_state == pos_printing))
+		if (pos_active && (pos_get_state() == pos_printing))
 			pos_set_error(POS_ERROR_CLASS_PRINTER, POS_ERR_PRN, 0);
 	}
 	if (cfg.tcp_cbt || (gd_error_type(e) == gde_tcp))

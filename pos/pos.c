@@ -25,6 +25,11 @@
 /* Возможности ИПТ */
 static uint32_t pos_caps = POS_CAPS_UNK;
 
+bool pos_caps_known(void)
+{
+	return pos_caps != POS_CAPS_UNK;
+}
+
 bool pos_caps_supported(uint32_t caps)
 {
 	return (pos_caps != POS_CAPS_UNK) && ((pos_caps & caps) == caps);
@@ -337,7 +342,7 @@ bool pos_req_stream_end(struct pos_data_buf *buf)
 	return true;
 }
 
-int pos_state = pos_new;
+static int pos_state = pos_new;
 /* Используется для периодического опроса POS-эмулятора */
 uint32_t pos_t0 = 0;
 /* На пустой запрос пришел ответ в течение заданного таймаута */
@@ -432,7 +437,7 @@ bool pos_send_params_req(void)
 }
 
 
-static bool pos_send_finish(void)
+bool pos_send_finish(void)
 {
 	pos_req_begin(&pos_buf_tx);
 	pos_req_save_command_finish(&pos_buf_tx);
@@ -478,17 +483,18 @@ int pos_get_state(void)
 	return pos_state;
 }
 
-void pos_print_state(int st)
+static const char *pos_get_state_str(int st)
 {
 	static struct {
 		int st;
-		char *name;
-	} states[] = {
+		const char *txt;
+	} map[] = {
 		{pos_new,		"pos_new"},
 		{pos_init_check,	"pos_init_check"},
 		{pos_idle,		"pos_idle"},
 		{pos_init,		"pos_init"},
 		{pos_ready,		"pos_ready"},
+		{pos_qready,		"pos_qready"},
 		{pos_enter,		"pos_enter"},
 		{pos_print,		"pos_print"},
 		{pos_printing,		"pos_printing"},
@@ -499,19 +505,25 @@ void pos_print_state(int st)
 		{pos_wait,		"pos_wait"},
 		{pos_ewait,		"pos_ewait"},
 	};
-	int i;
-	for (i = 0; i < ASIZE(states); i++){
-		if (st == states[i].st){
-			printf(states[i].name);
+	const char *ret = NULL;
+	for (int i = 0; i < ASIZE(map); i++){
+		if (st == map[i].st){
+			ret = map[i].txt;
 			break;
 		}
 	}
-	if (i == ASIZE(states))
-		printf("???");
+	if (ret == NULL){
+		static char buf[10];
+		snprintf(buf, sizeof(buf), "[%d]", st);
+		ret = buf;
+	}
+	return ret;
 }
 
 void pos_set_state(int st)
 {
+	if (pos_state != st)
+		log_dbg("%s -> %s.", pos_get_state_str(pos_state), pos_get_state_str(st));
 	pos_state = st;
 }
 
@@ -533,7 +545,7 @@ static void pos_close(bool close_com)
 		pos_serial_close();
 }
 
-bool pos_reinit(void)
+/*bool pos_reinit(void)
 {
 	bool ret = pos_send_finish();
 	if (ret){
@@ -541,7 +553,7 @@ bool pos_reinit(void)
 		ret = pos_send_init(false);
 	}
 	return ret;
-}
+}*/
 
 /* Обработка различных состояний конечного автомата POS-эмулятора */
 
@@ -552,6 +564,8 @@ static void on_pos_new(uint32_t t __attribute__((unused)))
 	pos_incomplete_op = false;
 	if (pos_open() && pos_send_init_check())
 		pos_set_state(pos_init_check);
+	else
+		pos_set_state(pos_none);
 }
 
 static void on_pos_init_check(uint32_t t)
@@ -560,23 +574,21 @@ static void on_pos_init_check(uint32_t t)
 	if (pos_serial_peek_msg()){
 		pos_serial_get_msg(&pos_buf_rx);
 		if (pos_parse_resp(&pos_buf_rx)){
-			pos_close(true);
-			pos_set_state(pos_idle);
+			if (pos_caps_known())
+				pos_set_state(pos_idle);
+			else if (pos_send_init(true))
+				pos_set_state(pos_qready);
+			else
+				pos_set_state(pos_idle);
 		}else
-			pos_set_state(pos_new);
-	}else if (dt > MAX_POS_TIMEOUT){
-		pos_close(true);
-		pos_set_state(pos_new);
-	}
-}
-
-static void on_pos_idle(uint32_t t __attribute__((unused)))
-{
+			pos_set_state(pos_idle);
+	}else if (dt > POS_TIMEOUT)
+		pos_set_state(pos_idle);
 }
 
 static void on_pos_init(uint32_t t __attribute__((unused)))
 {
-	if (pos_open() && pos_send_init(true)){
+	if (pos_open() && pos_send_init(false)){
 		pos_write_scr(&pos_buf_rx, "ИДЕТ СОЕДИНЕНИЕ С POS-ЭМУЛЯТОРОМ",
 				GREEN, BLACK);
 		pos_parse_resp(&pos_buf_rx);	/* вывод надписи на экран */
@@ -609,6 +621,27 @@ static void on_pos_ready(uint32_t t)
 				pos_set_error(POS_ERROR_CLASS_SYSTEM,
 					POS_ERR_TIMEOUT, 0);
 		}else if ((pos_get_state() == pos_ready) && pos_serial_is_free())
+			pos_send_empty();
+	}
+}
+
+static void on_pos_qready(uint32_t t)
+{
+	uint32_t dt = t - pos_t0;
+	if (pos_serial_peek_msg()){
+		pos_serial_get_msg(&pos_buf_rx);
+		pos_parse_resp(&pos_buf_rx);
+		if (pos_buf_rx.un.hdr.msg.nr_blocks == 0){
+			if (!pos_info_req_sent)
+				pos_info_req_sent = pos_prepare_request_info() &&
+					pos_send_params_req();
+		}
+	}else if (dt > POS_TIMEOUT){
+		if (!poll_ok){
+			if (dt > MAX_POS_TIMEOUT)
+				pos_set_error(POS_ERROR_CLASS_SYSTEM,
+					POS_ERR_TIMEOUT, 0);
+		}else if ((pos_get_state() == pos_qready) && pos_serial_is_free())
 			pos_send_empty();
 	}
 }
@@ -662,8 +695,8 @@ void on_response_pos(void)
 	int pos_para = -1;
 	if (find_pos_data(&pos_para) && (pos_para != -1)){
 		size_t pos_len = handle_para(pos_para);
-/*		log_info("Обнаружены данные квитанции ИПТ (абзац #%d; %zd байт).",
-			pos_para + 1, pos_len);*/
+		log_info("Обнаружены данные квитанции ИПТ (абзац #%d; %zd байт).",
+			pos_para + 1, pos_len);
 		if (pos_len > 0){
 			uint32_t n = xlog_write_rec(hxlog, text_buf, pos_len, XLRT_NORMAL, 0);
 			kprn_print(text_buf, pos_len);
@@ -680,12 +713,12 @@ void on_response_pos(void)
 		snprintf(err_msg, ASIZE(err_msg), "Не найдены данные квитанции ИПТ.");
 		non_pos_resp = 2;
 	}
-/*	if (err_msg[0] != 0)
-		log_err(err_msg);*/
+	if (err_msg[0] != 0)
+		log_err(err_msg);
 	if (non_pos_resp != 0){
 		req_type = req_regular;
 		if (non_pos_resp == 2){
-//			log_dbg("Переходим к обработке ответа.");
+			log_dbg("Переходим к обработке ответа.");
 			release_garbage();
 			execute_resp();
 		}
@@ -742,7 +775,7 @@ static void on_pos_printing(uint32_t t)
 
 static void on_pos_finish(uint32_t t __attribute__((unused)))
 {
-	pos_set_state(pos_new);
+	pos_set_state(pos_idle);
 }
 
 static void on_pos_break(uint32_t t __attribute__((unused)))
@@ -795,9 +828,9 @@ void pos_process(void)
 	} handlers[] = {
 		{pos_new,		on_pos_new},
 		{pos_init_check,	on_pos_init_check},
-		{pos_idle,		on_pos_idle},
 		{pos_init,		on_pos_init},
 		{pos_ready,		on_pos_ready},
+		{pos_qready,		on_pos_qready},
 		{pos_enter,		on_pos_enter},
 		{pos_print,		on_pos_print},
 		{pos_printing,		on_pos_printing},
@@ -813,8 +846,9 @@ void pos_process(void)
 		return;
 	pos_serial_receive();
 	pos_serial_transmit();
+	int state = pos_get_state();
 	for (i = 0; i < ASIZE(handlers); i++){
-		if (pos_state == handlers[i].state){
+		if (state == handlers[i].state){
 			handlers[i].handler(u_times());
 			break;
 		}
@@ -833,15 +867,3 @@ void pos_release(void)
 	pos_release_transactions();
 	pos_set_state(pos_new);
 }
-
-#if defined _DEBUG
-bool pos_test(const uint8_t *buf, size_t len)
-{
-	log_info("buf = %p; len = %zu.", buf, len);
-	memcpy(pos_buf_rx.un.data, buf, len);
-	pos_buf_rx.data_len = len;
-	bool ret = pos_parse_resp(&pos_buf_rx);
-	log_info("ret = %d.", ret);
-	return ret;
-}
-#endif		/* _DEBUG */
