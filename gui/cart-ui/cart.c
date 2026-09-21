@@ -76,6 +76,8 @@ void ui_cart_select_documents();
 
 void ui_cart_create()
 {
+	pos_incomplete_op = pos_check_last_operation();
+
 	if (ui_cart != NULL)
 	{
 		ui_cart_destroy();
@@ -181,7 +183,6 @@ void ui_cart_redraw_all()
 	
 	ui_cart_calc_bounds();
 	
-	pos_incomplete_op = pos_check_last_operation();
 	
 	if (pos_incomplete_op)
 	{
