@@ -181,7 +181,7 @@ void ui_cart_redraw_all()
 	
 	ui_cart_calc_bounds();
 	
-	pos_incomplete_op = true;
+	pos_incomplete_op = pos_check_last_operation();
 	
 	if (pos_incomplete_op)
 	{

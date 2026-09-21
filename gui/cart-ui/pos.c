@@ -21,9 +21,11 @@ static struct pos_response* run_pos_operation(uint8_t mtype)
     return pos_query(&params);
 }
 
-void pos_check_last_operation()
+bool pos_check_last_operation()
 {
-    /*struct pos_response* resp = */run_pos_operation(0xa0);
+    struct pos_response* resp = run_pos_operation(0xa0);
+    
+    return (resp != NULL && resp->res_code == POS_QUERY_INCOMPLETED);
 }
 
 void pos_day_open()

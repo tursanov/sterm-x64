@@ -283,6 +283,7 @@ int fa_get_reregistration_data() {
 static void fa_check_fn() {
 	struct kkt_fs_version ver;
 	fs_debug = kkt_get_fs_version(&ver) == 0 && ver.type == 0;
+	printf("fs_debug: %d\n", fs_debug);
 }
 
 bool init_fa(int arg)

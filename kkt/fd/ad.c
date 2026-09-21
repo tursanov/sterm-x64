@@ -400,7 +400,10 @@ K *K_clone(K *k, bool clone_l)
 
 K *K_divide(K *k, uint8_t p, int64_t *sum) {
 	int64_t s = 0;
-	K *k1 = NULL;
+	doc_no_copy(&k->g, &k->r);
+	
+	K *k1 = K_clone(k, false);
+	
 	int count = 0;
 	for (list_item_t *item = k->llist.head, *prev = NULL; item != NULL;) {
 		L *l = LIST_ITEM(item, L);
@@ -417,10 +420,6 @@ K *K_divide(K *k, uint8_t p, int64_t *sum) {
 
 			s += l->t;
 
-			if (k1 == NULL) {
-				k1 = K_clone(k, false);
-			}
-
 			list_add_item(&k1->llist, tmp);
 		} else
 			prev = tmp;
@@ -429,7 +428,7 @@ K *K_divide(K *k, uint8_t p, int64_t *sum) {
 
 	if (sum)
 		*sum = s;
-
+		
     return k1;
 }
 

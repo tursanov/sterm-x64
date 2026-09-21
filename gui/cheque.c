@@ -878,9 +878,14 @@ bool cheque_execute(void) {
 
 	kbd_flush_queue();
 
+//	do {
+//		kbd_get_event(&e);
+//	} while ((ret = cheque_process(&e)) > 0);
+
 	do {
 		kbd_get_event(&e);
-	} while ((ret = cheque_process(&e)) > 0);
+	} while ((ret = cart_process(&e)) > 0);
+
 
 	return current_c != NULL;
 }

@@ -16,6 +16,8 @@ extern "C" {
 #define KKT_XML_ATTR		3	/* атрибут тега */
 #define KKT_XML_END		4	/* окончание XML */
 
+extern bool enable_log_kkt_xml;
+
 typedef int (*kkt_xml_callback_t)(bool check, int evt, const char *name, const char *val);
 extern int kkt_xml_callback(bool check, int evt, const char *name, const char *val);
 

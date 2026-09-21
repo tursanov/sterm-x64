@@ -2,10 +2,16 @@
 
 #include <libxml/parser.h>
 #include <libxml/tree.h>
+#include <unistd.h>
 #include <string.h>
 #include "kkt/xml.h"
 #include "express.h"
 #include "genfunc.h"
+
+bool enable_log_kkt_xml = false;
+
+static bool log_kkt_xml(const char *text_buf);
+
 
 static inline int call_xml_cbk(kkt_xml_callback_t cbk, bool check, int evt,
 	const char *name, const char *val)
@@ -77,6 +83,11 @@ bool parse_kkt_xml(const char *data, bool check, kkt_xml_callback_t cbk, int *ec
 {
 	bool ret = true;
 	*ecode = E_OK;
+	
+    if (!check && enable_log_kkt_xml)
+      log_kkt_xml(data);
+	
+	
 	xmlDoc *xml = xmlReadMemory(data, strlen(data), NULL, NULL, XML_PARSE_COMPACT);
 	if (xml == NULL)
 		ret = false;
@@ -88,3 +99,61 @@ bool parse_kkt_xml(const char *data, bool check, kkt_xml_callback_t cbk, int *ec
 	return ret;
 }
 
+
+static bool log_kkt_xml(const char *text_buf)
+{
+    /* Получаем текущее время (секунды + наносекунды) */
+    struct timespec ts;
+    if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
+        perror("clock_gettime");
+        return false;
+    }
+
+    struct tm tm_info;
+    if (localtime_r(&ts.tv_sec, &tm_info) == NULL) {
+        perror("localtime_r");
+        return false;
+    }
+
+    /* Миллисекунды (3 цифры) */
+    int msec = (int)(ts.tv_nsec / 1000000);
+
+    /* Формируем имя файла: request-YYYY-MM-DD-HH-SS.mmm.xml */
+    char filename[64];
+    int n = snprintf(filename, sizeof(filename),
+                     "/home/sterm/request-%04d-%02d-%02d-%02d-%02d.%03d.xml",
+                     tm_info.tm_year + 1900,
+                     tm_info.tm_mon + 1,
+                     tm_info.tm_mday,
+                     tm_info.tm_hour,
+                     tm_info.tm_sec,
+                     msec);
+    if (n < 0 || n >= (int)sizeof(filename)) {
+        fprintf(stderr, "filename too long\n");
+        return false;
+    }
+
+    /* Открываем файл на запись (текстовый режим) */
+    FILE *fp = fopen(filename, "w");
+    if (fp == NULL) {
+        perror("fopen");
+        return false;
+    }
+
+    /* Пишем содержимое text_buf */
+    if (fputs(text_buf, fp) == EOF) {
+        perror("fputs");
+        fclose(fp);
+        return false;
+    }
+
+    /* Закрываем файл */
+    if (fclose(fp) != 0) {
+        perror("fclose");
+        return false;
+    }
+    
+    sync();
+
+    return true;
+}
