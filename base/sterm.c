@@ -35,6 +35,7 @@
 #include "gui/xchange.h"
 #include "kkt/fdo.h"
 #include "kkt/kkt.h"
+#include "kkt/xml.h"
 #include "kkt/fd/ad.h"
 #include "log/express.h"
 #include "log/kkt.h"
@@ -244,14 +245,18 @@ bool is_escape(uint8_t c)
 static bool parse_cmd_line(int argc, char **argv)
 {
 	extern char *optarg;
-	char *shortopts = "v";
+	char *shortopts = "xv";
 	const struct option longopts[] = {
-		{"version",	no_argument,		NULL,	'v'},
-		{NULL,		0,			NULL,	0},
+		{"enable-log-kkt-xml",	no_argument,		NULL,	'x'},
+		{"version",		no_argument,		NULL,	'v'},
+		{NULL,			0,			NULL,	0  },
 	};
 	bool loop_flag = true, ret_flag = true;
 	while (loop_flag){
 		switch (getopt_long_only(argc, argv, shortopts, longopts, NULL)){
+			case 'x':
+				enable_log_kkt_xml = true;
+				break;
 			case 'v':
 				dump_config();
 				loop_flag = false;
