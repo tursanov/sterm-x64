@@ -1053,13 +1053,9 @@ static void init_devices(void)
 		if (kkt != NULL){
 			kkt_init(kkt);
 			adjust_kkt_cfg(kkt);
-//			test_kkt();
 		}
+		sprn = get_dev_info(devices, DEV_SPRN);
 	}
-#if defined __FAKE_KKT__
-	if (kkt == NULL)
-		kkt = (const struct dev_info *)1;
-#endif		/* __FAKE_KKT__ */
 	fdo_resume();
 }
 
@@ -1440,7 +1436,7 @@ static bool bad_repeat(struct kbd_event *e)
 		KEY_P,		/* Ctrl+P -- ping */
 		KEY_Q,		/* Ctrl+Q -- разрыв соединения PPP */
 		KEY_R,		/* Ctrl+К -- ОЗУ ключей */
-		KEY_S,		/* Ctrl+S -- основной/пригородный режим */
+		KEY_S,		/* Ctrl+S -- сохранение журналов работы терминала */
 		KEY_T,		/* Ctrl+Е -- ошибка в тексте ответа */
 		KEY_X,		/* Ctrl+X -- БКЛ (КЛ2) */
 		KEY_Z,		/* Ctrl+Z -- получение номера БСО */
@@ -1479,6 +1475,7 @@ static int handle_kbd(struct kbd_event *e, bool check_scr, bool busy)
 		{KEY_P, cmd_ping},		/* ping */
 		{KEY_Q,	cmd_ppp_hangup},	/* разрыв соединения PPP */
 		{KEY_R, cmd_view_keys},		/* ключи */
+		{KEY_S,	cmd_save_log},		/* сохранение журналов работы терминала */
 		{KEY_T, cmd_view_error},	/* ошибка в тексте ответа */
 		{KEY_X, cmd_view_plog},		/* просмотр БКЛ */
 		{KEY_Z,	cmd_ticket_number},	/* чтение номера БСО в пригородном режиме */
@@ -3737,6 +3734,21 @@ static void do_ticket_number(void)
 		err_beep();
 }
 
+/* Сохранение журнала работы терминала */
+static void save_logs(void)
+{
+	const char *msg = NULL;
+	arch_sterm_data(&msg);
+	if (msg != NULL){
+		set_term_busy(true);
+		online = false;
+		message_box("Журнал работы терминала", msg, dlg_yes, 0, al_center);
+		online = true;
+		set_term_busy(false);
+		redraw_term(true, main_title);
+	}
+}
+
 /* Основной обработчик команд терминала */
 bool process_term(void)
 {
@@ -3798,6 +3810,7 @@ bool process_term(void)
 		{cmd_print_klog_range,	print_klog_range,	true},
 		{cmd_find_klog_date,	find_klog_date,		true},
 		{cmd_find_klog_number,	find_klog_number,	true},
+		{cmd_save_log,		save_logs,		true},
 	};
 	int cm = get_cmd(true, false);
 	for (int i = 0; i < ASIZE(handlers); i++){

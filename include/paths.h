@@ -43,9 +43,25 @@ extern "C" {
 #define XPRN_FOLDER		_("xprn")
 /* Каталог, в котором хранятся логи терминала */
 #define LOG_FOLDER		_("log")
-/* Элементы имени файла логов по умолчанию */
-#define DEF_LOG_PREFIX		"log"
-#define DEF_LOG_EXT		"txt"
+/* Элементы имени файла логов */
+#define LOG_PREFIX		"log"
+#define POS_LOG_PREFIX		"ipt"
+#define KKT_LOG_PREFIX		"kkt"
+#define RFID_LOG_PREFIX		"rfid"
+#define SPRN_LOG_PREFIX		"sprn"
+#define XCHG_LOG_PREFIX		"xchg"
+#define LOG_EXT			"txt"
+
+#define STERM_LOG_LST		_("sterm-logs.txt")
+
+/* Точка монтирования USB-диска */
+#define USB_MNT			"/mnt/usb"
+
+/* Каталог с файлами привязки терминала */
+#define SDATA_DIR		"/sdata"
+
+/* Файл с номером терминала */
+#define STERM_NR_FILE		"term-number.txt"
 
 #if defined __cplusplus
 }

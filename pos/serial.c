@@ -245,7 +245,7 @@ bool pos_serial_get_msg(struct pos_data_buf *buf)
 			in_data + (in_data_head + l1) % sizeof(in_data), l2);
 	buf->data_len = l1 + l2;
 	buf->data_index = buf->block_start = 0;
-	log_data("ipt", "ˆ’ --> ’Œ", buf->un.data, buf->data_len);
+	log_data_pos("ˆ’ --> ’Œ", buf->un.data, buf->data_len);
 	in_data_head += l1 + l2;
 	in_data_head %= sizeof(in_data);
 	in_data_len -= l1 + l2;
@@ -277,7 +277,7 @@ bool pos_serial_send_msg(struct pos_data_buf *buf)
 		memcpy(out_data + (offs + l1) % sizeof(out_data),
 				buf->un.data + l1, l2);
 	out_data_len += l1 + l2;
-	log_data("ipt", "’Œ --> ˆ’", buf->un.data, buf->data_len);
+	log_data_pos("’Œ --> ˆ’", buf->un.data, buf->data_len);
 	pos_t0 = u_times();
 	poll_ok = false;
 	return true;

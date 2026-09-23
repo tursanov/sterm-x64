@@ -377,7 +377,7 @@ static bool do_transaction(uint8_t prefix, uint8_t cmd, void *param)
 	if (kkt_tx_len > 0){
 		ssize_t rc = kkt_io_write(&timeout);
 		if (rc > 0)
-			log_data("kkt", "’Œ --> ŠŠ’", kkt_tx, rc);
+			log_data_kkt("’Œ --> ŠŠ’", kkt_tx, rc);
 		if (rc != kkt_tx_len)
 			ret = kkt_on_com_error(timeout);
 	}
@@ -407,7 +407,7 @@ static bool do_transaction(uint8_t prefix, uint8_t cmd, void *param)
 			((cmd == KKT_SRV_BEGIN_DOC) || (cmd == KKT_SRV_SEND_DOC) ||
 			 (cmd == KKT_SRV_END_DOC)))
 		flags = KLOG_REC_APC;
-	log_data("kkt", "ŠŠ’ --> ’Œ", kkt_rx, kkt_rx_len);
+	log_data_kkt("ŠŠ’ --> ’Œ", kkt_rx, kkt_rx_len);
 	klog_write_rec(hklog, &t0, kkt_tx, kkt_tx_len, kkt_status, kkt_rx, kkt_rx_len, flags);
 	return ret;
 }

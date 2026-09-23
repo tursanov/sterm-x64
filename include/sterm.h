@@ -127,6 +127,8 @@ enum {
 	cmd_pos_day_open,
 	cmd_pos_day_close,
 	cmd_pos_service_operations,
+/* Сохранение журнала работы терминала */
+	cmd_save_log,
 };
 
 extern int kt;			/* тип ключа DS1990A */

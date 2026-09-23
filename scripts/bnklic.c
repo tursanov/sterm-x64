@@ -131,7 +131,7 @@ int main(int argc, char **argv)
 	const struct md5_hash *license;
 	if (argc != 2)
 		fprintf(stderr, "Укажите имя файла списка лицензий для работы с ИПТ.\n");
-	else if (!read_term_number("/sdata/term-number.txt", &number))
+	else if (!read_term_number(SDATA_DIR "/" STERM_NR_FILE, &number))
 		fprintf(stderr, "Не найден модуль безопасности.\n");
 	else if (check_lic_signature(BANK_LIC_SIGNATURE_OFFSET, BANK_LIC_SIGNATURE))
 		fprintf(stderr, "Установка лицензии для работы с ИПТ на данный "

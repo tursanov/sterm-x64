@@ -479,7 +479,6 @@ bool read_cfg(void)
 		&cfg.rus_color, &cfg.lat_color, &cfg.bg_color);
 	cfg.has_xprn = false;
 	cfg.has_aprn = false;
-	cfg.has_sprn = false;
 	cfg.tickets_on_kkt = true;
 	return true;
 }
