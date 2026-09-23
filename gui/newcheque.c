@@ -64,6 +64,9 @@ static bool support_1222_1224_1225;
 static cheque_article_t *cheque_article_new() {
 	cheque_article_t *ca =  (cheque_article_t *)malloc(sizeof(cheque_article_t));
 	ca->tlv = NULL;
+	ca->agent = NULL;
+	ca->tlv = NULL;
+	ca->name = NULL;
 	return ca;
 }
 
