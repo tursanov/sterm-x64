@@ -1,9 +1,10 @@
+#include <sys/stat.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <sys/stat.h>
+#include "termlog.h"
 
 #define MAX_CODE_LENGTH 4        // "XXY" + null terminator
 #define MAX_FILENAME_LENGTH 256
@@ -64,26 +65,26 @@ static uint8_t *load_file(const char *filename, size_t *size) {
     
     FILE *file = fopen(fullpath, "rb");
     if (!file) {
-        fprintf(stderr, "Ошибка: Не удалось открыть файл шаблона '%s'\n", fullpath);
+        log_sys_err("Ошибка: Не удалось открыть файл шаблона '%s':", fullpath);
         return NULL;
     }
     
     struct stat st;
     if (fstat(fileno(file), &st) != 0) {
-        fprintf(stderr, "Ошибка: Не удалось определить размер файла '%s'\n", fullpath);
+        log_sys_err("Ошибка: Не удалось определить размер файла '%s':", fullpath);
         fclose(file);
         return NULL;
     }
     
     uint8_t *buffer = malloc(st.st_size);
     if (!buffer) {
-        fprintf(stderr, "Ошибка: Не удалось выделить память для файла '%s'\n", fullpath);
+        log_sys_err("Ошибка: Не удалось выделить память для файла '%s':", fullpath);
         fclose(file);
         return NULL;
     }
     
     if (fread(buffer, 1, st.st_size, file) != (size_t)st.st_size) {
-        fprintf(stderr, "Ошибка: Не удалось прочитать файл '%s'\n", fullpath);
+        log_sys_err("Ошибка: Не удалось прочитать файл '%s':", fullpath);
         free(buffer);
         fclose(file);
         return NULL;
@@ -138,7 +139,7 @@ static void add_or_replace_pattern(const char *code, const char *filename, bool 
         if (strcmp(patterns[i].code, code) == 0) {
             // Если новый шаблон имеет приоритет (не default), заменяем старый
             if (!is_default || patterns[i].is_default) {
-                printf("Заменяем старый шаблон на более приоритетный - %s=%s\n", code, filename);
+                log_dbg("Заменяем старый шаблон на более приоритетный - %s=%s.", code, filename);
                 remove_pattern(i);
                 break;
             } else {
@@ -149,7 +150,7 @@ static void add_or_replace_pattern(const char *code, const char *filename, bool 
     }
     
     if (patterns_count >= MAX_PATTERNS) {
-        fprintf(stderr, "Предупреждение: Достигнуто максимальное количество шаблонов (%d)\n", MAX_PATTERNS);
+        log_err("Предупреждение: Достигнуто максимальное количество шаблонов (%d).", MAX_PATTERNS);
         return;
     }
     
@@ -159,7 +160,7 @@ static void add_or_replace_pattern(const char *code, const char *filename, bool 
     if (!patterns) {
         patterns = malloc(MAX_PATTERNS * sizeof(pattern_entry));
         if (!patterns) {
-            fprintf(stderr, "Ошибка: Не удалось выделить память для хранения шаблонов\n");
+            log_sys_err("Ошибка: Не удалось выделить память для хранения шаблонов:");
             exit(EXIT_FAILURE);
         }
     }
@@ -180,7 +181,7 @@ static void add_or_replace_pattern(const char *code, const char *filename, bool 
         size_t size;
         uint8_t *data = load_file(filename, &size);
         if (!data) {
-            fprintf(stderr, "Ошибка: Пропускаем шаблон '%s' из-за ошибки загрузки файла\n", code);
+            log_err("Ошибка: Пропускаем шаблон '%s' из-за ошибки загрузки файла.", code);
             return;
         }
         
@@ -188,7 +189,7 @@ static void add_or_replace_pattern(const char *code, const char *filename, bool 
         if (!loaded_files) {
             loaded_files = malloc(MAX_PATTERNS * sizeof(loaded_file));
             if (!loaded_files) {
-                fprintf(stderr, "Ошибка: Не удалось выделить память для списка файлов\n");
+                log_sys_err("Ошибка: Не удалось выделить память для списка файлов:");
                 free(data);
                 exit(EXIT_FAILURE);
             }
@@ -237,7 +238,7 @@ void kkt_free_patterns(void) {
     patterns_count = 0;
     files_count = 0;
     
-    printf("Память, занятая шаблонами, освобождена\n");
+    log_dbg("Память, занятая шаблонами, освобождена.");
 }
 
 
@@ -249,11 +250,11 @@ void kkt_reload_patterns(uint64_t inn) {
     
     FILE *file = fopen(PATTERNS_FILE, "r");
     if (!file) {
-        fprintf(stderr, "Ошибка: Не удалось открыть файл с шаблонами '%s'\n", PATTERNS_FILE);
+        log_sys_err("Ошибка: Не удалось открыть файл с шаблонами '%s':", PATTERNS_FILE);
         return;
     }
     
-    printf("Загружаем шаблоны для ИНН %lu...\n", inn);
+    log_dbg("Загружаем шаблоны для ИНН %lu...", inn);
     
     char line[MAX_LINE_LENGTH];
     while (fgets(line, sizeof(line), file)) {
@@ -295,13 +296,13 @@ void kkt_reload_patterns(uint64_t inn) {
     }
     
     fclose(file);
-    printf("Загружено %d шаблонов\n", patterns_count);
+    log_dbg("Загружено %d шаблонов.", patterns_count);
 }
 
 // Находит шаблон по типу документа и индексу
 const uint8_t *kkt_find_pattern(uint8_t docType, uint8_t index, size_t *size) {
     if (!patterns || !size) {
-        fprintf(stderr, "Ошибка: Шаблоны не загружены или неверный указатель на размер\n");
+        log_err("Ошибка: Шаблоны не загружены или неверный указатель на размер.");
         return NULL;
     }
     
@@ -315,6 +316,6 @@ const uint8_t *kkt_find_pattern(uint8_t docType, uint8_t index, size_t *size) {
         }
     }
     
-    fprintf(stderr, "Предупреждение: Шаблон с кодом '%s' не найден\n", search_code);
+    log_err("Предупреждение: Шаблон с кодом '%s' не найден.", search_code);
     return NULL;
 }

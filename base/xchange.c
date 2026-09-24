@@ -6,6 +6,7 @@
 #include <time.h>
 #include "numbers.h"
 #include "sterm.h"
+#include "termlog.h"
 #include "xchange.h"
 
 /* Кольцевой буфер для элементов журнала */
@@ -97,7 +98,7 @@ bool xlog_add_item(uint8_t *data, int len, int dir)
 		return false;
 	buf = malloc(len);
 	if (buf == NULL){
-		printf("%s: ошибка выделения памяти\n", __func__);
+		log_err("Ошибка выделения памяти.");
 		return false;
 	}
 	memcpy(buf, data, len);

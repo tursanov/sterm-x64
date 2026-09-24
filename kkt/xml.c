@@ -1,4 +1,4 @@
-/* Разбор XML для ККТ. (c) gsr 2024 */
+/* Разбор XML для ККТ. (c) gsr 2024, 2026 */
 
 #include <libxml/parser.h>
 #include <libxml/tree.h>
@@ -7,6 +7,7 @@
 #include "kkt/xml.h"
 #include "express.h"
 #include "genfunc.h"
+#include "termlog.h"
 
 bool enable_log_kkt_xml = false;
 
@@ -94,7 +95,7 @@ bool parse_kkt_xml(const char *data, bool check, kkt_xml_callback_t cbk, int *ec
 	else{
 		ret = handle_xml(xml, check, cbk, ecode);
 		if (check && !ret)
-			fprintf(stderr, "%s: ошибка %d\n", __func__, *ecode);
+			log_err("Ошибка %d.", *ecode);
 	}
 	return ret;
 }
@@ -105,13 +106,13 @@ static bool log_kkt_xml(const char *text_buf)
     /* Получаем текущее время (секунды + наносекунды) */
     struct timespec ts;
     if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
-        perror("clock_gettime");
+        log_sys_err("clock_gettime:");
         return false;
     }
 
     struct tm tm_info;
     if (localtime_r(&ts.tv_sec, &tm_info) == NULL) {
-        perror("localtime_r");
+        log_sys_err("localtime_r:");
         return false;
     }
 
@@ -129,7 +130,7 @@ static bool log_kkt_xml(const char *text_buf)
                      tm_info.tm_sec,
                      msec);
     if (n < 0 || n >= (int)sizeof(filename)) {
-        fprintf(stderr, "filename too long\n");
+        log_err("filename too long.");
         return false;
     }
 

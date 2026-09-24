@@ -21,6 +21,7 @@
 #include "gui/scr.h"
 #include "iplir.h"
 #include "ppp.h"
+#include "termlog.h"
 
 /* Дескриптор очереди сообщений для взаимодействия с pppd */
 int msqid = -1;
@@ -187,8 +188,7 @@ static bool make_chat_script(void)
 	bool dialup = cfg.ppp_phone[0] != 0;
 	FILE *f = fopen(PPP_CHAT_FILE, "w");
 	if (f == NULL){
-		fprintf(stderr, "ошибка открытия " PPP_CHAT_FILE " для записи: %s\n",
-				strerror(errno));
+		log_sys_err("Ошибка открытия " PPP_CHAT_FILE " для записи:");
 		return false;
 	}
 	create_ppp_secrets();
@@ -243,7 +243,7 @@ char *make_pppd_string(void)
 		xprintf(s, "user '%s' ", cfg.ppp_login);
 	xprintf(s, "debug connect 'chat -vm " PPP_IPC_FILE
 			" -f " PPP_CHAT_FILE "'");
-	printf("pppd string: [%s]\n", s);
+	log_dbg("pppd string: [%s].", s);
 	return s;
 }
 
@@ -375,7 +375,7 @@ static void process_ppp_ipc(void)
 			break;
 	}
 	if (mb->mtype == PPP_MSG_TYPE){
-		printf("сообщение от chat: %s\n", mb->mtext);
+		log_dbg("Сообщение от chat: %s.", mb->mtext);
 		if (strcmp(mb->mtext, PPP_STR_INIT) == 0){
 			ppp_t0 = t;
 			ppp_state = ppp_init;
@@ -394,9 +394,9 @@ static void process_ppp_ipc(void)
 			ppp_state = ppp_ipcp;
 			set_term_state(st_ppp_ipcp);
 		}else
-			printf("Неизвестное сообщение от pppd: [%s]\n",	mb->mtext);
+			log_dbg("Неизвестное сообщение от pppd: [%s].",	mb->mtext);
 	}else if (mb->mtype == IPCP_MSG_TYPE){
-		printf("сообщение от pppd: %s\n", mb->mtext);
+		log_dbg("Сообщение от pppd: %s.", mb->mtext);
 		if (strcmp(mb->mtext, PPP_IP_UP_SCRIPT) == 0){
 			ppp_state = ppp_ready;
 			on_ppp_up_down();
@@ -404,7 +404,7 @@ static void process_ppp_ipc(void)
 			ppp_state = ppp_nc;
 			on_ppp_up_down();
 		}else
-			printf("Неизвестное сообщение от pppd: [%s]\n",	mb->mtext);
+			log_dbg("Неизвестное сообщение от pppd: [%s].", mb->mtext);
 	}
 }
 

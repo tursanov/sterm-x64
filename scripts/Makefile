@@ -29,8 +29,7 @@ BASE_OBJS =		\
 
 LOG_OBJS =		\
 	generic		\
-	express		\
-	logdbg
+	express
 
 SCRIPTS_OBJS =		\
 	bnklic		\

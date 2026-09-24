@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include "serialize.h"
+#include "termlog.h"
 
 int s_open(const char *file_name, int open_for_write) {
 	int flags = open_for_write ? O_CREAT | O_WRONLY | O_TRUNC : O_RDONLY;
@@ -22,7 +23,7 @@ int s_write(int fd, const void *d, size_t n) {
 	while (n > 0) {
 		int ret = write(fd, s, n);
 		if (ret <= 0) {
-			printf("s_write: return %d\n", ret);
+			log_err("s_write: return %d.", ret);
 			return -1;
 		}
 		n -= (size_t)ret;
@@ -37,7 +38,7 @@ int s_read(int fd, void *d, size_t n) {
 	while (n > 0) {
 		int ret = read(fd, s, n);
 		if (ret <= 0) {
-			printf("s_read: return %d\n", ret);
+			log_err("s_read: return %d.", ret);
 			return -1;
 		}
 		n -= (size_t)ret;

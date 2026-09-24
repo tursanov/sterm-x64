@@ -42,6 +42,7 @@ static int nr_semicolons;
 static bool sprn_params_received = false;
 
 const struct dev_info *sprn = NULL;
+const struct dev_info *rfid = NULL;
 /* Устройство для работы с БПУ */
 static int sprn_dev = -1;
 
@@ -174,6 +175,14 @@ static bool sprn_open(void)
 		sprn_dev = serial_open(sprn->ttyS_name, &sprn->ss, O_RDWR);
 		ret = sprn_dev != -1;
 	}
+	return ret;
+}
+
+static inline bool sprn_open_if_need(void)
+{
+	bool ret = true;
+	if (sprn_dev == -1)
+		ret = sprn_open();
 	return ret;
 }
 
@@ -672,16 +681,15 @@ static int sprn_do_cmd(uint8_t cmd)
 {
 	int ret = SPRN_RET_ERR;
 	sprn_status = SPRN_STATUS_OK;
-	if ((sprn_dev == -1) && !sprn_open())
-		set_term_astate(ast_nosprn);
-	else{
+	if (sprn_open_if_need()){
 		if (sprn_write_cmd(cmd))
 			ret = sprn_wait_op(true);
 		else{
 			set_term_astate(ast_nosprn);
 			sprn_reset();
 		}
-	}
+	}else
+		set_term_astate(ast_nosprn);
 	return ret;
 }
 
@@ -729,16 +737,15 @@ int sprn_get_blank_number(void)
 int sprn_print_log(const uint8_t *data, size_t len)
 {
 	int ret = SPRN_RET_ERR;
-	if ((sprn_dev == -1) && !sprn_open())
-		set_term_astate(ast_nosprn);
-	else{
+	if (sprn_open_if_need()){
 		if (sprn_write_text(data, len, true))
 			ret = sprn_wait_op(true);
 		else{
 			set_term_astate(ast_nosprn);
 			sprn_reset();
 		}
-	}
+	}else
+		set_term_astate(ast_nosprn);
 	return ret;
 }
 
@@ -746,16 +753,15 @@ int sprn_print_log(const uint8_t *data, size_t len)
 int sprn_print_log1(const uint8_t *data, size_t len)
 {
 	int ret = SPRN_RET_ERR;
-	if ((sprn_dev == -1) && !sprn_open())
-		set_term_astate(ast_nosprn);
-	else{
+	if (sprn_open_if_need()){
 		if (sprn_write_text_log1(data, len))
 			ret = sprn_wait_op(true);
 		else{
 			set_term_astate(ast_nosprn);
 			sprn_reset();
 		}
-	}
+	}else
+		set_term_astate(ast_nosprn);
 	sprn_close();
 	return ret;
 }
@@ -800,7 +806,7 @@ int sprn_print_ticket(const uint8_t *data, size_t len, bool *sent_to_prn)
 int sprn_get_params(struct term_cfg *cfg)
 {
 	int ret = SPRN_RET_ERR;
-	if ((sprn_dev != -1) || sprn_open()){
+	if (sprn_open_if_need()){
 		sprn_reset();
 		sprn_params_received = false;
 		sprn_tx[0] = SPRN_NUL;
@@ -847,7 +853,7 @@ static int sprn_set_param(int n, int val)
 int sprn_set_params(struct term_cfg *cfg)
 {
 	int ret = SPRN_RET_ERR, i, *p = &cfg->s0;
-	if ((sprn_dev != -1) || sprn_open()){
+	if (sprn_open_if_need()){
 		for (i = 0; i < 10; i++){
 			ret = sprn_set_param(i, p[i]);
 			if (ret == SPRN_RET_OK)

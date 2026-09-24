@@ -1059,13 +1059,13 @@ static bool kkt_write_grid(const uint8_t *data, size_t len, uint8_t id, size_t w
 uint8_t kkt_load_grid(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
 	const char *name)
 {
-	printf("data = %p; len = %zu; id = %c; w = %zu; h = %zu; name = %s\n",
+	log_dbg("data = %p; len = %zu; id = %c; w = %zu; h = %zu; name = %s.",
 		data, len, id, w, h, name);
 	if (kkt_lock()){
 		if (prepare_cmd(KKT_NUL, KKT_GRID_LOAD) &&
 				kkt_write_grid(data, len, id, w, h, name) &&
 				kkt_open_dev_if_need()){
-			printf("kkt_tx_len = %zu\n", kkt_tx_len);
+			log_dbg("kkt_tx_len = %zu.", kkt_tx_len);
 			do_transaction(KKT_NUL, KKT_GRID_LOAD, NULL);
 			kkt_close_dev();
 		}
@@ -1082,8 +1082,8 @@ uint8_t kkt_get_grid_lst(uint8_t *data, size_t *len)
 	assert(*len != 0);
 	if (kkt_lock()){
 		if (do_cmd(KKT_NUL, KKT_GRID_LST, NULL)){
-			printf("%s: kkt_status = 0x%.hhx; kkt_rx_len = %zu\n",
-				__func__, kkt_status, kkt_rx_len);
+			log_dbg("kkt_status = 0x%.hhx; kkt_rx_len = %zu.",
+				kkt_status, kkt_rx_len);
 			if ((kkt_status == KKT_STATUS_OK) && (kkt_rx_len > 3)){
 				size_t lst_len = kkt_rx_len - 3;
 				if (*len < lst_len)
@@ -1158,7 +1158,7 @@ static bool kkt_write_icon_new(const uint8_t *data, size_t len, uint8_t id, size
 uint8_t kkt_load_icon(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
 	const char *name, bool first, bool last)
 {
-	printf("data = %p; len = %zu; id = %c; w = %zu; h = %zu; name = %s; first = %d; last = %d\n",
+	log_dbg("data = %p; len = %zu; id = %c; w = %zu; h = %zu; name = %s; first = %d; last = %d.",
 		data, len, id, w, h, name, first, last);
 	static size_t start = 0;
 	if (kkt_lock()){
@@ -1174,7 +1174,7 @@ uint8_t kkt_load_icon(const uint8_t *data, size_t len, uint8_t id, size_t w, siz
 				pic_crc32(kkt_tx + start, kkt_tx_len - start);
 			*(uint32_t *)(kkt_tx + start - sizeof(uint32_t)) = kkt_tx_len - start;
 					kkt_tx_len += sizeof(uint32_t);
-			printf("Начинаем загрузку пиктограмм в ККТ...");
+			log_dbg("Начинаем загрузку пиктограмм в ККТ...");
 			if (kkt_open_dev_if_need()){
 				do_transaction(KKT_NUL, KKT_ICON_LOAD, NULL);
 				kkt_close_dev();
@@ -1189,13 +1189,13 @@ uint8_t kkt_load_icon(const uint8_t *data, size_t len, uint8_t id, size_t w, siz
 uint8_t kkt_load_icon_new(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
 	const char *name)
 {
-	printf("data = %p; len = %zu; id = %c; w = %zu; h = %zu; name = %s\n",
+	log_dbg("data = %p; len = %zu; id = %c; w = %zu; h = %zu; name = %s.",
 		data, len, id, w, h, name);
 	if (kkt_lock()){
 		if (prepare_cmd(KKT_NUL, KKT_NEW_ICON_LOAD) &&
 				kkt_write_icon_new(data, len, id, w, h, name) &&
 				kkt_open_dev_if_need()){
-			printf("kkt_tx_len = %zu\n", kkt_tx_len);
+			log_dbg("kkt_tx_len = %zu.", kkt_tx_len);
 			do_transaction(KKT_NUL, KKT_NEW_ICON_LOAD, NULL);
 			kkt_close_dev();
 		}
@@ -1276,7 +1276,7 @@ uint8_t kkt_print_vf(const uint8_t *data, size_t len)
 						fclose(f);
 					}*/
 					do_transaction(KKT_NUL, KKT_VF, NULL);
-					printf("%s: end printing; kkt_status = 0x%.2hhx\n", __func__, kkt_status);
+					log_dbg("end printing; kkt_status = 0x%.2hhx.", kkt_status);
 					if (kkt_status != KKT_STATUS_OK)
 						break;
 				}

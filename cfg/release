@@ -23,9 +23,6 @@ option		__CLEAR_PREV_RESP__
 # Печать в stdout, а не на принтер
 #option		__DEBUG_PRINT__
 
-# Запись сообщений о работе с КЛ в специальный файл
-#option		__LOGDBG__
-
 # Вывод отладочной информации при работе с ОФД
 #option		__FDO_DEBUG__
 

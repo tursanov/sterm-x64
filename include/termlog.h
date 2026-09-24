@@ -7,6 +7,7 @@
 extern "C" {
 #endif
 
+#include <errno.h>
 #include "paths.h"
 #include "sysdefs.h"
 

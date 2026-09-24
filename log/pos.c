@@ -10,7 +10,6 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include "log/logdbg.h"
 #include "log/pos.h"
 #include "prn/express.h"
 #include "prn/sprn.h"
@@ -20,6 +19,7 @@
 #include "genfunc.h"
 #include "paths.h"
 #include "sterm.h"
+#include "termlog.h"
 #include "tki.h"
 
 /* Данные текущей записи контрольной ленты */
@@ -90,9 +90,8 @@ static bool plog_fill_map(struct log_handle *hlog)
 	memset(hlog->map, 0, hlog->map_size * sizeof(*hlog->map));
 	hlog->map_head = 0;
 	if (hdr->n_recs > PLOG_MAP_MAX_SIZE){
-		logdbg("%s: Слишком много записей на %s; "
-			"должно быть не более " _s(PLOG_MAP_MAX_SIZE) ".\n",
-			__func__, hlog->log_type);
+		log_err("Слишком много записей на %s; должно быть не более "
+			_s(PLOG_MAP_MAX_SIZE) ".", hlog->log_type);
 		return false;
 	}
 	for (i = 0; i < hdr->n_recs; i++){
@@ -104,12 +103,12 @@ static bool plog_fill_map(struct log_handle *hlog)
 		hlog->map[i].tag = 0;
 		offs = log_inc_index(hlog, offs, sizeof(plog_rec_hdr));
 		if (plog_rec_hdr.tag != PLOG_REC_TAG){
-			logdbg("%s: Неверный формат заголовка записи %s #%u.\n",
-				__func__, hlog->log_type, i);
+			log_err("Неверный формат заголовка записи %s #%u.",
+				hlog->log_type, i);
 			return log_truncate(hlog, i, tail);
 		}else if (plog_rec_hdr.len > LOG_BUF_LEN){
-			logdbg("%s: Слишком длинная запись %s #%u: %u байт (max %u).\n",
-				__func__, hlog->log_type, i, plog_rec_hdr.len, LOG_BUF_LEN);
+			log_err("Слишком длинная запись %s #%u: %u байт (max %u).",
+				hlog->log_type, i, plog_rec_hdr.len, LOG_BUF_LEN);
 			return log_truncate(hlog, i, tail);
 		}
 		plog_data_len = plog_rec_hdr.len;
@@ -118,8 +117,8 @@ static bool plog_fill_map(struct log_handle *hlog)
 		crc = plog_rec_hdr.crc32;
 		plog_rec_hdr.crc32 = 0;
 		if (plog_rec_crc32() != crc){
-			logdbg("%s: Несовпадение контрольной суммы для записи %s #%u.\n",
-				__func__, hlog->log_type, i);
+			log_err("Несовпадение контрольной суммы для записи %s #%u.",
+				hlog->log_type, i);
 			return log_truncate(hlog, i, tail);
 		}
 		plog_rec_hdr.crc32 = crc;
@@ -134,21 +133,20 @@ static bool plog_read_header(struct log_handle *hlog)
 	bool ret = false;
 	if (log_atomic_read(hlog, 0, (uint8_t *)hlog->hdr, sizeof(struct plog_header))){
 		if (hlog->hdr->tag != PLOG_TAG)
-			logdbg("%s: Неверный формат заголовка %s.\n", __func__, hlog->log_type);
+			log_err("Неверный формат заголовка %s.", hlog->log_type);
 		else if (hlog->hdr->len > PLOG_MAX_SIZE)
-			logdbg("%s: Неверный размер %s.\n", __func__, hlog->log_type);
+			log_err("Неверный размер %s.", hlog->log_type);
 		else{
 			off_t len = lseek(hlog->rfd, 0, SEEK_END);
 			if (len == (off_t)-1)
-				logdbg("%s: Ошибка определения размера файла %s.\n",
-					__func__, hlog->log_type);
+				log_err("Ошибка определения размера файла %s.", hlog->log_type);
 			else{
 				hlog->full_len = hlog->hdr->len + sizeof(struct plog_header);
 				if (hlog->full_len == len)
 					ret = true;
 				else
-					logdbg("%s: Размер %s, указанный в заголовке, не совпадает с реальным размером.\n",
-						__func__, hlog->log_type);
+					log_err("Размер %s, указанный в заголовке, не совпадает с реальным размером.",
+						hlog->log_type);
 			}
 		}
 	}
@@ -229,8 +227,8 @@ static bool plog_add_rec(struct log_handle *hlog)
 	bool ret = false;
 	rec_len = plog_rec_hdr.len + sizeof(plog_rec_hdr);
 	if (rec_len > hlog->hdr->len){
-		logdbg("%s: Длина записи (%u байт) превышает длину КЛ (%u байт).\n",
-			__func__, rec_len, hlog->hdr->len);
+		log_err("Длина записи (%u байт) превышает длину КЛ (%u байт).",
+			rec_len, hlog->hdr->len);
 		return false;
 	}
 	free_len = log_free_space(hlog);
@@ -246,13 +244,13 @@ static bool plog_add_rec(struct log_handle *hlog)
 		m %= hlog->map_size;
 	}
 	if (free_len < rec_len){
-		logdbg("%s: Не удалось освободить место под новую запись.\n", __func__);
+		log_err("Не удалось освободить место под новую запись.");
 		return false;
 	}
 /* n -- оставшееся число записей на контрольной ленте */
 	if ((n + 1) > hlog->map_size){
-		logdbg("%s: Превышено максимальное число записей на КЛ;\n"
-			"должно быть не более %u.\n", __func__, hlog->map_size);
+		log_err("Превышено максимальное число записей на КЛ; "
+			"должно быть не более %u.", hlog->map_size);
 		return false;
 	}
 /* Начинаем запись на контрольную ленту */
@@ -314,8 +312,8 @@ uint32_t plog_write_rec(struct log_handle *hlog, uint8_t *data, uint32_t len,
 	plog_data_len = plog_data_index = 0;
 	if (data != NULL){
 		if (len > sizeof(plog_data)){
-			logdbg("%s: Переполнение буфера данных при записи "
-				"на %s (%u байт).\n", __func__, hlog->log_type, len);
+			log_err("Переполнение буфера данных при записи на %s (%u байт).",
+				hlog->log_type, len);
 			return -1U;
 		}
 		memcpy(plog_data, data, len);
@@ -342,7 +340,7 @@ bool plog_read_rec(struct log_handle *hlog, uint32_t index)
 	if (!log_read(hlog, offs, (uint8_t *)&plog_rec_hdr, sizeof(plog_rec_hdr)))
 		return false;
 	if (plog_rec_hdr.len > sizeof(plog_data)){
-		logdbg("%s: Слишком длинная запись %s #%u (%u байт).\n", __func__,
+		log_err("Слишком длинная запись %s #%u (%u байт).",
 			hlog->log_type, index, plog_rec_hdr.len);
 		return false;
 	}
@@ -353,8 +351,8 @@ bool plog_read_rec(struct log_handle *hlog, uint32_t index)
 	crc = plog_rec_hdr.crc32;
 	plog_rec_hdr.crc32 = 0;
 	if (plog_rec_crc32() != crc){
-		logdbg("%s: Несовпадение контрольной суммы для записи %s #%u.\n",
-			__func__, hlog->log_type, index);
+		log_err("Несовпадение контрольной суммы для записи %s #%u.",
+			hlog->log_type, index);
 		return false;
 	}
 	plog_rec_hdr.crc32 = crc;

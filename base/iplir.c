@@ -17,6 +17,7 @@
 #include "cfg.h"
 #include "iplir.h"
 #include "paths.h"
+#include "termlog.h"
 #include "tki.h"
 
 bool iplir_disabled = false;		/* работа с VipNet невозможна */
@@ -47,20 +48,17 @@ static inline bool vpn_almost_ok(const VpnApiReturnCode *rc)
 	return (rc != NULL) && ((rc->code == 0) || ((rc->code & 0x60000) == 0x60000));
 }
 
-static void __iplir_show_uninit(const char *fn)
-{
-	fprintf(stderr, "%s: api == NULL.\n", fn);
-}
+#define iplir_show_uninit()	log_err("api == NULL.")
 
-#define iplir_show_uninit() __iplir_show_uninit(__func__)
-
-static void __iplir_show_err(const char *fn, const char *vpn_fn, const VpnApiReturnCode *rc)
+static inline void __iplir_show_err(const char *file, const char *fn, uint32_t line,
+	const char *vpn_fn, const VpnApiReturnCode *rc)
 {
 	if ((rc != NULL) && (rc->code != 0) && (rc->message != NULL))
-		fprintf(stderr, "%s: %s: 0x%x (%s).\n", fn, vpn_fn, rc->code, rc->message);
+		log_internal(Error, file, fn, line, UINT32_MAX, "%s: 0x%x (%s).",
+			vpn_fn, rc->code, rc->message);
 }
 
-#define iplir_show_err(vpn_fn, rc) __iplir_show_err(__func__, vpn_fn, &rc)
+#define iplir_show_err(vpn_fn, rc) __iplir_show_err(__FILE__, __func__, __LINE__, vpn_fn, &rc)
 
 static const char *iplir_get_psw(void)
 {
@@ -95,8 +93,7 @@ bool iplir_install_keys(void)
 			else
 				iplir_show_err("installKeys", rc);
 		}else
-			fprintf(stderr, "%s: ошибка получения пароля ключевого дистрибутива.\n",
-				__func__);
+			log_err("Ошибка получения пароля ключевого дистрибутива.");
 	}else
 		iplir_show_uninit();
 	return ret;
@@ -144,8 +141,7 @@ bool iplir_start(void)
 					else
 						iplir_show_err("startVpn", rc);
 				}else
-					fprintf(stderr, "%s: ошибка получения пароля "
-						"ключевого дистрибутива.\n", __func__);
+					log_err("Ошибка получения пароля ключевого дистрибутива.");
 			}
 		}else
 			iplir_show_err("getVpnStatus", rc);

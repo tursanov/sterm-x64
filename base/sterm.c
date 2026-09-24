@@ -1051,10 +1051,27 @@ static void init_devices(void)
 	if (devices != NULL){
 		kkt = get_dev_info(devices, DEV_KKT);
 		if (kkt != NULL){
+			log_info("Обнаружена ККТ: порт: %s; управление потоком: %s; тип: %s.",
+				kkt->ttyS_name,
+				kkt->ss.control == SERIAL_FLOW_RTSCTS ? "RTS/CTS" : "нет",
+				kkt->name);
 			kkt_init(kkt);
 			adjust_kkt_cfg(kkt);
 		}
 		sprn = get_dev_info(devices, DEV_SPRN);
+		if (sprn != NULL){
+			log_info("Обнаружено БПУ: порт: %s; управление потоком: %s; тип: %s.",
+				sprn->ttyS_name,
+				sprn->ss.control == SERIAL_FLOW_RTSCTS ? "RTS/CTS" : "нет",
+				sprn->name);
+		}
+		rfid = get_dev_info(devices, DEV_RFID);
+		if (rfid != NULL){
+			log_info("Обнаружен считыватель ЭМТТ: порт: %s; управление потоком: %s; тип: %s.",
+				rfid->ttyS_name,
+				rfid->ss.control == SERIAL_FLOW_RTSCTS ? "RTS/CTS" : "нет",
+				rfid->name);
+		}
 	}
 	fdo_resume();
 }
@@ -1062,12 +1079,7 @@ static void init_devices(void)
 /* Инициализация терминала */
 static void init_term(bool need_init)
 {
-    bool flag = xlog_active || plog_active || klog_active;
-#if defined NDEBUG
-	set_log_lvl(Info);
-#else
-	set_log_lvl(Debug);
-#endif
+	bool flag = xlog_active || plog_active || klog_active;
 	can_reject = false;
 	err_ptr = NULL;
 	set_term_state(st_stop_iplir);
@@ -1189,7 +1201,7 @@ static bool open_log(struct log_handle *hlog)
 
 static inline bool open_logs(void)
 {
-	return	open_log(hxlog) && (!bank_ok || open_log(hplog)) && open_log(hklog);
+	return open_log(hxlog) && (!bank_ok || open_log(hplog)) && open_log(hklog);
 }
 
 static bool create_term(void)
@@ -1203,39 +1215,44 @@ static bool create_term(void)
 	);
 	if (!read_tki(STERM_TKI_NAME, false))
 		return false;
+	term_number nr;
+	get_tki_field(&tki, TKI_NUMBER, nr, sizeof(nr));
+	log_info("Начало работы терминала; версия %d.%d.%d (0x%.4X); номер %.*s.",
+		STERM_VERSION_MAJOR, STERM_VERSION_MINOR, STERM_VERSION_RELEASE, term_check_sum,
+		sizeof(nr), nr);
 	set_sigterm_handler();
 	load_term_props();
 #if defined __REAL_KEYS__
 	if (!ds_init()){
-		fprintf(stderr, "Ошибка инициализации жетонов DS1990A.\n");
+		log_err("Ошибка инициализации жетонов DS1990A.");
 		return false;
 	}
 #endif
 	if (!init_ppp_ipc()){
-		fprintf(stderr, "Ошибка инициализации PPP.\n");
+		log_err("Ошибка инициализации PPP.");
 		return false;
 	}
 	if (!pos_create()){
-		fprintf(stderr, "Ошибка инициализации ИПТ.\n");
+		log_err("Ошибка инициализации ИПТ.");
 		return false;
 	}
 	clear_bank_info();
 	init_keys();
 	rom = create_hash(ROM_BUF_LEN);
 	if (rom == NULL){
-		fprintf(stderr, "Ошибка создания ОЗУ констант.\n");
+		log_err("Ошибка создания ОЗУ констант.");
 		return false;
 	}
 	prom = create_hash(PROM_BUF_LEN);
 	if (prom == NULL){
-		fprintf(stderr, "Ошибка создания ДЗУ.\n");
+		log_err("Ошибка создания ДЗУ.");
 		return false;
 	}
 	check_tki();
 	check_usb_bind();
 	check_iplir_bind();
 	if (!tki_ok){
-		fprintf(stderr, "Файл ключевой информации терминала поврежден.\n");
+		log_err("Файл ключевой информации терминала поврежден.");
 		return false;
 	}
 	iplir_disabled = !(usb_ok && iplir_ok);
@@ -1311,6 +1328,7 @@ static void release_term(void)
 	articles_destroy();
 	newcheque_destroy();
 	iplir_release();
+	log_info("Работа терминала завершена.");
 }
 
 /* Проверка нажатия комбинации клавиш для разрыва модемного соединения */
@@ -2519,7 +2537,7 @@ static void show_iplir_version(void)
 		if ((l <= 0) || ((offs + 1) > sizeof(txt)))
 			goto end;
 	}else
-		fprintf(stderr, "getClientVersion: %x (%s).\n", rc.code, rc.message);
+		log_err("getClientVersion: %x (%s).", rc.code, rc.message);
 	VpnStatus vpn_st;
 	rc = vpn_api->getVpnStatus(&vpn_st);
 	if (rc.code == 0){
@@ -2533,7 +2551,7 @@ static void show_iplir_version(void)
 		if ((l <= 0) || ((offs + 1) > sizeof(txt)))
 			goto end;
 	}else
-		fprintf(stderr, "getVpnStatus: %x (%s).\n", rc.code, rc.message);
+		log_err("getVpnStatus: %x (%s).", rc.code, rc.message);
 	char *data = NULL;
 	uint32_t data_len = 0;
 	rc = vpn_api->getClientParam(paramSecurityEncryptionMode,
@@ -2547,7 +2565,7 @@ static void show_iplir_version(void)
 		if ((l <= 0) || ((offs + 1) > sizeof(txt)))
 			goto end;
 	}else
-		fprintf(stderr, "getClientParam: %x (%s).\n", rc.code, rc.message);
+		log_err("getClientParam: %x (%s).", rc.code, rc.message);
 	enum VpnPrivilege priv = VpnPrivilegeUnknown;
 	rc = vpn_api->getOwnPrivilegeLevel(&priv);
 	if (rc.code == 0){
@@ -2558,7 +2576,7 @@ static void show_iplir_version(void)
 		if ((l <= 0) || ((offs + 1) > sizeof(txt)))
 			goto end;
 	}else
-		fprintf(stderr, "getOwnPrivilegeLevel: %x (%s).\n", rc.code, rc.message);
+		log_err("getOwnPrivilegeLevel: %x (%s).", rc.code, rc.message);
 	VpnNodeInfo *node = NULL;
 	rc = vpn_api->getOwnNodeInfo(&node);
 	if ((rc.code == 0) && (node != NULL)){
@@ -2574,7 +2592,7 @@ static void show_iplir_version(void)
 		if ((l <= 0) || ((offs + 1) > sizeof(txt)))
 			goto end;
 	}else
-		fprintf(stderr, "getOwnNodeInfo: %x (%s).\n", rc.code, rc.message);
+		log_err("getOwnNodeInfo: %x (%s).", rc.code, rc.message);
 	rc = vpn_api->getClientParam(paramKeyNetworkNumber,
 		strlen(paramKeyNetworkNumber), &data, &data_len);
 	if ((rc.code == 0) && (data != NULL)){
@@ -2586,7 +2604,7 @@ static void show_iplir_version(void)
 		if ((l <= 0) || ((offs + 1) > sizeof(txt)))
 			goto end;
 	}else
-		fprintf(stderr, "getClientParam: %x (%s).\n", rc.code, rc.message);
+		log_err("getClientParam: %x (%s).", rc.code, rc.message);
 	uint32_t id = 0;
 	rc = vpn_api->getActiveCoordinator(&id);
 	if (rc.code == 0){
@@ -2603,9 +2621,9 @@ static void show_iplir_version(void)
 			if ((l <= 0) || ((offs + 1) > sizeof(txt)))
 				goto end;
 		}else
-			fprintf(stderr, "getNodeInfo: %x (%s).\n", rc.code, rc.message);
+			log_err("getNodeInfo: %x (%s).", rc.code, rc.message);
 	}else
-		fprintf(stderr, "getActiveCoordinator: %x (%s).\n", rc.code, rc.message);
+		log_err("getActiveCoordinator: %x (%s).", rc.code, rc.message);
 	time_t t = 0;
 	rc = vpn_api->getLicenseExpiration(&t);
 	if (rc.code == 0){
@@ -2621,9 +2639,9 @@ static void show_iplir_version(void)
 			if ((l <= 0) || ((offs + 1) > sizeof(txt)))
 				goto end;
 		}else
-			fprintf(stderr, "gmtime: %m.\n");
+			log_sys_err("gmtime:");
 	}else
-		fprintf(stderr, "getLicenseExpiration: %x (%s).\n", rc.code, rc.message);
+		log_err("getLicenseExpiration: %x (%s).", rc.code, rc.message);
 	int32_t log_lvl = 0;
 	rc = vpn_api->getLogLevel(&log_lvl);
 	if (rc.code == 0){
@@ -2635,7 +2653,7 @@ static void show_iplir_version(void)
 			goto end;
 		ok = true;
 	}else
-		fprintf(stderr, "getLogLevel: %x (%s).\n", rc.code, rc.message);
+		log_err("getLogLevel: %x (%s).", rc.code, rc.message);
 	if (ok){
 		online = false;
 		guess_term_state();
@@ -3703,7 +3721,9 @@ static void do_ticket_number(void)
 {
 	bool need_beep = true;
 	set_term_astate(ast_none);
-	if (hex_input || key_input || wait_key)
+	if (!cfg.has_sprn || (sprn == NULL))
+		set_term_astate(ast_nosprn);
+	else if (hex_input || key_input || wait_key)
 		;
 	else if (!scr_is_req()){
 		show_req();

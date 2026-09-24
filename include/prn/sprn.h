@@ -13,6 +13,7 @@ extern "C" {
 #include "gd.h"
 
 extern const struct dev_info *sprn;
+extern const struct dev_info *rfid;
 
 /* Статус БПУ */
 extern uint8_t sprn_status;

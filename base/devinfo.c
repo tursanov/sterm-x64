@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include "devinfo.h"
 #include "genfunc.h"
+#include "termlog.h"
 
 /* Команды для опроса устройства */
 #define CMD_ESC			0x1b
@@ -277,13 +278,11 @@ static bool send_poll(int dev, uint32_t *timeout)
 	const char *dev_name = fd2name(dev);
 	ssize_t rc = serial_write(dev, cmd, sizeof(cmd), timeout);
 	if (rc == -1)
-		fprintf(stderr, "%s: ошибка записи в %s: %s.\n", __func__,
-			dev_name, strerror(errno));
+		log_sys_err("Ошибка записи в %s:", dev_name);
 	else if (rc == sizeof(cmd))
 		ret = true;
 	else
-		fprintf(stderr, "%s: в %s записано %zd байт вместо %zu.\n", __func__,
-			dev_name, rc, sizeof(cmd));
+		log_err("В %s записано %zd байт вместо %zu.", dev_name, rc, sizeof(cmd));
 	return ret;
 }
 
@@ -294,21 +293,18 @@ static bool read_status(int dev, uint8_t *status, uint32_t *timeout)
 	assert(timeout != NULL);
 	*status = 0xff;
 	if ((rx_len + 3) > sizeof(rx)){
-		fprintf(stderr, "%s: переполнение буфера чтения.\n", __func__);
+		log_err("Переполнение буфера чтения.\n", __func__);
 		return false;
 	}
 	const char *dev_name = fd2name(dev);
 	bool ret = false;
 	ssize_t rc = serial_read(dev, rx + rx_len, 3, timeout);
 	if (rc == -1)
-		fprintf(stderr, "%s: ошибка чтения из %s: %s.\n", __func__,
-			dev_name, strerror(errno));
+		log_sys_err("Ошибка чтения из %s:", dev_name);
 	else if (rc != 3)
-		fprintf(stderr, "%s: из %s прочитано %zd байт вместо 3.\n",
-			__func__, dev_name, rc);
+		log_err("Из %s прочитано %zd байт вместо 3.", dev_name, rc);
 	else if ((rx[rx_len] != CMD_ESC2) || (rx[rx_len + 1] != CMD_POLL))
-		fprintf(stderr, "%s: неверный формат ответа из %s.\n",
-			__func__, dev_name);
+		log_err("Неверный формат ответа из %s.", dev_name);
 	else{
 		*status = rx[rx_len + 2];
 		rx_len += rc;
@@ -320,24 +316,21 @@ static bool read_status(int dev, uint8_t *status, uint32_t *timeout)
 static bool read_data(int dev, uint32_t *timeout)
 {
 	if (rx_len >= sizeof(rx)){
-		fprintf(stderr, "%s: переполнение буфера чтения.\n", __func__);
+		log_err("Переполнение буфера чтения.");
 		return false;
 	}
 	const char *dev_name = fd2name(dev);
 	ssize_t rc = serial_read(dev, rx + rx_len, 1, timeout);
 	if (rc == -1){
-		fprintf(stderr, "%s: ошибка чтения из %s: %s.\n", __func__,
-			dev_name, strerror(errno));
+		log_sys_err("Ошибка чтения из %s:", dev_name);
 		return false;
 	}else if (rc != 1){
-		fprintf(stderr, "%s: из %s прочитано %zd байт вместо 1.\n",
-			__func__, dev_name, rc);
+		log_err("Из %s прочитано %zd байт вместо 1.", dev_name, rc);
 		return false;
 	}
 	size_t nr_devs = rx[rx_len++];
 	if ((nr_devs == 0) || (nr_devs > MAX_SUBDEVICES)){
-		fprintf(stderr, "%s: неверное количество устройств "
-			"в составном устройстве: %zu.\n", __func__, nr_devs);
+		log_err("Неверное количество устройств в составном устройстве: %zu.", nr_devs);
 		return false;
 	}
 	uint32_t t0 = u_times(), dt = 0;
@@ -345,8 +338,7 @@ static bool read_data(int dev, uint32_t *timeout)
 	while ((n < nr_devs) && (rx_len < sizeof(rx)) && (dt < *timeout)){
 		ssize_t rc = read(dev, rx + rx_len, sizeof(rx) - rx_len);
 		if ((rc == -1) && (errno != EWOULDBLOCK)){
-			fprintf(stderr, "%s: ошибка чтения из %s: %s.\n",
-				__func__, dev_name, strerror(errno));
+			log_sys_err("Ошибка чтения из %s:", dev_name);
 			break;
 		}else if (rc > 0){
 			for (int i = 0; (i < rc) && (n < nr_devs); i++){
@@ -404,6 +396,7 @@ static int get_dev_type(const char *type)
 static void on_st_dev_type(uint8_t b)
 {
 	if (b == '='){
+		dev_type_str[idx] = 0;
 		dev_type = get_dev_type(dev_type_str);
 		if (dev_type == DEV_UNKNOWN)
 			st = st_skip_dev;
@@ -576,27 +569,25 @@ static struct dev_lst *poll_vcom(const char *name)
 	return devs;
 }
 
-static int poll_selector(const struct dirent *entry)
-{
-	uint32_t n = 0;
-	char dummy = 0;
-	return sscanf(entry->d_name, "ttyUSB%u%c", &n, &dummy) == 1;
-}
-
 struct dev_lst *poll_devices(void)
 {
 #define USB_SERIAL_DIR		"/sys/bus/usb-serial/devices"
 #define DEV_DIR			"/dev"
+	int poll_selector(const struct dirent *entry)
+	{
+		uint32_t n = 0;
+		char dummy = 0;
+		return sscanf(entry->d_name, "ttyUSB%u%c", &n, &dummy) == 1;
+	}
 	struct dirent **names;
 	int n = scandir(USB_SERIAL_DIR, &names, poll_selector, alphasort);
 	if (n == -1){
-		fprintf(stderr, "%s: ошибка просмотра каталога " USB_SERIAL_DIR ": %s\n",
-			__func__, strerror(errno));
+		log_sys_err("Ошибка просмотра каталога " USB_SERIAL_DIR ":");
 		return NULL;
 	}
 	struct dev_lst *devs = NULL;
 	for (int i = 0; i < n; i++){
-		static char path[512];
+		static char path[PATH_MAX];
 		snprintf(path, sizeof(path), DEV_DIR "/%s", names[i]->d_name);
 		struct dev_lst *lst = poll_vcom(path);
 		if (lst != NULL){
