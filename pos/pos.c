@@ -490,6 +490,7 @@ static const char *pos_get_state_str(int st)
 		const char *txt;
 	} map[] = {
 		{pos_new,		"pos_new"},
+		{pos_none,		"pos_none"},
 		{pos_init_check,	"pos_init_check"},
 		{pos_idle,		"pos_idle"},
 		{pos_init,		"pos_init"},
