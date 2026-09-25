@@ -13,6 +13,7 @@
 #include "pos/error.h"
 #include "pos/tcp.h"
 #include "cfg.h"
+#include "termlog.h"
 
 struct data_unit {
 	struct data_unit *next;

@@ -1,6 +1,8 @@
 /* Журналы работы приложения. (c) gsr, 2014-2016, 2024, 2026 */
 
+#include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <dirent.h>
 #include <errno.h>
 #include <regex.h>
@@ -13,6 +15,7 @@
 #include "paths.h"
 #include "sterm.h"
 #include "termlog.h"
+#include "tki.h"
 
 #define LOG_MAP_SIZE	10
 static struct log_map_entry {
@@ -51,7 +54,7 @@ static struct log_map_entry *get_log_entry_ex(const char *prefix, const char *ex
 
 static inline struct log_map_entry *get_log_entry(const char *prefix)
 {
-	return get_log_entry_ex(prefix, DEF_LOG_EXT);
+	return get_log_entry_ex(prefix, LOG_EXT);
 }
 
 static int log_lvl = Info;
@@ -126,7 +129,7 @@ static ssize_t del_excess_logs_ex(const char *folder, const char *prefix, const 
 
 static inline ssize_t del_excess_logs(const char *folder, const char *prefix, size_t max_files)
 {
-	return del_excess_logs_ex(folder, prefix, DEF_LOG_EXT, max_files);
+	return del_excess_logs_ex(folder, prefix, LOG_EXT, max_files);
 }
 
 static inline bool create_log_folder_if_need(void)
@@ -145,7 +148,7 @@ bool log_internal(int lvl, const char *file, const char *fn, uint32_t line, uint
 	gettimeofday(&tv, NULL);
 	struct tm *tm = localtime(&tv.tv_sec);
 	snprintf(path, sizeof(path), LOG_FOLDER "/%s-%.4u-%.2u-%.2u.%s",
-		DEF_LOG_PREFIX, tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, DEF_LOG_EXT);
+		LOG_PREFIX, tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, LOG_EXT);
 	FILE *f = fopen(path, "a");
 	if (f == NULL)
 		return false;
@@ -164,9 +167,9 @@ bool log_internal(int lvl, const char *file, const char *fn, uint32_t line, uint
 	fputc('\n', f);
 	fflush(f);
 	fclose(f);
-	struct log_map_entry *p = get_log_entry(DEF_LOG_PREFIX);
+	struct log_map_entry *p = get_log_entry(LOG_PREFIX);
 	if ((p == NULL) || (tv.tv_sec > (p->last_write_date + SECONDS_IN_DAY))){
-		del_excess_logs(LOG_FOLDER, DEF_LOG_PREFIX, MAX_LOG_FILES);
+		del_excess_logs(LOG_FOLDER, LOG_PREFIX, MAX_LOG_FILES);
 		if (p != NULL)
 			p->last_write_date = (tv.tv_sec / SECONDS_IN_DAY) * SECONDS_IN_DAY;
 	}
@@ -186,7 +189,7 @@ bool log_data(const char *prefix, const char *title, const uint8_t *data, size_t
 	gettimeofday(&tv, NULL);
 	struct tm *tm = localtime(&tv.tv_sec);
 	snprintf(path, sizeof(path), LOG_FOLDER "/%s-%.4u-%.2u-%.2u.%s",
-		prefix, tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, DEF_LOG_EXT);
+		prefix, tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, LOG_EXT);
 	FILE *f = fopen(path, "a");
 	if (f == NULL)
 		return false;
@@ -228,4 +231,92 @@ bool log_data(const char *prefix, const char *title, const uint8_t *data, size_t
 			p->last_write_date = (tv.tv_sec / SECONDS_IN_DAY) * SECONDS_IN_DAY;
 	}
 	return true;
+}
+
+static bool sterm_log_lst_exists(void)
+{
+	bool ret = false;
+	struct stat st;
+	if (stat(STERM_LOG_LST, &st) == 0)
+		ret = S_ISREG(st.st_mode);
+	return ret;
+}
+
+static bool create_sterm_log_lst(void)
+{
+	bool ret = false;
+	FILE *f = fopen(STERM_LOG_LST, "w");
+	if (f != NULL){
+		static const char *names[] = {
+			"grids",
+			"icons",
+			"log",
+			"patterns",
+			"xprn",
+			"xslt",
+			"ad.bin",
+			"agents.bin",
+			"archive.bin",
+			"articles.bin",
+			"bank.dat",
+			"cashier.txt",
+			"express.log",
+			"kkt.log",
+			"newcheque.dat",
+			"pos.log",
+			"sterm.conf",
+			"sterm.dat",
+			"sterm-logs.txt",
+		};
+		ret = true;
+		for (int i = 0; i < ASIZE(names); i++){
+			if (fprintf(f, STERM_HOME "/%s\n", names[i]) < 0){
+				ret = false;
+				break;
+			}
+		}
+		fclose(f);
+	}
+	return ret;
+}
+
+static inline bool create_sterm_log_lst_if_need(void)
+{
+	bool ret = true;
+	if (!sterm_log_lst_exists())
+		ret = create_sterm_log_lst();
+	return ret;
+}
+
+bool arch_sterm_data(const char **msg)
+{
+	bool ret = false;
+	static char txt[4096];
+	*txt = 0;
+	if (create_sterm_log_lst_if_need()){
+		if (system("mount-usb.sh " STERM_NR_FILE) == 0){
+			static char path[PATH_MAX], cmd[4096];
+			time_t t = time(NULL);
+			struct tm *tm = localtime(&t);
+			term_number tn;
+			get_tki_field(&tki, TKI_NUMBER, tn, sizeof(tn));
+			snprintf(path, sizeof(path),
+				"sterm-logs-%.*s-%.4u-%.2u-%.2u_%.2u-%.2u-%.2u.tbz",
+				isizeof(tn), tn, tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+				tm->tm_hour, tm->tm_min, tm->tm_sec);
+			snprintf(cmd, sizeof(cmd), "tar -cjf " USB_MNT "/%s -T " STERM_LOG_LST,
+				path);
+			system(cmd);
+			system("umount " USB_MNT);
+			snprintf(txt, sizeof(txt),
+				"Журнал работы терминала был сохранён в файле %s в модуле безопасности.",
+				path);
+			ret = true;
+		}else
+			snprintf(txt, sizeof(txt), "Ошибка подключения модуля безопасности.");
+	}else
+		snprintf(txt, sizeof(txt), "Не найден список файлов журнала работы терминала.");
+	if (msg != NULL)
+		*msg = txt;
+	return ret;
 }

@@ -2092,10 +2092,7 @@ static const char *make_sprn_err_msg(int sprn_ret)
 {
 	char *ret = NULL;
 	if (sprn_ret == SPRN_RET_OK){
-		if (sprn_status == 0){
-			if (sprn_sd_status > 0x01)
-				ret = sprn_get_sd_error_txt(sprn_sd_status)->txt;
-		}else
+		if (!sprn_ok(sprn_status)){
 			ret = sprn_get_error_txt(sprn_status)->txt;
 		if ((ret == NULL) && (sprn_media != SPRN_MEDIA_BLANK) &&
 				(sprn_media != SPRN_MEDIA_BOTH))

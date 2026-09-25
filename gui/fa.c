@@ -31,6 +31,7 @@
 #include "kkt/kkt.h"
 #include "pos/command.h"
 #include "ds1990a.h"
+#include "termlog.h"
 
 static int fa_active_group = -1;
 static int fa_active_item = -1;
@@ -99,11 +100,11 @@ bool cashier_load() {
 
 		make_cashier();
 
-		printf("cashier_name: \"%s\"\n", cashier_name);
-		printf("cashier_name_alt: \"%s\"\n", cashier_get_name_alt());
-		printf("cashier_post: \"%s\"\n", cashier_post);
-		printf("cashier_inn: \"%s\"\n", cashier_inn);
-		printf("cashier_cashier: \"%s\"\n", cashier_cashier);
+		log_dbg("cashier_name: \"%s\";", cashier_name);
+		log_dbg("cashier_name_alt: \"%s\";", cashier_get_name_alt());
+		log_dbg("cashier_post: \"%s\";", cashier_post);
+		log_dbg("cashier_inn: \"%s\";", cashier_inn);
+		log_dbg("cashier_cashier: \"%s\".", cashier_cashier);
 
 		return 0;
 	}
@@ -114,11 +115,10 @@ bool cashier_save() {
 	FILE *f = fopen("/home/sterm/cashier.txt", "w");
 	if (f != NULL) {
 
-		printf("cashier_save\n");
-		printf(" cashier_name: \"%s\"\n", cashier_name);
-		printf(" cashier_post: \"%s\"\n", cashier_post);
-		printf(" cashier_inn: \"%s\"\n", cashier_inn);
-		printf(" cashier_cashier: \"%s\"\n", cashier_cashier);
+		log_dbg("cashier_name: \"%s\";", cashier_name);
+		log_dbg("cashier_post: \"%s\";", cashier_post);
+		log_dbg("cashier_inn: \"%s\";", cashier_inn);
+		log_dbg("cashier_cashier: \"%s\".", cashier_cashier);
 
 		fprintf(f, "%s\n%s\n%s\n%s\n",
 			(const char *)cashier_name,
@@ -283,7 +283,7 @@ int fa_get_reregistration_data() {
 static void fa_check_fn() {
 	struct kkt_fs_version ver;
 	fs_debug = kkt_get_fs_version(&ver) == 0 && ver.type == 0;
-	printf("fs_debug: %d\n", fs_debug);
+	log_dbg("fs_debug: %d.", fs_debug);
 }
 
 bool init_fa(int arg)
@@ -310,7 +310,7 @@ bool init_fa(int arg)
 		if (_ad->clist.count > 0) {
 			fa_active_item =  kt != key_reg ? 4 : 2;
 			fa_menu->selected = fa_active_item;
-			printf("fa_active_item = %d\n", fa_active_item);
+			log_dbg("fa_active_item = %d.", fa_active_item);
 		}
 		fa_set_group(FAPP_GROUP_MENU);
 	} else {
@@ -432,7 +432,7 @@ static int fa_tlv_add_string(form_t *form, uint16_t tag, bool required) {
 	if (data.size == 0)
 		return 0;
 
-	printf("tlv_add_string(%.4d, %s)\n", tag, (const char *)data.data);
+	log_dbg("tlv_add_string(%.4d, %s).", tag, (const char *)data.data);
 
 	if ((ret = ffd_tlv_add_string(tag, (const char *)data.data)) != 0) {
 		fa_show_error(form, tag, "Ошибка при добавлении TLV. Обратитесь к разработчикам");
@@ -451,7 +451,7 @@ static int fa_tlv_add_fixed_string(form_t *form, uint16_t tag, size_t fixed_leng
 	if (data.size == 0)
 		return 0;
 		
-	printf("tlv_add_fixed_string(%.4d, %s, %zd)\n", tag, (const char *)data.data, fixed_length);
+	log_dbg("tlv_add_fixed_string(%.4d, %s, %zd)\n", tag, (const char *)data.data, fixed_length);
 
 	if ((ret = ffd_tlv_add_fixed_string(tag, (const char *)data.data, fixed_length)) != 0) {
 		fa_show_error(form, tag, "Ошибка при добавлении TLV. Обратитесь к разработчикам");
@@ -543,7 +543,7 @@ static int fa_tlv_add_unixtime(form_t *form, uint16_t tag, bool required) {
 		return 0;
 	}
 
-	printf("data.data: %s\n", (const char *)data.data);
+	log_dbg("data.data: %s.", (const char *)data.data);
 
 	struct tm tm;
 
@@ -561,7 +561,7 @@ static int fa_tlv_add_unixtime(form_t *form, uint16_t tag, bool required) {
 		return -1;
 	}
 
-	printf("time: %ld\n", value);
+	log_dbg("time: %ld.", value);
 
 	int ret;
 	if ((ret = ffd_tlv_add_unix_time(tag, value)) != 0) {
@@ -585,10 +585,8 @@ static int fa_tlv_add_cashier(form_t *form) {
 		return -1;
 	}
 
-	printf("fa_tlv_add_cashier\n");
-		printf(" cashier_name: \"%s\"\n", (char *)cashier.data);
-		printf(" cashier_post: \"%s\"\n", (char *)post.data);
-		printf(" cashier_inn: \"%s\"\n", (char *)inn.data);
+	log_dbg("cashier_name: \"%s\"; cashier_post: \"%s\"; cashier_inn: \"%s\".",
+		(char *)cashier.data, (char *)post.data, (char *)inn.data);
 
 	if (!cashier_set(cashier.data, post.data, inn.data)) {
 		fa_show_error(form, 1021, "Ошибка записи в файл данных о кассире");
@@ -618,14 +616,11 @@ bool fa_create_doc(uint16_t doc_type, const uint8_t *pattern_footer,
 			uint8_t err_info[32];
 			size_t err_info_len;
 
-			//printf("#1 %d\n", doc_type);
 			err_info_len = sizeof(err_info);
 			status = kkt_get_last_doc_info(&ldi, err_info, &err_info_len);
 			if (status != 0) {
-				//printf("#2: %d\n", status);
 				fd_set_error(doc_type, status, err_info, err_info_len);
 			} else {
-				//printf("#3: %d, %d\n", ldi.last_nr, ldi.last_printed_nr);
 				if (ldi.last_nr != ldi.last_printed_nr) {
 					message_box("Ошибка", "Последний сформированный документ не был напечатан.\n"
 							"Для его печати в меню фискального приложения выберите пункт\n"
@@ -636,8 +631,6 @@ bool fa_create_doc(uint16_t doc_type, const uint8_t *pattern_footer,
 /*					if (update_func)
 						update_func(update_func_arg);
 					status = fd_print_last_doc(ldi.last_type);
-
-					//printf("LD: status = %d\n", status);
 
 					if (status != 0)
 						fd_set_error(doc_type, status, err_info, err_info_len);*/
@@ -656,7 +649,7 @@ bool fa_create_doc(uint16_t doc_type, const uint8_t *pattern_footer,
 		} else
 			return true;
 
-		printf("status: %.2X\n", status);
+		log_dbg("status: %.2X.", status);
 
 /*		if (status == 0x41 || status == 0x42 || status == 0x44)
 			goto LCheckLastDocNo;*/
@@ -977,12 +970,12 @@ void fa_reregistration() {
 
 	while (form_execute(form) == 1) {
 		if (fa_fill_registration_tlv(form) != 0) {
-			printf("Неправильное заполнение полей\n");
+			log_err("Неправильное заполнение полей.");
 			continue;
 		}
 
 		int rereg_reason = form_get_int_data(form, 9997, 0, 0);
-		printf("rereg_reason = %d\n", rereg_reason);
+		log_dbg("rereg_reason = %d.", rereg_reason);
 		if (rereg_reason == 0) {
 			message_box("Ошибка", "Не указана ни одна причина перерегистрации", dlg_yes, 0, al_center);
 			form_focus(form, 9997);
@@ -1304,9 +1297,9 @@ void fa_cheque() {
 						if (l->n > 0)
 							ffd_tlv_add_uint8(1199, l->n);
 						if ((l->n >= 1 && l->n <= 4) || l->n >= 7) {
-							printf("ADD 1198, %lld\n", (long long)l->c);
+							log_dbg("ADD 1198, %lld.", (long long)l->c);
 							ffd_tlv_add_vln(1198, l->c);
-							printf("ADD 1200, %lld\n", (long long)l->c);
+							log_dbg("ADD 1200, %lld.", (long long)l->c);
 							ffd_tlv_add_vln(1200, l->c);
 						}
 						if (l->i == 0) {
@@ -1430,7 +1423,7 @@ void fa_print_last_doc() {
 	fdo_suspend();
 	uint8_t status = kkt_get_last_doc_info(&ldi, err_info, &err_info_len);
 	fdo_resume();
-	printf("status = 0x%x\n", status);
+	log_dbg("status = 0x%hhx.", status);
 	if (status != 0) {
 		fd_set_error(0, status, err_info, err_info_len);
 	} else if (ldi.last_type != 0) {

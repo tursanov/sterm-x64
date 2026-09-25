@@ -440,7 +440,7 @@ void clear_text_field(void)
 void create_scr(void)
 {
 	if (!InitVGA()){
-		printf("cannot initialize graphics\n");
+		fprintf(stderr, "Cannot initialize graphics.\n");
 		exit(-1);
 	}
 	sg = &sg80x20;

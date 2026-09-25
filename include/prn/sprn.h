@@ -9,7 +9,11 @@ extern "C" {
 
 #include "prn/express.h"
 #include "cfg.h"
+#include "devinfo.h"
 #include "gd.h"
+
+extern const struct dev_info *sprn;
+extern const struct dev_info *rfid;
 
 /* Статус БПУ */
 extern uint8_t sprn_status;
@@ -95,16 +99,16 @@ extern bool sprn_timeout;
 #define SPRN_PRNOP_VPOS_ABS	XPRN_PRNOP_VPOS_ABS	/* абсолютное вертикальное позиционирование */
 
 /* Таймауты для различных команд (в сотых долях секунды) */
-#define SPRN_RD_BCODE_TIMEOUT	1600	/* запрос номера бланка (12 сек) */
+#define SPRN_NUMBER_TIMEOUT	300	/* чтение номера бланка (4 сек) */
 #define SPRN_MEDIA_TIMEOUT	400	/* запрос типа носителя (4 сек) */
 #define SPRN_ID_TIMEOUT		250	/* запрос идентификатора (2.5 сек) */
 #define SPRN_STATUS_TIMEOUT	1200	/* запрос статуса (12 сек) */
+#define SPRN_RD_BCODE_TIMEOUT	1600	/* печать с проверкой номера бланка (12 сек) */
 #define SPRN_LOG_TIMEOUT	1200	/* печать КЛ (12 сек на абзац) */
 #define SPRN_BCODE_CTL_TIMEOUT	2200	/* печать билета с контролем штрих-кода (22 сек) */
 #define SPRN_TEXT_TIMEOUT	1200	/* печать текста без контроля штрих-кода (12 сек) */
 #define SPRN_RD_PARAMS_TIMEOUT	500	/* получение параметров БПУ (5 сек) */
 #define SPRN_WR_PARAM_TIMEOUT	300	/* установка параметра БПУ (3 сек) */
-#define SPRN_TIME_SYNC_TIMEOUT	300	/* синхронизация времени (3 сек) */
 
 #define SPRN_INFINITE_TIMEOUT	0	/* бесконечный таймаут */
 
@@ -114,6 +118,80 @@ extern bool sprn_timeout;
 #define SPRN_MEDIA_PAPER	0x31	/* рулонная бумага */
 #define SPRN_MEDIA_BOTH		0x32	/* оба носителя */
 
+/* Статус завершения команд БПУ */
+#define SPRN_STATUS_OK		0x00	/* нормальное завершение */
+#define SPRN_STATUS_NO_NUMBER	0x01	/* номер БПУ не прописан в памяти */
+#define SPRN_STATUS_NO_BCODE	0x30	/* штриховой код отсутствует */
+#define SPRN_STATUS_BCODE_LEN	0x36	/* длина штрихового кода не равна 13 */
+#define SPRN_STATUS_BLANK_NR	0x37	/* несовпадение номера бланка */
+#define SPRN_STATUS_BCODE_CRC	0x38	/* ошибка контрольной суммы штрих-кода */
+#define SPRN_STATUS_ZERO_NR	0x39	/* считался номер 000000 */
+#define SPRN_STATUS_PAPER_END	0x41	/* конец бумаги */
+#define SPRN_STATUS_COVER_OPEN	0x42	/* крышка открыта */
+#define SPRN_STATUS_PAPER_LOCK	0x43	/* бумага застряла на выходе */
+#define SPRN_STATUS_PAPER_WRACK	0x44	/* бумага замялась */
+#define SPRN_STATUS_NOTCH_ERR	0x45	/* ошибка чтения реперной метки */
+#define SPRN_STATUS_SCANNER_ERR	0x46	/* аппаратная ошибка сканера штрих-кода */
+#define SPRN_STATUS_MEDIA_ERR	0x47	/* ошибка носителя */
+#define SPRN_STATUS_BLANK_SKEW	0x4a	/* перекос бланка */
+#define SPRN_STATUS_HW_ERR	0x4f	/* общая аппаратная ошибка принтера */
+#define SPRN_STATUS_NO_FFEED	0x50	/* нет команды отрезки бланка */
+#define SPRN_STATUS_VPOS_OVER	0x51	/* превышение объёма текста по вертикальным позициям */
+#define SPRN_STATUS_HPOS_OVER	0x52	/* превышение объёма текста по горизонтальным позициям */
+#define SPRN_STATUS_LOG_ERR	0x53	/* нарушение структуры информации при печати КЛ */
+#define SPRN_STATUS_BC_CMD_ERR	0x54	/* нарушение формата команды анализа штрихового кода */
+#define SPRN_STATUS_GRID_ERROR	0x55	/* нарушение параметров нанесения макетов */
+#define SPRN_STATUS_INVALID_ARG	0x70	/* неверный параметр */
+#define SPRN_STATUS_NO_ICON	0x71	/* пиктограмма не найдена в БПУ */
+#define SPRN_STATUS_GRID_WIDTH	0x72	/* ширина сетки больше ширины бланка в установках */
+#define SPRN_STATUS_GRID_HEIGHT	0x73	/* высота сетки больше высоты бланка в установках */
+#define SPRN_STATUS_GRID_NM_FMT	0x74	/* неправильный формат имени сетки */
+#define SPRN_STATUS_GRID_NM_LEN	0x75	/* длина имени сетки больше допустимой */
+#define SPRN_STATUS_GRID_NR	0x76	/* неверный формат номера сетки */
+
+/* Статус выполнения команд работы с RFID */
+#define RFID_STATUS_OK		0x00	/* нормальное завершения */
+#define RFID_STATUS_INVALID_ARG	0x70	/* неверный параметр */
+#define RFID_STATUS_NONFUNCTION	0xf1	/* считыватель неработоспособен */
+#define RFID_STATUS_NO_TAG	0xf2	/* метка не обнаружена */
+#define RFID_STATUS_TAG_UNKNOWN	0xf3	/* считыватель не может работать с меткой */
+#define RFID_STATUS_COLLISION	0xf4	/* найдено более одной метки */
+#define RFID_STATUS_ACCESS_ERR	0xf5	/* ошибка доступа */
+#define RFID_STATUS_READ_ERR	0xf6	/* ошибка чтения */
+#define RFID_STATUS_HW_ERR	0xff	/* аппаратная ошибка */
+
+/* Загрузка разметок бланков (нет в ТЗ ВНИИЖТ) */
+#define SPRN_STATUS_GRID_ILLEGAL_ID	0xb0	/* неверный идентификатор разметки */
+#define SPRN_STATUS_GRID_TOO_SHORT	0xb1	/* длина разметки меньше допустимой */
+#define SPRN_STATUS_GRID_TOO_LONG	0xb2	/* длина разметки превышает допустимую */
+#define SPRN_STATUS_GRID_CRC_ERR	0xb3	/* ошибка контрольной суммы разметки */
+#define SPRN_STATUS_GRID_WRITE_ERR	0xb4	/* ошибка записи разметки в память БПУ */
+#define SPRN_STATUS_GRID_TIMEOUT	0xb5	/* таймаут приема разметки */
+
+/* Максимальное количество разметок */
+#define MAX_GRIDS			36	/* 0-9 A-Z */
+
+/* Загрузка пиктограмм (нет в ТЗ ВНИИЖТ) */
+#define SPRN_STATUS_ICON_ILLEGAL_ID	0xb8	/* неверный идентификатор пиктограммы */
+#define SPRN_STATUS_ICON_TOO_SHORT	0xb9	/* длина данных пиктограмм меньше допустимой */
+#define SPRN_STATUS_ICON_TOO_LONG	0xba	/* длина данных пиктограмм превышает допустимую */
+#define SPRN_STATUS_ICON_CRC_ERR	0xbb	/* ошибка контрольной суммы данных пиктограмм */
+#define SPRN_STATUS_ICON_WRITE_ERR	0xbc	/* ошибка записи пиктограмм в память БПУ */
+#define SPRN_STATUS_ICON_TIMEOUT	0xbd	/* таймаут приема пиктограмм */
+
+/* Максимальное количество пиктограмм */
+#define MAX_ICONS			36	/* 0-9 A-Z */
+
+static inline bool sprn_ok(uint8_t status)
+{
+	return status == SPRN_STATUS_OK;
+}
+
+static inline bool rfid_ok(uint8_t status)
+{
+	return status == RFID_STATUS_OK;
+}
+
 /* Коды завершения функций для работы с БПУ */
 enum {
 	SPRN_RET_OK,		/* операция выполнена без ошибок */
@@ -121,8 +199,13 @@ enum {
 	SPRN_RET_RST,		/* при выполнении операции произошёл сброс терминала */
 };
 
+#define SPRN_RX_BUF_LEN		4096
+#define SPRN_TX_BUF_LEN		262144
+
 /* Инициализация БПУ и получение его заводского номера */
 extern int sprn_init(void);
+/* Закрытие устройства для работы с БПУ */
+extern void sprn_close(void);
 /* Возвращает true, если заводской номер БПУ состоит из одних нулей */
 extern bool sprn_is_zero_number(void);
 /* Получение статуса БПУ */
@@ -141,10 +224,6 @@ extern int sprn_print_ticket(const uint8_t *data, size_t len, bool *sent_to_prn)
 extern int sprn_get_params(struct term_cfg *cfg);
 /* Запись параметров работы БПУ */
 extern int sprn_set_params(struct term_cfg *cfg);
-/* Синхронизация времени БПУ с терминалом */
-extern int sprn_sync_time(void);
-/* Закрытие устройства для работы с БПУ */
-extern void sprn_close(void);
 
 /* Расшифровка ошибок БПУ */
 struct sprn_error_txt {
@@ -153,9 +232,9 @@ struct sprn_error_txt {
 };
 
 /* Получение информации об ошибке БПУ на основании её кода */
-extern struct sprn_error_txt *sprn_get_error_txt(uint8_t code);
-/* Получение информации об ошибке карты памяти на основании её кода */
-extern struct sprn_error_txt *sprn_get_sd_error_txt(uint8_t code);
+extern const struct sprn_error_txt *sprn_get_error_txt(uint8_t code);
+/* Получение информации об ошибке считывателя ЭМТТ на основании её кода */
+extern const struct sprn_error_txt *rfid_get_error_txt(uint8_t code);
 
 #if defined __cplusplus
 }

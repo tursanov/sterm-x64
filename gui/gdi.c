@@ -16,6 +16,7 @@
 #include "gui/gdi.h"
 #include "gui/scr.h"
 #include "gui/options.h"
+#include "termlog.h"
 
 const Color clBlack		= RGB(0, 0, 0);
 const Color clMaroon	= RGB(128, 0, 0);
@@ -62,8 +63,6 @@ static struct
 	char chardata[32 * 512];
 } console_save;
 
-#define ERRMSG printf
-
 static bool set_console_mode(bool graphics)
 {
 	int tty_fd;
@@ -71,26 +70,25 @@ static bool set_console_mode(bool graphics)
 
 	if ((tty_fd = open("/dev/tty", O_RDWR)) == -1)
 	{
-		ERRMSG("Error in open /dev/tty while set console mode: %s", strerror(errno));
+		log_sys_err("Error in open /dev/tty while set console mode:");
 		return false;
 	}
 
 	if (!graphics && ioctl(tty_fd, KDSETMODE, KD_TEXT) != 0)
 	{
-		ERRMSG("Error in set text console mode: %s\n", strerror(errno));
+		log_sys_err("Error in set text console mode:");
 		ret = false;
 	}
 
 	if (ioctl(tty_fd, graphics ? GIO_FONTX : PIO_FONTX, &console_save.font) != 0)
 	{
-		ERRMSG("Error in %s console fonts: %s\n", graphics ? "save" : "restore",
-				strerror(errno));
+		log_sys_err("Error in %s console fonts:", graphics ? "save" : "restore");
 		ret = false;
 	}
 
 	if (graphics && ioctl(tty_fd, KDSETMODE, KD_GRAPHICS) != 0)
 	{
-		ERRMSG("Error in set graphics console mode: %s\n", strerror(errno));
+		log_sys_err("Error in set graphics console mode:");
 		ret = false;
 	}
 
@@ -451,13 +449,13 @@ BitmapPtr CreateBitmap(const char *file_name)
 	uint8_t *bmp_ptr;
 
 	if (!(bmp = malloc(sizeof(BITMAP)))){
-		fprintf(stderr, "%s: memory allocation error.\n", __func__);
+		log_err("Memory allocation error.");
 		return NULL;
 	}
 
 	if (!(f = fopen(file_name, "rb")))
 	{
-		fprintf(stderr, "%s: cannot open %s for reading: %m.\n", __func__, file_name);
+		log_sys_err("Cannot open %s for reading:", file_name);
 		free(bmp);
 		return NULL;
 	}
@@ -467,7 +465,7 @@ BitmapPtr CreateBitmap(const char *file_name)
 			bfh.BiBitCount != 24 || bfh.BiCompression != 0 ||
 			bfh.BiSize == 12)
    	{
-		fprintf(stderr, "%s: cannot read from %s: %m.\n", __func__, file_name);
+		log_sys_err("Cannot read from %s:", file_name);
 		fclose(f);
 		free(bmp);
 		return NULL;
@@ -481,7 +479,7 @@ BitmapPtr CreateBitmap(const char *file_name)
 
 	if (!(bmp->data = malloc(bmp->pitch*bmp->height)))
 	{
-		fprintf(stderr, "%s: cannot allocate BMP data.\n", __func__);
+		log_err("Cannot allocate BMP data.");
 		fclose(f);
 		free(bmp);
 		return NULL;
@@ -489,7 +487,7 @@ BitmapPtr CreateBitmap(const char *file_name)
 
 	if (!(buffer = malloc(pitch)))
 	{
-		fprintf(stderr, "%s: buffer allocation error.\n", __func__);
+		log_err("Buffer allocation error.");
 		fclose(f);
 		free(bmp->data);
 		free(bmp);
@@ -506,7 +504,7 @@ BitmapPtr CreateBitmap(const char *file_name)
 		
 		if (fread(buffer, pitch, 1, f) != 1)
 		{
-			fprintf(stderr, "%s: error reading from %s: %m.\n", __func__, file_name);
+			log_sys_err("Error reading from %s:", file_name);
 			fclose(f);
 			free(bmp->data);
 			free(bmp);

@@ -125,7 +125,7 @@ extern bool pos_req_stream_end(struct pos_data_buf *buf);
 /* Состояния модуля работы с POS-эмулятором */
 enum {
 	pos_new,		/* требуется посылка команды INIT_CHECK */
-	pos_none,		/* Невозможно соединиться с ИПТ */
+	pos_none,		/* невозможно соединиться с ИПТ */
 	pos_init_check,		/* послана команда INIT_CHECK, ожидается ответ */
 	pos_idle,		/* ожидание начала работы */
 	pos_init,		/* начало работы, необходимо послать INIT */

@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 #include "md5.h"
+#include "paths.h"
 
 /* Информация о лицензии ИПТ */
 struct bank_license_info {
@@ -19,7 +20,7 @@ struct bank_license_info {
 #define MAX_BANK_LICENSES		10000
 
 /* Имя файла хеша заводского номера терминала (для проверки лицензии) */
-#define TERM_NUMBER_FILE		"/sdata/disk.dat"
+#define TERM_NUMBER_FILE		SDATA_DIR "/disk.dat"
 
 #if defined __cplusplus
 }

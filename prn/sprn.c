@@ -15,11 +15,10 @@
 #include "gd.h"
 #include "serial.h"
 #include "sterm.h"
+#include "termlog.h"
 
 /* Статус БПУ */
 uint8_t sprn_status = 0;
-/* Статус SD-карты памяти */
-uint8_t sprn_sd_status = 0;
 /* Заводской номер БПУ */
 uint8_t sprn_number[SPRN_NUMBER_LEN] = {[0 ... SPRN_NUMBER_LEN - 1] = 0x30};
 /* Тип носителя в БПУ */
@@ -42,31 +41,31 @@ static int nr_semicolons;
 /* Флаг получения всех параметров БПУ */
 static bool sprn_params_received = false;
 
-/* Имя файла устройства для работы с БПУ */
-#define SPRN_DEV_NAME		"/dev/ttyUSB0"
+const struct dev_info *sprn = NULL;
+const struct dev_info *rfid = NULL;
 /* Устройство для работы с БПУ */
 static int sprn_dev = -1;
 
 /* Данные для передачи БПУ */
-static uint8_t snd_data[PRN_BUF_LEN];
+static uint8_t sprn_tx[SPRN_TX_BUF_LEN];
 /* Размер данных для передачи БПУ */
-static size_t snd_data_len;
+static size_t sprn_tx_len;
 /* Размер данных, переданных БПУ */
-static size_t sent_len;
+static size_t sprn_sent_len;
 /* Код команды, отправленной в БПУ */
-static uint8_t sent_cmd = SPRN_NUL;
+static uint8_t sprn_sent_cmd = SPRN_NUL;
 
 /* Время начала очередной транзакции с БПУ */
-static uint32_t t0;
+static uint32_t sprn_t0;
 /* Таймаут текущей операции. 0 -- бесконечный таймаут. */
-static uint32_t timeout = SPRN_INFINITE_TIMEOUT;
+static uint32_t sprn_op_timeout = SPRN_INFINITE_TIMEOUT;
 /* Флаг превышения таймаута при выполнении операции */
 bool sprn_timeout = false;
 
 /* Установка начала текущей операции */
 static void sprn_mark_operation(void)
 {
-	t0 = u_times();
+	sprn_t0 = u_times();
 }
 
 /* Установка таймаута в соответствии с командой */
@@ -74,22 +73,23 @@ static void sprn_set_timeout(uint8_t cmd)
 {
 	static struct {
 		uint8_t cmd;
-		uint32_t timeout;
+		uint32_t sprn_op_timeout;
 	} map[] = {
-		{SPRN_RD_BCODE,		SPRN_RD_BCODE_TIMEOUT},
+		{SPRN_NUMBER,		SPRN_NUMBER_TIMEOUT},
 		{SPRN_MEDIA,		SPRN_MEDIA_TIMEOUT},
 		{SPRN_ID,		SPRN_ID_TIMEOUT},
 		{SPRN_STATUS,		SPRN_STATUS_TIMEOUT},
+		{SPRN_RD_BCODE,		SPRN_RD_BCODE_TIMEOUT},
 		{SPRN_LOG,		SPRN_LOG_TIMEOUT},
 		{SPRN_LOG1,		SPRN_LOG_TIMEOUT},
 		{SPRN_RD_BCODE,		SPRN_BCODE_CTL_TIMEOUT},
 		{SPRN_NO_BCODE,		SPRN_TEXT_TIMEOUT},
 	};
 	int i;
-	timeout = SPRN_INFINITE_TIMEOUT;
+	sprn_op_timeout = SPRN_INFINITE_TIMEOUT;
 	for (i = 0; i < ASIZE(map); i++){
 		if (map[i].cmd == cmd){
-			timeout = map[i].timeout;
+			sprn_op_timeout = map[i].sprn_op_timeout;
 			break;
 		}
 	}
@@ -106,7 +106,6 @@ enum {
 	rcv_id_status,	/* ожидание кода завершения инициализации БПУ */
 	rcv_id,			/* получение заводского номера БПУ */
 	rcv_xstatus,		/* ожидание байта статуса БПУ */
-	rcv_sd_status,		/* ожидание байта статуса SD-карты */
 	rcv_status,		/* ожидание байта завершения команды */
 	rcv_number_ctl_status,	/* ожидание кода завершения печати с контролем штрих-кода */
 	rcv_wr_param_prefix,	/* ожидание S (установка параметра) */
@@ -115,12 +114,16 @@ enum {
 	rcv_wr_param_val,	/* получение числового значения параметра */
 	rcv_rd_param_prefix,	/* ожидание R (получение значений всех параметров) */
 	rcv_rd_param_vals,	/* получение значений всех параметров */
-	rcv_time_sync,		/* ожидание кода завершения команды синхронизации времени */ 
 	rcv_end,		/* окончание приёма данных от БПУ (в т.ч. по таймауту) */
 	rcv_idle,		/* игнорирование данных от БПУ */
 };
 
 static int rcv_st = rcv_idle;
+
+/* Буфер приёма (для записи данных в журнал) */
+static uint8_t sprn_rx[SPRN_RX_BUF_LEN];
+/* Длина принятых данных */
+static size_t sprn_rx_len = 0;
 
 /* Счётчик для некоторых состояний конечного автомата приёма */
 static off_t rcv_idx;
@@ -128,32 +131,34 @@ static off_t rcv_idx;
 /* Установка состояния конечного автомата приёма */
 static void sprn_set_rcv_st(int st)
 {
-	if ((st == rcv_end) || (st == rcv_idle))
-		timeout = SPRN_INFINITE_TIMEOUT;
+	if (st == rcv_start)
+		sprn_rx_len = 0;
+	else if ((st == rcv_end) || (st == rcv_idle)){
+		if (sprn_rx_len > 0){
+			log_data_sprn("БПУ --> ТМ", sprn_rx, sprn_rx_len);
+			sprn_rx_len = 0;
+		}
+		sprn_op_timeout = SPRN_INFINITE_TIMEOUT;
+	}
 	rcv_st = st;
 }
 
 /* Сброс буферов и таймаутов */
 static void sprn_reset(void)
 {
-/*	sprn_status = 0;
-	sprn_sd_status = 0;
+	sprn_status = SPRN_STATUS_OK;
 	memset(sprn_number, 0x30, sizeof(sprn_number));
-	sprn_media = SPRN_MEDIA_UNKNOWN;*/
-	snd_data_len = sent_len = 0;
-	sent_cmd = SPRN_NUL;
-	timeout = SPRN_INFINITE_TIMEOUT;
+	sprn_media = SPRN_MEDIA_UNKNOWN;
+	sprn_tx_len = sprn_sent_len = 0;
+	sprn_sent_cmd = SPRN_NUL;
+	sprn_op_timeout = SPRN_INFINITE_TIMEOUT;
 	sprn_set_rcv_st(rcv_idle);
 	rcv_idx = 0;
-#if defined __LOG_SPRN__
-	sprn_flush_log_data();
-#endif
 }
 
 /* Закрытие устройства для работы с БПУ */
 void sprn_close(void)
 {
-/*	printf("%s: sprn_dev = %d.\n", __func__, sprn_dev);*/
 	if (sprn_dev != -1){
 		serial_close(sprn_dev);
 		sprn_dev = -1;
@@ -164,65 +169,64 @@ void sprn_close(void)
 /* Открытие устройства для работы с БПУ */
 static bool sprn_open(void)
 {
-	struct serial_settings ss = {
-		.csize		= CS8,
-		.parity		= SERIAL_PARITY_NONE,
-		.stop_bits	= SERIAL_STOPB_1,
-		.control	= SERIAL_FLOW_RTSCTS,
-		.baud		= B115200,
-	};
+	bool ret = false;
 	sprn_close();
-	sprn_dev = serial_open(SPRN_DEV_NAME, &ss, O_RDWR);
-	return sprn_dev != -1;
+	if (sprn != NULL){
+		sprn_dev = serial_open(sprn->ttyS_name, &sprn->ss, O_RDWR);
+		ret = sprn_dev != -1;
+	}
+	return ret;
+}
+
+static inline bool sprn_open_if_need(void)
+{
+	bool ret = true;
+	if (sprn_dev == -1)
+		ret = sprn_open();
+	return ret;
 }
 
 /* Запись в буфер передачи простой команды */
 static bool sprn_write_cmd(uint8_t cmd)
 {
-	if (sizeof(snd_data) >= 3){
+	bool ret = false;
+	if (sizeof(sprn_tx) >= 3){
 		sprn_reset();
 		sprn_has_blank_number = false;
-		snd_data[0] = SPRN_NUL;
-		snd_data[1] = SPRN_DLE;
-		snd_data[2] = cmd;
-		snd_data_len = 3;
-		sent_len = 0;
-		sent_cmd = cmd;
+		sprn_tx[0] = SPRN_NUL;
+		sprn_tx[1] = SPRN_DLE;
+		sprn_tx[2] = cmd;
+		sprn_tx_len = 3;
+		sprn_sent_len = 0;
+		sprn_sent_cmd = cmd;
 		sprn_mark_operation();
 		sprn_set_timeout(cmd);
-#if defined __LOG_SPRN__
-		sprn_log_rcv = false;
-#endif
-		return true;
-	}else
-		return false;
+		ret = true;
+	}
+	return ret;
 }
 
 /* Запись в буфер передачи текста */
 static bool sprn_write_text(const uint8_t *txt, size_t len, bool log)
 {
 	static uint8_t bcode_tmpl[] = {SPRN_DLE, SPRN_RD_BCODE, 0x3b, 0x3b};
-	if ((txt == NULL) || (len == 0) || ((len + 1) > sizeof(snd_data)))
+	if ((txt == NULL) || (len == 0) || ((len + 1) > sizeof(sprn_tx)))
 		return false;
-/*	printf("%s: txt = [%.*s].\n", __func__, len - 1, txt + 1);*/
 	sprn_reset();
 	sprn_has_blank_number = false;
-	snd_data[0] = SPRN_NUL;
-	memcpy(snd_data + 1, txt, len);
-	snd_data_len = len + 1;
-	sent_len = 0;
+	sprn_tx[0] = SPRN_NUL;
+	memcpy(sprn_tx + 1, txt, len);
+	sprn_tx_len = len + 1;
+	sprn_sent_len = 0;
 	sprn_mark_operation();
 	if (log)
-		sent_cmd = SPRN_LOG;
+		sprn_sent_cmd = SPRN_LOG;
 	else if ((len > sizeof(bcode_tmpl)) && (memcmp(txt, bcode_tmpl,
 			sizeof(bcode_tmpl)) == 0))
-		sent_cmd = SPRN_RD_BCODE;
+		sprn_sent_cmd = SPRN_RD_BCODE;
 	else
-		sent_cmd = SPRN_NO_BCODE;
-	sprn_set_timeout(sent_cmd);
-#if defined __LOG_SPRN__
-	sprn_log_rcv = false;
-#endif
+		sprn_sent_cmd = SPRN_NO_BCODE;
+	sprn_set_timeout(sprn_sent_cmd);
 	return true;
 }
 
@@ -237,23 +241,20 @@ static bool sprn_write_text_log1(const uint8_t *data, size_t len)
 	need_ff = data[len - 1] != SPRN_FORM_FEED;
 	if (need_ff)
 		l++;
-	if (l > sizeof(snd_data))
+	if (l > sizeof(sprn_tx))
 		return false;
 	sprn_reset();
 	sprn_has_blank_number = false;
-	memcpy(snd_data, prefix, sizeof(prefix));
-	memcpy(snd_data + sizeof(prefix), data, len);
-	snd_data_len = sizeof(prefix) + len;
+	memcpy(sprn_tx, prefix, sizeof(prefix));
+	memcpy(sprn_tx + sizeof(prefix), data, len);
+	sprn_tx_len = sizeof(prefix) + len;
 	if (need_ff)
-		snd_data[snd_data_len++] = SPRN_FORM_FEED;
-	snd_data[snd_data_len++] = SPRN_ETX;
-	sent_len = 0;
+		sprn_tx[sprn_tx_len++] = SPRN_FORM_FEED;
+	sprn_tx[sprn_tx_len++] = SPRN_ETX;
+	sprn_sent_len = 0;
 	sprn_mark_operation();
-	sent_cmd = SPRN_LOG1;
-	sprn_set_timeout(sent_cmd);
-#if defined __LOG_SPRN__
-	sprn_log_rcv = false;
-#endif
+	sprn_sent_cmd = SPRN_LOG1;
+	sprn_set_timeout(sprn_sent_cmd);
 	return true;
 }
 
@@ -263,24 +264,17 @@ static bool sprn_do_snd(void)
 	bool ret = true;
 	if (sprn_dev == -1)
 		ret = false;
-	else if (sent_len < snd_data_len){
-		ssize_t len = write(sprn_dev, snd_data + sent_len,
-			snd_data_len - sent_len);
+	else if (sprn_sent_len < sprn_tx_len){
+		ssize_t len = write(sprn_dev, sprn_tx + sprn_sent_len,
+			sprn_tx_len - sprn_sent_len);
 		if (len < 0){
 			if (errno != EWOULDBLOCK){
-				fprintf(stderr, "Ошибка записи в %s: %s.\n",
-					fd2name(sprn_dev), strerror(errno));
-#if defined __LOG_SPRN__
-				sprn_log_byte(errno | 0x80);
-				sprn_flush_log_data();
-#endif
+				log_sys_err("Ошибка записи в %s:", sprn->ttyS_name);
 				ret = false;
 			}
 		}else if (len > 0){
-#if defined __LOG_SPRN__
-			sprn_log_data(snd_data + sent_len, len);
-#endif
-			sent_len += len;
+			log_data_sprn("ТМ --> БПУ", sprn_tx + sprn_sent_len, len);
+			sprn_sent_len += len;
 		}
 	}
 	return ret;
@@ -292,12 +286,12 @@ static void on_rcv_start(uint8_t b)
 	if (b == SPRN_DLE1)
 		sprn_set_rcv_st(rcv_cmd);
 	else if (b == SPRN_DLE2){
-		if (sent_cmd == 'S')
+		if (sprn_sent_cmd == 'S')
 			sprn_set_rcv_st(rcv_wr_param_prefix);
-		else if (sent_cmd == 'R')
+		else if (sprn_sent_cmd == 'R')
 			sprn_set_rcv_st(rcv_rd_param_prefix);
 		else{
-			fprintf(stderr, "От БПУ получен символ 0x1d, недопустимый в даном контексте.\n");
+			log_err("От БПУ получен символ 0x1d, недопустимый в даном контексте.");
 			sprn_set_rcv_st(rcv_idle);
 		}
 	}
@@ -305,9 +299,8 @@ static void on_rcv_start(uint8_t b)
 
 static void on_rcv_cmd(uint8_t b)
 {
-	if (b != sent_cmd){
-		fprintf(stderr, "БПУ отправлена команда 0x%.2hhx, а в ответ пришла 0x%.2hhx.\n",
-			sent_cmd, b);
+	if (b != sprn_sent_cmd){
+		log_err("БПУ отправлена команда 0x%.2hhx, а в ответ пришла 0x%.2hhx.", sprn_sent_cmd, b);
 		sprn_set_rcv_st(rcv_idle);
 	}else{
 		switch (b){
@@ -332,7 +325,7 @@ static void on_rcv_cmd(uint8_t b)
 				sprn_set_rcv_st(rcv_number_ctl_status);
 				break;
 			default:
-				fprintf(stderr, "От БПУ получен неизвестный код команды: 0x%.2hhx.\n", b);
+				log_err("От БПУ получен неизвестный код команды: 0x%.2hhx.", b);
 				sprn_set_rcv_st(rcv_idle);
 		}
 	}
@@ -341,7 +334,7 @@ static void on_rcv_cmd(uint8_t b)
 static void on_rcv_number_status(uint8_t b)
 {
 	sprn_status = b;
-	if (b == 0){
+	if (sprn_ok(b)){
 		sprn_set_rcv_st(rcv_number);
 		rcv_idx = 0;
 	}else
@@ -357,7 +350,7 @@ static void on_rcv_number(uint8_t b)
 			sprn_set_rcv_st(rcv_end);
 		}
 	}else{
-		fprintf(stderr, "Неверный символ штрих-кода: 0x%.2hhx.\n", b);
+		log_err("Неверный символ штрих-кода: 0x%.2hhx.", b);
 		sprn_set_rcv_st(rcv_idle);
 	}
 }
@@ -365,7 +358,7 @@ static void on_rcv_number(uint8_t b)
 static void on_rcv_media_status(uint8_t b)
 {
 	sprn_status = b;
-	if (b == 0)
+	if (sprn_ok(b))
 		sprn_set_rcv_st(rcv_media_type);
 	else
 		sprn_set_rcv_st(rcv_end);
@@ -381,7 +374,7 @@ static void on_rcv_media_type(uint8_t b)
 			sprn_set_rcv_st(rcv_end);
 			break;
 		default:
-			fprintf(stderr, "Неизвестный тип носителя в БПУ: 0x%.2hhx.\n", b);
+			log_err("Неизвестный тип носителя в БПУ: 0x%.2hhx.", b);
 			sprn_set_rcv_st(rcv_idle);
 			break;
 	}
@@ -390,7 +383,7 @@ static void on_rcv_media_type(uint8_t b)
 static void on_rcv_id_status(uint8_t b)
 {
 	sprn_status = b;
-	if (b == 0){
+	if (sprn_ok(b)){
 		rcv_idx = 0;
 		sprn_set_rcv_st(rcv_id);
 	}else
@@ -405,7 +398,7 @@ static void on_rcv_id(uint8_t b)
 		if (rcv_idx >= sizeof(sprn_number))
 			sprn_set_rcv_st(rcv_end);
 	}else{
-		fprintf(stderr, "Неверный символ в номере БПУ: 0x%.2hhx.\n", b);
+		log_err("Неверный символ в номере БПУ: 0x%.2hhx.", b);
 		sprn_set_rcv_st(rcv_idle);
 	}
 }
@@ -419,12 +412,6 @@ static void on_rcv_status(uint8_t b)
 static void on_rcv_xstatus(uint8_t b)
 {
 	sprn_status = b;
-	sprn_set_rcv_st(rcv_sd_status);
-}
-
-static void on_rcv_sd_status(uint8_t b)
-{
-	sprn_sd_status = b;
 	sprn_set_rcv_st(rcv_end);
 }
 
@@ -440,8 +427,8 @@ static void on_rcv_wr_param_prefix(uint8_t b)
 	if (b == 'S')
 		sprn_set_rcv_st(rcv_wr_param_number);
 	else{
-		fprintf(stderr, "При установке параметра S%c вместо 'S' "
-			"получен 0x%.2hhx.\n", sprn_param_number, b);
+		log_err("При установке параметра S%c вместо 'S' получен 0x%.2hhx.",
+			sprn_param_number, b);
 		sprn_set_rcv_st(rcv_idle);
 	}
 }
@@ -449,16 +436,12 @@ static void on_rcv_wr_param_prefix(uint8_t b)
 static void on_rcv_wr_param_number(uint8_t b)
 {
 	if (b == sprn_param_number){
-		if (b == 0x41)
-			sprn_set_rcv_st(rcv_time_sync);
-		else{
-			sprn_param_value = 0;
-			sprn_param_sign = 1;
-			rcv_idx = 0;
-			sprn_set_rcv_st(rcv_wr_param_sign);
-		}
+		sprn_param_value = 0;
+		sprn_param_sign = 1;
+		rcv_idx = 0;
+		sprn_set_rcv_st(rcv_wr_param_sign);
 	}else{
-		fprintf(stderr, "Устанавливаем параметр S%c, а в ответ пришёл номер %c.\n",
+		log_err("Устанавливаем параметр S%c, а в ответ пришёл номер %c.",
 			sprn_param_number, b);
 		sprn_set_rcv_st(rcv_idle);
 	}
@@ -474,8 +457,7 @@ static void on_rcv_wr_param_val(uint8_t b)
 			sprn_set_rcv_st(rcv_end);
 		}
 	}else{
-		fprintf(stderr, "Неверное значение параметра S%c.\n",
-			sprn_param_number);
+		log_err("Неверное значение параметра S%c.", sprn_param_number);
 		sprn_set_rcv_st(rcv_idle);
 	}
 }
@@ -497,8 +479,7 @@ static void on_rcv_rd_param_prefix(uint8_t b)
 		rcv_idx = nr_semicolons = 0;
 		sprn_set_rcv_st(rcv_rd_param_vals);
 	}else{
-		fprintf(stderr, "При чтении параметров вместо 'R' получен "
-			"0x%.2hhx.\n", b);
+		log_err("При чтении параметров вместо 'R' получен 0x%.2hhx.", b);
 		sprn_set_rcv_st(rcv_idle);
 	}
 }
@@ -516,8 +497,7 @@ static void on_rcv_rd_param_vals(uint8_t b)
 			}
 		}
 	}else{
-		fprintf(stderr, "В ответ на запрос параметров пришёл "
-			"неверный символ: 0x%.2hhx.\n", b);
+		log_err("В ответ на запрос параметров пришёл неверный символ: 0x%.2hhx.", b);
 		sprn_set_rcv_st(rcv_idle);
 	}
 }
@@ -580,32 +560,17 @@ static bool sprn_translate_params(struct term_cfg *cfg)
 	return i == ASIZE(map);
 }
 
-static void on_rcv_time_sync(uint8_t b)
-{
-	sprn_sd_status = b;
-	sprn_set_rcv_st(rcv_end);
-}
-
 static bool sprn_do_rcv(void)
 {
 	bool ret = true;
 	uint8_t b;
-	ssize_t len;
-	len = read(sprn_dev, &b, 1);
+	ssize_t len = read(sprn_dev, &b, 1);
 	if ((len == -1) && (errno != EWOULDBLOCK)){
-		fprintf(stderr, "Ошибка чтения из %s: %s.\n",
-			fd2name(sprn_dev), strerror(errno));
-#if defined __LOG_SPRN__
-		sprn_log_byte(errno | 0x80);
-		sprn_flush_log_data();
-#endif
+		log_sys_err("Ошибка чтения из %s: ", sprn->ttyS_name);
 		ret = false;
 	}else if (len == 1){
-/*		printf("%s: b = 0x%.2hhx; rcv_st = %d.\n", __func__,
-			b, rcv_st);*/
-#if defined __LOG_SPRN__
-		sprn_log_byte(b);
-#endif
+		if (sprn_rx_len < sizeof(sprn_rx))
+			sprn_rx[sprn_rx_len++] = b;
 		if ((b == 0x11) || (b == 0x13))
 			return ret;
 		switch (rcv_st){
@@ -636,9 +601,6 @@ static bool sprn_do_rcv(void)
 			case rcv_xstatus:
 				on_rcv_xstatus(b);
 				break;
-			case rcv_sd_status:
-				on_rcv_sd_status(b);
-				break;
 			case rcv_status:
 				on_rcv_status(b);
 				break;
@@ -663,9 +625,6 @@ static bool sprn_do_rcv(void)
 			case rcv_rd_param_vals:
 				on_rcv_rd_param_vals(b);
 				break;
-			case rcv_time_sync:
-				on_rcv_time_sync(b);
-				break;
 		}
 	}
 	return ret;
@@ -675,25 +634,17 @@ static bool sprn_do_rcv(void)
 static bool sprn_process(void)
 {
 	bool ret = true;
-	sprn_timeout = (timeout != SPRN_INFINITE_TIMEOUT) &&
-		((u_times() - t0) > timeout);
+	sprn_timeout = (sprn_op_timeout != SPRN_INFINITE_TIMEOUT) &&
+		((u_times() - sprn_t0) > sprn_op_timeout);
 	if (sprn_timeout){
 		sprn_set_rcv_st(rcv_idle);
 		ret = false;
-#if defined __LOG_SPRN__
-		sprn_flush_log_data();
-#endif
-	}else if (sent_len < snd_data_len){
+	}else if (sprn_sent_len < sprn_tx_len){
 		if (!sprn_do_snd()){
 			sprn_reset();
 			ret = false;
-		}else if (sent_len >= snd_data_len){
+		}else if (sprn_sent_len >= sprn_tx_len)
 			sprn_set_rcv_st(rcv_start);
-#if defined __LOG_SPRN__
-			sprn_flush_log_data();
-			sprn_log_rcv = true;
-#endif
-		}
 	}else if (!sprn_do_rcv()){
 		sprn_reset();
 		ret = false;
@@ -705,8 +656,7 @@ static bool sprn_process(void)
 static int sprn_wait_op(bool show_status)
 {
 	int ret = SPRN_RET_ERR;
-/*	set_term_astate(ast_none);*/
-	while ((sent_len < snd_data_len) ||
+	while ((sprn_sent_len < sprn_tx_len) ||
 			((rcv_st != rcv_end) && (rcv_st != rcv_idle))){
 		if (sprn_process()){
 			if (((get_cmd(false, true) == cmd_reset) &&
@@ -730,17 +680,16 @@ static int sprn_wait_op(bool show_status)
 static int sprn_do_cmd(uint8_t cmd)
 {
 	int ret = SPRN_RET_ERR;
-	sprn_status = sprn_sd_status = 0;
-	if ((sprn_dev == -1) && !sprn_open())
-		set_term_astate(ast_nosprn);
-	else{
+	sprn_status = SPRN_STATUS_OK;
+	if (sprn_open_if_need()){
 		if (sprn_write_cmd(cmd))
 			ret = sprn_wait_op(true);
 		else{
 			set_term_astate(ast_nosprn);
 			sprn_reset();
 		}
-	}
+	}else
+		set_term_astate(ast_nosprn);
 	return ret;
 }
 
@@ -781,23 +730,22 @@ int sprn_get_media_type(void)
 /* Получение номера документа в БПУ */
 int sprn_get_blank_number(void)
 {
-	return sprn_do_cmd(SPRN_RD_BCODE);
+	return sprn_do_cmd(SPRN_NUMBER);
 }
 
 /* Печать абзаца контрольной ленты */
 int sprn_print_log(const uint8_t *data, size_t len)
 {
 	int ret = SPRN_RET_ERR;
-	if ((sprn_dev == -1) && !sprn_open())
-		set_term_astate(ast_nosprn);
-	else{
+	if (sprn_open_if_need()){
 		if (sprn_write_text(data, len, true))
 			ret = sprn_wait_op(true);
 		else{
 			set_term_astate(ast_nosprn);
 			sprn_reset();
 		}
-	}
+	}else
+		set_term_astate(ast_nosprn);
 	return ret;
 }
 
@@ -805,16 +753,15 @@ int sprn_print_log(const uint8_t *data, size_t len)
 int sprn_print_log1(const uint8_t *data, size_t len)
 {
 	int ret = SPRN_RET_ERR;
-	if ((sprn_dev == -1) && !sprn_open())
-		set_term_astate(ast_nosprn);
-	else{
+	if (sprn_open_if_need()){
 		if (sprn_write_text_log1(data, len))
 			ret = sprn_wait_op(true);
 		else{
 			set_term_astate(ast_nosprn);
 			sprn_reset();
 		}
-	}
+	}else
+		set_term_astate(ast_nosprn);
 	sprn_close();
 	return ret;
 }
@@ -843,7 +790,7 @@ int sprn_print_ticket(const uint8_t *data, size_t len, bool *sent_to_prn)
 			*sent_to_prn = true;
 			ret = sprn_wait_op(true);
 			if (ret == SPRN_RET_OK){
-				if (sprn_status == 0){
+				if (sprn_ok(sprn_status)){
 					bool has_number = sprn_has_blank_number;
 					if ((ret = sprn_get_status()) == SPRN_RET_OK)
 						sprn_has_blank_number = has_number;
@@ -859,20 +806,17 @@ int sprn_print_ticket(const uint8_t *data, size_t len, bool *sent_to_prn)
 int sprn_get_params(struct term_cfg *cfg)
 {
 	int ret = SPRN_RET_ERR;
-	if ((sprn_dev != -1) || sprn_open()){
+	if (sprn_open_if_need()){
 		sprn_reset();
 		sprn_params_received = false;
-		snd_data[0] = SPRN_NUL;
-		snd_data[1] = SPRN_DLE2;
-		snd_data[2] = 'R';
-		snd_data_len = 3;
-		sent_len = 0;
-		sent_cmd = 'R';
+		sprn_tx[0] = SPRN_NUL;
+		sprn_tx[1] = SPRN_DLE2;
+		sprn_tx[2] = 'R';
+		sprn_tx_len = 3;
+		sprn_sent_len = 0;
+		sprn_sent_cmd = 'R';
 		sprn_mark_operation();
-		timeout = SPRN_RD_PARAMS_TIMEOUT;
-#if defined __LOG_SPRN__
-		sprn_log_rcv = false;
-#endif
+		sprn_op_timeout = SPRN_RD_PARAMS_TIMEOUT;
 		ret = sprn_wait_op(false);
 		sprn_close();
 		if ((ret == SPRN_RET_OK) && !sprn_translate_params(cfg))
@@ -885,26 +829,23 @@ int sprn_get_params(struct term_cfg *cfg)
 static int sprn_set_param(int n, int val)
 {
 	sprn_reset();
-	snd_data[0] = SPRN_NUL;
-	snd_data[1] = SPRN_DLE2;
-	snd_data[2] = 'S';
-	snd_data[3] = n + 0x30;
-	snd_data_len = 4;
+	sprn_tx[0] = SPRN_NUL;
+	sprn_tx[1] = SPRN_DLE2;
+	sprn_tx[2] = 'S';
+	sprn_tx[3] = n + 0x30;
+	sprn_tx_len = 4;
 	if (val < 0){
-		snd_data[snd_data_len++] = '-';
+		sprn_tx[sprn_tx_len++] = '-';
 		val *= -1;
 	}
-	snd_data[snd_data_len++] = ((val / 100) % 100) + 0x30;
-	snd_data[snd_data_len++] = ((val / 10) % 10) + 0x30;
-	snd_data[snd_data_len++] = (val % 10) + 0x30;
-	sent_len = 0;
-	sent_cmd = 'S';
+	sprn_tx[sprn_tx_len++] = ((val / 100) % 100) + 0x30;
+	sprn_tx[sprn_tx_len++] = ((val / 10) % 10) + 0x30;
+	sprn_tx[sprn_tx_len++] = (val % 10) + 0x30;
+	sprn_sent_len = 0;
+	sprn_sent_cmd = 'S';
 	sprn_param_number = n + 0x30;
 	sprn_mark_operation();
-	timeout = SPRN_WR_PARAM_TIMEOUT;
-#if defined __LOG_SPRN__
-	sprn_log_rcv = false;
-#endif
+	sprn_op_timeout = SPRN_WR_PARAM_TIMEOUT;
 	return sprn_wait_op(false);
 }
 
@@ -912,7 +853,7 @@ static int sprn_set_param(int n, int val)
 int sprn_set_params(struct term_cfg *cfg)
 {
 	int ret = SPRN_RET_ERR, i, *p = &cfg->s0;
-	if ((sprn_dev != -1) || sprn_open()){
+	if (sprn_open_if_need()){
 		for (i = 0; i < 10; i++){
 			ret = sprn_set_param(i, p[i]);
 			if (ret == SPRN_RET_OK)
@@ -925,149 +866,151 @@ int sprn_set_params(struct term_cfg *cfg)
 	return ret;
 }
 
-/* Синхронизация времени БПУ с терминалом */
-int sprn_sync_time(void)
-{
-	int ret = SPRN_RET_ERR;
-	if ((sprn_dev != -1) || sprn_open()){
-		time_t t = time(NULL) + time_delta;
-		struct tm *tm = localtime(&t);
-		sprn_reset();
-		snd_data[0] = SPRN_NUL;
-		snd_data[1] = SPRN_DLE2;
-		snd_data[2] = 0x53;		/* S */
-		snd_data[3] = 0x41;		/* A */
-		snprintf((char *)snd_data + 4, sizeof(snd_data) - 4,
-			"%.2d%.2d%.2d%.2d%.2d%.2d",
-			tm->tm_mday, tm->tm_mon + 1, tm->tm_year % 100,
-			tm->tm_hour, tm->tm_min, tm->tm_sec);
-		snd_data_len = 16;
-		sent_len = 0;
-		sent_cmd = 0x53;		/* S */
-		sprn_param_number = 0x41;	/* A */
-		sprn_sd_status = 0;
-		sprn_mark_operation();
-		timeout = SPRN_TIME_SYNC_TIMEOUT;
-#if defined __LOG_SPRN__
-		sprn_log_rcv = false;
-#endif
-		ret = sprn_wait_op(false);
-	}
-	sprn_close();
-	return ret;
-}
-
 /* Получение информации об ошибке БПУ на основании её кода */
-struct sprn_error_txt *sprn_get_error_txt(uint8_t code)
+const struct sprn_error_txt *sprn_get_error_txt(uint8_t code)
 {
 	static struct {
 		uint8_t code;
 		int len;
-		char *txt;
+		const char *txt;
 	} err[] = {
 		{
-			.code		= 0x01,
+			.code		= SPRN_STATUS_NO_NUMBER,
 			.len		= -1,
 			.txt		= "НОМЕР БПУ НЕ ПРОПИСАН В ПАМЯТИ"
 		},
 		{
-			.code		= 0x30,
+			.code		= SPRN_STATUS_NO_BCODE,
 			.len		= -1,
 			.txt		= "ШТРИХОВОЙ КОД ОТСУТСТВУЕТ"
 		},
 		{
-			.code		= 0x36,
+			.code		= SPRN_STATUS_BCODE_LEN,
 			.len		= -1,
 			.txt		= "ДЛИНА ШТРИХОВОГО КОДА НЕ РАВНА 13"
 		},
 		{
-			.code		= 0x37,
+			.code		= SPRN_STATUS_BLANK_NR,
 			.len		= -1,
 			.txt		= "НЕСОВПАДЕНИЕ НОМЕРА БЛАНКА"
 		},
 		{
-			.code		= 0x38,
+			.code		= SPRN_STATUS_BCODE_CRC,
 			.len		= -1,
 			.txt		= "ОШИБКА КОНТРОЛЬНОЙ СУММ\x9b"
 		},
 		{
-			.code		= 0x39,
+			.code		= SPRN_STATUS_ZERO_NR,
 			.len		= -1,
 			.txt		= "НОМЕР БЛАНКА XXXXXXX000000",
 		},
 		{
-			.code		= 0x41,
+			.code		= SPRN_STATUS_PAPER_END,
 			.len		= -1,
 			.txt		= "КОНЕЦ БУМАГИ"
 		},
 		{
-			.code		= 0x42,
+			.code		= SPRN_STATUS_COVER_OPEN,
 			.len		= -1,
 			.txt		= "КР\x9bШКА ОТКР\x9bТА",
 		},
 		{
-			.code		= 0x43,
+			.code		= SPRN_STATUS_PAPER_LOCK,
 			.len		= -1,
 			.txt		= "БУМАГА ЗАСТРЯЛА НА В\x9bХОДЕ",
 		},
 		{
-			.code		= 0x44,
+			.code		= SPRN_STATUS_PAPER_WRACK,
 			.len		= -1,
 			.txt		= "БУМАГА ЗАМЯЛАСЬ",
 		},
 		{
-			.code		= 0x45,
+			.code		= SPRN_STATUS_NOTCH_ERR,
 			.len		= -1,
 			.txt		= "ОШИБКА ЧТЕНИЯ РЕПЕРНОЙ МЕТКИ",
 		},
 		{
-			.code		= 0x46,
+			.code		= SPRN_STATUS_SCANNER_ERR,
 			.len		= -1,
 			.txt		= "АППАРАТНАЯ ОШИБКА СКАНЕРА ШТРИХ-КОДА",
 		},
 		{
-			.code		= 0x47,
+			.code		= SPRN_STATUS_MEDIA_ERR,
 			.len		= -1,
 			.txt		= "ОШИБКА НОСИТЕЛЯ",
 		},
 		{
-			.code		= 0x4a,
+			.code		= SPRN_STATUS_BLANK_SKEW,
 			.len		= -1,
 			.txt		= "ПЕРЕКОС БЛАНКА",
 		},
 		{
-			.code		= 0x4f,
+			.code		= SPRN_STATUS_HW_ERR,
 			.len		= -1,
 			.txt		= "ОБЩАЯ АППАРАТНАЯ ОШИБКА ПРИНТЕРА",
 		},
 		{
-			.code		= 0x50,
+			.code		= SPRN_STATUS_NO_FFEED,
 			.len		= -1,
 			.txt		= "НЕТ КОМАНД\x9b ОТРЕЗКИ БЛАНКА",
 		},
 		{
-			.code		= 0x51,
+			.code		= SPRN_STATUS_VPOS_OVER,
 			.len		= -1,
 			.txt		= "ПРЕВ\x9bШЕНИЕ ОБ'ЕМА ТЕКСТА ПО ВЕРТИКАЛЬН\x9bМ ПОЗИЦИЯМ",
 		},
 		{
-			.code		= 0x52,
+			.code		= SPRN_STATUS_HPOS_OVER,
 			.len		= -1,
 			.txt		= "ПРЕВ\x9bШЕНИЕ ОБ'ЕМА ТЕКСТА ПО ГОРИЗОНТАЛЬН\x9bМ ПОЗИЦИЯМ",
 		},
 		{
-			.code		= 0x53,
+			.code		= SPRN_STATUS_LOG_ERR,
 			.len		= -1,
 			.txt		= "НАРУШЕНИЕ СТРУКТУР\x9b ИНФОРМАЦИИ ПРИ ПЕЧАТИ КЛ",
 		},
-		{	.code		= 0x54,
+		{	.code		= SPRN_STATUS_BC_CMD_ERR,
 			.len		= -1,
 			.txt		= "НАРУШЕНИЕ ФОРМАТА КОМАНД\x9b АНАЛИЗА ШТРИХОВОГО КОДА",
 		},
-		{
-			.code		= 0x70,
+		{	.code		= SPRN_STATUS_GRID_ERROR,
 			.len		= -1,
-			.txt		= "ОШИБКА РАБОТ\x9b СО ШТРИХОВ\x9bМ КОДОМ",
+			.txt		= "НАРУШЕНИЕ ПАРАМЕТРОВ НАНЕСЕНИЯ МАКЕТО",
+		},
+		{
+			.code		= SPRN_STATUS_INVALID_ARG,
+			.len		= -1,
+			.txt		= "НЕВЕРН\x9bЙ ПАРАМЕТР",
+		},
+		{
+			.code		= SPRN_STATUS_NO_ICON,
+			.len		= -1,
+			.txt		= "ПИКТОГРАММА НЕ НАЙДЕНА В БПУ",
+		},
+		{
+			.code		= SPRN_STATUS_GRID_WIDTH,
+			.len		= -1,
+			.txt		= "ШИРИНА СЕТКИ БОЛЬШЕ ШИРИН\x9b БЛАНКА В УСТАНОВКАХ",
+		},
+		{
+			.code		= SPRN_STATUS_GRID_HEIGHT,
+			.len		= -1,
+			.txt		= "В\x9bСОТА СЕТКИ БОЛЬШЕ В\x9bСОТ\x9b БЛАНКА В УСТАНОВКАХ",
+		},
+		{
+			.code		= SPRN_STATUS_GRID_NM_FMT,
+			.len		= -1,
+			.txt		= "НЕПРАВИЛЬН\x9bЙ ФОРМАТ ИМЕНИ СЕТКИ",
+		},
+		{
+			.code		= SPRN_STATUS_GRID_NM_LEN,
+			.len		= -1,
+			.txt		= "ДЛИНА ИМЕНИ СЕТКИ БОЛЬШЕ ДОПУСТИМОЙ",
+		},
+		{
+			.code		= SPRN_STATUS_GRID_NR,
+			.len		= -1,
+			.txt		= "НЕВЕРН\x9bЙ ФОРМАТ НОМЕРА СЕТКИ",
 		},
 		{
 			.code		= 0xff,
@@ -1075,57 +1018,7 @@ struct sprn_error_txt *sprn_get_error_txt(uint8_t code)
 			.txt		= "НЕИЗВЕСТНАЯ ОШИБКА"
 		},
 	};
-	int i;
-	for (i = 0; i < ASIZE(err); i++){
-		if (err[i].len == -1)
-			err[i].len = strlen(err[i].txt);
-		if ((err[i].code == 0xff) || (code == err[i].code))
-			return (struct sprn_error_txt *)&err[i].len;
-	}
-	return NULL;
-}
-
-/* Получение информации об ошибке карты памяти на основании её кода */
-struct sprn_error_txt *sprn_get_sd_error_txt(uint8_t code)
-{
-	static struct {
-		uint8_t code;
-		int len;
-		char *txt;
-	} err[] = {
-		{
-			.code		= 0x04,
-			.len		= -1,
-			.txt		= "ОШИБКА СИНХРОНИЗАЦИИ ВРЕМЕНИ С БПУ"
-		},
-		{
-			.code		= 0x60,
-			.len		= -1,
-			.txt		= "НЕТ МЕСТА В КАРТЕ ПАМЯТИ"
-		},
-		{
-			.code		= 0x61,
-			.len		= -1,
-			.txt		= "КАРТА ПАМЯТИ ОТСУТСТВУЕТ"
-		},
-		{
-			.code		= 0x62,
-			.len		= -1,
-			.txt		= "ОШИБКА ПРИ РАСПЕЧАТКЕ ИЗОБРАЖЕНИЙ"
-		},
-		{
-			.code		= 0x63,
-			.len		= -1,
-			.txt		= "ОШИБКА ПРИ УДАЛЕНИИ ИЗОБРАЖЕНИЙ"
-		},
-		{
-			.code		= 0xff,
-			.len		= -1,
-			.txt		= "НЕИЗВЕСТНАЯ ОШИБКА"
-		},
-	};
-	int i;
-	for (i = 0; i < ASIZE(err); i++){
+	for (int i = 0; i < ASIZE(err); i++){
 		if (err[i].len == -1)
 			err[i].len = strlen(err[i].txt);
 		if ((err[i].code == 0xff) || (code == err[i].code))

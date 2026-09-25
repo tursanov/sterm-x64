@@ -10,7 +10,6 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <ctype.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -46,25 +45,22 @@ static bool read_cfg_file(const char *name)
 	int fd;
 	bool ret = false;
 	if (stat(name, &st) == -1)
-		fprintf(stderr, "Ошибка получения информации о файле %s: %s.\n",
-			name, strerror(errno));
+		fprintf(stderr, "%s: Ошибка получения информации о файле %s: %m.\n",
+			__func__, name);
 	else if (st.st_size > MAX_CFG_LEN)
-		fprintf(stderr, "Размер файла %s (%lu байт) превышает "
-			"максимально допустимый (%d байт).\n",
-			name, st.st_size, MAX_CFG_LEN);
+		fprintf(stderr, "%s: Размер файла %s (%lu байт) превышает максимально допустимый (%d байт).",
+			__func__, name, st.st_size, MAX_CFG_LEN);
 	else{
 		reset_cfg();
 		cfg_len = st.st_size;
 		fd = open(name, O_RDONLY);
 		if (fd == -1)
-			fprintf(stderr, "Ошибка открытия %s для чтения: %s.\n",
-				name, strerror(errno));
+			fprintf(stderr, "%s: Ошибка открытия %s для чтения: %m.\n", __func__, name);
 		else{
 			if (read(fd, cfg_buf, cfg_len) == cfg_len)
 				ret = true;
 			else
-				fprintf(stderr, "Ошибка чтения из %s: %s.\n",
-					name, strerror(errno));
+				fprintf(stderr, "%s: Ошибка чтения из %s.\n", __func__, name);
 			close(fd);
 		}
 	}
@@ -81,14 +77,12 @@ static bool write_cfg_file(const char *name)
 	fd = open(name, O_WRONLY | O_CREAT | O_TRUNC | O_SYNC,
 		S_IRUSR | S_IWUSR);
 	if (fd == -1)
-		fprintf(stderr, "Ошибка открытия %s для записи: %s.\n",
-			name, strerror(errno));
+		fprintf(stderr, "%s: Ошибка открытия %s для записи: %m.\n", __func__, name);
 	else{
 		if (write(fd, cfg_buf, cfg_len) == cfg_len)
 			ret = true;
 		else
-			fprintf(stderr, "Ошибка записи в %s: %s.\n",
-				name, strerror(errno));
+			fprintf(stderr, "%s: Ошибка записи в %s: %m.\n", __func__, name);
 		fsync(fd);
 		close(fd);
 		flush_home();
@@ -479,7 +473,6 @@ bool read_cfg(void)
 		&cfg.rus_color, &cfg.lat_color, &cfg.bg_color);
 	cfg.has_xprn = false;
 	cfg.has_aprn = false;
-	cfg.has_sprn = false;
 	cfg.tickets_on_kkt = true;
 	return true;
 }

@@ -11,7 +11,6 @@
 #include <time.h>
 #include <unistd.h>
 #include "log/express.h"
-#include "log/logdbg.h"
 #include "prn/aux.h"
 #include "prn/express.h"
 #include "cfg.h"
@@ -20,6 +19,7 @@
 #include "genfunc.h"
 #include "paths.h"
 #include "sterm.h"
+#include "termlog.h"
 #include "tki.h"
 #include "transport.h"
 
@@ -92,9 +92,8 @@ static bool xlog_fill_map(struct log_handle *hlog)
 	memset(hlog->map, 0, hlog->map_size * sizeof(*hlog->map));
 	hlog->map_head = 0;
 	if (hdr->n_recs > XLOG_MAP_MAX_SIZE){
-		logdbg("%s: Слишком много записей на %s; "
-			"должно быть не более " _s(XLOG_MAP_MAX_SIZE) ".\n",
-			__func__, hlog->log_type);
+		log_err("Слишком много записей на %s; должно быть не более "
+			_s(XLOG_MAP_MAX_SIZE) ".", hlog->log_type);
 		return false;
 	}
 	for (i = 0; i < hdr->n_recs; i++){
@@ -106,8 +105,7 @@ static bool xlog_fill_map(struct log_handle *hlog)
 		hlog->map[i].tag = 0;
 		offs = log_inc_index(hlog, offs, sizeof(xlog_rec_hdr));
 		if (xlog_rec_hdr.tag != XLOG_REC_TAG){
-			logdbg("%s: Неверный формат заголовка записи %s #%u.\n",
-				__func__, hlog->log_type, i);
+			log_err("Неверный формат заголовка записи %s #%u.", hlog->log_type, i);
 			return log_truncate(hlog, i, tail);
 		}
 		switch (xlog_rec_hdr.type){
@@ -123,13 +121,13 @@ static bool xlog_fill_map(struct log_handle *hlog)
 			case XLRT_KKT:
 				break;
 			default:
-				logdbg("%s: Запись %s #%u имеет неизвестный тип: %.4x.\n",
-					__func__, hlog->log_type, i, xlog_rec_hdr.type);
+				log_err("Запись %s #%u имеет неизвестный тип: %.4x.",
+					hlog->log_type, i, xlog_rec_hdr.type);
 				return log_truncate(hlog, i, tail);
 		}
 		if (xlog_rec_hdr.len > LOG_BUF_LEN){
-			logdbg("%s: Слишком длинная запись %s #%u: %u байт (max %u).\n",
-				__func__, hlog->log_type, i, xlog_rec_hdr.len, LOG_BUF_LEN);
+			log_err("Слишком длинная запись %s #%u: %u байт (max %u).",
+				hlog->log_type, i, xlog_rec_hdr.len, LOG_BUF_LEN);
 			return log_truncate(hlog, i, tail);
 		}
 		xlog_data_len = xlog_rec_hdr.len;
@@ -138,8 +136,8 @@ static bool xlog_fill_map(struct log_handle *hlog)
 		crc = xlog_rec_hdr.crc32;
 		xlog_rec_hdr.crc32 = 0;
 		if (xlog_rec_crc32() != crc){
-			logdbg("%s: Несовпадение контрольной суммы для записи %s #%u.\n",
-				__func__, hlog->log_type, i);
+			log_err("Несовпадение контрольной суммы для записи %s #%u.",
+				hlog->log_type, i);
 			return log_truncate(hlog, i, tail);
 		}
 		xlog_rec_hdr.crc32 = crc;
@@ -154,22 +152,20 @@ static bool xlog_read_header(struct log_handle *hlog)
 	bool ret = false;
 	if (log_atomic_read(hlog, 0, (uint8_t *)hlog->hdr, sizeof(struct xlog_header))){
 		if (hlog->hdr->tag != XLOG_TAG)
-			logdbg("%s: Неверный формат заголовка %s.\n", __func__,
-				hlog->log_type);
+			log_err("Неверный формат заголовка %s.", hlog->log_type);
 		else if (hlog->hdr->len > XLOG_MAX_SIZE)
-			logdbg("%s: Неверный размер %s.\n", __func__, hlog->log_type);
+			log_err("Неверный размер %s.", hlog->log_type);
 		else{
 			off_t len = lseek(hlog->rfd, 0, SEEK_END);
 			if (len == (off_t)-1)
-				logdbg("%s: Ошибка определения размера файла %s.\n",
-					__func__, hlog->log_type);
+				log_err("Ошибка определения размера файла %s.", hlog->log_type);
 			else{
 				hlog->full_len = hlog->hdr->len + sizeof(struct xlog_header);
 				if (hlog->full_len == len)
 					ret = true;
 				else
-					logdbg("%s: Размер %s, указанный в заголовке, не совпадает с реальным размером.\n",
-						__func__, hlog->log_type);
+					log_err("Размер %s, указанный в заголовке, "
+						"не совпадает с реальным размером.", hlog->log_type);
 			}
 		}
 	}
@@ -296,15 +292,14 @@ static bool xlog_add_rec(struct log_handle *hlog)
 		log_clear(false);*/
 	rec_len = xlog_rec_hdr.len + sizeof(xlog_rec_hdr);
 	if (rec_len > hlog->hdr->len){
-		logdbg("%s: Длина записи (%u байт) превышает длину КЛ (%u байт).\n",
-			__func__, rec_len, hlog->hdr->len);
+		log_err("Длина записи (%u байт) превышает длину КЛ (%u байт).",
+			rec_len, hlog->hdr->len);
 		return false;
 	}
 	free_len = log_free_space(hlog);
 /*	if (!cfg.cyclic_log &&
 			((free_len < MIN_LOG_FREE) || (rec_len > free_len))){
-		logdbg("%s: Слишком мало свободного места на КЛ при записи (%u байт)\n",
-			__func__, free_len);
+		log_err("Слишком мало свободного места на КЛ при записи (%u байт).", free_len);
 		return false;
 	}*/
 /* Если при записи на циклическую КЛ не хватает места, удаляем записи в начале */
@@ -319,13 +314,13 @@ static bool xlog_add_rec(struct log_handle *hlog)
 		m %= hlog->map_size;
 	}
 	if (free_len < rec_len){
-		logdbg("%s: Не удалось освободить место под новую запись.\n", __func__);
+		log_err("Не удалось освободить место под новую запись.");
 		return false;
 	}
 /* n -- оставшееся число записей на контрольной ленте */
 	if ((n + 1) > hlog->map_size){
-		logdbg("%s: Превышено максимальное число записей на КЛ;\n"
-			"должно быть не более %u.\n", __func__, hlog->map_size);
+		log_err("Превышено максимальное число записей на КЛ; "
+			"должно быть не более %u.", hlog->map_size);
 		return false;
 	}
 /* Начинаем запись на контрольную ленту */
@@ -396,8 +391,8 @@ uint32_t xlog_write_rec(struct log_handle *hlog, uint8_t *data, uint32_t len,
 	xlog_data_len = xlog_data_index = 0;
 	if (data != NULL){
 		if (len > sizeof(xlog_data)){
-			logdbg("%s: Переполнение буфера данных при записи "
-				"на %s (%u байт).\n", __func__, hlog->log_type, len);
+			log_err("Переполнение буфера данных при записи на %s (%u байт).",
+				hlog->log_type, len);
 			return -1U;
 		}
 		if ((data != xlog_data) && (len > 0)){	/* см. xlog_write_foreign */
@@ -444,8 +439,8 @@ bool xlog_read_rec(struct log_handle *hlog, uint32_t index)
 	if (!log_read(hlog, offs, (uint8_t *)&xlog_rec_hdr, sizeof(xlog_rec_hdr)))
 		return false;
 	else if (xlog_rec_hdr.len > sizeof(xlog_data)){
-		logdbg("%s: Слишком длинная запись %s #%u (%u байт).\n",
-			__func__, hlog->log_type, index, xlog_rec_hdr.len);
+		log_err("Слишком длинная запись %s #%u (%u байт).",
+			hlog->log_type, index, xlog_rec_hdr.len);
 		return false;
 	}
 	offs = log_inc_index(hlog, offs, sizeof(xlog_rec_hdr));
@@ -455,8 +450,8 @@ bool xlog_read_rec(struct log_handle *hlog, uint32_t index)
 	crc = xlog_rec_hdr.crc32;
 	xlog_rec_hdr.crc32 = 0;
 	if (xlog_rec_crc32() != crc){
-		logdbg("%s: Несовпадение контрольной суммы для записи %s #%u.\n",
-			__func__, hlog->log_type, index);
+		log_err("Несовпадение контрольной суммы для записи %s #%u.",
+			hlog->log_type, index);
 		return false;
 	}
 	xlog_rec_hdr.crc32 = crc;

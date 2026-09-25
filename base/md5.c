@@ -124,8 +124,6 @@ static bool init_md5(const uint8_t *p, size_t l)
 		return false;
 	data = p;
 	set_md5_len(l);
-/*	printf("n_bytes = %lu, n_bits = %lu:%lu, n_bytes_ex = %lu\n",
-		n_bytes, n_bits[0], n_bits[1], n_bytes_ex);*/
 	return true;
 }
 

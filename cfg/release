@@ -23,9 +23,6 @@ option		__CLEAR_PREV_RESP__
 # Печать в stdout, а не на принтер
 #option		__DEBUG_PRINT__
 
-# Запись сообщений о работе с КЛ в специальный файл
-#option		__LOGDBG__
-
 # Вывод отладочной информации при работе с ОФД
 #option		__FDO_DEBUG__
 
@@ -43,9 +40,6 @@ option		__SYNC_KKT_RTC__
 
 # Использовать цифровую клавиатуру для ввода цифр
 option		__USE_NUMPAD__
-
-# Использовать эмуляцию ККТ
-#option		__FAKE_KKT__
 
 # Не удалять с диска таблицы XSLT, если они новее, чем в "Экспресс"
 #option		__KEEP_NEWER_XSLT__

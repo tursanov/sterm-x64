@@ -10,19 +10,20 @@ extern "C" {
 #include "ds1990a.h"
 #include "gd.h"
 #include "md5.h"
+#include "paths.h"
 
 /* Имя файла заводского номера терминала */
-#define TERM_NR_FILE		"/sdata/term-number.txt"
+#define TERM_NR_FILE		SDATA_DIR "/" STERM_NR_FILE
 /* Имя файла заводского номера терминала на USB-диске */
-#define TERM_NR_FILE_USB	"/mnt/usb/term-number.txt"
+#define TERM_NR_FILE_USB	USB_MNT "/" STERM_NR_FILE
 /* Имя файла привязки USB-диска */
-#define USB_BIND_FILE		"/sdata/disk.dat"
+#define USB_BIND_FILE		SDATA_DIR "/disk.dat"
 /* Имя файла ключевого дистрибутива VipNet */
-#define IPLIR_DST		"/sdata/iplir.dst"
+#define IPLIR_DST		SDATA_DIR "/iplir.dst"
 /* Имя файла привязки ключевого дистрибутива VipNet */
-#define IPLIR_BIND_FILE		"/sdata/iplir.dat"
+#define IPLIR_BIND_FILE		SDATA_DIR "/iplir.dat"
 /* Имя файла пароля ключевых баз VipNet */
-#define IPLIR_PSW_DATA		"/sdata/iplirpsw.dat"
+#define IPLIR_PSW_DATA		SDATA_DIR "/iplirpsw.dat"
 
 /* Информация о терминале (не изменяется при обновлении терминала */
 struct term_key_info {

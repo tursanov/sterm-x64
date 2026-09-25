@@ -97,7 +97,6 @@ LOG_OBJS =		\
 	express		\
 	generic		\
 	kkt		\
-	logdbg		\
 	pos
 
 POS_OBJS =		\

@@ -6,7 +6,6 @@ LOG_OBJS =		\
 	express		\
 	generic		\
 	kkt		\
-	logdbg		\
 	pos
 
 OBJS = $(addsuffix .o, $(LOG_OBJS))

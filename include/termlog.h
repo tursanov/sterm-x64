@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+#include <errno.h>
+#include "paths.h"
 #include "sysdefs.h"
 
 enum {
@@ -41,6 +43,32 @@ extern bool log_internal(int lvl, const char *file, const char *fn, uint32_t lin
 #define MAX_LOG_FILES		30
 
 extern bool log_data(const char *prefix, const char *title, const uint8_t *data, size_t len);
+static inline bool log_data_pos(const char *title, const uint8_t *data, size_t len)
+{
+	return log_data(POS_LOG_PREFIX, title, data, len);
+}
+
+static inline bool log_data_kkt(const char *title, const uint8_t *data, size_t len)
+{
+	return log_data(KKT_LOG_PREFIX, title, data, len);
+}
+
+static inline bool log_data_rfid(const char *title, const uint8_t *data, size_t len)
+{
+	return log_data(RFID_LOG_PREFIX, title, data, len);
+}
+
+static inline bool log_data_sprn(const char *title, const uint8_t *data, size_t len)
+{
+	return log_data(SPRN_LOG_PREFIX, title, data, len);
+}
+
+static inline bool log_data_xchg(const char *title, const uint8_t *data, size_t len)
+{
+	return log_data(XCHG_LOG_PREFIX, title, data, len);
+}
+
+extern bool arch_sterm_data(const char **msg);
 
 #if defined __cplusplus
 }
