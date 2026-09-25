@@ -162,15 +162,21 @@ const char *ui_doc_get_n(ui_subcart_t *sc, ui_doc_t *d, char *buf)
 
 static const char *make_l_str(char *buf, L* l)
 {
-    const char *svat[] =
-    {
-        "„‘ 20%",
-        "„‘ 20%",
-        "„‘ 20/120",
-        "„‘ 10/110",
+	const char *svat[] = {
+		"„‘ 20%",
+		"„‘ 10%",
+		"„‘ 20/120",
+		"„‘ 10/110",
         "„‘ 0%",
         "„‘ ­¥ ®¡«."
-    };
+		"„‘ 5%",
+		"„‘ 7%",
+		"„‘ 5/105",
+		"„‘ 7/107",
+		"„‘ 22%",
+		"„‘ 22/122"
+	};
+
     char v[128];
     char s[32];
     

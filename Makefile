@@ -83,14 +83,15 @@ KKT_OBJS =		\
 	io		\
 	kkt		\
 	parser		\
-	xml
+	xml         \
 
 KKT_FD_OBJS =		\
 	ad		\
 	fd		\
 	tags		\
 	tlv		\
-	pattern
+	pattern \
+	dump
 
 LOG_OBJS =		\
 	express		\

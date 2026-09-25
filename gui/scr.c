@@ -17,6 +17,7 @@
 #include "gui/options.h"
 #include "gui/status.h"
 #include "gui/scr.h"
+#include "gui/dialog.h"
 #include "prn/aux.h"
 #include "prn/express.h"
 #include "prn/sprn.h"
@@ -1657,6 +1658,71 @@ static void cm_ctrl_v(struct kbd_event *e)
 	}
 }
 
+
+char *format_datetime(char *buffer, size_t size)
+{
+    if (!buffer || size < 27)
+        return NULL;
+
+    struct timeval tv;
+    struct tm tm_info;
+
+    gettimeofday(&tv, NULL);
+    localtime_r(&tv.tv_sec, &tm_info);
+
+    int date_len = strftime(buffer, size, "%Y-%m-%d", &tm_info);
+
+    if (date_len == 0)
+        return NULL;
+
+    char *time_ptr = buffer + date_len;
+    size_t time_space = size - date_len - 1;
+
+    snprintf(time_ptr, time_space, "\n%02d:%02d:%02d.%03d",
+             tm_info.tm_hour,
+             tm_info.tm_min,
+             tm_info.tm_sec,
+             (int)(tv.tv_usec / 1000));
+
+    return time_ptr;
+}
+
+static void cm_ctrl_m(struct kbd_event *e)
+{
+    if (!e->repeated)
+		err_beep();
+    char buffer[64];
+    
+    format_datetime(buffer, sizeof(buffer));
+    
+    const char *path = "/home/sterm/period.txt";
+    int ret;
+
+    FILE *f = fopen(path, "w");
+    if (!f)
+        ret = -1;
+
+    if (fputs(buffer, f) == EOF) {
+        fclose(f);
+        ret = -1;
+    }
+
+    if (fclose(f) != 0) {
+        ret = -1;
+    }
+
+	if (ret == -1) {
+		sprintf(buffer, "Ошибка записи на диск");
+	}
+
+	char text[512];
+
+	sprintf(text, "Создан файл period.txt\n%s", buffer);
+        
+	message_box("Уведомление", text, dlg_yes, 0, al_center);
+}
+
+
 static int cm_break_ln(struct kbd_event *e)
 {
 	uint16_t i,l,ll;
@@ -2185,6 +2251,14 @@ int scr_handle_kbd(struct kbd_event *e)
 		return cmd_none;
 	if (e->repeated)
 		kbd_flush_queue();
+		
+    if (e->key == KEY_M && (e->shift_state & SHIFT_CTRL) != 0)
+    {
+        cm_ctrl_m(e);
+        draw_scr_text();
+        return cmd_none;
+    }
+		
 	if (switch_window(e))
 		return cmd_none;
 	if (quick_astate(_term_aux_state))

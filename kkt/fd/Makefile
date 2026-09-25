@@ -7,7 +7,8 @@ FFD_OBJS =		\
 	fd		\
 	tags	\
 	tlv     \
-	pattern
+	pattern \
+	dump
 
 OBJS = $(addsuffix .o, $(FFD_OBJS))
 

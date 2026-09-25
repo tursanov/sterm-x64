@@ -1,3 +1,7 @@
+#ifndef _GNU_SOURCE
+    #define _GNU_SOURCE
+#endif
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -17,6 +21,7 @@ bool cashier_set_name(const char *name) {
 #else
 #include "express.h"
 #include "kkt/fd/ad.h"
+#include "kkt/fd/dump.h"
 
 extern bool cashier_set_name(const char *name);
 
@@ -1972,7 +1977,7 @@ int AD_processO(K *k) {
 		}
 
 		k1 = K_divide(k, 1, &tB1);
-
+		
 		if (doc_no_is_not_empty(&k1->d))
 		{
 			doc_no_copy(&k1->b, &k1->d);
@@ -2056,6 +2061,7 @@ int AD_processO(K *k) {
 				}
 			}
 		}
+
 
 		if (doc_no_is_not_empty(&k->n)) {
 			tB2 = K_calc_total_sum(k);
