@@ -1051,26 +1051,20 @@ static void init_devices(void)
 	if (devices != NULL){
 		kkt = get_dev_info(devices, DEV_KKT);
 		if (kkt != NULL){
-			log_info("Обнаружена ККТ: порт: %s; управление потоком: %s; тип: %s.",
-				kkt->ttyS_name,
-				kkt->ss.control == SERIAL_FLOW_RTSCTS ? "RTS/CTS" : "нет",
-				kkt->name);
+			log_info("Обнаружена ККТ: %s %s; тип: %s.",
+				kkt->ttyS_name, serial_settings_str(&kkt->ss), kkt->name);
 			kkt_init(kkt);
 			adjust_kkt_cfg(kkt);
 		}
 		sprn = get_dev_info(devices, DEV_SPRN);
 		if (sprn != NULL){
-			log_info("Обнаружено БПУ: порт: %s; управление потоком: %s; тип: %s.",
-				sprn->ttyS_name,
-				sprn->ss.control == SERIAL_FLOW_RTSCTS ? "RTS/CTS" : "нет",
-				sprn->name);
+			log_info("Обнаружено БПУ: %s %s; тип: %s.",
+				sprn->ttyS_name, serial_settings_str(&sprn->ss), sprn->name);
 		}
 		rfid = get_dev_info(devices, DEV_RFID);
 		if (rfid != NULL){
-			log_info("Обнаружен считыватель ЭМТТ: порт: %s; управление потоком: %s; тип: %s.",
-				rfid->ttyS_name,
-				rfid->ss.control == SERIAL_FLOW_RTSCTS ? "RTS/CTS" : "нет",
-				rfid->name);
+			log_info("Обнаружен считыватель ЭМТТ: %s %s; тип: %s.",
+				rfid->ttyS_name, serial_settings_str(&rfid->ss), rfid->name);
 		}
 	}
 	fdo_resume();

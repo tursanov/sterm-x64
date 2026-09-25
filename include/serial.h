@@ -11,14 +11,6 @@ extern "C" {
 #include <termios.h>
 #include "sysdefs.h"
 
-/* Количество доступных COM-портов */
-#define NR_SERIALS		4
-
-/* Префикс имени файла устройства COM-порта */
-#define SERIAL_NAME_PREFIX	"/dev/ttyS"
-/* Префикс имени файла устройства виртуального COM-порта (USB-COM) */
-#define VSERIAL_NAME_PREFIX	"/dev/ttyUSB"
-
 /* Тип управление потоком */
 enum {
 	SERIAL_FLOW_NONE,		/* нет */
@@ -47,6 +39,9 @@ struct serial_settings {
 	int control;			/* тип управления потоком */
 	int baud;			/* скорость обмена (см. termios.h) */
 };
+
+/* Преобразование настроек COM-порта в строку */
+extern const char *serial_settings_str(const struct serial_settings *ss);
 
 /* Открытие заданного COM-порта */
 extern int serial_open(const char *name, const struct serial_settings *cfg, int flags);

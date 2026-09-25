@@ -99,7 +99,7 @@ extern bool sprn_timeout;
 #define SPRN_PRNOP_VPOS_ABS	XPRN_PRNOP_VPOS_ABS	/* абсолютное вертикальное позиционирование */
 
 /* Таймауты для различных команд (в сотых долях секунды) */
-#define SPRN_NUMBER_TIMEOUT	300	/* чтение номера бланка (4 сек) */
+#define SPRN_NUMBER_TIMEOUT	400	/* чтение номера бланка (4 сек) */
 #define SPRN_MEDIA_TIMEOUT	400	/* запрос типа носителя (4 сек) */
 #define SPRN_ID_TIMEOUT		250	/* запрос идентификатора (2.5 сек) */
 #define SPRN_STATUS_TIMEOUT	1200	/* запрос статуса (12 сек) */
