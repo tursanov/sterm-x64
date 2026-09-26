@@ -541,18 +541,14 @@ static struct dev_lst *parse_data(const uint8_t *data, size_t len,
 static struct dev_lst *poll_vcom(const char *name)
 {
 	static struct serial_settings ss[] = {
-		{CS8, SERIAL_PARITY_NONE, SERIAL_STOPB_1, SERIAL_FLOW_NONE, B115200},
 		{CS8, SERIAL_PARITY_NONE, SERIAL_STOPB_1, SERIAL_FLOW_RTSCTS, B115200},
+		{CS8, SERIAL_PARITY_NONE, SERIAL_STOPB_1, SERIAL_FLOW_NONE, B115200},
 	};
 	struct dev_lst *devs = NULL;
 	for (int i = 0; i < ASIZE(ss); i++){
 		int dev = serial_open(name, ss + i, O_RDWR);
 		if (dev == -1)
 			continue;
-		else if (ss[i].control == SERIAL_FLOW_RTSCTS)
-			usleep(100000);		/* 100 мс */
-		else
-			serial_ch_lines(dev, TIOCM_RTS, false);
 		serial_flush(dev, TCIOFLUSH);
 		uint32_t timeout = DEV_INFO_TIMEOUT;
 		if (send_poll(dev, &timeout)){
@@ -565,6 +561,8 @@ static struct dev_lst *poll_vcom(const char *name)
 		serial_close(dev);
 		if (devs != NULL)
 			break;
+		else if (ss[i].control == SERIAL_FLOW_RTSCTS)
+			usleep(100000);		/* 100 мс */
 	}
 	return devs;
 }
