@@ -322,10 +322,12 @@ void K_destroy(K *k) {
 
 	doc_no_free(&k->d);
 	doc_no_free(&k->r);
+	doc_no_free(&k->n);
 	doc_no_free(&k->i1);
 	doc_no_free(&k->i2);
 	doc_no_free(&k->i21);
 	doc_no_free(&k->u);
+	doc_no_free(&k->g);
 	doc_no_free(&k->b);
 
 	if (k->y)
@@ -404,38 +406,31 @@ K *K_clone(K *k, bool clone_l)
 }
 
 K *K_divide(K *k, uint8_t p, int64_t *sum) {
-	int64_t s = 0;
-	doc_no_copy(&k->g, &k->r);
-	
-	K *k1 = K_clone(k, false);
-	
-	int count = 0;
-	for (list_item_t *item = k->llist.head, *prev = NULL; item != NULL;) {
-		L *l = LIST_ITEM(item, L);
-		list_item_t *tmp = item;
-		item = item->next;
-		if (l->p == p) {
-			if (prev != NULL)
-				prev->next = item;
-			if (item == NULL)
-				k->llist.tail = prev;
-			if (tmp == k->llist.head)
-				k->llist.head = item;
-			count++;
-
-			s += l->t;
-
-			list_add_item(&k1->llist, tmp);
-		} else
-			prev = tmp;
-	}
-	k->llist.count -= count;
-
-	if (sum)
-		*sum = s;
-		
+    int64_t s = 0;
+    doc_no_copy(&k->g, &k->r);
+    K *k1 = K_clone(k, false);
+    int count = 0;
+    // идём с хвоста, чтобы получить обратный порядок
+    for (list_item_t *item = k->llist.tail; item != NULL; ) {
+        L *l = LIST_ITEM(item, L);
+        list_item_t *tmp = item;
+        item = item->prev;
+        if (l->p == p) {
+            // вырезаем tmp из k->llist
+            if (tmp->prev) tmp->prev->next = tmp->next;
+            else           k->llist.head   = tmp->next;
+            if (tmp->next) tmp->next->prev = tmp->prev;
+            else           k->llist.tail   = tmp->prev;
+            count++;
+            s += l->t;
+            list_add_item(&k1->llist, tmp);
+        }
+    }
+    k->llist.count -= count;
+    if (sum) *sum = s;
     return k1;
 }
+
 
 void K_calc_sum(K *k, S *s) {
 	memset(s, 0, sizeof(*s));
@@ -515,22 +510,39 @@ int64_t K_calc_total_sum_by_P(K *k, int p) {
 	return sum;
 }
 
-static int L_compare(__attribute__((unused)) void *arg, L *l1, L *l2) {
-	if (strcmp2(l1->s, l2->s) == 0 &&
-		l1->r == l2->r &&
-		l1->t == l2->t &&
-		l1->n == l2->n &&
-		l1->c == l2->c &&
-		l1->i == l2->i &&
-		strcmp2(l1->h, l2->h) == 0 &&
-		strcmp2(l1->z, l2->z) == 0)
-		return 0;
-	return 1;
+static bool L_equal(L *a, L *b) {
+    return strcmp2(a->s, b->s) == 0 &&
+           a->r == b->r && a->t == b->t && a->n == b->n &&
+           a->c == b->c && a->i == b->i &&
+           strcmp2(a->h, b->h) == 0 &&
+           strcmp2(a->z, b->z) == 0;
 }
 
-bool K_equalByL(K *k1, K* k2) {
-    return list_compare(&k1->llist, &k2->llist, NULL, (list_item_compare_func_t)L_compare) == 0;
+bool K_equalByL(K *k1, K *k2) {
+    if (k1->llist.count != k2->llist.count) return false;
+    size_t n = k1->llist.count;
+    if (n == 0)
+        return true;
+    bool *used = (bool *)calloc(n, sizeof(bool));
+    if (used == NULL)
+        return false;
+    bool ok = true;
+    for (list_item_t *i = k1->llist.head; i && ok; i = i->next) {
+        L *a = LIST_ITEM(i, L);
+        bool found = false;
+        size_t j = 0;
+        for (list_item_t *h = k2->llist.head; h; h = h->next, j++) {
+            if (used[j]) continue;
+            if (L_equal(a, LIST_ITEM(h, L))) {
+                used[j] = true; found = true; break;
+            }
+        }
+        if (!found) ok = false;
+    }
+    free(used);
+    return ok;
 }
+
 
 int K_save(int fd, K *k) {
     if (save_list(fd, &k->llist, (list_item_func_t)L_save) < 0 ||
@@ -699,6 +711,91 @@ void set_k_s(char s, K* k, K* k1, K* k2)
 	}
 }
 
+/* Реализует поведение B.MoveFirst(subBacketId) из FiscalBin.cs:
+ *   - если b_o == NULL        -> b_o = subBacketId
+ *   - иначе                   -> b_o = subBacketId + ";" + (токены b_o != subBacketId)
+ * Пустые токены (между подряд идущими ';') игнорируются.
+ */
+void B_move_first(const char *subBacketId)
+{
+    if (subBacketId == NULL || subBacketId[0] == 0)
+        return;
+
+    size_t id_len = strlen(subBacketId);
+
+    /* b_o ещё не задан - просто сохраняем */
+    if (_ad->b_o == NULL) {
+        _ad->b_o = strdup(subBacketId);
+        return;
+    }
+
+    /* subBacketId уже первый - ничего не делаем */
+    if (strncmp(_ad->b_o, subBacketId, id_len) == 0 &&
+        (_ad->b_o[id_len] == 0 || _ad->b_o[id_len] == ';'))
+    {
+        return;
+    }
+
+    /* Считаем длину новой строки:
+     *   len(subBacketId) + по ';' и длине для каждого токена,
+     *   не равного subBacketId
+     */
+    size_t new_len = id_len;
+    const char *p = _ad->b_o;
+    while (*p) {
+        while (*p == ';') p++;            /* пропускаем разделители */
+        if (*p == 0) break;
+
+        const char *start = p;
+        while (*p && *p != ';') p++;
+        size_t tok_len = (size_t)(p - start);
+
+        if (!(tok_len == id_len &&
+              strncmp(start, subBacketId, id_len) == 0))
+        {
+            new_len += 1 + tok_len;       /* ';' + токен */
+        }
+    }
+
+    char *new_o = (char *)malloc(new_len + 1);
+    if (new_o == NULL)
+        return;                            /* при OOM оставляем как было */
+
+    char *dst = new_o;
+    memcpy(dst, subBacketId, id_len);
+    dst += id_len;
+
+    p = _ad->b_o;
+    while (*p) {
+        while (*p == ';') p++;
+        if (*p == 0) break;
+
+        const char *start = p;
+        while (*p && *p != ';') p++;
+        size_t tok_len = (size_t)(p - start);
+
+        if (!(tok_len == id_len &&
+              strncmp(start, subBacketId, id_len) == 0))
+        {
+            *dst++ = ';';
+            memcpy(dst, start, tok_len);
+            dst += tok_len;
+        }
+    }
+    *dst = 0;
+
+    free(_ad->b_o);
+    _ad->b_o = new_o;
+}
+
+
+void set_k_s_mv(char s, bool moveFirst, K* k, K* k1, K* k2)
+{
+    set_k_s(s, k, k1, k2);
+    if (moveFirst)
+        B_move_first((const char[]){(char)s, 0});
+}
+
 void set_k_i(K* k, K* k1, K* k2)
 {
 	k->i = true;
@@ -808,52 +905,41 @@ C * C_load_v2(int fd) {
     return c;
 }
 
-bool C_is_agent_cheque(C *c, int64_t user_inn, char* phone, bool *is_same_agent)
+bool C_is_same_inn(C *c, int64_t user_inn, char* phone, bool *is_same_inn)
 {
-	// проверяем, что есть хотя бы один элемент L
-	if (!c->klist.head)
-		return false;
-	K *k = LIST_ITEM(c->klist.head, K);
-	if (!k->llist.head)
-		return false;
+    if (!c->klist.head)
+        return false;
+        
+    K *first_k = NULL;
+    for (list_item_t *i = c->klist.head; i; i = i->next) {
+        K *kk = LIST_ITEM(i, K);
+        if (kk->llist.head) { first_k = kk; break; }
+    }
 
-	bool is_phone_set = false;
-	char tmp_phone[32] = { 0 };
+    if (!first_k)
+        return false;
+        
+    L *first_l = LIST_ITEM(first_k->llist.head, L);        
+    int64_t first_inn = first_l->i;
 
-	*is_same_agent = false;
+    *is_same_inn = true;
+    bool phone_set = false;
 
-	for (list_item_t *li1 = c->klist.head; li1 != NULL; li1 = li1->next) {
-		k = LIST_ITEM(li1, K);
-		for (list_item_t *li3 = k->llist.head; li3 != NULL; li3 = li3->next) {
-			L *l = LIST_ITEM(li3, L);
-			const int64_t inn = l->i;
-
-			if (inn == user_inn)
-				return false;
-
-			if (l->h) {
-				if (tmp_phone[0] == 0) {
-					strcpy(tmp_phone, l->h);
-					*is_same_agent = true;
-				} else if (strcmp(tmp_phone, l->h) != 0) {
-					*is_same_agent = false;
-				}
-
-				if (!is_phone_set && strcmp(l->h, "+70000000000") != 0)
-				{
-					strcpy(phone, l->h);
-					is_phone_set = true;
-				}
-			}
-		}
-	}
-
-	if (!is_phone_set)
-		strcpy(phone, "+70000000000");
-
-	return true;
+    for (list_item_t *li1 = c->klist.head; li1; li1 = li1->next) {
+        K *k = LIST_ITEM(li1, K);
+        for (list_item_t *li2 = k->llist.head; li2; li2 = li2->next) {
+            L *l = LIST_ITEM(li2, L);
+            if (l->i == user_inn) return false;
+            if (l->i != first_inn) *is_same_inn = false;
+            if (!phone_set) {
+                strcpy(phone, l->h ? l->h : "+70000000000");
+                phone_set = true;
+            }
+        }
+    }
+    if (!phone_set) strcpy(phone, "+70000000000");
+    return true;
 }
-
 
 P1 *P1_create(void) {
     P1* p1 = (P1 *)malloc(sizeof(P1));
@@ -1056,6 +1142,8 @@ void S_subtract(S *dst, S *src)
 }
 
 
+
+
 AD* _ad = NULL;
 
 int AD_create(uint8_t t1055) {
@@ -1087,6 +1175,8 @@ void AD_destroy() {
     int64_array_free(&_ad->docs);
     string_array_free(&_ad->phones);
     string_array_free(&_ad->emails);
+	if (_ad->b_o)
+		free(_ad->b_o);
     free(_ad);
     _ad = NULL;
 }
@@ -1113,7 +1203,8 @@ int AD_save() {
 			|| SAVE_INT(fd, (uint8_t)(_ad->p1 != 0 ? 1 : 0)) < 0
 			|| (_ad->p1 != NULL && P1_save(fd, _ad->p1) < 0)
 			|| save_string(fd, _ad->t1086) < 0
-			|| save_list(fd, &_ad->clist, (list_item_func_t)C_save) < 0)
+			|| save_list(fd, &_ad->clist, (list_item_func_t)C_save) < 0
+			|| save_string(fd, _ad->b_o) < 0)
         ret = -1;
     else
         ret = 0;
@@ -1182,8 +1273,8 @@ int AD_load(uint8_t t1055, bool clear) {
 			ret = -1;
 		else
 			ret = 0;
-	} else if (hasP1 == 2) { // 2 ????? ?????
-		printf("**** AD version 2 ****\n");
+	} else { // 2 ????? ?????
+		printf("**** AD version > 2 ****\n");
 		if (LOAD_INT(fd, hasP1) < 0
 				|| (hasP1 && (_ad->p1 = P1_load_v2(fd)) == NULL)
 				|| load_string(fd, &_ad->t1086) < 0
@@ -1191,6 +1282,14 @@ int AD_load(uint8_t t1055, bool clear) {
 			ret = -1;
 		else
 			ret = 0;
+			
+		printf("**** AD version = %d ****\n", hasP1);
+        if (hasP1 >= 3) {
+            if (load_string(fd, &_ad->b_o) < 0)
+            {
+                ret = -1;
+            }
+        }
 	}
 
 	AD_calc_sum();
@@ -1363,6 +1462,7 @@ void AD_remove_K_list(list_t* list)
     }
 }
 
+
 //List<K> ZsList = ArchiveItems.FindAll(x => x.C == kX.C && x != kX);
 
 //ArchiveItems.RemoveAll(x => x == kX || ZsList.Contains(x));
@@ -1483,7 +1583,6 @@ int AD_makeAnnul(K *k, uint8_t o, uint8_t t1054, uint8_t t1055) {
 						if (c->klist.count == 0)
 							list_remove(&_ad->clist, c);
 						printf("Удаляем K из корзины\n");
-						K_destroy(k);
 						return 0;
 					}
 				}
@@ -1493,7 +1592,7 @@ int AD_makeAnnul(K *k, uint8_t o, uint8_t t1054, uint8_t t1055) {
 
 	if (k->m == 1)
 	{
-		set_k_s('B', k, NULL, NULL);
+		set_k_s_mv('B', true, k, NULL, NULL);
 	}
 	else if (k->m == 2)
 	{
@@ -1567,7 +1666,7 @@ int find_annul_return_items(struct find_annul *f, K *x)
 			: (doc_no_compare(&x->i2, &f->k->i2) == 0 || doc_no_compare(&x->i21, &f->k->i21) == 0))
 		&& x->y != NULL
 		&& x->y->op == '-'
-		&& x->y->repayment == 0)
+		&& x->y->repayment == '0')
 	{
 		if (K_lp(x) == 2)
 		{
@@ -1622,7 +1721,7 @@ int AD_makeAnnulReturn(K *k, K *k2, uint8_t t1055, int64_t sB, int64_t tB1, int6
 					continue;
 				}
 
-				if (((!doc_no_is_empty(&f_k->d) &&
+				if (((!doc_no_is_empty(&k2->d) &&
 					  doc_no_compare(&f_k->i2, &k->r) == 0 &&
 					  doc_no_compare(&f_k->i21, &k->d) == 0) ||
 					 doc_no_compare(&f_k->i2, &k->r) == 0 ||
@@ -1651,11 +1750,11 @@ L1:
 						continue;
 					}
 
-					if (((!doc_no_is_empty(&s_k->d) &&
-						  doc_no_compare(&s_k->i2, &k2->r) == 0 &&
-						  doc_no_compare(&s_k->i21, &k2->d) == 0) ||
-						 doc_no_compare(&s_k->i2, &k2->r) == 0 ||
-						 doc_no_compare(&s_k->i21, &k2->r) == 0) &&
+					if (((!doc_no_is_empty(&k2->d) &&
+						  doc_no_compare(&s_k->i2, &k->r) == 0 &&
+						  doc_no_compare(&s_k->i21, &k->d) == 0) ||
+						 doc_no_compare(&s_k->i2, &k->r) == 0 ||
+						 doc_no_compare(&s_k->i21, &k->r) == 0) &&
 						s_k->m == k2->m && s_k->o == 2) {
 						if (K_equalByL(k2, s_k))
 							goto L2;
@@ -1683,11 +1782,11 @@ L2:
 		{
 			if (tB1 > tB2)
 			{
-				set_k_s('A', k, k2, NULL);
+				set_k_s_mv('A', true, k, k2, NULL);
 			}
 			else
 			{
-				set_k_s('B', k, k2, NULL);
+				set_k_s_mv('B', true, k, k2, NULL);
 			}
 		}
 		else if (k->m == 2)
@@ -1696,16 +1795,16 @@ L2:
 			{
 				if (tB1 > tB2)
 				{
-					set_k_s('A', k, k2, NULL);
+					set_k_s_mv('A', true, k, k2, NULL);
 				}
 				else
 				{
-					set_k_s('B', k, k2, NULL);
+					set_k_s_mv('B', true, k, k2, NULL);
 				}
 			}
 			else
 			{
-				if (k->y->op == '+' && k->y->repayment == 0)
+				if (k->y->op == '+' && k->y->repayment == '0')
 				{
 					struct find_annul fa = {
 						.k = k,
@@ -1808,11 +1907,11 @@ int AD_makeReissue(K *k, K *k1, uint8_t t1055, int64_t tB1, int64_t tB2, int64_t
 
 							if (k->m == 1)
 							{
-								set_k_s('B', k, k1, g_x);
+								set_k_s_mv('B', true, k, k1, g_x);
 							}
 							else if (k->m == 2 && k->y == NULL && g_x->y == NULL)
 							{
-								set_k_s('B', k, k1, g_x);
+								set_k_s_mv('B', true, k, k1, g_x);
 							}
 							else if (k->m == 2
 									 && k->y != NULL
@@ -1822,11 +1921,11 @@ int AD_makeReissue(K *k, K *k1, uint8_t t1055, int64_t tB1, int64_t tB2, int64_t
 									 && (g_x->y->op == '+' || g_x->y->op == '*')
 									 && g_x->y->repayment == 0)
 							{
-								set_k_s('B', k, k1, g_x);
+								set_k_s_mv('B', true, k, k1, g_x);
 							}
 							else
 							{
-								set_k_s('I', k, k1, g_x);
+								set_k_s_mv('I', false, k, k1, g_x);
 							}
 
 							set_k_i(k, k1, g_x);
@@ -1834,7 +1933,7 @@ int AD_makeReissue(K *k, K *k1, uint8_t t1055, int64_t tB1, int64_t tB2, int64_t
 						} else {
 							if (k->m == 1)
 							{
-								set_k_s('A', k, k1, g_x);
+								set_k_s_mv('A', true, k, k1, g_x);
 							}
 							else if (k->m == 2)
 							{
@@ -1844,40 +1943,40 @@ int AD_makeReissue(K *k, K *k1, uint8_t t1055, int64_t tB1, int64_t tB2, int64_t
 								{
 									if (g_x->y->op == '+' && g_x->y->repayment == 0)
 									{
-										set_k_s('D', k, k1, g_x);
+										set_k_s_mv('D', false, k, k1, g_x);
 									}
 									else if (g_x->y->op == '*' && g_x->y->repayment == 0)
 									{
-										set_k_s('E', k, k1, g_x);
+										set_k_s_mv('E', false, k, k1, g_x);
 									}
 									else
 									{
-										set_k_s('I', k, k1, g_x);
+										set_k_s_mv('I', false, k, k1, g_x);
 									}
 								}
 								else if (k->y == NULL ||
 										 (k->y != NULL && !(k->y->op == '-' && k->y->repayment == '1')))
 								{
-									set_k_s('I', k, k1, g_x);
+									set_k_s_mv('I', false, k, k1, g_x);
 								}
 								else if (g_x->y == NULL ||
 										 (g_x->y != NULL && !((g_x->y->op == '+' || g_x->y->op == '*') && g_x->y->repayment == 0)))
 								{
-									set_k_s('I', k, k1, g_x);
+									set_k_s_mv('I', false, k, k1, g_x);
 								}
 								else if (k->y != NULL && k->y->op == '-' && k->y->repayment == '1' && g_x->y != NULL)
 								{
 									if (g_x->y->op == '+' && g_x->y->repayment == 0)
 									{
-										set_k_s('D', k, k1, g_x);
+										set_k_s_mv('D', false, k, k1, g_x);
 									}
 									else if (g_x->y->op == '*' && g_x->y->repayment == 0)
 									{
-										set_k_s('E', k, k1, g_x);
+										set_k_s_mv('E', false, k, k1, g_x);
 									}
 									else
 									{
-										set_k_s('I', k, k1, g_x);
+										set_k_s_mv('I', false, k, k1, g_x);
 									}
 								}
 							}
@@ -1942,7 +2041,7 @@ int AD_processO(K *k) {
 
 		if (k->m == 1)
 		{
-			set_k_s('A', k, NULL, NULL);
+			set_k_s_mv('A', true, k, NULL, NULL);
 		}
 		else if (k->m == 2)
 		{
@@ -1951,8 +2050,8 @@ int AD_processO(K *k) {
 				if (!doc_no_is_empty(&k->r))
 				{
 					printf("переоформление с выплатой");
-					set_k_s('I', k, NULL, NULL);
 				}
+				set_k_s('I', k, NULL, NULL);
 			}
 			else
 			{
@@ -1994,7 +2093,7 @@ int AD_processO(K *k) {
 		if (tB1 > tB2)
 		{
 			sB1 = sB2 = tB2;
-			doc_no_copy(&k->g, &k->d);
+			doc_no_copy(&k->g, &k1->d);
 			doc_no_copy(&k1->g, &k1->d);
 			set_k_i(k1, k, NULL);
 		}
@@ -2010,20 +2109,20 @@ int AD_processO(K *k) {
 		{
 			if (tB1 > tB2)
 			{
-				set_k_s('A', k, k1, NULL);
+				set_k_s_mv('A', true, k, k1, NULL);
 			}
 			else
 			{
-				set_k_s('B', k, k1, NULL);
+				set_k_s_mv('B', true, k, k1, NULL);
 			}
 		}
 		else if (k->m == 2)
 		{
 			if (k->y == NULL)
 			{
-				if (tB1 < tB2)
+				if (tB1 <= tB2)
 				{
-					set_k_s('B', k, k1, NULL);
+					set_k_s_mv('B', true, k, k1, NULL);
 				}
 				else
 				{
@@ -2138,7 +2237,9 @@ int AD_process(K* k) {
     k->dt = k_dt;
     
     AD_processO(k);
-    AD_save();
+    AD_save();    
+	AD_calc_sum();
+    
 #ifdef TEST_PRINT
 static int stage = 0;
 	AD_calc_sum();
@@ -2151,7 +2252,7 @@ static int stage = 0;
     return 0;
 }
 
-#define REQUIRED_K_MASK (0x71 + 0x400)
+#define REQUIRED_K_MASK (0x71 + 0x400 + 0x800)
 #define REQUIRED_L_MASK 0x1F
 #define ERR_INVALID_VALUE   E_KKT_ILL_ATTR
 #define ERR_NO_REQ_ATTR   	E_KKT_NO_ATTR
@@ -2180,6 +2281,20 @@ static int process_string_value(const char *tag, const char *name, const char *v
 	*mask |= mask_value;
 
 	return 0;
+}
+
+static int process_string_value_allow_empty(const char *tag, const char *name,
+                                            const char *val, size_t max_size,
+                                            uint32_t *mask, uint32_t mask_value,
+                                            char **out) {
+    size_t len = val != 0 ? strlen(val) : 0;
+    if (len > max_size) {
+        printf("%s/@%s: Превышение длины\n", tag, name);
+        return ERR_INVALID_VALUE;
+    }
+    *out = val ? strdup(val) : NULL;   /* пустая строка = strdup("") */
+    *mask |= mask_value;
+    return 0;
 }
 
 static int process_int_value(const char *tag, const char *name, const char *val,
@@ -2223,7 +2338,7 @@ static int process_doc_no_value(const char *tag, const char *name, const char *v
 	}
 
 //	printf("  i = %d\n", i);
-	if (i < 13) {
+	if (i != 13 && i != 14) {
 		printf("%s/@%s: Неправильная длина номера документа\n", tag, name);
 		return ERR_INVALID_VALUE;
 	}
@@ -2261,11 +2376,11 @@ static int process_phone_value(const char *tag, const char *name,
 	char **out)
 {
 	char *s;
-	size_t len = strlen(val);
-	if (val == 0) {
+	if (val == NULL || val[0] == 0) {
 		printf("%s/@%s: неправильная длина", tag, name);
 		return ERR_INVALID_VALUE;
 	}
+	size_t len = strlen(val);
 	char f = val[0];
 	if ((f == '+' && len > 15) || (f == '8' && len > 11)) {
 		printf("%s/@%s: неправильная длина", tag, name);
@@ -2293,7 +2408,7 @@ static int process_email_value(const char *tag, const char *name,
 	char **out)
 {
 	int len = strlen(val);
-	if (len < 3) {
+	if (len < 3 || len > 64) {
 		printf("%s/@%s: неправильная длина", tag, name);
 		return ERR_INVALID_VALUE;
 	}
@@ -2305,10 +2420,14 @@ static int process_email_value(const char *tag, const char *name,
 				printf("%s/@%s: Неправильное значение", tag, name);
 				return ERR_INVALID_VALUE;
 			}
+    		at = i;
 		}
 	}
-	if (at == len - 1)
+	if (at == -1 || at == len - 1) {
 		printf("%s/@%s: Неправильное значение", tag, name);
+		return ERR_INVALID_VALUE;
+    }
+    
 
 	*out = strdup(val);
 	*mask |= mask_value;
@@ -2335,6 +2454,20 @@ int kkt_xml_callback(bool check, int evt, const char *name, const char *val)
 
 	switch (evt) {
 	case 0:
+	    if (_k) {
+	        K_destroy(_k);
+	        _k = NULL;
+	    }
+	    if (_l) {
+	        L_destroy(_l);
+	        _l = NULL;
+	    }
+	    if (_p1) {
+	        P1_destroy(_p1);
+	        _p1 = NULL;
+	    }
+	    
+	    
 	    if (!check)
 	    {
 	        k_dt = time(NULL);
@@ -2374,7 +2507,7 @@ int kkt_xml_callback(bool check, int evt, const char *name, const char *val)
 					bool present = (_kMask & mask) != 0;
 
 					if (i == 1)
-						required = _k->o == 1;
+						required = _k->o <= 2;
 
 					if (required && !present) {
 						printf("Обязательный атрибут K/@%c отсутствует\n",
@@ -2456,7 +2589,7 @@ int kkt_xml_callback(bool check, int evt, const char *name, const char *val)
 					&_l->h)) != 0)
 					return ret;
 			} else if (strcmp(name, "Z") == 0) {
-				if ((ret = process_string_value("L", name, val, 256, &_lMask, 0x100,
+				if ((ret = process_string_value_allow_empty("L", name, val, 255, &_lMask, 0x100,
 					&_l->z)) != 0)
 					return ret;
 			}
@@ -2503,11 +2636,11 @@ int kkt_xml_callback(bool check, int evt, const char *name, const char *val)
 				_kMask |= 0x200;
 				return 0;
 			} else if (strcmp(name, "Z") == 0) {
-				if ((ret = process_string_value("K", name, val, 256, &_kMask, 0x400,
+				if ((ret = process_string_value_allow_empty("K", name, val, 255, &_kMask, 0x400,
 					&_k->z)) != 0)
 					return ret;
 			} else if (strcmp(name, "V") == 0) {
-				if ((ret = process_int_value("V", name, val, 1, 2,
+				if ((ret = process_int_value("V", name, val, 0, 2,
 					&_kMask, 0x800, &v64)) != 0)
 					return ret;
 				_k->v = (uint8_t)v64;
@@ -2531,8 +2664,6 @@ int kkt_xml_callback(bool check, int evt, const char *name, const char *val)
 		}
 		break;
 	case 4:
-		if (!check)
-			AD_calc_sum();
 		break;
 	}
 	return 0;
@@ -2845,6 +2976,7 @@ void cart_init()
 	{
 		sub_cart_init(&cart.sc[i], (char)('A' + i));
 	}
+	cart.ordered_count = 0;
 }
 
 void cart_clear()
@@ -2853,6 +2985,7 @@ void cart_clear()
 	{
 		sub_cart_clear(&cart.sc[i]);
 	}
+	cart.ordered_count = 0;
 }
 
 D *find_d_for_g(SubCart *sc, K* k)
@@ -2951,6 +3084,30 @@ D* cart_get_first_document(void *obj, doc_func_t predicate)
     return NULL;
 }
 
+int64_t D_total_sum(D *d)
+{
+    int64_t s = d->k->a /* - A0 */;   // A0 в C нет; в C# K.A0 = k.A встречного предоставления
+    if (!d->related.head || d->related.count == 0)
+        return K_calc_total_sum(d->k) - d->k->a;
+    s = 0;
+    L *first_l = LIST_ITEM(d->k->llist.head, L);
+    for (list_item_t *li = d->related.head; li; li = li->next) {
+        K *k = LIST_ITEM(li, K);
+        int64_t v = K_calc_total_sum(k) - k->a;
+        L *l0 = LIST_ITEM(k->llist.head, L);
+        if (first_l && l0 && first_l->p != l0->p)
+            v = -v;
+        s += v;
+    }
+    return s;
+}
+
+int D_group_count(D *d) {
+    return (!d->group || d->group->count == 0) ? 1 : (int)d->group->count;
+}
+
+int D_kind(D *d) { return d->k->v; }
+
 void cart_foreach_document(void *obj, doc_func_t action)
 {
 	for (int i = 0; i < MAX_SUB_CART; i++)
@@ -2970,6 +3127,8 @@ void cart_foreach_document(void *obj, doc_func_t action)
 
 bool pair_predicate(D *item, __attribute__((unused)) SubCart *sc, D* v)
 {
+	if (v->k->y == NULL || item->k->y == NULL)
+		return false;
     return v->k->y->op == '-'
         && v->k->y->repayment != '\x0'
         && str_no_special_compare(v->k->y->prev_blank_nr, item->k->y->blank_nr);
@@ -2983,7 +3142,10 @@ typedef struct
 
 bool refund_action(refund_arg_t* obj, SubCart *vsc, D* v)
 {
-    if (v->k->c == obj->d->k->c && obj->sc == vsc)
+    if (v->group == NULL
+			&& v->k->c != 0
+			&& v->k->c == obj->d->k->c
+			&& obj->sc == vsc)
     {
         v->group = obj->d->group;
         list_add_if_not_exist(obj->d->group, v);
@@ -2992,20 +3154,23 @@ bool refund_action(refund_arg_t* obj, SubCart *vsc, D* v)
     return true;
 }
 
-bool other_action(D* d, __attribute__((unused)) SubCart *vsc, D* v)
+bool other_action(D *d, __attribute__((unused)) SubCart *vsc, D *v)
 {
-    if (v->group == NULL
-        && ((d->name && v->name && strcmp(d->name, v->name) == 0) || d->name == v->name)
-        && (v->name && strcmp(v->name, "ВОЗВРАТ") == 0 ? v->k->v == d->k->v : true)
-        /*&& v->k->y->t0 == d->k->y->t0*/)
-    {
-        v->group = d->group;
-        list_add_if_not_exist(d->group, v);
-    }
-    
+    if (v->k->y == NULL || d->k->y == NULL)
+        return true;
+    if (v->group != NULL)
+        return true;
+    if (!(d->name && v->name && strcmp(d->name, v->name) == 0))
+        return true;
+    if (v->name && strcmp(v->name, "ВОЗВРАТ") == 0 && v->k->v != d->k->v)
+        return true;
+    // новое: сверка по req_id (аналог Y.t0 в C#)
+    if (v->k->y->req_id != d->k->y->req_id)
+        return true;
+    v->group = d->group;
+    list_add_if_not_exist(d->group, v);
     return true;
 }
-
 
 void cart_set_groups()
 {
@@ -3020,17 +3185,14 @@ void cart_set_groups()
 		        
 		        if (d->k->y != NULL)
 		        {
-    		        if (d->k->c != 0)
+    		        if (d->group == NULL)
     		        {
-    		            if (d->group == NULL)
-    		            {
-    		                d->group = list_create(NULL);
-    		                list_add(d->group, d);
-    		            }
-		            
-		                refund_arg_t arg = { .sc = val, .d = d };
-    		            cart_foreach_document(&arg, (doc_func_t)refund_action);
+    		            d->group = list_create(NULL);
+    		            list_add(d->group, d);
     		        }
+		            
+		            refund_arg_t arg = { .sc = val, .d = d };
+    		        cart_foreach_document(&arg, (doc_func_t)refund_action);
     		        
     		        if (d->k->y->op != '-')
 		            {
@@ -3042,15 +3204,15 @@ void cart_set_groups()
                     
 		                    if (sum > 0)
 		                    {
-		                        asprintf(&d->description, "ДОПЛАТА (%lld.%lld)", sum / 100, sum % 100);
+		                        asprintf(&d->description, "ДОПЛАТА (%lld.%02lld)", sum / 100, sum % 100);
 		                    }
 		                    else if (sum < 0)
 		                    {
-		                        asprintf(&d->description, "ВПЛАТА (%lld.%lld)", sum / 100, sum % 100);
+		                        asprintf(&d->description, "ВЫПЛАТА (%lld.%02lld)", -sum / 100, -sum % 100);
 		                    }
 		                    else
 		                    {
-		                        asprintf(&d->description, "ПЕРЕОФОРМЛЕНИЕ (0.0)");
+		                        asprintf(&d->description, "ПЕРЕОФОРМЛЕНИЕ (0.00)");
 		                    }
                     
                             if (pair->description == NULL)
@@ -3126,6 +3288,246 @@ void cart_set_groups()
     }    
 }
 
+
+/* ======================= Sub-cart ordering ================================
+ *
+ * Реализует логику CartBuilder.GetSubCarts:
+ *   1) сортировка подкорзин по ключу (type + pending + all-u);
+ *   2) если b_o задан ? переупорядочивание:
+ *        firstPart ? orderedPart (по b_o) ? otherPart;
+ *   3) внутри каждой подкорзины сортировка документов по (dt, d).
+ *
+ * Порядок сохраняется в cart.ordered / cart.ordered_count.
+ */
+
+/* "pending" в C#-ключе сортировки ? это именно K.State != None (в C: bank_state). */
+static bool sc_has_pending_bank(SubCart *sc)
+{
+    for (list_item_t *li = sc->documents.head; li; li = li->next) {
+        D *d = LIST_ITEM(li, D);
+        if (d->k->bank_state != BANK_STATE_NONE)
+            return true;
+    }
+    return false;
+}
+
+/* "Any(d => d.K.U == null)" ? есть ли хотя бы один документ без U. */
+static bool sc_has_unprocessed(SubCart *sc)
+{
+    for (list_item_t *li = sc->documents.head; li; li = li->next) {
+        D *d = LIST_ITEM(li, D);
+        if (doc_no_is_empty(&d->k->u))
+            return true;
+    }
+    return false;
+}
+
+/* Ключ сортировки, как в C#:
+ *   (int)Type + (has pending bank ? 0 : 10) + (has unprocessed U ? 0 : 100)
+ */
+static int sc_sort_key(SubCart *sc)
+{
+    int key = (int)(sc->type - 'A');
+    if (!sc_has_pending_bank(sc))    key += 10;
+    if (!sc_has_unprocessed(sc))     key += 100;
+    return key;
+}
+
+/* Стабильная сортировка SubCart* по ключу. n ? MAX_SUB_CART, пузырёк с
+ * фиксированным порядком достаточен. */
+static void sc_sort(SubCart **arr, size_t n)
+{
+    for (size_t i = 1; i < n; i++) {
+        SubCart *x = arr[i];
+        int kx = sc_sort_key(x);
+        size_t j = i;
+        while (j > 0 && sc_sort_key(arr[j - 1]) > kx) {
+            arr[j] = arr[j - 1];
+            j--;
+        }
+        arr[j] = x;
+    }
+}
+
+/* OrderedSubCarts в C#:
+ *   { NonCashItems('D'), FastPaymentItems('E'),
+ *     RefundNonCashItems('F'), CancelRefundNonCashItems('G') }
+ */
+static bool sc_is_ordered_type(char t)
+{
+    return t == 'D' || t == 'E' || t == 'F' || t == 'G';
+}
+
+/* Разбор b_o ("D;E;F;G") в массив букв.
+ * Возвращает количество токенов (0 ? если b_o пуст). */
+static size_t parse_subcart_order(char *out, size_t out_max)
+{
+    size_t n = 0;
+    if (_ad == NULL || _ad->b_o == NULL)
+        return 0;
+    const char *p = _ad->b_o;
+    while (*p && n < out_max) {
+        while (*p == ';') p++;
+        if (*p == 0) break;
+        out[n++] = *p++;
+        while (*p && *p != ';') p++;
+    }
+    return n;
+}
+
+/* Позиция типа в пользовательском порядке. -1, если типа в order нет. */
+static int subcart_order_index(char type, const char *order, size_t order_len)
+{
+    for (size_t i = 0; i < order_len; i++)
+        if (order[i] == type)
+            return (int)i;
+    return -1;
+}
+
+/* Переупорядочивание по b_o (эквивалент SubCartOrder). Точная копия
+ * алгоритма C#:
+ *
+ *   stage = 0
+ *   for sc in sorted:
+ *       if !OrderedSubCarts.Contains(sc.Type):
+ *           if stage == 0: firstPart.Add(sc)
+ *           else:          stage = 2
+ *       else:
+ *           if stage == 0 || stage == 1:
+ *               stage = 1
+ *               orderedPart.Add(sc)
+ *       if stage == 2:
+ *           otherPart.Add(sc)
+ *
+ *   orderedPart.OrderBy(IndexOf(SubCartOrder, Type))
+ *   result = firstPart + orderedPart + otherPart
+ */
+static void sc_apply_subcart_order(SubCart **arr, size_t n,
+                                   SubCart **out, size_t *out_n)
+{
+    char order[MAX_SUB_CART];
+    size_t order_len = parse_subcart_order(order, MAX_SUB_CART);
+
+    if (order_len == 0) {
+        memcpy(out, arr, n * sizeof(SubCart *));
+        *out_n = n;
+        return;
+    }
+
+    SubCart *first_part[MAX_SUB_CART];   size_t fn = 0;
+    SubCart *ordered_part[MAX_SUB_CART]; size_t on = 0;
+    SubCart *other_part[MAX_SUB_CART];   size_t xn = 0;
+
+    int stage = 0;
+    for (size_t i = 0; i < n; i++) {
+        SubCart *sc = arr[i];
+        if (!sc_is_ordered_type(sc->type)) {
+            if (stage == 0) {
+                first_part[fn++] = sc;
+            } else {
+                stage = 2;
+            }
+        } else {
+            if (stage == 0 || stage == 1) {
+                stage = 1;
+                ordered_part[on++] = sc;
+            }
+        }
+        if (stage == 2) {
+            other_part[xn++] = sc;
+        }
+    }
+
+    /* stable sort ordered_part[] по индексу в order[] */
+    for (size_t i = 1; i < on; i++) {
+        SubCart *x = ordered_part[i];
+        int kx = subcart_order_index(x->type, order, order_len);
+        size_t j = i;
+        while (j > 0 &&
+               subcart_order_index(ordered_part[j - 1]->type,
+                                   order, order_len) > kx) {
+            ordered_part[j] = ordered_part[j - 1];
+            j--;
+        }
+        ordered_part[j] = x;
+    }
+
+    size_t m = 0;
+    for (size_t i = 0; i < fn; i++) out[m++] = first_part[i];
+    for (size_t i = 0; i < on; i++) out[m++] = ordered_part[i];
+    for (size_t i = 0; i < xn; i++) out[m++] = other_part[i];
+    *out_n = m;
+}
+
+/* =================== Document ordering inside SubCart ==================== */
+
+/* C#: Items.OrderBy(d => d.K.Dt).ThenBy(d => d.K.D) */
+static int cmp_doc_dt_d(const void *a, const void *b)
+{
+    const D *x = *(const D *const *)a;
+    const D *y = *(const D *const *)b;
+
+    if (x->k->dt < y->k->dt) return -1;
+    if (x->k->dt > y->k->dt) return 1;
+
+    const char *sx = x->k->d.s ? x->k->d.s : "";
+    const char *sy = y->k->d.s ? y->k->d.s : "";
+    return strcmp(sx, sy);
+}
+
+/* Пересортировать sc->documents. Ничего не аллоцируем: собираем массив
+ * D*, qsort, потом перезаписываем obj в существующих узлах списка. */
+static void sc_sort_documents(SubCart *sc)
+{
+    size_t n = sc->documents.count;
+    if (n < 2)
+        return;
+
+    D **arr = (D **)malloc(n * sizeof(D *));
+    if (arr == NULL)
+        return;
+
+    size_t i = 0;
+    for (list_item_t *li = sc->documents.head; li; li = li->next)
+        arr[i++] = LIST_ITEM(li, D);
+
+    qsort(arr, n, sizeof(D *), cmp_doc_dt_d);
+
+    i = 0;
+    for (list_item_t *li = sc->documents.head; li; li = li->next)
+        li->obj = arr[i++];
+
+    free(arr);
+}
+
+/* ========================== Public entry point =========================== */
+
+/*
+ * Построить порядок подкорзин и отсортировать документы внутри каждой.
+ * Вызывать после cart_set_groups() в конце cart_build().
+ */
+void cart_order(void)
+{
+    cart.ordered_count = 0;
+
+    SubCart *tmp[MAX_SUB_CART];
+    size_t n = 0;
+    for (int i = 0; i < MAX_SUB_CART; i++) {
+        if (cart.sc[i].documents.count > 0)
+            tmp[n++] = &cart.sc[i];
+    }
+
+    /* 1) базовый ключ (type + pending bank + any U == null) */
+    sc_sort(tmp, n);
+
+    /* 2) переупорядочивание по b_o (SubCartOrder) */
+    sc_apply_subcart_order(tmp, n, cart.ordered, &cart.ordered_count);
+
+    /* 3) сортировка документов внутри подкорзин */
+    for (size_t i = 0; i < cart.ordered_count; i++)
+        sc_sort_documents(cart.ordered[i]);
+}
+
 void cart_build()
 {
 	cart_clear();
@@ -3139,6 +3541,7 @@ void cart_build()
 	}
 	
     cart_set_groups();
+    cart_order();
 }
 
 void get_subcart_documents(char type, list_t *documents, const char *doc_no)
@@ -3166,4 +3569,27 @@ void process_non_cash_documents(list_t *documents, int invoice)
 	}
 	AD_archive_save();
 	AD_save();
+}
+
+bool sub_cart_items_disabled(SubCart *sc)
+{
+    for (list_item_t *li = sc->documents.head; li; li = li->next) {
+        D *d = LIST_ITEM(li, D);
+        if (d->k->bank_state != BANK_STATE_NONE
+            || d->k->print_state != PRINT_STATE_NONE
+            || d->k->check_state)
+            return true;
+        for (list_item_t *lj = d->related.head; lj; lj = lj->next) {
+            K *k = LIST_ITEM(lj, K);
+            if (k->print_state == PRINT_STATE_PRINTING)
+                return true;
+        }
+    }
+    return false;
+}
+
+bool sub_cart_is_mirror_k(K *x, K *y)
+{
+    return doc_no_compare(&x->d, &y->d) == 0
+        && K_calc_total_sum(x) == K_calc_total_sum(y);
 }

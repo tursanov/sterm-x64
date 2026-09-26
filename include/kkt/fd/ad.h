@@ -11,7 +11,7 @@ extern "C" {
 #include "sysdefs.h"
 #include "list.h"
 
-#define AD_VERSION	2
+#define AD_VERSION	3
 
 struct C;
 struct L;
@@ -153,6 +153,7 @@ int64_t K_calc_total_sum_by_P(K *k, int p);
 
 // установить код подкорзины
 extern void set_k_s(char s, K* k, K* k1, K* k2);
+extern void set_k_s_mv(char s, bool move_first, K* k, K* k1, K* k2);
 
 // установить признак главного документа для группы документов
 extern void set_k_i(K* k, K* k1, K* k2);
@@ -187,7 +188,7 @@ extern C* C_load_v2(int fd);
 void C_calc_sum(C *c);
 
 // проверка чека, что он является агентским 
-bool C_is_agent_cheque(C *c, int64_t user_inn, char *phone, bool *is_same_agent);
+bool C_is_same_inn(C *c, int64_t user_inn, char *phone, bool *is_same_agent);
 
 // данные кассира
 typedef struct P1 {
@@ -216,6 +217,10 @@ typedef struct D {
 
 extern D *D_create(void);
 extern void D_destroy(D *d);
+extern int64_t D_total_sum(D *d);
+extern int D_group_count(D *d);
+extern int D_kind(D *d);
+
 
 #define CASH_ITEMS                      'A'
 #define REFUND_CASH_ITEMS               'B'
@@ -238,11 +243,17 @@ typedef struct SubCart {
 #define SUB_CART_INDEX(s)	((s) - 'A')
 typedef struct Cart {
 	SubCart sc[MAX_SUB_CART];
+	SubCart *ordered[MAX_SUB_CART];
+	size_t ordered_count;
 } Cart;
 
 extern Cart cart;
 
 extern void cart_build();
+
+extern bool sub_cart_items_disabled(SubCart *sc);
+bool sub_cart_is_mirror_k(K *x, K *y);
+
 
 // массив 64-битных величин
 typedef struct {
@@ -286,6 +297,7 @@ typedef struct AD {
 	int64_array_t docs;	// список документов
 	string_array_t phones; // список телефонов
 	string_array_t emails; // список e-mail
+	char *b_o; // разделённые ';' идентификаторы подкорзин в обратном порядке
 } AD;
 
 // ссылка на текущую корзину

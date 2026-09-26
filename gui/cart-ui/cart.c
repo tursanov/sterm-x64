@@ -89,9 +89,9 @@ void ui_cart_create()
 	ui_sel_subcart_index = -1;
 
     bool first = true;
-	for (int i = 0; i < MAX_SUB_CART; i++)
+	for (int i = 0; i < cart.ordered_count; i++)
 	{
-		SubCart *val = &cart.sc[i];
+		SubCart *val = cart.ordered[i];
 		if (val->documents.count > 0)
 		{
 		    int n = ui_cart->subcart_count;
@@ -1226,7 +1226,7 @@ bool print_cheque(SubCart *sc, list_t *klist)
 	char phone[19+1];
 	bool is_same_agent;
 	bool attr = kkt_has_param("COMP1057WO1171");
-	if (C_is_agent_cheque(c, user_inn, agent_phone, &is_same_agent)) {
+	if (C_is_same_inn(c, user_inn, agent_phone, &is_same_agent)) {
 		ffd_tlv_add_uint8(1057, 1 << 6);
 
 		if (!attr || is_same_agent) {
