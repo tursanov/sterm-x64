@@ -216,11 +216,6 @@ bool serial_close(int fd)
 					__func__, name);
 		}else
 			fprintf(stderr, "%s: ошибка tcgetattr для %s: %m.\n", __func__, name);
-/* Перед закрытием необходимо очистить буферы данных порта */
-		if (tcflush(fd, TCIOFLUSH) == -1)
-			fprintf(stderr, "%s: ошибка tcflush для %s: %m.\n", __func__, name);
-		else
-			ret = true;
 		if (close(fd) == -1){
 			fprintf(stderr, "%s: ошибка close для %s: %m.\n", __func__, name);
 			ret = false;
