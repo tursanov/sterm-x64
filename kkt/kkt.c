@@ -1082,7 +1082,7 @@ uint8_t kkt_get_grid_lst(uint8_t *data, size_t *len)
 	assert(*len != 0);
 	if (kkt_lock()){
 		if (do_cmd(KKT_NUL, KKT_GRID_LST, NULL)){
-			log_dbg("kkt_status = 0x%.hhx; kkt_rx_len = %zu.",
+			log_dbg("kkt_status = 0x%.2hhx; kkt_rx_len = %zu.",
 				kkt_status, kkt_rx_len);
 			if ((kkt_status == KKT_STATUS_OK) && (kkt_rx_len > 3)){
 				size_t lst_len = kkt_rx_len - 3;

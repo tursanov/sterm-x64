@@ -99,7 +99,7 @@ extern bool sprn_timeout;
 #define SPRN_PRNOP_VPOS_ABS	XPRN_PRNOP_VPOS_ABS	/* абсолютное вертикальное позиционирование */
 
 /* Таймауты для различных команд (в сотых долях секунды) */
-#define SPRN_NUMBER_TIMEOUT	400	/* чтение номера бланка (4 сек) */
+#define SPRN_NUMBER_TIMEOUT	1600	/* чтение номера бланка (16 сек) */
 #define SPRN_MEDIA_TIMEOUT	400	/* запрос типа носителя (4 сек) */
 #define SPRN_ID_TIMEOUT		250	/* запрос идентификатора (2.5 сек) */
 #define SPRN_STATUS_TIMEOUT	1200	/* запрос статуса (12 сек) */
@@ -203,7 +203,7 @@ enum {
 #define SPRN_TX_BUF_LEN		262144
 
 /* Инициализация БПУ и получение его заводского номера */
-extern int sprn_init(void);
+extern int sprn_init(struct term_cfg *cfg);
 /* Закрытие устройства для работы с БПУ */
 extern void sprn_close(void);
 /* Возвращает true, если заводской номер БПУ состоит из одних нулей */

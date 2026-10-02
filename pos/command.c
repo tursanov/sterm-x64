@@ -220,7 +220,7 @@ static int get_param_type(char *name)
 		return POS_PARAM_UNKNOWN;
 	int ret = POS_PARAM_UNKNOWN;
 	for (int i = 0; i < ASIZE(map); i++){
-		const typeof(*map) *p = map + i;
+		typeof(map + i) p = map + i;
 		if (strcmp(name, p->name) == 0){
 			ret = p->type;
 			break;
@@ -857,6 +857,7 @@ extern bool process_term(void);
 
 struct pos_response *pos_query(const struct pos_query_params *params)
 {
+	log_dbg("params = %p.", params);
 	if ((params == NULL) || !can_show_pos())
 		return NULL;
 	set_pos_query_params(params);

@@ -296,7 +296,7 @@ static uint8_t *check_kkt_bcode(uint8_t *p, size_t l, int *ecode,
 	}
 	size_t dst_idx = 0;
 	for (int i = 0; i < ASIZE(bcodes) && (bcodes[i].len > 0); i++){
-		typeof(*bcodes) *bc = bcodes + i;
+		typeof(bcodes + i) bc = bcodes + i;
 		if ((bc->len > 2) && is_escape(p[idx]) && (p[idx + 1] == 0x19))
 			break;
 		else if (ecode != NULL){

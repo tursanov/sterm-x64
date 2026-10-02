@@ -147,8 +147,8 @@ static void sprn_set_rcv_st(int st)
 static void sprn_reset(void)
 {
 	sprn_status = SPRN_STATUS_OK;
-	memset(sprn_number, 0x30, sizeof(sprn_number));
-	sprn_media = SPRN_MEDIA_UNKNOWN;
+/*	memset(sprn_number, 0x30, sizeof(sprn_number));
+	sprn_media = SPRN_MEDIA_UNKNOWN;*/
 	sprn_tx_len = sprn_sent_len = 0;
 	sprn_sent_cmd = SPRN_NUL;
 	sprn_op_timeout = SPRN_INFINITE_TIMEOUT;
@@ -693,13 +693,14 @@ static int sprn_do_cmd(uint8_t cmd)
 	return ret;
 }
 
-/* Инициализация БПУ и получение его заводского номера */
-int sprn_init(void)
+/* Инициализация БПУ, получение его заводского номера и параметров */
+int sprn_init(struct term_cfg *cfg)
 {
-	int ret;
 	memset(sprn_number, 0x30, sizeof(sprn_number));
-	ret = sprn_do_cmd(SPRN_ID);
-	if ((ret != SPRN_RET_OK) || (sprn_status != 0))
+	int ret = sprn_do_cmd(SPRN_ID);
+	if ((ret == SPRN_RET_OK) && sprn_ok(sprn_status))
+		ret = sprn_get_params(cfg);
+	else
 		memset(sprn_number, 0x30, sizeof(sprn_number));
 	return ret;
 }
@@ -774,11 +775,11 @@ int sprn_print_ticket(const uint8_t *data, size_t len, bool *sent_to_prn)
 /* Ожидание готовности принтера */
 	if ((ret = sprn_get_status()) != SPRN_RET_OK)
 		;
-	else if (sprn_status != 0)
+	else if (!sprn_ok(sprn_status))
 		;
 	else if ((ret = sprn_get_media_type()) != SPRN_RET_OK)
 		;
-	else if (sprn_status != 0)
+	else if (!sprn_ok(sprn_status))
 		;
 	else if ((sprn_media != SPRN_MEDIA_BLANK) &&
 			(sprn_media != SPRN_MEDIA_BOTH))

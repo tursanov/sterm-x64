@@ -13,15 +13,121 @@
 #include "pos/screen.h"
 #include "genfunc.h"
 #include "kbd.h"
+#include "sterm.h"
+#include "termlog.h"
 
-#define BLINK_TIME	25	/* время мигания символа в сотых секунды */
-#define CURSOR_TIME	30	/* время мигания курсора */
+#define BLINK_TIME		25	/* время мигания символа в сотых секунды */
+#define CURSOR_TIME		30	/* время мигания курсора */
+
+/* Коды команд для экрана */
+#define POS_SCREEN_CUR		0x01
+#define POS_SCREEN_CLS		0x02
+#define POS_SCREEN_EDIT		0x03
+#define POS_SCREEN_MENU		0x04
+#define POS_SCREEN_PRINT	0x05
+#define POS_SCREEN_COLOR	0x08
+
+typedef struct pos_node_t_	pos_node_t;
+
+/* Тип графического элемента */
+enum {
+	POS_TYPE_TEXT,		/* Текст */
+	POS_TYPE_EDIT, 		/* Строка ввода */
+	POS_TYPE_MENU 		/* Меню */
+};
+
+/* Функция для узла */
+typedef void (*pos_node_func_t)(pos_node_t *node);
+/* Функция для обработки событий */
+typedef void (*pos_node_process_func_t)(pos_node_t *node, struct kbd_event *e);
+
+/* Узел */
+struct pos_node_t_
+{
+	pos_node_t *next;	 	/* Следующий элемент */
+	int type;			/* Тип элемента */
+	int x, y;			/* Координаты вывода (в знакоместах) */
+	bool can_active;		/* Флаг активизации элемента */
+	bool update; 			/* Флаг перерисовки */
+	pos_node_func_t draw;		/* Фукция перерисовки */
+	pos_node_func_t activate;	/* Фукция активизации */
+	pos_node_func_t deactivate;	/* Фукция деактивизации */
+	pos_node_func_t free; 		/* Функция удаления доп. данных */
+	pos_node_process_func_t process;/* Фукция обработки событий */
+};
+
+/* Текст */
+typedef struct {
+	pos_node_t root;	/* Включение pos_node */
+	char *str;		/* Текст для отображения */
+	uint8_t fg;		/* Цвет символов */
+	uint8_t bg;		/* Цвет фона */
+	uint8_t attr;		/* Аттрибуты */
+} pos_text_t;
+
+/* Строка ввода */
+typedef struct {
+	pos_node_t root;	/* Включение pos_node */
+	char *name;		/* Имя строки ввода */
+	char *text;		/* Текст */
+	int count;		/* Количество допустимых символов для ввода */
+	int pos;		/* Положение курсора */
+	int view_start;		/* Начало отображения при скроллинге */
+	int view_width;		/* Ширина на экране в символах */
+} pos_edit_t;
+
+/* Меню */
+typedef struct {
+	pos_node_t root;	/* Включение pos_node */
+	char *name;		/* Имя меню */
+	char **items;		/* Элементы меню */
+	int count;		/* Количество элементов */
+	int selected;		/* Выбранный элемент */
+	int width;		/* Ширина меню */
+	int height;		/* Высота меню */
+	int view_top;		/* Начало отображения */
+	int view_width;		/* Отображаемая ширина */
+	int view_height;	/* Отображаемая высота */
+} pos_menu_t;
+
+/* Экран */
+typedef struct pos_screen_t_
+{
+	GCPtr gc;			/* Контекст для вывода */
+	int cols;			/* Ширина в знакоместах */
+	int rows;			/* Высота в знакоместах */
+	pos_node_t *head;		/* Начало списка элементов */
+	pos_node_t *tail;		/* Конец списка элементов */
+	pos_node_t *active;	 	/* Активный элемент */
+	int x, y;			/* Текущие координаты */
+	uint8_t fg, bg;			/* Текущие цвет букв и фона */
+	bool update; 			/* Флаг перерисовки */
+	uint32_t blink_time;		/* Время последнего мигания */
+	bool blink_hide;		/* Мигающие символы должны быть погашены */
+	bool pos_show_cursor;		/* Показать / спрятать курсор */
+	uint32_t cursor_time;		/* Время последнего мигания курсора */
+	bool cursor_on_screen;		/* Курсор на экране */
+	int cursor_x;			/* Координата по x курсора */
+	int cursor_y;			/* Координата по y курсора */
+	bool outside;			/* Флаг невозможности добавления новых элементов */
+	BitmapPtr bmp_up;		/* Стрелка вверх */
+	BitmapPtr bmp_down;		/* Стрелка вниз */
+	int x_off, y_off;		/* Отступ для рамки */
+	int saved_x, saved_y;		/* позиция курсора для запоминания */
+	bool saved_outside;		/* запомненный outside */
+} pos_screen_t;
 
 /* Глобальный экран вывода информации */
-static pos_screen_t *screen;
+static pos_screen_t *screen = NULL;
+
+/* Инициализирован ли экран */
+bool pos_screen_initialized(void)
+{
+	return screen != NULL;
+}
 
 /* Сохранить текущую позицию курсора */
-void pos_screen_save_pos(void)
+static void pos_screen_save_pos(void)
 {
 	if (screen != NULL){
 		screen->saved_x = screen->x;
@@ -31,7 +137,7 @@ void pos_screen_save_pos(void)
 }
 
 /* Восстановить сохраненную позицию курсора */
-void pos_screen_restore_pos(void)
+static void pos_screen_restore_pos(void)
 {
 	if (screen != NULL){
 		screen->x = screen->saved_x;
@@ -39,33 +145,6 @@ void pos_screen_restore_pos(void)
 		screen->outside = screen->saved_outside;
 	}
 }
-
-/* Проверка текста на выход из границ и установка позиции виртуального курсора */
-static bool validate_pos_text(const char *text);
-/* Рисование текста */
-static void draw_pos_text(pos_text_t *text);
-/* Освобождение дополнительных данных */
-static void free_pos_text(pos_text_t *text);
-
-/* Рисование строки ввода */
-static void draw_pos_edit(pos_edit_t *edit);
-/* Активация фокуса строки ввода */
-static void activate_pos_edit(pos_edit_t *edit);
-/* Деактивация фокуса строки ввода */
-static void deactivate_pos_edit(pos_edit_t *edit);
-/* Обработка событий строки ввода */
-static void process_pos_edit(pos_edit_t *edit,
-		struct kbd_event *e);
-/* Освобождение дополнительных данных */
-static void free_pos_edit(pos_edit_t *edit);
-
-/* Рисование меню */
-static void draw_pos_menu(pos_menu_t *menu);
-/* Обработка событий меню */
-static void process_pos_menu(pos_menu_t *menu,
-		struct kbd_event *e);
-/* Освобождение дополнительных данных */
-static void free_pos_menu(pos_menu_t *menu);
 
 /* Создание экрана */
 bool pos_screen_create(int x, int y, int cols, int rows,
@@ -103,7 +182,7 @@ bool pos_screen_create(int x, int y, int cols, int rows,
 	screen->blink_time = u_times();
 	screen->blink_hide = false;
 
-	screen->show_cursor = false;
+	screen->pos_show_cursor = false;
 
 	screen->outside = false;
 
@@ -116,41 +195,19 @@ bool pos_screen_create(int x, int y, int cols, int rows,
 	return true;
 }
 
-/* Удаление экрана */
-bool pos_screen_destroy(void)
-{
-	if (!screen)
-		return false;
-	pos_screen_cls();
-	DeleteGC(screen->gc);
-	free(screen);
-	screen = NULL;
-	return true;
-}
-
-/* Инициализирован ли экран */
-bool pos_screen_initialized(void)
-{
-	return screen != NULL;
-}
-
 /* Рисование курсора с помощью XOR в заданной позиции */
-static void draw_cursor(void)
+static void pos_draw_cursor(void)
 {
-	int x, y, w, h;
-	FontPtr font;
+	FontPtr font = screen->gc->pFont;
 
-	font = screen->gc->pFont;
-
-	x = screen->cursor_x*font->max_width + screen->x_off;
-	y = screen->cursor_y*font->max_height + font->max_top + screen->y_off;
-	w = font->underline_y2 - font->underline_y1 + 1;
-	h = font->max_bottom - font->max_top + 1;
+	int x = screen->cursor_x*font->max_width + screen->x_off;
+	int y = screen->cursor_y*font->max_height + font->max_top + screen->y_off;
+	int w = font->underline_y2 - font->underline_y1 + 1;
+	int h = font->max_bottom - font->max_top + 1;
 
 	screen->gc->pencolor = RGB(128, 128, 128);
 	screen->gc->rop2mode = R2_XOR;
-	while (h--)
-	{
+	while (h--){
 		Line(screen->gc, x, y, x + w - 1, y);
 		y++;
 	}
@@ -158,130 +215,144 @@ static void draw_cursor(void)
 }
 
 /* Показать курсор в заданной позиции */
-static void show_cursor(int x, int y)
+static void pos_show_cursor(int x, int y)
 {
-	if (!screen->show_cursor)
-	{
+	if (!screen->pos_show_cursor){
 		screen->cursor_x = x;
 		screen->cursor_y = y;
-		screen->show_cursor = true;
+		screen->pos_show_cursor = true;
 		screen->cursor_time = u_times();
 		screen->cursor_on_screen = true;
-	}
-	else if (x != screen->cursor_x || y != screen->cursor_y)
-	{
+	}else if ((x != screen->cursor_x) || (y != screen->cursor_y)){
 		if (screen->cursor_on_screen)
-			draw_cursor();
+			pos_draw_cursor();
 		screen->cursor_x = x;
 		screen->cursor_y = y;
 		screen->cursor_time = u_times();
 		screen->cursor_on_screen = true;
 	}
-	draw_cursor();
+	pos_draw_cursor();
 }
 
 /* Спрятать курсор */
-static void hide_cursor(void)
+static void pos_hide_cursor(void)
 {
-	if (!screen->show_cursor)
-		return;
-		
-	if (screen->cursor_on_screen)
-		draw_cursor();
-	screen->cursor_on_screen = false;
-	screen->show_cursor = false;
+	if (screen->pos_show_cursor){
+		if (screen->cursor_on_screen)
+			pos_draw_cursor();
+		screen->cursor_on_screen = false;
+		screen->pos_show_cursor = false;
+	}
+}
+
+/* Активировать следующий элемент */
+static void pos_screen_activate_next(void)
+{
+	pos_node_t *active = screen->active;
+	pos_node_t *current = active;
+	bool update = false;
+	if (!active){
+		for (active = screen->head; active; active = active->next){
+			if (active->can_active){
+				update = true;
+				break;
+			}
+		}
+	}else{
+		for (active = active->next; active; active = active->next){
+			if (active->can_active)
+				break;
+		}
+		if (!active){
+			for (active = screen->head; active; active = active->next){
+				if (active->can_active)
+					break;
+			}
+		}
+		if (current != active)
+			update = true;
+	}
+	screen->active = active;
+	if (update){
+		if (current){
+			if (current->deactivate)
+				current->deactivate(current);
+			current->update = true;
+		}
+		if (active){
+			active->update = true;
+			if (active->activate)
+				active->activate(active);
+		}
+	}
 }
 
 /* Перерисовка экрана */
-bool pos_screen_draw()
+bool pos_screen_draw(void)
 {
-	bool blink = false;
-	pos_node_t *node;
-	uint32_t time;
-	bool update_cursor;
-
-	if (!screen)
+	if (!pos_screen_initialized())
 		return false;
 	if (screen->update)
 		ClearGC(screen->gc, symbol_palette[SYM_COLOR_BLACK]);
-	
-	time = u_times();
-	if (time - screen->blink_time >= BLINK_TIME)
-	{
+	bool blink = false;
+	uint32_t time = u_times();
+	if (time - screen->blink_time >= BLINK_TIME){
 		blink = true;
 		screen->blink_hide = !screen->blink_hide;
 		screen->blink_time = time;
 	}
-
-	update_cursor = false;
-
-	for (node = screen->head; node; node = node->next)
-	{
+	bool update_cursor = false;
+	for (pos_node_t *node = screen->head; node; node = node->next){
 		if (node == screen->active)
 			continue;
-		if (blink && node->type == POS_TYPE_TEXT)
-		{
+		else if (blink && node->type == POS_TYPE_TEXT){
 			pos_text_t *text;
 
 			text = (pos_text_t *)node;
 
-			if (text->attr & SYM_ATTR_BLINK)
-			{
+			if (text->attr & SYM_ATTR_BLINK){
 				node->draw(node);
 				node->update = false;
 				continue;
 			}
 		}
-		if (node->update || screen->update)
-		{
-			if (screen->show_cursor)
-			{
-				hide_cursor();
+		if (node->update || screen->update){
+			if (screen->pos_show_cursor){
+				pos_hide_cursor();
 				update_cursor = true;
 			}
 			node->draw(node);
 			node->update = false;
 		}
 	}
-
-	if (screen->active && (screen->active->update || screen->update)) 
-	{
-		if (screen->show_cursor)
-		{
-			hide_cursor();
+	if (screen->active && (screen->active->update || screen->update)){
+		if (screen->pos_show_cursor){
+			pos_hide_cursor();
 			update_cursor = true;
 		}
 		screen->active->draw(screen->active);
 		screen->active->update = false;
 	}
-
 	if (update_cursor)
-		show_cursor(screen->cursor_x, screen->cursor_y);
-
+		pos_show_cursor(screen->cursor_x, screen->cursor_y);
 	screen->update = false;
-
-	if (screen->show_cursor)
-	{
+	if (screen->pos_show_cursor){
 		time = u_times();
-		if (time - screen->cursor_time >= CURSOR_TIME)
-		{
+		if (time - screen->cursor_time >= CURSOR_TIME){
 			screen->cursor_time = time;
 			screen->cursor_on_screen = !screen->cursor_on_screen;
-			draw_cursor();
+			pos_draw_cursor();
 		}
 	}
-
 	return true;
 }
 
 /* Обработка событий */
-bool pos_screen_process(struct kbd_event *e)
+void pos_screen_process(struct kbd_event *e)
 {
-	if ((e->key == KEY_LSHIFT) || (e->key == KEY_RSHIFT) || (e->key == KEY_CAPS)){
+	if ((e->key == KEY_LSHIFT) || (e->key == KEY_RSHIFT) || (e->key == KEY_CAPS))
 		scr_show_language(true);
-		return true;
-	}
-	if (e->pressed && !e->repeated && (e->shift_state == 0)){
+	else if (e->pressed && !e->repeated && (e->shift_state == 0)){
 		switch (e->key){
 			case KEY_TAB:
 				pos_screen_activate_next();
@@ -294,11 +365,10 @@ bool pos_screen_process(struct kbd_event *e)
 		if (screen->active && screen->active->process)
 			screen->active->process(screen->active, e);
 	}
-	return true;
 }
 
 /* Задание положения виртуального курсора */
-bool pos_screen_cur(int x, int y)
+static bool pos_screen_cur(int x, int y)
 {
 	if (x < 0)
 		x = 0;
@@ -317,7 +387,7 @@ bool pos_screen_cur(int x, int y)
 }
 
 /* Изменение цвета букв и фона */
-bool pos_screen_color(uint8_t fg, uint8_t bg)
+static bool pos_screen_color(uint8_t fg, uint8_t bg)
 {
 	screen->fg = fg & 0x7;
 	screen->bg = bg & 0x7;
@@ -325,7 +395,7 @@ bool pos_screen_color(uint8_t fg, uint8_t bg)
 }
 
 /* Очистка экрана */
-bool pos_screen_cls()
+static bool pos_screen_cls()
 {
 	pos_node_t *node;
 	
@@ -344,7 +414,7 @@ bool pos_screen_cls()
 	screen->update = true;
 	screen->blink_time = u_times();
 	screen->blink_hide = false;
-	screen->show_cursor = false;
+	screen->pos_show_cursor = false;
 	screen->outside = false;
 	screen->x = 0;
 	screen->y = 0;
@@ -354,62 +424,8 @@ bool pos_screen_cls()
 	return true;
 }
 
-/* Активировать следующий элемент */
-bool pos_screen_activate_next()
-{
-	pos_node_t *active;
-	pos_node_t *current;
-	bool update;
-
-	active = screen->active;
-	current = active;
-
-	update = false;
-	
-	if (!active)
-	{
-		for (active = screen->head; active; active = active->next)
-			if (active->can_active)
-			{
-				update = true;
-				break;
-			}
-	}
-	else
-	{
-		for (active = active->next; active; active = active->next)
-			if (active->can_active)
-				break;
-		if (!active)
-			for (active = screen->head; active; active = active->next)
-				if (active->can_active)
-					break;
-		if (current != active)
-			update = true;
-	}
-	
-	screen->active = active;
-	if (update)
-	{
-		if (current)
-		{
-			if (current->deactivate)
-				current->deactivate(current);
-			current->update = true;
-		}
-		if (active)
-		{
-			active->update = true;
-			if (active->activate)
-				active->activate(active);
-		}
-	}
-
-	return true;
-}
-
 /* Вставка узла в список экранных элементов */
-static void insert_node(pos_node_t *node)
+static void pos_screen_insert_node(pos_node_t *node)
 {
 	node->next = NULL;
 	if (screen->tail)
@@ -419,78 +435,22 @@ static void insert_node(pos_node_t *node)
 	screen->tail = node;
 }
 
-/* Строки */
-
-/* Добавление строки */
-bool pos_screen_insert_text(
-		const char *text, uint8_t attr)
-{
-	pos_text_t *pos_text;
-	
-	if (text == NULL)
-		return false;
-
-	if (!(pos_text = malloc(sizeof(pos_text_t)))){
-		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
-		return false;
-	}
-
-	if (!(pos_text->str = strdup(text))){
-		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
-		free(pos_text);
-		return false;
-	}
-
-	pos_text->root.x = screen->x;
-	pos_text->root.y = screen->y;
-
-	if (!validate_pos_text(text)){
-		pos_set_error(POS_ERROR_CLASS_SCREEN, POS_ERR_DEPICT, (intptr_t)text);
-		free(pos_text);
-		screen->outside = true;
-		return false;
-	}
-
-	pos_text->root.type = POS_TYPE_TEXT;
-	pos_text->root.can_active = false;
-	pos_text->root.update = true;
-	pos_text->root.draw = (pos_node_func_t)draw_pos_text;
-	pos_text->root.activate = NULL;
-	pos_text->root.deactivate = NULL;
-	pos_text->root.process = NULL;
-	pos_text->root.free = (pos_node_func_t)free_pos_text;
-
-	insert_node((pos_node_t *)pos_text);
-
-	pos_text->fg = screen->fg;
-	pos_text->bg = screen->bg;
-	pos_text->attr = attr;
-		
-	return true;
-}
-
 /* Проверка текста на выход из границ и установка позиции виртуального курсора */
-static bool validate_pos_text(const char *text)
+static bool pos_validate_text(const char *text)
 {
 	int x, y;
-
-	for (x = screen->x, y = screen->y; *text; text++)
-	{
-		if (*text == '\n')
-		{
+	for (x = screen->x, y = screen->y; *text; text++){
+		if (*text == '\n'){
 			y++;
 			if (y >= screen->rows && *(text+1) == 0)
 				return false;
 			continue;
-		}
-		else if (*text == '\r')
-		{
+		}else if (*text == '\r'){
 			x = 0;
 			continue;
 		}
 		x++;
-		if (x == screen->cols)
-		{
+		if (x == screen->cols){
 			x = 0;
 			y++;
 			if (y >= screen->rows && *(text+1))
@@ -499,82 +459,66 @@ static bool validate_pos_text(const char *text)
 	}
 	screen->x = x;
 	screen->y = y;
-
 	return true;
 }
 
-/* Вывод текста в заданной позиции курсора */
-static void pos_rich_text_out(int x, int y,
-		rich_text_t *text)
+/* Освобождение дополнительных данных */
+static void pos_free_text(pos_text_t *pos_text)
 {
-	GCPtr mem;
-	FontPtr font;
+	free(pos_text->str);
+}
 
+/* Вывод текста в заданной позиции курсора */
+static void pos_rich_text_out(int x, int y, rich_text_t *text)
+{
 	if (!text->count)
 		return;
-
-	font = screen->gc->pFont;
-
-	mem = CreateMemGC(text->count*font->max_width, font->max_height);
+	FontPtr font = screen->gc->pFont;
+	GCPtr mem = CreateMemGC(text->count*font->max_width, font->max_height);
 	mem->pFont = font;
-
 	text->blink_hide = screen->blink_hide;
 	draw_rich_text(mem, 0, 0, text);
-			
-	CopyGC(screen->gc, x*font->max_width + screen->x_off,
-			y*font->max_height + screen->y_off,
-			mem, 0, 0, GetCX(mem), GetCY(mem));
-
+	CopyGC(screen->gc, x * font->max_width + screen->x_off,
+		y*font->max_height + screen->y_off, mem, 0, 0, GetCX(mem), GetCY(mem));
 	DeleteGC(mem);
 }
 
 /* Рисование текста */
-static void draw_pos_text(pos_text_t *pos_text)
+static void pos_draw_text(pos_text_t *pos_text)
 {
-	int x, y;
-	rich_text_t rich_text;
-	char *str;
-	int x_out;
-
-	x = pos_text->root.x;
-	y = pos_text->root.y;
-	str = pos_text->str;
-
-	rich_text.text = str;
-	rich_text.count = 0;
-	rich_text.fg = pos_text->fg;
-	rich_text.bg = pos_text->bg;
-	rich_text.attr = pos_text->attr;
-
-	x_out = x;
-
-	for (; *str; str++)
-	{
-		if (*str == '\n')
-		{
+	int x = pos_text->root.x;
+	int x_out = x;
+	int y = pos_text->root.y;
+	char *str = pos_text->str;
+	rich_text_t rich_text = {
+		.text = str,
+		.count = 0,
+		.fg = pos_text->fg,
+		.bg = pos_text->bg,
+		.attr = pos_text->attr,
+	};
+	for (; *str; str++){
+		if (*str == '\n'){
 			pos_rich_text_out(x_out, y, &rich_text);
 			rich_text.count = 0;
-			rich_text.text = str+1;
+			rich_text.text = str + 1;
 			x_out = x;
 			y++;
 			continue;
-		}
-		else if (*str == '\r')
-		{
+		}else if (*str == '\r'){
 			pos_rich_text_out(x_out, y, &rich_text);
 			x = 0;
 			x_out = 0;
 			rich_text.count = 0;
-			rich_text.text = str+1;
+			rich_text.text = str + 1;
 			continue;
 		}
 		x++;
 		rich_text.count++;
-		if (x == screen->cols)
-		{
+		if (x == screen->cols){
 			pos_rich_text_out(x_out, y, &rich_text);
 			rich_text.count = 0;
-			rich_text.text = str+1;
+			rich_text.text = str + 1;
 			x_out = 0;
 			x = 0;
 			y++;
@@ -583,70 +527,50 @@ static void draw_pos_text(pos_text_t *pos_text)
 	pos_rich_text_out(x_out, y, &rich_text);
 }
 
-/* Освобождение дополнительных данных */
-static void free_pos_text(pos_text_t *pos_text)
+/* Добавление строки */
+static bool pos_screen_insert_text(const char *text, uint8_t attr)
 {
-	free(pos_text->str);
+	if (text == NULL)
+		return false;
+	pos_text_t *pos_text = malloc(sizeof(pos_text_t));
+	if (pos_text == NULL){
+		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
+		return false;
+	}
+	pos_text->str = strdup(text);
+	if (pos_text->str == NULL){
+		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
+		free(pos_text);
+		return false;
+	}
+	pos_text->root.x = screen->x;
+	pos_text->root.y = screen->y;
+	if (!pos_validate_text(text)){
+		pos_set_error(POS_ERROR_CLASS_SCREEN, POS_ERR_DEPICT, (intptr_t)text);
+		free(pos_text);
+		screen->outside = true;
+		return false;
+	}
+	pos_text->root.type = POS_TYPE_TEXT;
+	pos_text->root.can_active = false;
+	pos_text->root.update = true;
+	pos_text->root.draw = (pos_node_func_t)pos_draw_text;
+	pos_text->root.activate = NULL;
+	pos_text->root.deactivate = NULL;
+	pos_text->root.process = NULL;
+	pos_text->root.free = (pos_node_func_t)pos_free_text;
+	pos_screen_insert_node((pos_node_t *)pos_text);
+	pos_text->fg = screen->fg;
+	pos_text->bg = screen->bg;
+	pos_text->attr = attr;
+	return true;
 }
 
-/* Строки ввода */
-
-/* Добавление строки ввода */
-bool pos_screen_insert_edit(
-		const char *name, const char *initial_text, int count)
+/* Освобождение дополнительных данных */
+static void pos_free_edit(pos_edit_t *edit)
 {
-	pos_edit_t *pos_edit;
-	int view_width;
-
-	if (name == NULL)
-		return false;
-	if (screen->x + count > screen->cols)
-		view_width = screen->cols - screen->x;
-	else
-		view_width = count;
-	if (!(pos_edit = malloc(sizeof(pos_edit_t)))){
-		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
-		return false;
-	}
-	if (!(pos_edit->name = strdup(name))){
-		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
-		free(pos_edit);
-		return false;
-	}
-	if (!(pos_edit->text = malloc(count+1))){
-		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
-		free(pos_edit->name);
-		free(pos_edit);
-		return false;
-	}
-	if (initial_text){
-		strncpy(pos_edit->text, initial_text, count);
-		pos_edit->text[count] = 0;
-	}else
-		pos_edit->text[0] = '\x0';
-	pos_edit->root.type = POS_TYPE_EDIT;
-	pos_edit->root.x = screen->x;
-	pos_edit->root.y = screen->y;
-	pos_edit->root.can_active = true;
-	pos_edit->root.update = true;
-	pos_edit->root.draw = (pos_node_func_t)draw_pos_edit;
-	pos_edit->root.activate = (pos_node_func_t)activate_pos_edit;
-	pos_edit->root.deactivate = (pos_node_func_t)deactivate_pos_edit;
-	pos_edit->root.free = (pos_node_func_t)free_pos_edit;
-	pos_edit->root.process = (pos_node_process_func_t)process_pos_edit;
-	pos_edit->count = count;
-	pos_edit->pos = 0;
-	pos_edit->view_start = 0;
-	pos_edit->view_width = view_width;
-	insert_node((pos_node_t *)pos_edit);
-	if (screen->active == NULL)
-		pos_screen_activate_next();
-	screen->x += view_width;
-	if (screen->x >= screen->cols-1){
-		screen->x = 0;
-		screen->y++;
-	}
-	return true;
+	free(edit->name);
+	free(edit->text);
 }
 
 /* Используемые цвета */
@@ -655,176 +579,275 @@ bool pos_screen_insert_edit(
 /* Рисование строки ввода */
 static void draw_pos_edit(pos_edit_t *edit)
 {
-	GCPtr mem;
-	FontPtr font;
-	Color frame_color;
-
-	font = screen->gc->pFont;
-
-	mem = CreateMemGC(edit->view_width*font->max_width + screen->x_off*2,
+	FontPtr font = screen->gc->pFont;
+	GCPtr mem = CreateMemGC(edit->view_width*font->max_width + screen->x_off*2,
 			font->max_height + screen->y_off*2);
 	mem->pFont = font;
-
 	ClearGC(mem, EDIT_BACKGROUND);
-
-	DrawBorder(mem, 0, 0, GetCX(mem), GetCY(mem), 1,
-			clWhite, clGray);
-	
-	DrawBorder(mem, 1, 1, GetCX(mem)-2, GetCY(mem)-2, 2,
-			clSilver, clSilver);
-
-	frame_color = (screen->active == (pos_node_t *)edit) ?
-		clRed : clBlack;
-	
-	DrawBorder(mem, 3, 3, GetCX(mem) - 6, GetCY(mem) - 6, 1, frame_color,
-			frame_color);
-
+	DrawBorder(mem, 0, 0, GetCX(mem), GetCY(mem), 1, clWhite, clGray);
+	DrawBorder(mem, 1, 1, GetCX(mem)-2, GetCY(mem)-2, 2, clSilver, clSilver);
+	Color frame_color = (screen->active == (pos_node_t *)edit) ? clRed : clBlack;
+	DrawBorder(mem, 3, 3, GetCX(mem) - 6, GetCY(mem) - 6, 1, frame_color, frame_color);
 	mem->textcolor = clBlack;
-	TextOutN(mem, screen->x_off, screen->y_off, edit->text + edit->view_start, 
-			edit->view_width);
-
-	CopyGC(screen->gc, edit->root.x*font->max_width,
-			edit->root.y*font->max_height,
+	TextOutN(mem, screen->x_off, screen->y_off, edit->text + edit->view_start, edit->view_width);
+	CopyGC(screen->gc, edit->root.x * font->max_width, edit->root.y * font->max_height,
 			mem, 0, 0, GetCX(mem), GetCY(mem));
-
 	DeleteGC(mem);
 }
 
 /* Активация фокуса строки ввода */
 static void activate_pos_edit(pos_edit_t *edit)
 {
-	show_cursor(edit->root.x, edit->root.y);
+	pos_show_cursor(edit->root.x, edit->root.y);
 }
 
 /* Деактивация фокуса строки ввода */
 static void deactivate_pos_edit(pos_edit_t *edit)
 {
-	hide_cursor();
+	pos_hide_cursor();
 	edit->pos = 0;
 	edit->view_start = 0;
 }
 
 /* Обработка событий строки ввода */
-static void process_pos_edit(pos_edit_t *edit,
-		struct kbd_event *e)
+static void pos_process_edit(pos_edit_t *edit, struct kbd_event *e)
 {
 	if (!e->pressed)
 		return;
-
-	switch (e->key)
-	{
-	case KEY_BACKSPACE:
-		if (edit->pos > 0)
-		{
-			memmove(edit->text + edit->pos - 1,
-					edit->text + edit->pos,
+	switch (e->key){
+		case KEY_BACKSPACE:
+			if (edit->pos > 0){
+				memmove(edit->text + edit->pos - 1, edit->text + edit->pos,
 					strlen(edit->text) - edit->pos + 1);
-
-			edit->pos--;
-			if (edit->view_start > edit->pos)
-				edit->view_start = edit->pos;
-			show_cursor(edit->root.x + edit->pos - edit->view_start,
-					screen->cursor_y);
-			edit->root.update = true;
-		}
-		break;
-	case KEY_DEL:
-		if (edit->text[0] != '\x0')
-		{
-			edit->root.update = true;
-			if ((kbd_shift_state & SHIFT_CTRL))
-				edit->text[0] = '\x0';
-			else 
-			{
-				if (edit->pos != strlen(edit->text))
-					memcpy(edit->text + edit->pos,
+				edit->pos--;
+				if (edit->view_start > edit->pos)
+					edit->view_start = edit->pos;
+				pos_show_cursor(edit->root.x + edit->pos - edit->view_start,
+						screen->cursor_y);
+				edit->root.update = true;
+			}
+			break;
+		case KEY_DEL:
+			if (edit->text[0] != 0){
+				edit->root.update = true;
+				if ((kbd_shift_state & SHIFT_CTRL))
+					edit->text[0] = 0;
+				else{
+					if (edit->pos != strlen(edit->text))
+						memcpy(edit->text + edit->pos,
 							edit->text + edit->pos + 1,
 							strlen(edit->text) - edit->pos);
-			
-				break;
+					break;
+				}
 			}
-		}
-		__fallthrough__;
-	case KEY_HOME:
-		if (edit->pos > 0)
-		{
-			edit->pos = 0;
-			if (edit->view_start > 0)
-				edit->root.update = true;
-			edit->view_start = 0;
-			show_cursor(edit->root.x, screen->cursor_y);
-		}
-		break;
-	case KEY_END:
-		if (edit->pos < strlen(edit->text))
-		{
-			edit->pos = strlen(edit->text);
-			if (edit->pos >= edit->view_start + edit->view_width)
-			{
-				edit->view_start = edit->pos - edit->view_width + 1;
-				edit->root.update = true;
+			__fallthrough__;
+		case KEY_HOME:
+			if (edit->pos > 0){
+				edit->pos = 0;
+				if (edit->view_start > 0)
+					edit->root.update = true;
+				edit->view_start = 0;
+				pos_show_cursor(edit->root.x, screen->cursor_y);
 			}
-			show_cursor(edit->root.x + edit->pos - edit->view_start,
-					screen->cursor_y);
-		}
-		break;
-	case KEY_LEFT:
-		if (edit->pos > 0)
-		{
-			edit->pos--;
-			if (edit->view_start > edit->pos)
-			{
-				edit->view_start = edit->pos;
-				edit->root.update = true;
+			break;
+		case KEY_END:
+			if (edit->pos < strlen(edit->text)){
+				edit->pos = strlen(edit->text);
+				if (edit->pos >= (edit->view_start + edit->view_width)){
+					edit->view_start = edit->pos - edit->view_width + 1;
+					edit->root.update = true;
+				}
+				pos_show_cursor(edit->root.x + edit->pos - edit->view_start,
+						screen->cursor_y);
 			}
-			show_cursor(edit->root.x + edit->pos - edit->view_start,
-					screen->cursor_y);
-		}
-		break;
-	case KEY_RIGHT:
-		if (edit->pos < strlen(edit->text))
-		{
-			edit->pos++;
-			if (edit->pos >= edit->view_start + edit->view_width)
-			{
-				edit->view_start = edit->pos - edit->view_width + 1;
-				edit->root.update = true;
+			break;
+		case KEY_LEFT:
+			if (edit->pos > 0){
+				edit->pos--;
+				if (edit->view_start > edit->pos){
+					edit->view_start = edit->pos;
+					edit->root.update = true;
+				}
+				pos_show_cursor(edit->root.x + edit->pos - edit->view_start,
+						screen->cursor_y);
 			}
-			show_cursor(edit->root.x + edit->pos - edit->view_start,
-					screen->cursor_y);
+			break;
+		case KEY_RIGHT:
+			if (edit->pos < strlen(edit->text)){
+				edit->pos++;
+				if (edit->pos >= (edit->view_start + edit->view_width)){
+					edit->view_start = edit->pos - edit->view_width + 1;
+					edit->root.update = true;
+				}
+				pos_show_cursor(edit->root.x + edit->pos - edit->view_start,
+						screen->cursor_y);
+			}
+			break;
+		default:
+			if ((e->ch != 0) && (e->ch != 0x1b) && (strlen(edit->text) < edit->count)){
+				memmove(edit->text + edit->pos + 1, 
+						edit->text + edit->pos,
+						strlen(edit->text) - edit->pos + 1);
+				edit->text[edit->pos] = e->ch;
+				edit->root.update = true;
+				edit->pos++;
+				if (edit->pos >= edit->view_start + edit->view_width)
+					edit->view_start = edit->pos - edit->view_width + 1;
+				pos_show_cursor(edit->root.x + edit->pos - edit->view_start,
+						screen->cursor_y);
+			}
+	}
+}
+
+/* Добавление строки ввода */
+static bool pos_screen_insert_edit(const char *name, const char *initial_text, int count)
+{
+	if (name == NULL)
+		return false;
+	int view_width = 0;
+	if (screen->x + count > screen->cols)
+		view_width = screen->cols - screen->x;
+	else
+		view_width = count;
+	pos_edit_t *pos_edit = malloc(sizeof(pos_edit_t));
+	if (pos_edit == NULL){
+		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
+		return false;
+	}
+	pos_edit->name = strdup(name);
+	if (pos_edit->name == NULL){
+		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
+		free(pos_edit);
+		return false;
+	}
+	pos_edit->text = malloc(count + 1);
+	if (pos_edit->text == NULL){
+		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
+		free(pos_edit->name);
+		free(pos_edit);
+		return false;
+	}
+	if (initial_text == NULL)
+		*pos_edit->text = 0;
+	else
+		snprintf(pos_edit->text, count, "%s", initial_text);
+	pos_edit->root.type = POS_TYPE_EDIT;
+	pos_edit->root.x = screen->x;
+	pos_edit->root.y = screen->y;
+	pos_edit->root.can_active = true;
+	pos_edit->root.update = true;
+	pos_edit->root.draw = (pos_node_func_t)draw_pos_edit;
+	pos_edit->root.activate = (pos_node_func_t)activate_pos_edit;
+	pos_edit->root.deactivate = (pos_node_func_t)deactivate_pos_edit;
+	pos_edit->root.free = (pos_node_func_t)pos_free_edit;
+	pos_edit->root.process = (pos_node_process_func_t)pos_process_edit;
+	pos_edit->count = count;
+	pos_edit->pos = 0;
+	pos_edit->view_start = 0;
+	pos_edit->view_width = view_width;
+	pos_screen_insert_node((pos_node_t *)pos_edit);
+	if (screen->active == NULL)
+		pos_screen_activate_next();
+	screen->x += view_width;
+	if ((screen->x + 1) > screen->cols){
+		screen->x = 0;
+		screen->y++;
+	}
+	return true;
+}
+
+/* Используемые цвета */
+#define MENU_BACKGROUND		RGB(0xBB, 0xBB, 0xBB)
+#define MENU_FOCUSED_TEXT	RGB(0xFF, 0xFF, 0xFF)
+#define MENU_SELECTED_TEXT	RGB(0x00, 0x00, 0xFF)
+#define MENU_TEXT		RGB(0x00, 0x00, 0x00)
+
+/* Рисование меню */
+static void pos_draw_menu(pos_menu_t *menu)
+{
+	FontPtr font = screen->gc->pFont;
+	GCPtr mem = CreateMemGC(menu->view_width*font->max_width + screen->x_off * 2,
+			menu->view_height * font->max_height + screen->y_off * 2);
+	mem->pFont = font;
+	ClearGC(mem, RGB(0xBB, 0xBB, 0xBB));
+	if (screen->active == (pos_node_t *)menu){
+		mem->brushcolor = RGB(0x00, 0x00, 0x64);
+		FillBox(mem, screen->x_off,
+			(menu->selected - menu->view_top) * font->max_height + screen->y_off,
+			menu->view_width * font->max_width, font->max_height);
+	}
+	DrawBorder(mem, 0, 0, GetCX(mem), GetCY(mem), 1, clWhite, clGray);
+	Color frame_color = (screen->active == (pos_node_t *)menu) ?  clRed : clBlack;
+	DrawBorder(mem, 3, 3, GetCX(mem)-6, GetCY(mem)-6, 1, frame_color, frame_color);
+	mem->textcolor = clBlack;
+	for (int i = 0; (i < menu->view_height) && (i + menu->view_top < menu->count); i++){
+		if ((menu->view_top + i) == menu->selected){
+			if (screen->active == (pos_node_t *)menu)
+				mem->textcolor = MENU_FOCUSED_TEXT;
+			else
+				mem->textcolor = MENU_SELECTED_TEXT;
+		}else
+			mem->textcolor = MENU_TEXT;
+		DrawText(mem, screen->x_off, i * font->max_height + screen->y_off,
+				menu->view_width * font->max_width,
+				font->max_height, menu->items[i + menu->view_top], 0);
+	}
+	if (screen->active == (pos_node_t *)menu){
+		if (menu->view_top && screen->bmp_up){
+			DrawBitmap(mem, screen->bmp_up,
+					(mem->box.width - screen->bmp_up->width) / 2, 0,
+					-1, -1, false, 0);
 		}
-		break;
-	default:
-		if ((e->ch != 0) && (e->ch != 0x1b) && strlen(edit->text) < edit->count){
-			memmove(edit->text + edit->pos + 1, 
-					edit->text + edit->pos,
-					strlen(edit->text) - edit->pos + 1);
-			edit->text[edit->pos] = e->ch;
-			edit->root.update = true;
-			edit->pos++;
-			if (edit->pos >= edit->view_start + edit->view_width)
-				edit->view_start = edit->pos - edit->view_width + 1;
-			show_cursor(edit->root.x + edit->pos - edit->view_start,
-					screen->cursor_y);
+		if (((menu->view_top + menu->view_height) < menu->count) && screen->bmp_down){
+			DrawBitmap(mem, screen->bmp_down,
+					(mem->box.width - screen->bmp_down->width) / 2,
+					(mem->box.height - screen->bmp_down->height),
+					-1, -1, false, 0);
 		}
+	}
+	CopyGC(screen->gc, menu->root.x * font->max_width, menu->root.y * font->max_height,
+			mem, 0, 0, GetCX(mem), GetCY(mem));
+	DeleteGC(mem);
+}
+
+/* Обработка событий меню */
+static void pos_process_menu(pos_menu_t *menu, struct kbd_event *e)
+{
+	if (!e->pressed)
+		return;
+	switch (e->key){
+		case KEY_UP:
+			if (menu->selected > 0){
+				menu->selected--;
+				if (menu->selected < menu->view_top)
+					menu->view_top = menu->selected;
+			}
+			menu->root.update = true;
+			break;
+		case KEY_DOWN:
+			if ((menu->selected + 1) < menu->count){
+				menu->selected++;
+				if (menu->selected >= menu->view_top + menu->view_height)
+					menu->view_top = menu->selected - menu->view_height + 1;
+			}
+			menu->root.update = true;
+			break;
 	}
 }
 
 /* Освобождение дополнительных данных */
-static void free_pos_edit(pos_edit_t *edit)
+static void pos_free_menu(pos_menu_t *menu)
 {
-	free(edit->name);
-	free(edit->text);
+	for (int i = 0; i < menu->count; i++)
+		free(menu->items[i]);
+	free(menu->items);
+	free(menu->name);
 }
 
 /* Добавление меню */
-bool pos_screen_insert_menu(
-		const char *name, char **items, int count,
-		int width, int height)
+static bool pos_screen_insert_menu(const char *name, char **items, int count, int width, int height)
 {
-	pos_menu_t *pos_menu;
-	int i;
-	if (!name || !items || !count)
+	if ((name == NULL) || (items == NULL) || (count <= 0))
 		return false;
 	else if (((screen->x + width) > screen->cols) ||
 			((screen->y + height) > screen->rows)){
@@ -832,16 +855,19 @@ bool pos_screen_insert_menu(
 		screen->outside = true;
 		return false;
 	}	
-	for (i = 0; i < count; i++){
+	for (int i = 0; i < count; i++){
 		if (items[i] == NULL){
 			pos_set_error(POS_ERROR_CLASS_SCREEN, POS_ERR_DEPICT, (intptr_t)name);
 			return false;
 		}
 	}
-	if (!(pos_menu = malloc(sizeof(pos_menu_t)))){
+	pos_menu_t *pos_menu = malloc(sizeof(pos_menu_t));
+	if (pos_menu == NULL){
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
 		return false;
-	}else if (!(pos_menu->name = strdup(name))){
+	}
+	pos_menu->name = strdup(name);
+	if (pos_menu->name == NULL){
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
 		free(pos_menu);
 		return false;
@@ -857,13 +883,12 @@ bool pos_screen_insert_menu(
 	pos_menu->root.y = screen->y;
 	pos_menu->root.can_active = true;
 	pos_menu->root.update = true;
-	pos_menu->root.draw = (pos_node_func_t)draw_pos_menu;
+	pos_menu->root.draw = (pos_node_func_t)pos_draw_menu;
 	pos_menu->root.activate = NULL;
 	pos_menu->root.deactivate = NULL;
-	pos_menu->root.free = (pos_node_func_t)free_pos_menu;
-	pos_menu->root.process = (pos_node_process_func_t)process_pos_menu;
-
-	insert_node((pos_node_t *)pos_menu);
+	pos_menu->root.free = (pos_node_func_t)pos_free_menu;
+	pos_menu->root.process = (pos_node_process_func_t)pos_process_menu;
+	pos_screen_insert_node((pos_node_t *)pos_menu);
 	if (screen->active == NULL)
 		pos_screen_activate_next();
 	screen->x += pos_menu->view_width;
@@ -877,123 +902,16 @@ bool pos_screen_insert_menu(
 	return true;
 }
 
-/* Используемые цвета */
-#define MENU_BACKGROUND		RGB(0xBB, 0xBB, 0xBB)
-#define MENU_FOCUSED_TEXT	RGB(0xFF, 0xFF, 0xFF)
-#define MENU_SELECTED_TEXT	RGB(0x00, 0x00, 0xFF)
-#define MENU_TEXT		RGB(0x00, 0x00, 0x00)
-
-/* Рисование меню */
-static void draw_pos_menu(pos_menu_t *menu)
+/* Удаление экрана */
+void  pos_screen_destroy(void)
 {
-	GCPtr mem;
-	FontPtr font;
-	int i;
-	Color frame_color;
-
-	font = screen->gc->pFont;
-
-	mem = CreateMemGC(menu->view_width*font->max_width + screen->x_off*2,
-			menu->view_height*font->max_height + screen->y_off*2);
-	mem->pFont = font;
-
-	ClearGC(mem, RGB(0xBB, 0xBB, 0xBB));
-
-	if (screen->active == (void *)menu)
-	{
-		mem->brushcolor = RGB(0x00, 0x00, 0x64);
-		FillBox(mem, screen->x_off,
-			(menu->selected - menu->view_top)*font->max_height + screen->y_off,
-			menu->view_width*font->max_width,
-			font->max_height);
+	if (pos_screen_initialized()){
+		pos_screen_cls();
+		DeleteGC(screen->gc);
+		free(screen);
+		screen = NULL;
+		pos_active = false;
 	}
-
-	DrawBorder(mem, 0, 0, GetCX(mem), GetCY(mem), 1, clWhite, clGray);
-	frame_color = (screen->active == (pos_node_t *)menu) ? 
-		clRed : clBlack;
-	DrawBorder(mem, 3, 3, GetCX(mem)-6, GetCY(mem)-6, 1, frame_color,
-			frame_color);
-
-	mem->textcolor = clBlack;
-	for (i = 0; i < menu->view_height &&
-			i + menu->view_top < menu->count; i++){
-		if ((menu->view_top + i) == menu->selected){
-			if (screen->active == (void *)menu)
-				mem->textcolor = MENU_FOCUSED_TEXT;
-			else
-				mem->textcolor = MENU_SELECTED_TEXT;
-		}else
-			mem->textcolor = MENU_TEXT;
-		DrawText(mem, screen->x_off,
-				i*font->max_height + screen->y_off,
-				menu->view_width*font->max_width,
-				font->max_height, menu->items[i + menu->view_top], 0);
-	}
-
-	if (screen->active == (pos_node_t *)menu)
-	{
-		if (menu->view_top && screen->bmp_up)
-		{
-			DrawBitmap(mem, screen->bmp_up,
-					(mem->box.width - screen->bmp_up->width) / 2, 0,
-					-1, -1, false, 0);
-		}
-
-		if (menu->view_top + menu->view_height < menu->count && screen->bmp_down)
-		{
-			DrawBitmap(mem, screen->bmp_down,
-					(mem->box.width - screen->bmp_down->width) / 2,
-					(mem->box.height - screen->bmp_down->height),
-					-1, -1, false, 0);
-		}
-	}
-
-	CopyGC(screen->gc, menu->root.x*font->max_width,
-			menu->root.y*font->max_height,
-			mem, 0, 0, GetCX(mem), GetCY(mem));
-
-	DeleteGC(mem);
-}
-
-/* Обработка событий меню */
-static void process_pos_menu(pos_menu_t *menu,
-		struct kbd_event *e)
-{
-	if (!e->pressed)
-		return;
-
-	switch (e->key)
-	{
-	case KEY_UP:
-		if (menu->selected > 0)
-		{
-			menu->selected--;
-			if (menu->selected < menu->view_top)
-				menu->view_top = menu->selected;
-		}
-		menu->root.update = true;
-		break;
-	case KEY_DOWN:
-		if (menu->selected < menu->count - 1)
-		{
-			menu->selected++;
-			if (menu->selected >= menu->view_top + menu->view_height)
-				menu->view_top = menu->selected - menu->view_height + 1;
-		}
-		menu->root.update = true;
-		break;
-	}
-}
-
-/* Освобождение дополнительных данных */
-static void free_pos_menu(pos_menu_t *menu)
-{
-	int i;
-
-	for (i = 0; i < menu->count; i++)
-		free(menu->items[i]);
-	free(menu->items);
-	free(menu->name);
 }
 
 /* Разбор ответа */
@@ -1066,11 +984,8 @@ static bool pos_parse_menu(struct pos_data_buf *buf, bool check_only)
 {
 	uint16_t w, h;
 	uint8_t item_count;
-	char name[33], item[1024], **items;
-	int i, n;
-
 	if (screen->outside){
-		printf("%s: MENU: невозможно добавить новый элемент\n", __func__);
+		log_err("MENU: невозможно добавить новый элемент.");
 		return false;
 /* Размеры меню */
 	}else if (!pos_read_word(buf, &w) || !pos_read_word(buf, &h)){
@@ -1082,7 +997,8 @@ static bool pos_parse_menu(struct pos_data_buf *buf, bool check_only)
 		return false;
 	}
 /* Имя меню */
-	n = pos_read_array(buf, (uint8_t *)name, 32);
+	char name[33];
+	int n = pos_read_array(buf, (uint8_t *)name, sizeof(name) - 1);
 	if (n <= 0){
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
 		return false;
@@ -1096,13 +1012,15 @@ static bool pos_parse_menu(struct pos_data_buf *buf, bool check_only)
 		return false;
 	}
 /* Элементы */
-	items = (char **)calloc(item_count, sizeof(char *));
+	char **items = (char **)calloc(item_count, sizeof(char *));
 	if (items == NULL){
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_LOW_MEM, 0);
 		return false;
 	}
+	int i;
 	for (i = 0; i < item_count; i++){
-		n = pos_read_array(buf, (uint8_t *)item, 1024);
+		char item[1024];
+		n = pos_read_array(buf, (uint8_t *)item, sizeof(item));
 		if (n <= 0){
 			pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
 			break;
@@ -1117,8 +1035,8 @@ static bool pos_parse_menu(struct pos_data_buf *buf, bool check_only)
 		items[i][n] = 0;
 	}
 	if (i != item_count){
-		for (n = 0; n < i; n++)
-			free(items[n]);
+		for (int j = 0; j < i; j++)
+			free(items[j]);
 		free(items);
 		return false;
 	}
@@ -1138,27 +1056,25 @@ static bool pos_parse_menu(struct pos_data_buf *buf, bool check_only)
 
 static bool pos_parse_print(struct pos_data_buf *buf, bool check_only)
 {
-	char str[2049];
-	uint8_t attr;
-	int n;
-
 	if (screen->outside){
 		pos_set_error(POS_ERROR_CLASS_SCREEN, POS_ERR_DEPICT, (intptr_t)"");
 		return false;
 	}
-	n = pos_read_array(buf, (uint8_t *)str, 2048);
+	char str[2049];
+	int n = pos_read_array(buf, (uint8_t *)str, sizeof(str) - 1);
 	if (n == -1){
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
 		return false;
 	}
 	str[n] = 0;
 	recode_str(str, n);
+	uint8_t attr = 0;
 	if (!pos_read_byte(buf, &attr)){
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
 		return false;
 	}
 	if (check_only || (n == 0)){
-		if (validate_pos_text(str))
+		if (pos_validate_text(str))
 			return true;
 		else{
 			pos_set_error(POS_ERROR_CLASS_SCREEN, POS_ERR_DEPICT, (intptr_t)str);
@@ -1170,7 +1086,7 @@ static bool pos_parse_print(struct pos_data_buf *buf, bool check_only)
 
 static bool pos_parse_color(struct pos_data_buf *buf, bool check_only)
 {
-	uint8_t fg, bg;
+	uint8_t fg = 0, bg = 0;
 	if (!pos_read_byte(buf, &fg) || !pos_read_byte(buf, &bg)){
 		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_MSG_FMT, 0);
 		return false;
@@ -1239,18 +1155,19 @@ bool pos_parse_screen_stream(struct pos_data_buf *buf, bool check_only)
 /* Имеется ли на экране хотя бы одно меню */
 bool pos_screen_has_menu(void)
 {
-	pos_node_t *node;
-	for (node = screen->head; node != NULL; node = node->next){
-		if (node->type == POS_TYPE_MENU)
-			return true;
+	bool ret = false;
+	for (pos_node_t *node = screen->head; node != NULL; node = node->next){
+		if (node->type == POS_TYPE_MENU){
+			ret = true;
+			break;
+		}
 	}
-	return false;
+	return ret;
 }
 
 /* Запись потока от клавиатуры */
 bool pos_req_save_keyboard_stream(struct pos_data_buf *buf)
 {
-	static char name[33], value[1025];
 	uint16_t n;
 	pos_node_t *node;
 /* Начало потока от клавиатуры */
@@ -1268,22 +1185,22 @@ bool pos_req_save_keyboard_stream(struct pos_data_buf *buf)
 		return false;
 /* Запись элементов */
 	for (node = screen->head; node != NULL; node = node->next){
+		static char name[33], value[1025];
 		if (node->type == POS_TYPE_MENU){
 			char s[12];
-
 			sprintf(s, "%d", ((pos_menu_t *)node)->selected + 1);
-			strncpy(name, ((pos_menu_t *)node)->name, 32);
+			strncpy(name, ((pos_menu_t *)node)->name, sizeof(name) - 1);
 			name[32] = 0;
 			recode_str(name, -1);
 			if (!pos_write_array(buf, (uint8_t *)name,	strlen(name)) ||
 					!pos_write_array(buf, (uint8_t *)s, strlen(s)))
 				return false;
 		}else if (node->type == POS_TYPE_EDIT){
-			strncpy(name, ((pos_edit_t *)node)->name, 32);
-			name[32] = 0;
+			strncpy(name, ((pos_edit_t *)node)->name, sizeof(name) - 1);
+			name[sizeof(name) - 1] = 0;
 			recode_str(name, -1);
-			strncpy(value, ((pos_edit_t *)node)->text, 1024);
-			value[1024] = 0;
+			strncpy(value, ((pos_edit_t *)node)->text, sizeof(value) - 1);
+			value[sizeof(value) - 1] = 0;
 			recode_str(value, -1);
 			if (!pos_write_array(buf, (uint8_t *)name, strlen(name)) ||
 					!pos_write_array(buf, (uint8_t *)value, strlen(value)))
@@ -1331,19 +1248,19 @@ struct slice {
 /* Разбиение строки на части для вывода на экран. Возвращает число частей. */
 static int split_str(char *s, struct slice *slices)
 {
-	int i, m, k, n_slices = 0;
 	if ((s == NULL) || (slices == NULL))
 		return 0;
-	for (i = 0; s[i] && (n_slices < screen->rows); n_slices++){
+	int n_slices = 0;
+	for (int i = 0; s[i] && (n_slices < screen->rows); n_slices++){
 /* Пропускаем пробелы в начале строки */
 		for (; s[i] && isspace(s[i]); i++);
 		if (s[i] == 0)
 			break;
-		k = m = i;	/* m -- начало строки; k -- конец предыдущего слова */
-		while (true) {
+		int k = i;	/* конец предыдущего слова */
+		int m = i;	/* начало строки */
+		while (true){
 /* Сканируем слово */
-			for (; s[i] && ((i - m) < screen->cols) &&
-					!isspace(s[i]); i++);
+			for (; s[i] && ((i - m) < screen->cols) && !isspace(s[i]); i++);
 			if (s[i] == 0)
 				break;
 			else if (!isspace(s[i])){
@@ -1367,10 +1284,9 @@ static int split_str(char *s, struct slice *slices)
 }
 
 /* Вывод на экран сообщения с заданными атрибутами */
-bool pos_write_scr(struct pos_data_buf *buf, char *msg, uint8_t fg, uint8_t bg)
+bool pos_write_scr(struct pos_data_buf *buf, const char *msg, uint8_t fg, uint8_t bg)
 {
-	struct slice slices[screen->rows];
-	int i, n, k, l = strlen(msg);
+	int l = strlen(msg);
 	char tmp[l + 1];
 	strcpy(tmp, msg);
 	recode_str(tmp, l);
@@ -1379,14 +1295,13 @@ bool pos_write_scr(struct pos_data_buf *buf, char *msg, uint8_t fg, uint8_t bg)
 			!pos_req_save_screen_cls(buf) ||
 			!pos_req_save_screen_color(buf, fg, bg))
 		return false;
-	n = split_str(tmp, slices);
-	k = (screen->rows - n) / 2;
-	for (i = 0; i < n; i++, k++){
-		if (!pos_req_save_screen_cur(buf,
-					(screen->cols - slices[i].len) / 2, k) ||
+	struct slice slices[screen->rows];
+	int n = split_str(tmp, slices);
+	int k = (screen->rows - n) / 2;
+	for (int i = 0; i < n; i++, k++){
+		if (!pos_req_save_screen_cur(buf, (screen->cols - slices[i].len) / 2, k) ||
 				!pos_req_save_screen_print(buf,
-					tmp + slices[i].offs, slices[i].len,
-					SYM_ATTR_DEFAULT))
+					tmp + slices[i].offs, slices[i].len, SYM_ATTR_DEFAULT))
 			return false;
 	}
 	return pos_req_stream_end(buf) && pos_req_end(buf);

@@ -140,11 +140,11 @@ static const char *serial_baud_str(int baud)
 	int cmp(const void *key, const void *v)
 	{
 		int baud = *(int *)(key);
-		const typeof(*map) *p = (const typeof(*map) *)v;
+		typeof(map + 0) p = (typeof(map + 0))v;
 		return baud - p->baud;
 	}
 	static char ret[10];
-	const typeof(*map) *p = bsearch(&baud, map, ASIZE(map), sizeof(*map), cmp);
+	typeof(map + 0) p = bsearch(&baud, map, ASIZE(map), sizeof(*map), cmp);
 	if (p != NULL)
 		snprintf(ret, sizeof(ret), "%d", p->v);
 	else

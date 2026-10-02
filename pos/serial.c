@@ -34,58 +34,6 @@ static uint8_t out_data[POS_MAX_MESSAGE_LEN];
 static int out_data_head;
 static int out_data_len;
 
-#if 0
-static void serial_dump(void)
-{
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	struct tm *tm = localtime(&tv.tv_sec);
-	printf("%.2d:%.2d:%.2d.%.3lu\n", tm->tm_hour, tm->tm_min, tm->tm_sec,
-			tv.tv_usec / 1000);
-	for (int i = 0; i < in_data_len; i++){
-		if (((i & 0x07) == 0) && i)
-			printf("%c", (i & 0x0f) ? ' ' : '\n');
-		printf("%.2hx ", (uint16_t)in_data[(in_data_head + i) % sizeof(in_data)]);
-	}
-	printf("\n");
-}
-#endif
-
-#if 0
-/* Чтение данных в буфер приема из файла pos.dat */
-#define POS_DATA_FILE		"pos.dat"
-static int read_pos_data(void)
-{
-	int fd, ret;
-	struct stat st;
-	if (stat(POS_DATA_FILE, &st) == -1){
-		fprintf(stderr, "Ошибка получения информации о " POS_DATA_FILE ": %s.\n",
-			strerror(errno));
-		return -1;
-	}else if (st.st_size > POS_MAX_MESSAGE_LEN){
-		fprintf(stderr, "Размер файла " POS_DATA_FILE " не должен превышать %d байт.\n",
-				POS_MAX_MESSAGE_LEN);
-		return -1;
-	}
-	fd = open(POS_DATA_FILE, O_RDONLY);
-	if (fd == -1){
-		fprintf(stderr, "Ошибка открытия " POS_DATA_FILE " для чтения: %s.\n",
-			strerror(errno));
-		return -1;
-	}
-/*	in_data_head = 0;*/
-	ret = read(fd, in_data, st.st_size);
-	close(fd);
-	if (ret != st.st_size){
-		fprintf(stderr, "Ошибка чтения из " POS_DATA_FILE ": %s.\n",
-			strerror(errno));
-		return -1;
-	}
-/*	first_block_exp_len = in_data_len;*/
-	return ret;
-}
-#endif
-
 bool pos_serial_open(void)
 {
 	char dev_name[32];
@@ -96,6 +44,7 @@ bool pos_serial_open(void)
 		.control	= SERIAL_FLOW_NONE,
 		.baud		= B115200
 	};
+	pos_serial_close();
 	snprintf(dev_name, sizeof(dev_name), "/dev/ttyS%d", cfg.bank_pos_port);
 	serial_dev = serial_open(dev_name, &ss, O_RDWR);
 	if (serial_dev != -1){

@@ -776,13 +776,13 @@ static void on_pos_printing(uint32_t t)
 
 static void on_pos_finish(uint32_t t __attribute__((unused)))
 {
+	pos_close(true);
 	pos_set_state(pos_idle);
 }
 
 static void on_pos_break(uint32_t t __attribute__((unused)))
 {
 	pos_send_finish();
-	pos_close(false);
 	pos_set_state(pos_wait);
 }
 
@@ -807,10 +807,8 @@ static void on_pos_err_out(uint32_t t)
 
 static void on_pos_wait(uint32_t t)
 {
-	if ((t - pos_t0) > POS_TIMEOUT){
-		pos_serial_close();
+	if ((t - pos_t0) > POS_TIMEOUT)
 		pos_set_state(pos_new);
-	}
 }
 
 static void on_pos_ewait(uint32_t t)

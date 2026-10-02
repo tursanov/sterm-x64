@@ -544,7 +544,7 @@ const char *find_term_astate(intptr_t ast, bool *x3_err)
 	}
 	set_if_not_null(x3_err, false);
 	for (int i = 0; i < ASIZE(map); i++){
-		typeof(*map) *p = map + i;
+		typeof(map + i) p = map + i;
 		if (ast != p->ast)
 			continue;
 		bool flag = false;
@@ -789,10 +789,10 @@ void redraw_term(bool show_text, const char *title)
  * присутствует несколько элементов, то элемент, который требуется перерисовать
  * позже, должен располагаться ближе к концу массива.
  */
-	static struct scr_elem{
+	static const struct {
 		bool *active;
 		bool (*draw_fn)(void);
-	} scr_elems[]={
+	} scr_elems[] = {
 		{&optn_active,	draw_options},
 		{&help_active,	draw_help},
 		{&xlog_active,	draw_xlog},
@@ -804,17 +804,18 @@ void redraw_term(bool show_text, const char *title)
 		{&pos_active,	pos_screen_draw},
 		{&fa_active,	draw_fa},
 	};
-	int i;
-	bool v=scr_visible;
-	scr_visible=true;
+	bool v = scr_visible;
+	scr_visible = true;
 	draw_scr(show_text, title);
 	set_term_state(_term_state);
 	set_term_astate(_term_aux_state);
 	set_term_led(hbyte);
-	scr_visible=v;
-	for (i=0; i < ASIZE(scr_elems); i++)
-		if (*scr_elems[i].active)
-			scr_elems[i].draw_fn();
+	scr_visible = v;
+	for (int i = 0; i < ASIZE(scr_elems); i++){
+		typeof(scr_elems + i) p = scr_elems + i;
+		if (*p->active && (p->draw_fn != NULL))
+			p->draw_fn();
+	}
 	if (menu_active)
 		draw_menu(mnu);
 }
@@ -892,64 +893,6 @@ char *get_main_title(void)
 		_s(STERM_VERSION_RELEASE) ")  [%s]",
 		use_integrator ? "ИНТЕГРАТОР" : "ХОСТ");
 	return main_title;
-}
-#endif
-
-#if 0
-/* Вывод на экран сообщения об ошибке чтения заводского номера БПУ */
-static void show_sprn_nonumber_error(void)
-{
-	online = false;
-	guess_term_state();
-	push_term_info();
-	hide_cursor();
-	scr_visible = false;
-	set_term_busy(true);
-	ClearScreen(clBlack);
-	err_beep();
-	message_box("ОШИБКА БПУ", "БПУ неработоспособно.\n"
-		"Требуется замена принтера.", dlg_yes, DLG_BTN_YES, al_center);
-	online = true;
-	pop_term_info();
-	ClearScreen(clBtnFace);
-	redraw_term(true, main_title);
-}
-
-/* Инициализация БПУ */
-static bool init_sprn(void)
-{
-	bool flag = false;
-	int ret;
-	if ((ret = sprn_get_status()) != SPRN_RET_OK)
-		;
-	else if (cfg.has_sd_card && (sprn_sd_status > 0x01)){
-		set_term_astate(ast_sprn_sd_err);
-		need_lock_term = true;
-	}else if (sprn_status != 0)
-		set_term_astate(ast_sprn_err);
-	else if ((ret = sprn_init()) != SPRN_RET_OK)
-		need_lock_term = ret != SPRN_RET_RST;
-	else if (sprn_status != 0){
-		set_term_astate(ast_sprn_err);
-		if (sprn_status == 0x01)	/* номер БПУ не прописан в памяти */
-			show_sprn_nonumber_error();
-		need_lock_term = true;
-	}else{
-		flag = true;
-		if (!cfg.has_sprn){
-			cfg.has_sprn = true;
-			write_cfg();
-		}
-	}
-	sprn_close();
-	if (!flag && (ret != SPRN_RET_RST)){
-		err_beep();
-		if (cfg.has_sprn){
-			cfg.has_sprn = false;
-			write_cfg();
-		}
-	}
-	return flag;
 }
 #endif
 
@@ -1060,6 +1003,8 @@ static void init_devices(void)
 		if (sprn != NULL){
 			log_info("Обнаружено БПУ: %s %s; тип: %s.",
 				sprn->ttyS_name, serial_settings_str(&sprn->ss), sprn->name);
+			sprn_init(&cfg);
+			log_dbg("Заводской номер БПУ %.*s.", sizeof(sprn_number), sprn_number);
 		}
 		rfid = get_dev_info(devices, DEV_RFID);
 		if (rfid != NULL){
@@ -1129,6 +1074,7 @@ static void init_term(bool need_init)
 	if (cfg.bank_system){
 		pos_caps_reset();
 		pos_init_transactions();
+		pos_set_state(pos_new);
 	}
 	rollback_keys(true);
 	apc = false;
@@ -1800,6 +1746,7 @@ static int handle_ping(struct kbd_event *e)
 
 static void show_cheque_fa(void);
 
+#if 0
 /* Завершение работы банковского приложения */
 static void on_end_pos(void)
 {
@@ -1856,6 +1803,7 @@ static void on_end_pos(void)
 	if (!apc)
 		redraw_term(true, main_title);
 }
+#endif
 
 /* Обработчик окна POS-терминала */
 static int handle_pos(struct kbd_event *e)
@@ -1864,15 +1812,6 @@ static int handle_pos(struct kbd_event *e)
 		case pos_ready:
 			pos_screen_process(e);
 			break;
-		case pos_enter:
-		case pos_print:
-		case pos_printing:
-		case pos_err:
-		case pos_err_out:
-		case pos_ewait:
-			break;
-		default:
-			on_end_pos();
 	}
 	return cmd_none;
 }
@@ -1916,7 +1855,7 @@ static bool check_screen_blank(uint32_t idle)
 /* Получение команды терминала */
 int get_cmd(bool check_scr, bool busy)
 {
-	static struct {
+	static const struct {
 		bool *active;
 		int (*handler)(struct kbd_event *);
 	} elems[] = {
@@ -1933,10 +1872,6 @@ int get_cmd(bool check_scr, bool busy)
 		{&pos_active,		handle_pos},
 		{&fa_active,		handle_fa},
 	};
-	int i;
-	struct kbd_event e;
-	int cm = cmd_none;
-	uint32_t idle = kbd_idle_interval();
 	if (sigterm_caught){
 		ret_val = RET_SIGTERM;
 		return cmd_exit;
@@ -1947,6 +1882,7 @@ int get_cmd(bool check_scr, bool busy)
 	if (cfg.bank_system)
 		pos_process();
 	handle_channel();
+	uint32_t idle = kbd_idle_interval();
 #if defined __WATCH_EXPRESS__
 	if ((cfg.watch_interval != 0) && (idle >= cfg.watch_interval) && online){
 		kbd_reset_idle_interval();
@@ -1955,6 +1891,7 @@ int get_cmd(bool check_scr, bool busy)
 #endif
 	if (check_screen_blank(idle))
 		return cmd_none;
+	struct kbd_event e;
 	kbd_get_event(&e);
 	if (e.pressed){
 #if defined __WATCH_EXPRESS__
@@ -1966,9 +1903,11 @@ int get_cmd(bool check_scr, bool busy)
 		if (!e.repeated && (e.key == KEY_F9))
 			return cmd_reset;
 	}
-	for (i = 0; i < ASIZE(elems); i++){
-		if (*elems[i].active){
-			cm = elems[i].handler(&e);
+	int cm = cmd_none;
+	for (int i = 0; i < ASIZE(elems); i++){
+		typeof(elems + i) p = elems + i;
+		if (*p->active && (p->handler != NULL)){
+			cm = p->handler(&e);
 			if (cm == cmd_wakeup){
 				scr_wakeup();
 				cm = cmd_none;
@@ -2432,7 +2371,7 @@ static void show_term_info(void)
 	term_number tn;
 	get_tki_field(&tki, TKI_NUMBER, tn, sizeof(tn));
 	init_devices();
-	static char buf[512];
+	static char buf[1024];
 	snprintf(buf, sizeof(buf),
 		"%29s: \"Экспресс-2А-К\"\n"
 		"%29s:  " _s(STERM_VERSION_MAJOR) "."
@@ -2441,6 +2380,8 @@ static void show_term_info(void)
 		"%29s:  %.*s\n"
 		"%29s:  %s\n"
 		"%29s:  %s (%s)\n"
+		"%29s:  %s\n"
+		"%29s:  %s\n"
 		"%29s:  %s\n"
 		"%29s:  %s\n"
 		"%29s:  АО НПЦ \"Спектр\"\n\n"
@@ -2452,6 +2393,8 @@ static void show_term_info(void)
 		"IP хост-ЭВМ", inet_ntoa(dw2ip(get_x3_ip())),
 		cfg.use_p_ip ? "осн." : "доп.",
 		"Лицензия ИПТ", bank_ok ? "Есть" : "Нет",
+		"БПУ", (sprn == NULL) ? "Нет" : sprn->name,
+		"ЭТТ", (rfid == NULL) ? "Нет" : rfid->name,
 		"ККТ", (kkt == NULL) ? "Нет" : kkt->name,
 		"Изготовитель", "Esc");
 	ClearScreen(clBlack);
@@ -3643,14 +3586,19 @@ static void on_response(bool *need_sync_dev_data)
 					apc = true;
 					int np = need_pos();
 					log_dbg("need_pos вернул %d.", np);
-					if (np == 1){
-						show_pos();
-						apc = pos_active;
-					}else if (np == 0){
-						show_cheque_fa();
-						apc = fa_active;
-					}else
-						apc = false;
+					switch (np){
+						case 0:
+						case 1:
+							show_cheque_fa();
+							apc = fa_active;
+							break;
+/*						case 1:
+							show_pos();
+							apc = pos_active;
+							break;*/
+						default:
+							apc = false;
+					}
 					log_dbg("apc = %d.", apc);
 				}else if (TST_FLAG(OBp, GDF_RESP_INIT)){
 					x3data_to_sync = need_x3_sync();
@@ -3766,7 +3714,7 @@ static void save_logs(void)
 /* Основной обработчик команд терминала */
 bool process_term(void)
 {
-	static struct {
+	static const struct {
 		int cm;
 		void (*fn)(void);
 		bool ret_val;
@@ -3828,7 +3776,7 @@ bool process_term(void)
 	};
 	int cm = get_cmd(true, false);
 	for (int i = 0; i < ASIZE(handlers); i++){
-		typeof(*handlers) *p = handlers + i;
+		typeof(handlers + i) p = handlers + i;
 		if (cm == p->cm){
 			if (p->fn != NULL)
 				p->fn();
