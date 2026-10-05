@@ -656,8 +656,7 @@ static void on_pos_enter(uint32_t t)
 		if (pos_send_kbd())
 			pos_set_state(pos_ready);
 	}else if ((t - pos_t0) > MAX_POS_TIMEOUT)
-		pos_set_error(POS_ERROR_CLASS_SYSTEM,
-			POS_ERR_TIMEOUT, 0);
+		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_TIMEOUT, 0);
 }
 
 /* Отправка запроса на получение квитанции ИПТ */
@@ -767,8 +766,7 @@ static void on_pos_printing(uint32_t t)
 	if (dt > POS_TIMEOUT){
 		if (!poll_ok){
 			if (dt > MAX_POS_TIMEOUT)
-				pos_set_error(POS_ERROR_CLASS_SYSTEM,
-					POS_ERR_TIMEOUT, 0);
+				pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_TIMEOUT, 0);
 		}else if ((pos_get_state() == pos_printing) && pos_serial_is_free())
 			pos_send_empty();
 	}

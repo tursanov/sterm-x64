@@ -864,14 +864,27 @@ struct pos_response *pos_query(const struct pos_query_params *params)
 	clr_pos_resp(&pos_resp);
 	ClearScreen(clBlack);
 	show_pos();
-	while ((pos_get_state() != pos_new) && (pos_get_state() != pos_idle)){
-		process_term();
-		if (pos_get_state() == pos_new)		/* сброс терминала */
-			return NULL;
+	struct pos_response *ret = &pos_resp;
+	for (bool flag = true; flag && fa_active;){
+		switch (pos_get_state()){
+			case pos_new:
+				ret = NULL;
+				__fallthrough__;
+			case pos_idle:
+			case pos_none:
+				flag = false;
+				break;
+			default:
+				process_term();
+		}
 	}
-	ClearScreen(clBlack);
-	draw_fa();
-	return &pos_resp;
+	if (fa_active){
+		ClearScreen(clBlack);
+		draw_fa();
+	}else
+		ret = NULL;
+	log_dbg("end; ret = %p.", ret);
+	return ret;
 }
 
 /* Подготовка списка параметров для запроса информации об ИПТ */
