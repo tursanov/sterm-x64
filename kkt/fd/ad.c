@@ -2691,6 +2691,7 @@ static void AD_sum_add(S *dst, S *src) {
 	dst->a += src->a;
 }
 
+
 void C_calc_sum(C *c) {
 	memset(&c->sum, 0, sizeof(c->sum));
 	for (list_item_t *li2 = c->klist.head; li2 != NULL; li2 = li2->next) {
@@ -2722,6 +2723,40 @@ void C_calc_sum(C *c) {
 		AD_sum_add(&c->sum, &ks);
 	}
 }
+
+
+void K_list_calc_sum(list_t *klist, S *sum) {
+	memset(sum, 0, sizeof(S));
+	for (list_item_t *li2 = klist->head; li2 != NULL; li2 = li2->next) {
+		K *k = LIST_ITEM(li2, K);
+		int64_t d = doc_no_to_i64(&k->d);
+		int64_array_add(&_ad->docs, d, true);
+
+		if (k->llist.count == 0)
+			continue;
+
+		struct S ks = { 0, 0, 0, 0, 0 };
+		K_calc_sum(k, &ks);
+
+		if (k->a > 0) {
+			ks.b = k->a;
+			switch (k->m) {
+			case 1:
+				ks.n -= k->a;
+				break;
+			case 2:
+				ks.e -= k->a;
+				break;
+			case 3:
+				ks.p -= k->a;
+				break;
+			}
+		}
+
+		AD_sum_add(sum, &ks);
+	}
+}
+
 
 void AD_calc_sum() {
 	memset(_ad->sum, 0, sizeof(_ad->sum));

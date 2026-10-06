@@ -150,6 +150,8 @@ int64_t K_calc_total_sum(K *k);
 // общая сумма для k по определённому p
 int64_t K_calc_total_sum_by_P(K *k, int p);
 
+// общая сумма для списка K
+void K_list_calc_sum(list_t *klist, S *sum);
 
 // установить код подкорзины
 extern void set_k_s(char s, K* k, K* k1, K* k2);
@@ -186,6 +188,8 @@ extern C* C_load_v1(int fd);
 extern C* C_load_v2(int fd);
 
 void C_calc_sum(C *c);
+
+
 
 // проверка чека, что он является агентским 
 bool C_is_same_inn(C *c, int64_t user_inn, char *phone, bool *is_same_agent);

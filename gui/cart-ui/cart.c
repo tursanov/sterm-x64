@@ -803,9 +803,10 @@ bank_items_t * get_bank_items(list_t *sel)
             r->order_id = d->k->y->req_id;
         }
         
-//        if (d->k->y->op == '*')
-        {
-            r->is_fast_payment = true;
+        if (d->k->y) {
+            r->is_fast_payment = d->k->y->op == '*';
+        } else {
+            r->is_fast_payment = false;
         }
         
         int64_t sum = 0;
@@ -1013,7 +1014,7 @@ void process_non_cash_items(selected_docs_t *sd)
                         ? BANK_STATE_NONE
                         : BANK_STATE_SUCCESS;
                         
-//                    if (k->y->op != '*')
+                    if (k->y->op != '*')
                     {
                         list_add(&_ad->archive_items, k);
                     }
@@ -1202,9 +1203,13 @@ static bool fa_create_doc1(uint16_t doc_type, const uint8_t *pattern_footer,
 
 bool print_cheque(SubCart *sc, list_t *klist)
 {
-    C* c = sc->c;
     size_t doc_count = 0;
-
+    
+    S sum;
+    K_list_calc_sum(klist, &sum);
+    
+    C *cheque = sc->c;
+    
 	ffd_tlv_reset();
 
 	ffd_tlv_add_string(1021, cashier_get_cashier());
@@ -1212,21 +1217,21 @@ bool print_cheque(SubCart *sc, list_t *klist)
 	const char *cashier_inn = cashier_get_inn();
 	if (cashier_inn[0])
 		ffd_tlv_add_fixed_string(1203, cashier_inn, 12);
-	ffd_tlv_add_uint8(1054, c->t1054);
-	ffd_tlv_add_uint8(1055, c->t1055);
-	if (c->pe)
-		ffd_tlv_add_string(1008, c->pe);
-	ffd_tlv_add_vln(1031, (uint64_t)c->sum.n);
-	ffd_tlv_add_vln(1081, (uint64_t)c->sum.e);
-	ffd_tlv_add_vln(1215, (uint64_t)c->sum.p);
+	ffd_tlv_add_uint8(1054, cheque->t1054);
+	ffd_tlv_add_uint8(1055, cheque->t1055);
+//	if (c->pe)
+//		ffd_tlv_add_string(1008, c->pe);
+	ffd_tlv_add_vln(1031, (uint64_t)sum.n);
+	ffd_tlv_add_vln(1081, (uint64_t)sum.e);
+	ffd_tlv_add_vln(1215, (uint64_t)sum.p);
 	ffd_tlv_add_vln(1216, 0);
-	ffd_tlv_add_vln(1217, (uint64_t)c->sum.b);
+	ffd_tlv_add_vln(1217, (uint64_t)sum.b);
 
 	char agent_phone[19+1];
 	char phone[19+1];
 	bool is_same_agent;
 	bool attr = kkt_has_param("COMP1057WO1171");
-	if (C_is_same_inn(c, user_inn, agent_phone, &is_same_agent)) {
+	if (C_is_same_inn(cheque, user_inn, agent_phone, &is_same_agent)) {
 		ffd_tlv_add_uint8(1057, 1 << 6);
 
 		if (!attr || is_same_agent) {
@@ -1266,6 +1271,11 @@ bool print_cheque(SubCart *sc, list_t *klist)
 					printf("ADD 1200, %lld\n", (long long)l->c);
 					ffd_tlv_add_vln(1200, l->c);
 				}
+				else {
+				
+					printf("NON NDS: %d\n", l->n);
+				
+				}
 				
 				if (l->i == 0) {
 					// если ИНН == 0, но есть l->z, значит перевозчик не российский.
@@ -1288,7 +1298,7 @@ bool print_cheque(SubCart *sc, list_t *klist)
 					
 				} else if (l->i != user_inn) {
 					char inn[12+1];
-					if (c->p > 9999999999ll)
+					if (cheque->p > 9999999999ll)
 						sprintf(inn, "%.12ld", l->i);
 					else
 						sprintf(inn, "%.10ld", l->i);
@@ -1311,6 +1321,8 @@ bool print_cheque(SubCart *sc, list_t *klist)
 			doc_count++;
 		}
 	}
+	
+	
 
 	if (doc_count > 0) {
 		uint8_t* pattern_footer = NULL;
