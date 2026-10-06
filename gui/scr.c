@@ -1691,23 +1691,23 @@ static void cm_ctrl_m(struct kbd_event *e)
 {
     if (!e->repeated)
 		err_beep();
-    char buffer[64];
+    char buffer[256];
     
     format_datetime(buffer, sizeof(buffer));
     
     const char *path = "/home/sterm/period.txt";
-    int ret;
+    int ret = 0;
 
     FILE *f = fopen(path, "w");
     if (!f)
         ret = -1;
 
-    if (fputs(buffer, f) == EOF) {
+    if (ret != -1 && fputs(buffer, f) == EOF) {
         fclose(f);
         ret = -1;
     }
 
-    if (fclose(f) != 0) {
+    if (ret != -1 && fclose(f) != 0) {
         ret = -1;
     }
 
