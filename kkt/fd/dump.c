@@ -128,3 +128,20 @@ void K_dump(FILE *f, K *k, const char* desc, int indent) {
     
     fflush(f);
 }
+
+/* Дамп списка K */
+void K_list_dump(FILE *f, list_t *list, const char* desc, int indent) {
+    print_indent(f, indent); fprintf(f, "[%s] K list [\n", desc);
+    
+    int i = 0;
+	for (list_item_t *item = list->head; item != NULL; item = item->next, i++) {
+	    char buf[64];
+		K* k = LIST_ITEM(item, K);
+		
+		sprintf(buf, "[%d]", i);
+		
+		K_dump(f, k, buf, indent + 2);
+	}
+		
+    print_indent(f, indent); fprintf(f, "]\n");
+}

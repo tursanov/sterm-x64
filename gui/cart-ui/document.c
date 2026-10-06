@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "sysdefs.h"
 #include "kbd.h"
 #include "gui/gdi.h"
@@ -115,8 +116,75 @@ void ui_doc_init(ui_doc_t *d, D *val, bool selected)
     d->selected = selected;
 }
 
+static const char *make_l_str(char *buf, L* l)
+{
+	const char *svat[] = {
+	    "…‡ „‘",
+		"„‘ 20%",
+		"„‘ 10%",
+		"„‘ 20/120",
+		"„‘ 10/110",
+        "„‘ 0%",
+        "… Ž‹",
+		"„‘ 5%",
+		"„‘ 7%",
+		"„‘ 5/105",
+		"„‘ 7/107",
+		"„‘ 22%",
+		"„‘ 22/122"
+	};
+
+    char v[128];
+    char s[32];
+   
+    if (l->n == 0)
+    {
+        sprintf(v, "(… Ž„‹…†ˆ’ €‹ŽƒŽŽ‹Ž†…ˆž „‘)");
+    }
+    else
+    {
+        sprintf(v, "‚ ’.—. %s%s%s",
+            svat[l->n],
+            l->n != 5 ? ": " : "",
+            l->n != 5 ? printsum(l->c, s) : "");
+    }
+    
+    sprintf(buf, "%s: %s %s", l->s, printsum(l->t, s), v);
+    
+    return buf;
+}
+
+#define MAX_TEXT 80
+int ui_draw_text_wrap(const char *text, int x, int y, bool calc_height_only)
+{
+    int h = 0;
+	const char *start_s = text;
+	int text_len = 0;
+	for (const char *s = start_s; ; s++)
+	{
+	    if (*s == 0 || isspace(*s)) {
+	        if (*s == 0 || text_len > MAX_TEXT) {
+	            if (!calc_height_only)
+                    TextOutN(cart_screen, x, y, start_s, text_len);
+      			y += cart_sfnt->max_height;
+      			h += cart_sfnt->max_height;
+      			start_s = s + 1;
+                text_len = -1;
+	        }
+	    }
+	    if (*s == 0)
+	        break;
+        
+	    text_len++;
+	}
+
+    return h;
+}
+
+
 void ui_doc_calc_bounds(ui_doc_t *d)
 {
+	char buf[2048];
    	d->height = cart_fnt->max_height;
    	
 	if (d->expanded)
@@ -132,7 +200,11 @@ void ui_doc_calc_bounds(ui_doc_t *d)
 			
     		for (list_item_t* li1 = k->llist.head; li1; li1 = li1->next)
 	    	{
-    			d->height += cart_sfnt->max_height;
+    			L *l = LIST_ITEM(li1, L);
+
+    			make_l_str(buf, l);
+    			
+                d->height += ui_draw_text_wrap(buf, 0, 0, true);
 			}
         }
 	    d->height += CART_YGAP;
@@ -160,47 +232,10 @@ const char *ui_doc_get_n(ui_subcart_t *sc, ui_doc_t *d, char *buf)
     return buf;
 }
 
-static const char *make_l_str(char *buf, L* l)
-{
-	const char *svat[] = {
-		"„‘ 20%",
-		"„‘ 10%",
-		"„‘ 20/120",
-		"„‘ 10/110",
-        "„‘ 0%",
-        "„‘ ­¥ ®¡«."
-		"„‘ 5%",
-		"„‘ 7%",
-		"„‘ 5/105",
-		"„‘ 7/107",
-		"„‘ 22%",
-		"„‘ 22/122"
-	};
-
-    char v[128];
-    char s[32];
-    
-    if (l->n == 0)
-    {
-        sprintf(v, "(… Ž„‹…†ˆ’ €‹ŽƒŽŽ‹Ž†…ˆž „‘)");
-    }
-    else
-    {
-        sprintf(v, "‚ ’.—. %s%s%s",
-            svat[l->n - 1],
-            l->n < 5 ? ": " : "",
-            l->n < 5 ? printsum(l->c, s) : "");
-    }
-    
-    sprintf(buf, "%s: %s %s", l->s, printsum(l->t, s), v);
-    
-    return buf;
-}
-
 int ui_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width)
 {
 	float *fr = cart_tab_fr;
-	char buf[256];
+	char buf[2048];
 	S s;
 	int x_orig = x;
 	
@@ -251,16 +286,15 @@ int ui_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width)
   			
       			y += cart_sfnt->max_height;
   			}
+
   			
     		for (list_item_t* li1 = k->llist.head; li1; li1 = li1->next)
 	    	{
     			L *l = LIST_ITEM(li1, L);
     			
+    			make_l_str(buf, l);
     			
-            	DrawText(cart_screen, x + CART_XGAP, y, DISCX, cart_fnt->max_height,
-            	    make_l_str(buf, l), DT_LEFT | DT_VCENTER);
-            	
-      			y += cart_sfnt->max_height;
+                y += ui_draw_text_wrap(buf, x + CART_XGAP, y, false);
 			}
         }
         SetFont(cart_screen, cart_fnt);

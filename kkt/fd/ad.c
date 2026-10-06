@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
@@ -33,7 +34,10 @@ extern bool cashier_set_name(const char *name);
 #define strdup _strdup
 #endif
 
+//#define TEST_PRINT
+
 extern void cart_init();
+extern void AD_print(FILE *fd);
 
 static time_t k_dt = 0;
 
@@ -1303,11 +1307,21 @@ int AD_load(uint8_t t1055, bool clear) {
 	fd = s_open(ARCHIVE_FILE_NAME, false);
 	if (fd != -1)
 	{
-		if (load_list(fd, &_ad->archive_items, (load_item_func_t)K_load_v2) < 0)
-		{
-			ret = -1;
-		}
+	    struct stat st;
+        if (fstat(fd, &st) == 0 && st.st_size > 0)
+        {
+    		if (load_list(fd, &_ad->archive_items, (load_item_func_t)K_load_v2) < 0)
+    		{
+    		    printf("Ошибка загрузки архива\n");
+                list_clear(&_ad->archive_items);
+    			ret = -1;
+    		}
+        }
+		
+		//K_list_dump(stdout, &_ad->archive_items, "archive_items", 0);
 	}
+	
+	//AD_print(stdout);
 
 	s_close(fd);
 
@@ -1816,7 +1830,7 @@ L2:
 						.z1s_s = 'F'
 					};
 
-					list_remove_if(&_ad->archive_items, &f, (list_item_func_t)find_annul_return_items);
+					list_remove_if(&_ad->archive_items, &fa, (list_item_func_t)find_annul_return_items);
 					bool success = fa.x != NULL
 						&& (k2->llist.count > 0
 							? fa.x2 != NULL && fa.x2->c == fa.x->c
@@ -1830,7 +1844,7 @@ L2:
 					{
 						set_k_s('G', k, k2, NULL);
 						k->c = k2->c = fa.x->c;
-						list_remove_if(&_ad->archive_items, &f, (list_item_func_t)process_annul_items);
+						list_remove_if(&_ad->archive_items, &fa, (list_item_func_t)process_annul_items);
 						AD_archive_save();
 					}
 				}
@@ -1845,7 +1859,7 @@ L2:
 						.zs_s = 'C',
 						.z1s_s = 'D'
 					};
-					list_remove_if(&_ad->archive_items, &f, (list_item_func_t)find_annul_return_items1);
+					list_remove_if(&_ad->archive_items, &fa, (list_item_func_t)find_annul_return_items1);
 					bool success = fa.x != NULL
 								   && (k2->llist.count > 0
 									   ? fa.x2 != NULL && fa.x2->c == fa.x->c
@@ -1860,7 +1874,7 @@ L2:
 					{
 						set_k_s('C', k, k2, NULL);
 						k->c = k2->c = fa.x->c;
-						list_remove_if(&_ad->archive_items, &f, (list_item_func_t)process_annul_items);
+						list_remove_if(&_ad->archive_items, &fa, (list_item_func_t)process_annul_items);
 						AD_archive_save();
 					}
 				}
