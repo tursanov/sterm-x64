@@ -158,8 +158,8 @@ bool log_internal(int lvl, const char *file, const char *fn, uint32_t line, uint
 		tm->tm_hour, tm->tm_min, tm->tm_sec, tv.tv_usec / 1000);
 	time_t xt = tv.tv_sec + time_delta;
 	tm = localtime(&xt);
-	fprintf(f, " [%.2u:%.2u:%.2u]: %s [%s:%u]: ", tm->tm_hour, tm->tm_min, tm->tm_sec,
-		fn, file, line);
+	fprintf(f, " [%.2u:%.2u:%.2u]%8d: %s [%s:%u]: ", tm->tm_hour, tm->tm_min, tm->tm_sec,
+		getpid(), fn, file, line);
 	vfprintf(f, fmt, ap);
 	va_end(ap);
 	if (nr_err != UINT32_MAX)
@@ -196,7 +196,7 @@ bool log_data(const char *prefix, const char *title, const uint8_t *data, size_t
 	fprintf(f, "%.2u:%.2u:%.2u.%.3ld", tm->tm_hour, tm->tm_min, tm->tm_sec, tv.tv_usec / 1000);
 	time_t xt = tv.tv_sec + time_delta;
 	tm = localtime(&xt);
-	fprintf(f, " [%.2u:%.2u:%.2u]", tm->tm_hour, tm->tm_min, tm->tm_sec);
+	fprintf(f, " [%.2u:%.2u:%.2u]%8d", tm->tm_hour, tm->tm_min, tm->tm_sec, getpid());
 	if (title != NULL)
 		fprintf(f, " [%s]", title);
 	fputc('\n', f);
@@ -291,11 +291,11 @@ static inline bool create_sterm_log_lst_if_need(void)
 bool arch_sterm_data(const char **msg)
 {
 	bool ret = false;
-	static char txt[4096];
+	static char txt[5120];
 	*txt = 0;
 	if (create_sterm_log_lst_if_need()){
 		if (system("mount-usb.sh " STERM_NR_FILE) == 0){
-			static char path[PATH_MAX], cmd[4096];
+			static char path[PATH_MAX], cmd[5120];
 			time_t t = time(NULL);
 			struct tm *tm = localtime(&t);
 			term_number tn;

@@ -658,13 +658,13 @@ static int sprn_wait_op(bool show_status)
 	int ret = SPRN_RET_ERR;
 	while ((sprn_sent_len < sprn_tx_len) ||
 			((rcv_st != rcv_end) && (rcv_st != rcv_idle))){
-		if (sprn_process()){
+		if (!sprn_process())/*{
 			if (((get_cmd(false, true) == cmd_reset) &&
 					reset_term(false)) || (kt == key_none)){
 				sprn_reset();
 				ret = SPRN_RET_RST;
 			}
-		}else
+		}else*/
 			break;
 	}
 	if (rcv_st == rcv_end)

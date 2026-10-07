@@ -46,7 +46,7 @@ static char *bank_license_name;
 static void show_usage(void)
 {
 	static char *help[] = {
-		"Программа создания файлов привязки терминала. (c) gsr 2004",
+		"Программа создания файлов привязки терминала. (c) АО НПЦ \"Спектр\" 2004",
 		"Использование: mkbind <options>",
 		"--term-number=<number>\t-- заводской номер терминала;",
 		"--usb-bind=<name>\t-- имя файла привязки USB-диска;",

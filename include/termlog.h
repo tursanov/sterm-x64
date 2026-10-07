@@ -27,7 +27,6 @@ extern bool log_internal(int lvl, const char *file, const char *fn, uint32_t lin
 #define log_sys_err(fmt, ...)		log_generic(Error, fmt, errno, ##__VA_ARGS__)
 #define log_warn(fmt, ...)		log_generic(Warning, fmt, UINT32_MAX, ##__VA_ARGS__)
 #define log_info(fmt, ...)		log_generic(Info, fmt, UINT32_MAX, ##__VA_ARGS__)
-#define log(fmt, ...)			log_info(fmt, ##__VA_ARGS__)
 #define log_dbg(fmt, ...)		log_generic(Debug, fmt, UINT32_MAX, ##__VA_ARGS__)
 
 /* Некоторые предопределённые сообщения для занесения в журнал */

@@ -256,6 +256,7 @@ static bool write_port(uint16_t port, bool quot)
 #if defined __GNUC__ && (__GNUC__ > 6)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Warray-bounds"
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
 #endif
 static bool write_str(const char *str, bool quot)
 {

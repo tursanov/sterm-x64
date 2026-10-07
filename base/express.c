@@ -58,12 +58,12 @@ ssize_t get_bank_info(struct bank_info *items, size_t nr_items)
 	for (size_t i = 0; i < nr_items; i++){
 		struct bank_info *p = items + i;
 		p->req_id = bd.req_id;
-		strncpy(p->term_id, bd.term_id, BANK_TERM_ID_LEN);
+		memcpy(p->term_id, bd.term_id, BANK_TERM_ID_LEN);
 		p->term_id[BANK_TERM_ID_LEN] = 0;
 		p->op = bd.op;
 		p->ticket = bd.ticket;
 		p->repayment = bd.repayment;
-		strncpy(p->prev_blank_nr, bd.prev_blank_nr, BANK_BLANK_NR_LEN);
+		memcpy(p->prev_blank_nr, bd.prev_blank_nr, BANK_BLANK_NR_LEN);
 		p->prev_blank_nr[BANK_BLANK_NR_LEN] = 0;
 		strncpy(p->blank_nr, bd.doc_info[i].blank_nr, BANK_BLANK_NR_LEN);
 		p->blank_nr[BANK_BLANK_NR_LEN] = 0;

@@ -1,7 +1,7 @@
 /*
  * Чтение/запись файла конфигурации терминала.
  * Формат: name = 'value'
- * (c) gsr 2003-2019.
+ * (c) gsr 2003-2019, 2026.
  */
 
 #include <sys/socket.h>
@@ -19,6 +19,9 @@
 #include "cfg.h"
 #include "iplir.h"
 #include "paths.h"
+#if !defined __STANDALONE__
+#include "termlog.h"
+#endif
 
 /* Буфер для работы с конфигурацией */
 static char cfg_buf[MAX_CFG_LEN];
@@ -45,22 +48,47 @@ static bool read_cfg_file(const char *name)
 	int fd;
 	bool ret = false;
 	if (stat(name, &st) == -1)
+#if defined __STANDALONE__
 		fprintf(stderr, "%s: Ошибка получения информации о файле %s: %m.\n",
 			__func__, name);
+#else
+		log_sys_err("Ошибка получения информации о %s:", name);
+#endif
 	else if (st.st_size > MAX_CFG_LEN)
+#if defined __STANDALONE__
 		fprintf(stderr, "%s: Размер файла %s (%lu байт) превышает максимально допустимый (%d байт).",
 			__func__, name, st.st_size, MAX_CFG_LEN);
+#else
+		log_err("Размер %s (%lu байт) превышает максимально допустимый (%d байт).",
+			name, st.st_size, MAX_CFG_LEN);
+#endif
 	else{
 		reset_cfg();
 		cfg_len = st.st_size;
 		fd = open(name, O_RDONLY);
 		if (fd == -1)
+#if defined __STANDALONE__
 			fprintf(stderr, "%s: Ошибка открытия %s для чтения: %m.\n", __func__, name);
+#else
+			log_sys_err("Ошибка открытия %s для чтения:", name);
+#endif
 		else{
-			if (read(fd, cfg_buf, cfg_len) == cfg_len)
+			int rc = read(fd, cfg_buf, cfg_len);
+			if (rc == cfg_len)
 				ret = true;
+			else if (rc < 0)
+#if defined __STANDALONE__
+				fprintf(stderr, "%s: Ошибка чтения из %s: %m.\n", __func__, name);
+#else
+				log_sys_err("Ошибка чтения из %s:", name);
+#endif
 			else
-				fprintf(stderr, "%s: Ошибка чтения из %s.\n", __func__, name);
+#if defined __STANDALONE__
+				fprintf(stderr, "%s: Из %s прочитано %d байт вместо %d.",
+					__func__, name, rc, cfg_len);
+#else
+				log_err("Из %s прочитано %d байт вместо %d.", name, rc, cfg_len);
+#endif
 			close(fd);
 		}
 	}
@@ -77,12 +105,20 @@ static bool write_cfg_file(const char *name)
 	fd = open(name, O_WRONLY | O_CREAT | O_TRUNC | O_SYNC,
 		S_IRUSR | S_IWUSR);
 	if (fd == -1)
+#if defined __STANDALONE__
 		fprintf(stderr, "%s: Ошибка открытия %s для записи: %m.\n", __func__, name);
+#else
+		log_sys_err("Ошибка открытия %s для записи:", name);
+#endif
 	else{
 		if (write(fd, cfg_buf, cfg_len) == cfg_len)
 			ret = true;
 		else
+#if defined __STANDALONE__
 			fprintf(stderr, "%s: Ошибка записи в %s: %m.\n", __func__, name);
+#else
+			log_sys_err("Ошибка записи в %s:", name);
+#endif
 		fsync(fd);
 		close(fd);
 		flush_home();

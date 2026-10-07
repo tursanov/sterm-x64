@@ -2,6 +2,7 @@ include Makefile.conf
 DIR = helpers/
 
 INCLUDE = ../include
+CFLAGS += -D__STANDALONE__
 
 BINARIES =		\
 	chkrmlic	\
@@ -12,20 +13,20 @@ BINARIES =		\
 
 BASE_OBJS =		\
 	base64		\
-	ds1990a		\
 	genfunc		\
 	md5		\
-	rndtbl		\
-	tki
+	rndtbl
 
 HELPERS_OBJS =		\
 	chkrmlic	\
+	ds1990a		\
 	licsig		\
 	mkbind		\
 	mkbnklic	\
 	mklic		\
 	mklog		\
-	mw
+	mw		\
+	tki
 
 DIR_BASE = ../base/
 
@@ -44,12 +45,12 @@ depend:
 CHKRMLIC_BASE_OBJS =	\
 	base64		\
 	md5		\
-	rndtbl		\
-	tki
+	rndtbl
 
 CHKRMLIC_HELPERS_OBJS =	\
 	chkrmlic	\
-	licsig
+	licsig		\
+	tki
 
 CHKRMLIC_OBJS =		\
 	$(addprefix $(DIR_BASE), $(addsuffix .o, $(CHKRMLIC_BASE_OBJS))) \
@@ -62,12 +63,12 @@ chkrmlic:	$(CHKRMLIC_OBJS)
 ## mkbind
 MKBIND_BASE_OBJS =	\
 	base64		\
-	md5		\
-	tki
+	md5
 
 MKBIND_HELPERS_OBJS =	\
 	licsig		\
-	mkbind
+	mkbind		\
+	tki
 
 MKBIND_OBJS =		\
 	$(addprefix $(DIR_BASE), $(addsuffix .o, $(MKBIND_BASE_OBJS))) \
@@ -80,13 +81,13 @@ mkbind:		$(MKBIND_OBJS)
 ## mkbnklic
 MKBNKLIC_BASE_OBJS =	\
 	base64		\
-	md5		\
-	tki
+	md5
 
 MKBNKLIC_HELPERS_OBJS =	\
 	licsig		\
 	mkbnklic	\
-	mklic
+	mklic		\
+	tki
 
 MKBNKLIC_OBJS =	\
 	$(addprefix $(DIR_BASE), $(addsuffix .o, $(MKBNKLIC_BASE_OBJS))) \
@@ -114,14 +115,14 @@ mklog:		$(MKLOG_OBJS)
 ## mw
 MW_BASE_OBJS =		\
 	base64		\
-	ds1990a		\
 	genfunc		\
-	md5		\
-	tki
+	md5
 
 MW_HELPERS_OBJS =	\
+	ds1990a		\
 	licsig		\
-	mw
+	mw		\
+	tki
 
 MW_OBJS =		\
 	$(addprefix $(DIR_BASE), $(addsuffix .o, $(MW_BASE_OBJS))) \

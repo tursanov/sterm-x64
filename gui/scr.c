@@ -31,6 +31,7 @@
 #include "paths.h"
 #include "ppp.h"
 #include "sterm.h"
+#include "termlog.h"
 #include "transport.h"
 
 /* Режим ввода текста */
@@ -440,7 +441,7 @@ void clear_text_field(void)
 void create_scr(void)
 {
 	if (!InitVGA()){
-		fprintf(stderr, "Cannot initialize graphics.\n");
+		log_err("Ошибка инициализации графической подсистемы.");
 		exit(-1);
 	}
 	sg = &sg80x20;

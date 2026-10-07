@@ -2,6 +2,7 @@ include Makefile.conf
 DIR = scripts/
 
 INCLUDE = ../include
+CFLAGS += -D__STANDALONE__
 
 BINARIES =		\
 	bnklic		\
@@ -17,15 +18,11 @@ BINARIES =		\
 
 BASE_OBJS =		\
 	base64		\
-	cfg		\
-	ds1990a		\
 	genfunc		\
 	licsig		\
 	md5		\
 	numbers		\
-	rndtbl		\
-	serial		\
-	tki
+	rndtbl
 
 LOG_OBJS =		\
 	generic		\
@@ -33,12 +30,16 @@ LOG_OBJS =		\
 
 SCRIPTS_OBJS =		\
 	bnklic		\
+	cfg		\
 	dircmp		\
+	ds1990a		\
 	dsd		\
 	mwl		\
 	rmlic		\
 	rmbnklic	\
 	rmbnklicx	\
+	serial		\
+	tki		\
 	tpld		\
 	tstbeep		\
 	tstcom		\
@@ -64,11 +65,11 @@ depend:
 BNKLIC_BASE_OBJS =	\
 	base64		\
 	licsig		\
-	md5		\
-	tki
+	md5
 
 BNKLIC_SCRIPTS_OBJS =	\
-	bnklic
+	bnklic		\
+	tki
 
 BNKLIC_OBJS =		\
 	$(addprefix $(DIR_BASE), $(addsuffix .o, $(BNKLIC_BASE_OBJS))) \
@@ -91,14 +92,11 @@ dircmp:		$(DIRCMP_OBJS)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 ## dsd
-DSD_BASE_OBJS =		\
+DSD_SCRIPTS_OBJS =	\
+	dsd		\
 	serial
 
-DSD_SCRIPTS_OBJS =	\
-	dsd
-
 DSD_OBJS =		\
-	$(addprefix $(DIR_BASE), $(addsuffix .o, $(DSD_BASE_OBJS))) \
 	$(addsuffix .o, $(DSD_SCRIPTS_OBJS))
 
 dsd:		$(DSD_OBJS)
@@ -108,13 +106,13 @@ dsd:		$(DSD_OBJS)
 ## mwl
 MWL_BASE_OBJS =		\
 	base64		\
-	ds1990a		\
 	licsig		\
-	md5		\
-	tki
+	md5
 
 MWL_SCRIPTS_OBJS =	\
-	mwl
+	ds1990a		\
+	mwl		\
+	tki
 
 MWL_OBJS =		\
 	$(addprefix $(DIR_BASE), $(addsuffix .o, $(MWL_BASE_OBJS))) \
@@ -147,12 +145,12 @@ RMBNKLICX_BASE_OBJS =	\
 	base64		\
 	licsig		\
 	md5		\
-	rndtbl		\
-	tki
+	rndtbl
 
 RMBNKLICX_SCRIPTS_OBJS =\
 	rmbnklicx	\
-	rmlic
+	rmlic		\
+	tki
 
 RMBNKLICX_OBJS =	\
 	$(addprefix $(DIR_BASE), $(addsuffix .o, $(RMBNKLICX_BASE_OBJS))) \
@@ -164,11 +162,11 @@ rmbnklicx:	$(RMBNKLICX_OBJS)
 
 ## tpld
 TPLD_BASE_OBJS =	\
-	cfg		\
-	numbers		\
-	serial
+	numbers
 
 TPLD_SCRIPTS_OBJS =	\
+	cfg		\
+	serial		\
 	tpld
 
 TPLD_OBJS =		\
@@ -180,14 +178,11 @@ tpld:		$(TPLD_OBJS)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 ## tstbeep
-TSTBEEP_BASE_OBJS =	\
-	serial
-
 TSTBEEP_SCRIPTS_OBJS =	\
+	serial		\
 	tstbeep
 
 TSTBEEP_OBJS =		\
-	$(addprefix $(DIR_BASE), $(addsuffix .o, $(TSTBEEP_BASE_OBJS))) \
 	$(addsuffix .o, $(TSTBEEP_SCRIPTS_OBJS))
 
 tstbeep:	$(TSTBEEP_OBJS)
@@ -195,14 +190,11 @@ tstbeep:	$(TSTBEEP_OBJS)
 		@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE)
 
 ## tstcom
-TSTCOM_BASE_OBJS =	\
-	serial
-
 TSTCOM_SCRIPTS_OBJS =	\
+	serial		\
 	tstcom
 
 TSTCOM_OBJS =		\
-	$(addprefix $(DIR_BASE), $(addsuffix .o, $(TSTCOM_BASE_OBJS))) \
 	$(addsuffix .o, $(TSTCOM_SCRIPTS_OBJS))
 
 tstcom:		$(TSTCOM_OBJS)

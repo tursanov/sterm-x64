@@ -15,7 +15,6 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/user.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
@@ -24,6 +23,9 @@
 #include <termios.h>
 #include <unistd.h>
 #include "ds1990a.h"
+#if !defined __STANDALONE__
+#include "termlog.h"
+#endif
 
 #if !defined __MAC_AS_KEY__
 #define SH_NULL		(void *)(-1)
@@ -45,14 +47,20 @@ static bool create_shm(void)
 {
 	shmid = shmget(ftok(FTOK_FILE, 0), SHM_SIZE, 0);
 	if (shmid == -1){
-		fprintf(stderr, "Ошибка создания сегмента разделяемой памяти: %s.\n",
-			strerror(errno));
+#if defined __STANDALONE__
+		fprintf(stderr, "Ошибка создания сегмента разделяемой памяти: %m.\n");
+#else
+		log_sys_err("Ошибка создания сегмента разделяемой памяти:");
+#endif
 		return false;
 	}
 	shmptr = (uint8_t *)shmat(shmid, (const void *)0, 0);
 	if (shmptr == SH_NULL){
-		fprintf(stderr, "Ошибка получения указателя для разделяемой памяти: %s.\n",
-			strerror(errno));
+#if defined __STANDALONE__
+		fprintf(stderr, "Ошибка получения указателя для разделяемой памяти: %m.\n");
+#else
+		log_sys_err("Ошибка получения указателя для разделяемой памяти:");
+#endif
 		return false;
 	}else
 		return true;
@@ -63,8 +71,11 @@ static bool create_sem(void)
 {
 	semid = semget(ftok(FTOK_FILE, 0), 1, 0);
 	if (semid == -1){
-		fprintf(stderr, "Ошибка создания семафора: %s.\n",
-			strerror(errno));
+#if defined __STANDALONE__
+		fprintf(stderr, "Ошибка создания семафора: %m.");
+#else
+		log_sys_err("Ошибка создания семафора:");
+#endif
 		return false;
 	}else
 		return true;

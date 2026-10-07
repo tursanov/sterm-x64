@@ -15,6 +15,9 @@
 #include "licsig.h"
 #include "md5.h"
 #include "paths.h"
+#if !defined __STANDALONE__
+#include "termlog.h"
+#endif
 #include "tki.h"
 
 /* Флаги проверки */
@@ -83,26 +86,47 @@ bool read_tki(const char *path, bool create)
 			init_tki(&tki);
 			ret = true;
 		}else
+#if defined __STANDALONE__
 			fprintf(stderr, "Файл ключевой информации не найден.\n");
+#else
+			log_err("%s не найден.", path);
+#endif
 	}else{
 		if (st.st_size != sizeof(tki))
+#if defined __STANDALONE__
 			fprintf(stderr, "Файл ключевой информации имеет неверный размер.\n");
+#else
+			log_err("%s имеет неверный размер (%ld байт вместо %zu).",
+				path, st.st_size, sizeof(tki));
+#endif
 		else{
 			int fd = open(path, O_RDONLY);
 			if (fd == -1)
+#if defined __STANDALONE__
 				fprintf(stderr, "Ошибка открытия файла ключевой информации "
 					"для чтения: %m.\n");
+#else
+				log_sys_err("Ошибка открытия %s для чтения:", path);
+#endif
 			else{
 				memset(&tki, 0, sizeof(tki));
 				ssize_t l = read(fd, &tki, sizeof(tki));
 				if (l == sizeof(tki))
 					ret = true;
 				else if (l == -1)
-					fprintf(stderr, "Ошибка чтения файла ключевой "
-						"информации: %m.\n");
+#if defined __STANDALONE__
+					fprintf(stderr, "Ошибка чтения файла ключевой информации: %m.\n");
+#else
+					log_sys_err("Ошибка чтения %s:", path);
+#endif
 				else
+#if defined __STANDALONE__
 					fprintf(stderr, "Из файла ключевой информации "
 						"прочитано %zd байт вместо %zd.\n", l, sizeof(tki));
+#else
+					log_err("Из %s прочитано %zd байт вместо %zd.",
+						l, sizeof(tki));
+#endif
 				close(fd);
 			}
 		}
@@ -116,16 +140,28 @@ bool write_tki(const char *path)
 	bool ret = false;
 	int fd = creat(path, 0600);
 	if (fd == -1)
+#if defined __STANDALONE__
 		fprintf(stderr, "Ошибка создания файла ключевой информации: %m.\n");
+#else
+		log_sys_err("Ошибка создания %s:", path);
+#endif
 	else{
 		ssize_t l = write(fd, &tki, sizeof(tki));
 		if (l == sizeof(tki))
 			ret = true;
 		else if (l == -1)
+#if defined __STANDALONE__
 			fprintf(stderr, "Ошибка записи файла ключевой информации: %m.\n");
+#else
+			log_sys_err("Ошибка записи в %s:", path);
+#endif
 		else
+#if defined __STANDALONE__
 			fprintf(stderr, "В файл ключевой информации записано "
 				"%zd байт вместо %zd.\n", l, sizeof(tki));
+#else
+			log_err("В %s записано %zd байт вместо %zd.", path, l, sizeof(tki));
+#endif
 		close(fd);
 	}
 	return ret;
@@ -217,22 +253,43 @@ static bool read_bind_file(const char *path, struct md5_hash *md5)
 		return ret;
 	struct stat st;
 	if (stat(path, &st) == -1)
+#if defined __STANDALONE__
 		fprintf(stderr, "Ошибка получения информации о файле %s: %m.\n", path);
+#else
+		log_sys_err("Ошибка получения информации о %s:", path);
+#endif
 	else if (st.st_size != sizeof(*md5))
+#if defined __STANDALONE__
 		fprintf(stderr, "Файл %s имеет неверный размер.\n", path);
+#else
+		log_err("%s имеет неверный размер (%zd байт вместо %zu.",
+			path, st.st_size, sizeof(*md5));
+#endif
 	else{
 		int fd = open(path, O_RDONLY);
 		if (fd == -1)
+#if defined __STANDALONE__
 			fprintf(stderr, "Ошибка открытия файла %s: %m.\n", path);
+#else
+			log_sys_err("Ошибка открытия %s для чтения:", path);
+#endif
 		else{
 			ssize_t l = read(fd, md5, sizeof(*md5));
 			if (l == sizeof(*md5))
 				ret = true;
 			else if (l == -1)
+#if defined __STANDALONE__
 				fprintf(stderr, "Ошибка чтения из файла %s: %m.\n", path);
+#else
+				log_sys_err("Ошибка чтения из %s:", path);
+#endif
 			else
+#if defined __STANDALONE__
 				fprintf(stderr, "Из файла %s считано %zd байт вместо %zd.\n",
 					path, l, sizeof(*md5));
+#else
+				log_err("Из %s считано %zd байт вместо %zd.", path, l, sizeof(*md5));
+#endif
 			close(fd);
 		}
 	}
@@ -245,11 +302,19 @@ static bool read_term_nr(term_number tn)
 	bool ret = false;
 	FILE *f = fopen(TERM_NR_FILE, "r");
 	if (f == NULL)
+#if defined __STANDALONE__
 		fprintf(stderr, "Ошибка открытия " TERM_NR_FILE " для чтения: %m.\n");
+#else
+		log_sys_err("Ошибка открытия " TERM_NR_FILE " для чтения:");
+#endif
 	else{
 		char nr[TERM_NUMBER_LEN + 2];	/* \n + 0 */
 		if (fgets(nr, sizeof(nr), f) == NULL)
+#if defined __STANDALONE__
 			fprintf(stderr, "Ошибка чтения из " TERM_NR_FILE ": %m.\n");
+#else
+			log_sys_err("Ошибка чтения из " TERM_NR_FILE ":");
+#endif
 		else{
 			size_t len = strlen(nr);
 			ret = (len == (TERM_NUMBER_LEN + 1)) &&
@@ -266,10 +331,18 @@ static bool read_term_nr(term_number tn)
 			if (ret)
 				memcpy(tn, nr, TERM_NUMBER_LEN);
 			else
+#if defined __STANDALONE__
 				fprintf(stderr, "Неверный формат заводского номера терминала.\n");
+#else
+				log_err("Неверный формат заводского номера терминала.");
+#endif
 		}
 		if (fclose(f) == EOF)
+#if defined __STANDALONE__
 			fprintf(stderr, "Ошибка закрытия " TERM_NR_FILE ": %m.\n");
+#else
+			log_sys_err("Ошибка закрытия " TERM_NR_FILE ":");
+#endif
 	}
 	return ret;
 }

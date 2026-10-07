@@ -514,9 +514,12 @@ static const char *pos_get_state_str(int st)
 		}
 	}
 	if (ret == NULL){
-		static char buf[10];
-		snprintf(buf, sizeof(buf), "[%d]", st);
-		ret = buf;
+		static char buf[10][20];
+		static int idx = 0;
+		snprintf(buf[idx], sizeof(buf[idx]), "[%d]", st);
+		ret = buf[idx];
+		idx++;
+		idx %= ASIZE(buf);
 	}
 	return ret;
 }
@@ -595,8 +598,7 @@ static void on_pos_init(uint32_t t __attribute__((unused)))
 		pos_parse_resp(&pos_buf_rx);	/* вывод надписи на экран */
 		pos_set_state(pos_ready);
 	}else
-		pos_set_error(POS_ERROR_CLASS_SYSTEM,
-			POS_ERR_SYSTEM, 0);
+		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_SYSTEM, 0);
 }
 
 static void on_pos_ready(uint32_t t)
@@ -619,8 +621,7 @@ static void on_pos_ready(uint32_t t)
 	}else if (dt > POS_TIMEOUT){
 		if (!poll_ok){
 			if (dt > MAX_POS_TIMEOUT)
-				pos_set_error(POS_ERROR_CLASS_SYSTEM,
-					POS_ERR_TIMEOUT, 0);
+				pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_TIMEOUT, 0);
 		}else if ((pos_get_state() == pos_ready) && pos_serial_is_free())
 			pos_send_empty();
 	}
@@ -640,8 +641,7 @@ static void on_pos_qready(uint32_t t)
 	}else if (dt > POS_TIMEOUT){
 		if (!poll_ok){
 			if (dt > MAX_POS_TIMEOUT)
-				pos_set_error(POS_ERROR_CLASS_SYSTEM,
-					POS_ERR_TIMEOUT, 0);
+				pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_TIMEOUT, 0);
 		}else if ((pos_get_state() == pos_qready) && pos_serial_is_free())
 			pos_send_empty();
 	}

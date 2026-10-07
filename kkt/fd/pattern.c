@@ -307,7 +307,7 @@ const uint8_t *kkt_find_pattern(uint8_t docType, uint8_t index, size_t *size) {
     }
     
     char search_code[MAX_CODE_LENGTH];
-    snprintf(search_code, sizeof(search_code), "%.2d%d", docType, index);
+    snprintf(search_code, sizeof(search_code), "%.2hhu%hhu", docType, index);
     
     for (int i = 0; i < patterns_count; i++) {
         if (strcmp(patterns[i].code, search_code) == 0) {

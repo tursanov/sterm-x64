@@ -13,7 +13,9 @@
 #include "gui/scr.h"
 #include "genfunc.h"
 #include "serial.h"
-
+#if !defined __STANDALONE__
+#include "termlog.h"
+#endif
 
 __attribute__((weak)) bool process_scr(void)
 {
@@ -186,10 +188,18 @@ int serial_open(const char *name, const struct serial_settings *cfg, int flags)
 	int dev = open(name, flags);
 	bool failed = false;
 	if (dev == -1)
+#if defined __STANDALONE__
 		fprintf(stderr, "%s: ошибка открытия %s: %m.\n", __func__, name);
+#else
+		log_sys_err("Ошибка открытия %s:", name);
+#endif
 	else if (fcntl(dev, F_SETFL, O_NONBLOCK) == -1){
+#if defined __STANDALONE__
 		fprintf(stderr, "%s: ошибка перевода %s в неблокирующий режим: %m.\n",
 			__func__, name);
+#else
+		log_sys_err("Ошибка перевода %s в неблокирующий режим:", name);
+#endif
 		failed = true;
 	}else if (!serial_configure(dev, cfg))
 		failed = true;
@@ -212,12 +222,33 @@ bool serial_close(int fd)
 			tio.c_cflag &= ~CRTSCTS;
 			tio.c_cflag &= ~(IXON | IXOFF | IXANY);
 			if (tcsetattr(fd, TCSANOW, &tio) != 0)
+#if defined __STANDALONE__
 				fprintf(stderr, "%s: ошибка tcsetattr для %s: %m.\n",
 					__func__, name);
+#else
+				log_sys_err("Ошибка tcsetattr для %s:", name);
+#endif
 		}else
+#if defined __STANDALONE__
 			fprintf(stderr, "%s: ошибка tcgetattr для %s: %m.\n", __func__, name);
+#else
+			log_sys_err("Ошибка tcgetattr для %s:", name);
+#endif
+/* Перед закрытием необходимо очистить буферы данных порта */
+		if (tcflush(fd, TCIOFLUSH) == -1)
+#if defined __STANDALONE__
+			fprintf(stderr, "%s: ошибка tcflush для %s: %m.\n", __func__, name);
+#else
+			log_sys_err("Ошибка tcflush для %s:", name);
+#endif
+		else
+			ret = true;
 		if (close(fd) == -1){
+#if defined __STANDALONE__
 			fprintf(stderr, "%s: ошибка close для %s: %m.\n", __func__, name);
+#else
+			log_sys_err("Ошибка close для %s:", name);
+#endif
 			ret = false;
 		}
 	}
@@ -228,10 +259,18 @@ bool serial_close(int fd)
 bool serial_configure(int dev, const struct serial_settings *cfg)
 {
 	if (dev == -1){
+#if defined __STANDALONE__
 		fprintf(stderr, "%s: COM-порт не открыт.\n", __func__);
+#else
+		log_err("COM-порт не открыт.");
+#endif
 		return false;
 	}else if (cfg == NULL){
+#if defined __STANDALONE__
 		fprintf(stderr, "%s: cfg == NULL.\n", __func__);
+#else
+		log_err("cfg == NULL.");
+#endif
 		return false;
 	}
 	struct termios tio;
@@ -256,8 +295,13 @@ bool serial_configure(int dev, const struct serial_settings *cfg)
 		tio.c_iflag |= IXON | IXOFF;
 	tio.c_cc[VMIN] = 1;	/* без этого не работает dsd */
 	if (tcsetattr(dev, TCSANOW, &tio) == -1){
-		fprintf(stderr, "%s: ошибка установки параметров %s: %m.\n",
-			__func__, fd2name(dev));
+		int err = errno;
+#if defined __STANDALONE__
+		fprintf(stderr, "%s: ошибка установки параметров %s: %s.\n",
+			__func__, fd2name(dev), strerror(err));
+#else
+		log_err("Ошибка установки параметров %s: %s.", fd2name(dev), strerror(err));
+#endif
 		return false;
 	}else
 		return true;
@@ -266,10 +310,18 @@ bool serial_configure(int dev, const struct serial_settings *cfg)
 bool serial_configure2(int dev, const struct serial_settings *cfg)
 {
 	if (dev == -1){
+#if defined __STANDALONE__
 		fprintf(stderr, "%s: COM-порт не открыт.\n", __func__);
+#else
+		log_err("COM-порт не открыт.");
+#endif
 		return false;
 	}else if (cfg == NULL){
+#if defined __STANDALONE__
 		fprintf(stderr, "%s: cfg == NULL.\n", __func__);
+#else
+		log_err("cfg == NULL.");
+#endif
 		return false;
 	}
 	struct termios tio;
@@ -318,12 +370,20 @@ uint16_t serial_read_byte(int dev)
 		if (errno == EWOULDBLOCK)
 			ret = 0x100;
 		else
+#if defined __STANDALONE__
 			fprintf(stderr, "%s: ошибка чтения из %s: %m.\n", __func__, name);
+#else
+			log_sys_err("Ошибка чтения из %s:", name);
+#endif
 	}else if (v == 1)
 		ret = b;
 	else
+#if defined __STANDALONE__
 		fprintf(stderr, "%s: read для %s вернула %zd (errno = %d).\n",
 			__func__, name, v, errno);
+#else
+		log_err("read для %s вернула %zd (errno = %d).", name, v, errno);
+#endif
 	return ret;
 }
 
@@ -344,7 +404,11 @@ ssize_t serial_read(int dev, uint8_t *data, size_t len, uint32_t *timeout)
 			if (errno == EWOULDBLOCK)
 				ret = 0;
 			else{
+#if defined __STANDALONE__
 				fprintf(stderr, "%s: ошибка чтения из %s: %m.\n", __func__, name);
+#else
+				log_sys_err("Ошибка чтения из %s:", name);
+#endif
 				break;
 			}
 		}else if (ret > 0){
@@ -354,8 +418,13 @@ ssize_t serial_read(int dev, uint8_t *data, size_t len, uint32_t *timeout)
 		}
 		dt = u_times() - t0;
 		if (dt > *timeout){
+#if defined __STANDALONE__
 			fprintf(stderr, "%s: таймаут чтения из %s; считано %zd байт вместо %zu.\n",
 				__func__, name, rx_len, len);
+#else
+			log_err("Таймаут чтения из %s; считано %zd байт вместо %zu.",
+				name, rx_len, len);
+#endif
 			break;
 		}else
 			process_scr();
@@ -385,7 +454,11 @@ ssize_t serial_write(int dev, const uint8_t *data, size_t len, uint32_t *timeout
 			if (errno == EWOULDBLOCK)
 				ret = 0;
 			else{
+#if defined __STANDALONE__
 				fprintf(stderr, "%s: ошибка записи в %s: %m.\n", __func__, name);
+#else
+				log_sys_err("Ошибка записи в %s:", name);
+#endif
 				break;
 			}
 		}else if (ret > 0){
@@ -395,7 +468,11 @@ ssize_t serial_write(int dev, const uint8_t *data, size_t len, uint32_t *timeout
 		}
 		dt = u_times() - t0;
 		if (dt > *timeout){
+#if defined __STANDALONE__
 			fprintf(stderr, "%s: таймаут записи в %s.\n", __func__, name);
+#else
+			log_err("Таймаут записи в %s.\n", name);
+#endif
 			break;
 		}
 	}

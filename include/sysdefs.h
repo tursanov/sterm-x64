@@ -19,7 +19,7 @@ extern "C" {
 #include <stddef.h>	/* offsetof */
 #include "config.h"
 
-/* Вариант sizeof, возвращающий int вместо size_t (используется в *printf) */
+/* Вариант sizeof, возвращающий int вместо size_t (используется в printf) */
 #define isizeof(v) (int)sizeof(v)
 /* Определение количества элементов в массиве */
 #define ASIZE(a) (int)((a == NULL) ? 0 : sizeof(a)/sizeof(a[0]))
