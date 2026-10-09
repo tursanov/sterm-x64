@@ -1,4 +1,4 @@
-/* Работа с POS-эмулятором через COM-порт. (c) gsr 2004 */
+/* Работа с ИПТ через COM-порт. (c) gsr 2004, 2026 */
 
 #include <sys/timeb.h>
 #include <sys/times.h>
@@ -36,6 +36,10 @@ static int out_data_len;
 
 bool pos_serial_open(void)
 {
+	log_dbg("serial_dev = %d.", serial_dev);
+	if (serial_dev != -1)
+		return true;
+	bool ret = false;
 	char dev_name[32];
 	struct serial_settings ss = {
 		.csize		= CS8,
@@ -44,7 +48,7 @@ bool pos_serial_open(void)
 		.control	= SERIAL_FLOW_NONE,
 		.baud		= B115200
 	};
-	pos_serial_close();
+//	pos_serial_close();
 	snprintf(dev_name, sizeof(dev_name), "/dev/ttyS%d", cfg.bank_pos_port);
 	serial_dev = serial_open(dev_name, &ss, O_RDWR);
 	if (serial_dev != -1){
@@ -52,26 +56,19 @@ bool pos_serial_open(void)
 		first_block_exp_len = cur_block_exp_len = -1;
 		cur_block_head = cur_block_len = 0;
 		out_data_len = out_data_head = 0;
-		return true;
-	}else
-		return false;
+		ret = true;
+	}
+	return ret;
 }
 
 void pos_serial_close(void)
 {
+	log_dbg("serial_dev = %d.", serial_dev);
 	if (serial_dev != -1){
 		serial_close(serial_dev);
 		serial_dev = -1;
 	}
 }
-
-#if 0
-/* Определение размера свободной части буфера передачи */
-int pos_serial_get_free_size(void)
-{
-	return sizeof(out_data) - out_data_len;
-}
-#endif
 
 /* Буфер передачи полностью свободен */
 bool pos_serial_is_free(void)
@@ -93,13 +90,13 @@ static int read_exp_len(int head)
 	return l;
 }
 
-int pos_serial_receive(void)
+ssize_t pos_serial_receive(void)
 {
 	struct iovec v[2];
-	int n = 1, offs;
+	int n = 1;
 	if ((serial_dev == -1) || (in_data_len == sizeof(in_data)))
 		return 0;
-	offs = (in_data_head + in_data_len) % sizeof(in_data);
+	int offs = (in_data_head + in_data_len) % sizeof(in_data);
 	if (offs >= in_data_head){
 		v[0].iov_base = in_data + offs;
 		v[0].iov_len = sizeof(in_data) - offs;
@@ -112,19 +109,29 @@ int pos_serial_receive(void)
 		v[0].iov_base = in_data + offs;
 		v[0].iov_len = in_data_head - offs;
 	}
-	n = readv(serial_dev, v, n);
-	if (n == -1)
-		return 0;
-	else if (n > 0){
-		in_data_len += n;
-		cur_block_len += n;
+	ssize_t len = readv(serial_dev, v, n);
+	if (len == -1){
+		if (errno == EWOULDBLOCK)
+			len = 0;
+		else
+			log_sys_err("Ошибка readv:");
+	}else if (len > 0){
+		size_t l = len;
+		if (l > v[0].iov_len)
+			l = v[0].iov_len;
+		log_data_pos("ИПТ --> ТМ", v[0].iov_base, l);
+		if ((n == 2) && (len > v[0].iov_len)){
+			l = len - v[0].iov_len;
+			log_data_pos(NULL, v[1].iov_base, l);
+		}
+		in_data_len += len;
+		cur_block_len += len;
 		while (cur_block_len >= cur_block_exp_len){
 			if (cur_block_exp_len != -1){	/* получен очередной блок данных */
 				cur_block_head += cur_block_exp_len;
 				cur_block_head %= sizeof(in_data);
 				cur_block_len -= cur_block_exp_len;
 				cur_block_exp_len = -1;
-/*				pos_t0 = u_times();*/
 				poll_ok = true;
 			}else if (cur_block_len >= 8){
 				cur_block_exp_len = read_exp_len(cur_block_head);
@@ -133,18 +140,17 @@ int pos_serial_receive(void)
 			}else
 				break;
 		}
-/*		serial_dump();*/
 	}
-	return n;
+	return len;
 }
 
-int pos_serial_transmit(void)
+ssize_t pos_serial_transmit(void)
 {
 	struct iovec v[2];
-	int n = 1, offs;
+	int n = 1;
 	if ((serial_dev == -1) || (out_data_len == 0))
 		return 0;
-	offs = (out_data_head + out_data_len) % sizeof(out_data);
+	int offs = (out_data_head + out_data_len) % sizeof(out_data);
 	v[0].iov_base = out_data + out_data_head;
 	if (offs > out_data_head)
 		v[0].iov_len = offs - out_data_head;
@@ -156,22 +162,31 @@ int pos_serial_transmit(void)
 			n++;
 		}
 	}
-	n = writev(serial_dev, v, n);
-	if (n == -1)
-		return 0;
-	else if (n > 0){
-		out_data_head += n;
+	ssize_t len = writev(serial_dev, v, n);
+	if (len == -1){
+		if (errno == EWOULDBLOCK)
+			len = 0;
+		else
+			log_sys_err("Ошибка writev:");
+	}else if (len > 0){
+		size_t l = len;
+		log_data_pos("ТМ --> ИПТ", v[0].iov_base, l);
+		if ((n == 2) && (len > v[0].iov_len)){
+			l = len - v[0].iov_len;
+			log_data_pos(NULL, v[1].iov_base, l);
+		}
+		out_data_head += len;
 		out_data_head %= sizeof(out_data);
-		out_data_len -= n;
+		out_data_len -= len;
 		if (out_data_len == 0){		/* передача завершена */
 			pos_t0 = u_times();
 			poll_ok = false;
 		}
 	}
-	return n;
+	return len;
 }
 
-bool pos_serial_peek_msg(void)
+bool pos_serial_has_msg(void)
 {
 	return (first_block_exp_len != -1) && (in_data_len >= first_block_exp_len);
 }
@@ -194,7 +209,7 @@ bool pos_serial_get_msg(struct pos_data_buf *buf)
 			in_data + (in_data_head + l1) % sizeof(in_data), l2);
 	buf->data_len = l1 + l2;
 	buf->data_index = buf->block_start = 0;
-	log_data_pos("ИПТ --> ТМ", buf->un.data, buf->data_len);
+//	log_data_pos("ИПТ --> ТМ", buf->un.data, buf->data_len);
 	in_data_head += l1 + l2;
 	in_data_head %= sizeof(in_data);
 	in_data_len -= l1 + l2;
@@ -226,7 +241,7 @@ bool pos_serial_send_msg(struct pos_data_buf *buf)
 		memcpy(out_data + (offs + l1) % sizeof(out_data),
 				buf->un.data + l1, l2);
 	out_data_len += l1 + l2;
-	log_data_pos("ТМ --> ИПТ", buf->un.data, buf->data_len);
+//	log_data_pos("ТМ --> ИПТ", buf->un.data, buf->data_len);
 	pos_t0 = u_times();
 	poll_ok = false;
 	return true;

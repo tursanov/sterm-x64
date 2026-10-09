@@ -575,7 +575,7 @@ static void on_pos_new(uint32_t t __attribute__((unused)))
 static void on_pos_init_check(uint32_t t)
 {
 	uint32_t dt = t - pos_t0;
-	if (pos_serial_peek_msg()){
+	if (pos_serial_has_msg()){
 		pos_serial_get_msg(&pos_buf_rx);
 		if (pos_parse_resp(&pos_buf_rx)){
 			if (pos_caps_known())
@@ -607,7 +607,7 @@ static void on_pos_ready(uint32_t t)
 	pos_screen_draw();
 	if (!pos_tcp_process() || !pos_send_tcp())
 		return;
-	else if (pos_serial_peek_msg()){
+	else if (pos_serial_has_msg()){
 		pos_serial_get_msg(&pos_buf_rx);
 		pos_parse_resp(&pos_buf_rx);
 		if (pos_buf_rx.un.hdr.msg.nr_blocks == 0){
@@ -630,7 +630,7 @@ static void on_pos_ready(uint32_t t)
 static void on_pos_qready(uint32_t t)
 {
 	uint32_t dt = t - pos_t0;
-	if (pos_serial_peek_msg()){
+	if (pos_serial_has_msg()){
 		pos_serial_get_msg(&pos_buf_rx);
 		pos_parse_resp(&pos_buf_rx);
 		if (pos_buf_rx.un.hdr.msg.nr_blocks == 0){

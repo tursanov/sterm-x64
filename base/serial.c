@@ -3,9 +3,10 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <linux/limits.h>
+#include <linux/serial.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -185,6 +186,7 @@ const char *fd2name(int fd)
 /* Открытие заданного COM-порта в неблокирующем режиме */
 int serial_open(const char *name, const struct serial_settings *cfg, int flags)
 {
+	flags |= O_NOCTTY | O_NONBLOCK;
 	int dev = open(name, flags);
 	bool failed = false;
 	if (dev == -1)
@@ -216,6 +218,24 @@ bool serial_close(int fd)
 	bool ret = false;
 	if (fd != -1){
 		const char *name = fd2name(fd);
+/* Сбрасываем closing_wait */
+		struct serial_struct ss;
+		if (ioctl(fd, TIOCGSERIAL, &ss) == 0){
+			ss.closing_wait = ASYNC_CLOSING_WAIT_NONE;
+			if (ioctl(fd, TIOCSSERIAL, &ss) != 0)
+#if defined __STANDALONE__
+				fprintf(stderr, "%s: ошибка ioctl(TIOCSSERIAL) для %s: %m.\n",
+					__func__, name);
+#else
+				log_sys_err("Ошибка ioctl(TIOCSSERIAL) для %s:", name);
+#endif
+		}else
+#if defined __STANDALONE__
+			fprintf(stderr, "%s: ошибка ioctl(TIOCGSERIAL) для %s: %m.\n",
+				__func__, name);
+#else
+			log_sys_err("Ошибка ioctl(TIOCGSERIAL) для %s:", name);
+#endif
 /* Отключаем управление потоком */
 		struct termios tio;
 		if (tcgetattr(fd, &tio) == 0){
@@ -243,6 +263,7 @@ bool serial_close(int fd)
 #endif
 		else
 			ret = true;
+/* Теперь можно закрыть порт, не опасаясь блокировки close */
 		if (close(fd) == -1){
 #if defined __STANDALONE__
 			fprintf(stderr, "%s: ошибка close для %s: %m.\n", __func__, name);
@@ -273,8 +294,20 @@ bool serial_configure(int dev, const struct serial_settings *cfg)
 #endif
 		return false;
 	}
+	const char *name = fd2name(dev);
 	struct termios tio;
-	memset(&tio, 0 , sizeof(tio));
+#if 0
+	if (tcgetattr(dev, &tio) == -1){
+#if defined __STANDALONE__
+		fprintf(stderr, "%s: ошибка получения параметров %s: %m.\n", __func__, name);
+#else
+		log_sys_err("Ошибка получения параметров %s:", name);
+#endif
+		return false;
+	}
+	cfmakeraw(&tio);
+#endif
+	memset(&tio, 0, sizeof(tio));
 	tio.c_iflag = IGNBRK;
 /* Скорость обмена и размер символа */
 	cfsetspeed(&tio, cfg->baud);
@@ -295,12 +328,11 @@ bool serial_configure(int dev, const struct serial_settings *cfg)
 		tio.c_iflag |= IXON | IXOFF;
 	tio.c_cc[VMIN] = 1;	/* без этого не работает dsd */
 	if (tcsetattr(dev, TCSANOW, &tio) == -1){
-		int err = errno;
 #if defined __STANDALONE__
-		fprintf(stderr, "%s: ошибка установки параметров %s: %s.\n",
-			__func__, fd2name(dev), strerror(err));
+		fprintf(stderr, "%s: ошибка установки параметров %s: %m.\n",
+			__func__, name);
 #else
-		log_err("Ошибка установки параметров %s: %s.", fd2name(dev), strerror(err));
+		log_sys_err("Ошибка установки параметров %s:", name);
 #endif
 		return false;
 	}else

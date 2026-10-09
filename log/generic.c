@@ -267,7 +267,7 @@ bool log_open(struct log_handle *hlog, bool can_create)
 	else if (can_create){
 		if (hlog->rfd != -1)
 			close(hlog->rfd);
-		log_info("%s будет создана заново.\n", hlog->log_type);
+		log_info("%s будет создана заново.", hlog->log_type);
 		return log_create(hlog) && log_open(hlog, false);
 	}else
 		return false;
