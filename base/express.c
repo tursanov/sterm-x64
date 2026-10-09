@@ -1822,8 +1822,15 @@ int handle_para(int n_para)
 {
 	static uint8_t buf[TEXT_BUF_LEN];
 	struct para_info *pi = map + n_para;
-	bool prn_dst = (pi->dst == dst_xprn) || (pi->dst == dst_sprn) || (pi->dst == dst_kprn) ||
-		(pi->dst == dst_aprn);
+	bool prn_dst = false;
+	switch (pi->dst){
+		case dst_xprn:
+		case dst_sprn:
+		case dst_kprn:
+		case dst_aprn:
+		case dst_log:
+			prn_dst = true;
+	}
 	if ((pi == NULL) || (pi->offset == -1))
 		return 0;
 	else if (pi->dst == dst_sys)
@@ -2035,6 +2042,7 @@ static void preexecute_resp(void)
 			case dst_kprn:
 			case dst_sprn:
 			case dst_scr2:
+			case dst_log:
 				no_print = false;
 				log_number = xlog_write_rec(hxlog,
 					text_buf, l, XLRT_NORMAL, log_para++);
@@ -2050,11 +2058,6 @@ static void preexecute_resp(void)
 						BANK_REQ_ID_LEN_OLD : BANK_REQ_ID_LEN_NEW);
 				log_number = xlog_write_rec(hxlog, text_buf, l,
 					XLRT_BANK, log_para++);
-				break;
-			case dst_log:
-				no_print = false;
-				log_number = xlog_write_rec(hxlog, text_buf, l,
-					XLRT_NORMAL, log_para++);
 				break;
 			case dst_kkt:
 				no_print = false;
