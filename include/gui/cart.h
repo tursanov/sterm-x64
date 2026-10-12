@@ -74,6 +74,8 @@ typedef struct ui_doc_t
 	int height;
 } ui_doc_t;
 
+extern bool is_admin_mode();
+
 extern void ui_cart_create();
 extern void ui_cart_destroy();
 extern void ui_cart_draw(GCPtr s, FontPtr f, FontPtr sf);

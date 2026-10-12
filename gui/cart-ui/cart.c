@@ -25,6 +25,12 @@
 
 int cart_start_y = 0;
 
+bool is_admin_mode() {
+	return true;
+}
+
+static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl);
+
 
 static void update_cheque(void *arg __attribute__((unused))) {
 	kbd_flush_queue();
@@ -467,7 +473,7 @@ void ui_cart_process_enter()
     }
 }
 
-void ui_cart_process_space()
+void ui_cart_process_space(bool ctrl)
 {
     ui_subcart_t *sc = ui_sel_subcart;
     if (sc == NULL)
@@ -475,13 +481,13 @@ void ui_cart_process_space()
         return;
     }
     
-    if (sc->tab_selected_doc >= 0)
-    {
-        ui_doc_t *d = &sc->docs[sc->tab_selected_doc];
-        d->selected = !d->selected;
-        
+    if (sc->tab_selected_doc < 0)
+        return;
+    
+    ui_doc_t *d = &sc->docs[sc->tab_selected_doc];
+    
+    if (cart_toggle_document(sc, d, ctrl))
         ui_cart_redraw_all();
-    }    
 }
 
 
@@ -512,7 +518,7 @@ bool cart_process(const struct kbd_event *_e) {
                 ui_cart_tab_select_prev();
                 break;
             case KEY_SPACE:
-                ui_cart_process_space();
+                ui_cart_process_space((e.shift_state & SHIFT_CTRL) != 0);
                 break;
             case KEY_ENTER:
                 ui_cart_process_enter();
@@ -1336,4 +1342,154 @@ bool print_cheque(SubCart *sc, list_t *klist)
 	}
 	
 	return true;
+}
+
+/*
+ * Установить selected = value для всех документов, входящих в группу.
+ * Аналог SelectMany(s => s.Documents).Where(v => d.Document.Group.Contains(v.Document)).
+ * Ищет по всем подкорзинам, потому что группа может быть ?размазана?.
+ */
+static void cart_set_group_selected(list_t *group, bool value)
+{
+    if (group == NULL || ui_cart == NULL)
+        return;
+
+    for (int i = 0; i < ui_cart->subcart_count; i++) {
+        ui_subcart_t *sc = &ui_cart->subcarts[i];
+        for (int j = 0; j < sc->doc_count; j++) {
+            D *v = sc->docs[j].val;
+            for (list_item_t *li = group->head; li; li = li->next) {
+                if (li->obj == v) {
+                    sc->docs[j].selected = value;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+
+
+/*
+ * Аналог лямбды в Cart.DrawDocument / _activeRegions.Add(document, checkboxRect, ...).
+ *
+ *   sc   ? подкорзина (SubCartDrawInfo.SubCart)
+ *   doc  ? документ, по чекбоксу которого кликнули
+ *   ctrl ? была ли зажата клавиша Ctrl
+ *
+ * Возвращает true, если что-то изменилось и нужно перерисовать экран.
+ */
+static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
+{
+    if (sc == NULL || doc == NULL || ui_cart == NULL)
+        return false;
+
+    bool admin = is_admin_mode();
+    char type = sc->val->type;
+
+    /* 1. FastPaymentItems ? без админа клик игнорируется. */
+    if (type == FAST_PAYMENT_ITEMS && !admin)
+        return false;
+
+    /* 2. Считаем, сколько уже выбрано в этой подкорзине.
+     *    Заодно запоминаем первый выбранный (для проверки Kind в п.4). */
+    int checked = 0;
+    ui_doc_t *first_checked = NULL;
+    for (int i = 0; i < sc->doc_count; i++) {
+        if (sc->docs[i].selected) {
+            checked++;
+            if (first_checked == NULL)
+                first_checked = &sc->docs[i];
+        }
+    }
+    int old_checked = checked;
+
+    /* 3. CancelNonCash/CancelRefundNonCash: нельзя снять чекбокс,
+     *    если что-то уже выбрано (одновременно ? только один). */
+    if (checked > 0
+        && (type == CANCEL_NON_CASH_ITEMS || type == CANCEL_REFUND_NON_CASH_ITEMS)
+        && !doc->selected)
+        return false;
+
+    /* 4. RefundNonCash: отметка документа другого Kind сбрасывает всё выделение. */
+    if (!doc->selected && type == REFUND_NON_CASH_ITEMS && checked > 0) {
+        if (first_checked && first_checked->val->k->v != doc->val->k->v) {
+            for (int i = 0; i < sc->doc_count; i++)
+                sc->docs[i].selected = false;
+            checked = 0;
+            first_checked = NULL;
+        }
+    }
+
+    /* 5. Ctrl ? множественное выделение. */
+    if (ctrl) {
+        if (doc->selected) {
+            /* Снять все в подкорзине. */
+            bool changed = false;
+            for (int i = 0; i < sc->doc_count; i++) {
+                if (sc->docs[i].selected) {
+                    sc->docs[i].selected = false;
+                    changed = true;
+                }
+            }
+            return changed;
+        }
+
+        bool changed = false;
+        for (int i = 0; i < sc->doc_count; i++) {
+            ui_doc_t *d = &sc->docs[i];
+            if (d->selected)
+                continue;
+
+            int delta = (d->val->group && d->val->group->count > 0)
+                            ? (int)d->val->group->count
+                            : 1;
+            if (checked + delta > MAX_DOCS)
+                break;
+
+            if (d->val->group && d->val->group->count > 0) {
+                cart_set_group_selected(d->val->group, true);
+                /* пересчитать, сколько теперь выбрано */
+                checked = 0;
+                for (int j = 0; j < sc->doc_count; j++)
+                    if (sc->docs[j].selected)
+                        checked++;
+            } else {
+                d->selected = true;
+                checked++;
+            }
+            changed = true;
+
+            /* В CancelNonCash/CancelRefundNonCash ? только один документ. */
+            if (type == CANCEL_NON_CASH_ITEMS || type == CANCEL_REFUND_NON_CASH_ITEMS)
+                break;
+        }
+        return changed;
+    }
+
+    /* 6. Обычный клик без Ctrl. */
+
+    /* Проверка лимита при добавлении. */
+    if (!doc->selected) {
+        int delta = (doc->val->group && doc->val->group->count > 0)
+                        ? (int)doc->val->group->count
+                        : 1;
+        if (checked + delta > MAX_DOCS) {
+            message_box("Предупреждение",
+                "Нельзя добавить дополнительные документы для оформления, т.к. будет превышен лимит.",
+                dlg_yes, 0, al_center);
+            return false;
+        }
+    }
+
+    /* Группа ? переключаем всю. */
+    if (doc->val->group && doc->val->group->count > 0) {
+        bool value = !doc->selected;
+        cart_set_group_selected(doc->val->group, value);
+        return true;
+    }
+
+    /* Обычный документ. */
+    doc->selected = !doc->selected;
+    return true;
 }
