@@ -26,7 +26,7 @@
 int cart_start_y = 0;
 
 bool is_admin_mode() {
-	return true;
+	return (kt != key_reg);
 }
 
 static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl);
