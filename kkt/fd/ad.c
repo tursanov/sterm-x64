@@ -1221,6 +1221,8 @@ int AD_save() {
 
 		if (save_list(fd, &_ad->archive_items, (list_item_func_t)K_save) < 0)
 			ret = -1;
+			
+        s_close(fd);
 	}
 
     return ret;

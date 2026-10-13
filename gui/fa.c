@@ -1538,16 +1538,27 @@ static bool process_fa_cmd(int cmd) {
 			fa_archive();
 			break;
 		case cmd_pos_check_last_operation:
-			pos_check_last_operation();
+			pos_check_last_operation();	
+			ClearScreen(clBlack);
+			draw_menu(fa_menu);
 			break;
 		case cmd_pos_day_open:
 			pos_day_open();
+			ClearScreen(clBlack);
+			draw_menu(fa_menu);
+			break;
 			break;
 		case cmd_pos_day_close:
 			pos_day_close();
+			ClearScreen(clBlack);
+			draw_menu(fa_menu);
+			break;
 			break;
 		case cmd_pos_service_operations:
 			pos_service_operations();
+			ClearScreen(clBlack);
+			draw_menu(fa_menu);
+			break;
 			break;
 		default:
 			ret = false;
