@@ -858,8 +858,31 @@ extern bool process_term(void);
 struct pos_response *pos_query(const struct pos_query_params *params)
 {
 	log_dbg("params = %p.", params);
-	if ((params == NULL) || !can_show_pos())
+	if (params == NULL){
+		log_err("params == NULL.");
 		return NULL;
+	}else if (!can_show_pos()){
+		log_err("Невозможно запустить ИПТ.");
+		return NULL;
+	}
+	struct tm *tm = localtime(&params->time);
+	log_dbg("params:\n"
+		"\tamount = %llu;\n"
+		"\torder_id = %u;\n"
+		"\tcan_edit = %d;\n"
+		"\ttime = %.2u.%.2u.%.4u %.2u:%.2u:%.2u;\n"
+		"\tinvoice = %u;\n"
+		"\tords = %s;\n"
+		"\ttype = %s;\n"
+		"\tsubtype = %s;\n"
+		"\tfamio = %s;\n"
+		"\trfnd_info = %s;\n"
+		"\tmtype = %.2hhX.",
+		params->amount, params->order_id, params->can_edit,
+		tm->tm_mday, tm->tm_mon + 1, tm->tm_year + 1900,
+		tm->tm_hour, tm->tm_min, tm->tm_sec,
+		params->invoice, params->ords, params->type, params->subtype,
+		params->famio, params->rfnd_info, params->mtype);
 	set_pos_query_params(params);
 	clr_pos_resp(&pos_resp);
 	ClearScreen(clBlack);
