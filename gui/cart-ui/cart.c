@@ -787,7 +787,7 @@ typedef struct
     char *ords;
     bool is_fast_payment;
     bool in_check_state;
-    char rfnd_info[64];
+    char rfnd_info[128];
 } bank_items_t;
 
 bank_items_t * get_bank_items(list_t *sel)
@@ -913,15 +913,6 @@ void process_other_items(__attribute__((unused)) selected_docs_t *sd)
     }
 }
 
-struct pos_response pr = {
-   .res_code = POS_QUERY_SUCCESS,
-   .resp_code = "",
-   .id_pos = "",
-   .invoice = 0,
-   .next_mtype = 0,
-   .nr_params = 0,
-};
-
 void process_non_cash_items(selected_docs_t *sd)
 {
     if (get_unprocessed_non_cash_annulment_invoice())
@@ -987,18 +978,16 @@ void process_non_cash_items(selected_docs_t *sd)
     };
 
     struct pos_response* resp = pos_query(&params);
-    
-//    struct pos_response *resp = &pr;
-//    pr.invoice++;
-  
-    free_bank_items(bi);
-    
+   
     if (resp == NULL)
     {
         message_box("Ошибка", "ИПТ не подключен или не отвечает", dlg_yes, 0, al_center);
+        free_bank_items(bi);
         ui_cart_redraw_all();
         return;
     }
+    
+    free_bank_items(bi);
     
     if (resp->res_code == POS_QUERY_SUCCESS
         || resp->res_code == POS_QUERY_INCOMPLETED
@@ -1402,7 +1391,7 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
                 first_checked = &sc->docs[i];
         }
     }
-    int old_checked = checked;
+    //int old_checked = checked;
 
     /* 3. CancelNonCash/CancelRefundNonCash: нельзя снять чекбокс,
      *    если что-то уже выбрано (одновременно ? только один). */
