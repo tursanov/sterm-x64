@@ -3,8 +3,10 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/ioctl.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/times.h>
 #include <sys/types.h>
 #include <vipnet-core/vpn_api.h>
@@ -1144,6 +1146,33 @@ static inline bool open_logs(void)
 	return open_log(hxlog) && (!bank_ok || open_log(hplog)) && open_log(hklog);
 }
 
+#if defined __USE_CORE_DUMP__
+static bool set_core_params(const char *pattern)
+{
+	if (pattern == NULL)
+		return false;
+	bool ret = false;
+	struct rlimit lim = {
+		.rlim_cur = RLIM_INFINITY,
+		.rlim_max = RLIM_INFINITY,
+	};
+	if (setrlimit(RLIMIT_CORE, &lim) == 0){
+#define KERNEL_CORE_PATTERN	"/proc/sys/kernel/core_pattern"
+		FILE *f = fopen(KERNEL_CORE_PATTERN, "w");
+		if (f != NULL){
+			fputs(pattern, f);
+			if (fclose(f) != 0)
+				log_sys_err("Ошибк закрытия " KERNEL_CORE_PATTERN " после записи:");
+			ret = true;
+		}else
+			log_sys_err("Ошибка открытия " KERNEL_CORE_PATTERN " для записи:");
+	}else
+		log_sys_err("Ошибка setrlimit(RLIMIT_CORE):");
+	return ret;
+#undef KERNEL_CORE_PATTERN
+}
+#endif		/* __USE_CORE_DUMP__ */
+
 static bool create_term(void)
 {
 	set_log_lvl(
@@ -1153,6 +1182,9 @@ static bool create_term(void)
 		Debug
 #endif
 	);
+#if defined __USE_CORE_DUMP__
+	set_core_params(_("%e.core"));
+#endif
 	if (!read_tki(STERM_TKI_NAME, false))
 		return false;
 	term_number nr;

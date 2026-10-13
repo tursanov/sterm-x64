@@ -659,11 +659,11 @@ static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int
 			l = strlen(val);
 			break;
 		case POS_PARAM_ID:
-			sprintf(val, "%.*u", BANK_REQ_ID_LEN_NEW, pos_query_params.order_id);
+			sprintf(val, "%.*u", BANK_REQ_ID_LEN_OLD, pos_query_params.order_id);
 			l = strlen(val);
 			break;
 		case POS_PARAM_EDIT:
-			val[0] = pos_query_params.can_edit ? 1 : 0;
+			val[0] = pos_query_params.can_edit ? 0x31 : 0x30;
 			l = 1;
 			break;
 		case POS_PARAM_TIME:
@@ -680,24 +680,34 @@ static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int
 			l = strlen(val);
 			break;
 		case POS_PARAM_ORDS:
-			snprintf(val, sizeof(val), "%s", pos_query_params.ords);
-			l = strlen(val);
+			if (pos_query_params.ords != NULL){
+				snprintf(val, sizeof(val), "%s", pos_query_params.ords);
+				l = strlen(val);
+			}
 			break;
 		case POS_PARAM_TYPE:
-			snprintf(val, sizeof(val), "%s", pos_query_params.type);
-			l = strlen(val);
+			if (pos_query_params.type != NULL){
+				snprintf(val, sizeof(val), "%s", pos_query_params.type);
+				l = strlen(val);
+			}
 			break;
 		case POS_PARAM_SUBTYPE:
-			snprintf(val, sizeof(val), "%s", pos_query_params.subtype);
-			l = strlen(val);
+			if (pos_query_params.subtype != NULL){
+				snprintf(val, sizeof(val), "%s", pos_query_params.subtype);
+				l = strlen(val);
+			}
 			break;
 		case POS_PARAM_FAMIO:
-			snprintf(val, sizeof(val), "%s", pos_query_params.famio);
-			l = strlen(val);
+			if (pos_query_params.famio != NULL){
+				snprintf(val, sizeof(val), "%s", pos_query_params.famio);
+				l = strlen(val);
+			}
 			break;
 		case POS_PARAM_RFNDINFO:
-			snprintf(val, sizeof(val), "%s", pos_query_params.rfnd_info);
-			l = strlen(val);
+			if (pos_query_params.rfnd_info != NULL){
+				snprintf(val, sizeof(val), "%s", pos_query_params.rfnd_info);
+				l = strlen(val);
+			}
 			break;
 		case POS_PARAM_UBT:
 			val[0] = 1;
