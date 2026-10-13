@@ -790,112 +790,135 @@ typedef struct
     char rfnd_info[128];
 } bank_items_t;
 
-bank_items_t * get_bank_items(list_t *sel)
+bank_items_t *get_bank_items(list_t *sel)
 {
     bank_items_t *r = calloc(1, sizeof(bank_items_t));
+    if (r == NULL)
+        return NULL;
+
     size_t ords_capacity = 128;
     char *ords = malloc(ords_capacity + 1);
+    if (ords == NULL) {
+        free(r);
+        return NULL;
+    }
     size_t ords_len = 0;
-    char *ordsp = ords;
-    
-    ordsp[0] = 0;
+    ords[0] = 0;
 
     for (list_item_t *li = sel->head; li; li = li->next)
     {
         D *d = LIST_ITEM(li, D);
-        
+
+        /* В C# здесь все элементы уже отфильтрованы K.Y != null.
+         * Здесь фильтруем на месте, чтобы не падать. */
+        if (d->k->y == NULL)
+            continue;
+
         if (r->order_id == 0 && d->name && strcmp(d->name, "ВСПП") != 0)
         {
             r->order_id = d->k->y->req_id;
         }
-        
-        if (d->k->y) {
-            r->is_fast_payment = d->k->y->op == '*';
-        } else {
-            r->is_fast_payment = false;
-        }
-        
+
+        r->is_fast_payment = d->k->y->op == '*';
+
         int64_t sum = 0;
+        uint8_t d_lp = K_lp(d->k);
         for (list_item_t *li1 = d->related.head; li1; li1 = li1->next)
         {
             K *k = LIST_ITEM(li1, K);
             int64_t s = K_calc_total_sum(k);
-            if (K_lp(d->k) != K_lp(k))
+            if (d_lp != K_lp(k))
                 s = -s;
-                
+
             sum += s;
-            
+
             if (k->check_state)
-            {
                 r->in_check_state = true;
-            }
         }
 
         r->amount += sum;
-        
-        printf("d->name = %s\n", d->name);
-        
+
         if (d->name && strcmp(d->name, "ВОЗВРАТ") == 0)
         {
-            printf("d->k->v = %d\n", d->k->v);
             if (d->k->v == 1)
-            {
                 r->primary_sum += sum;
-            }
             else if (d->k->v == 2)
-            {
                 r->secondary_sum += sum;
+        }
+
+        /* Паддинг нулями до 14 символов, как .PadLeft(14, '0') в C#. */
+        char doc_buf[15];
+        const char *doc_s = d->k->d.s ? d->k->d.s : "";
+        size_t slen = strlen(doc_s);
+        if (slen <= 14) {
+            memset(doc_buf, '0', 14);
+            memcpy(doc_buf + 14 - slen, doc_s, slen);
+        } else {
+            memcpy(doc_buf, doc_s + slen - 14, 14);
+        }
+        doc_buf[14] = 0;
+
+        char buf[64];
+        int len = snprintf(buf, sizeof(buf), "%s/%ld;", doc_buf, (long)sum);
+        if (len < 0)
+            continue;
+
+        /* Расширяем буфер, пока не хватит (с запасом на NULL). */
+        while (ords_len + (size_t)len + 1 > ords_capacity) {
+            size_t new_cap = ords_capacity + 128;
+            char *tmp = realloc(ords, new_cap + 1);
+            if (tmp == NULL) {
+                free(ords);
+                free(r);
+                return NULL;
             }
+            ords = tmp;
+            ords_capacity = new_cap;
         }
-        
-        if (d->k->y)
-        {
-            char buf[32];
-            int len = sprintf(buf, "%14s/%ld;", d->k->d.s, sum);
-            
-            if (ords_len + len > ords_capacity)
-            {
-                ords_capacity += 128;
-                ords = realloc(ords, ords_capacity + 1);
-                ordsp = ords + ords_len;
-            }
-        
-            sprintf(ordsp, "%14s/%ld;", d->k->d.s, sum);
-            
-            ords_len += len;
+
+        memcpy(ords + ords_len, buf, len);
+        ords_len += len;
+        ords[ords_len] = 0;
+    }
+
+    r->ords = ords;
+
+    /* Найти первый документ с Y ? как C# Where(d => d.K.Y != null). */
+    D *first_with_y = NULL;
+    for (list_item_t *li = sel->head; li; li = li->next) {
+        D *d = LIST_ITEM(li, D);
+        if (d->k->y != NULL) {
+            first_with_y = d;
+            break;
         }
     }
-   
-    r->ords = ords; 
-    if (ords_len > 0)
+
+    if (first_with_y != NULL)
     {
-        r->ords[ords_len - 1] = 0;
-    }
-    
-    if (sel->count > 0)
-    {
-        D *d = LIST_ITEM(sel->head, D);
-        
-        int len = strlen(d->k->y->term_id);
-        if (len >= 4)
+        const char *term_id = first_with_y->k->y->term_id;
+        int term_len = term_id ? strlen(term_id) : 0;
+        if (term_len >= 4)
         {
-            uint8_t railway_code = d->k->y->term_id[3];
-            
-            sprintf(r->rfnd_info, "PAKOSN/%2x/%ld;PAKPVD/%2x/%ld\x1dINN:%ld",
-                railway_code, r->primary_sum, railway_code, r->secondary_sum, user_inn);
+            uint8_t railway_code = term_id[3];
+
+            snprintf(r->rfnd_info, sizeof(r->rfnd_info),
+                "PAKOSN/%02x/%ld;PAKPVD/%02x/%ld\x1dINN:%ld",
+                railway_code, (long)r->primary_sum,
+                railway_code, (long)r->secondary_sum,
+                (long)user_inn);
         }
     }
-    
+
     return r;
 }
 
 void free_bank_items(bank_items_t *items)
 {
-    if (items->ords)
-        free(items->ords);
+    if (items == NULL)
+        return;
+    free(items->ords);
     free(items);
 }
-
 void process_other_items(__attribute__((unused)) selected_docs_t *sd)
 {
     if (message_box("Предупреждение",
