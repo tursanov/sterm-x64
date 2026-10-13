@@ -901,11 +901,11 @@ struct pos_response *pos_query(const struct pos_query_params *params)
 				process_term();
 		}
 	}
-	if (fa_active){
+/* 	if (fa_active){
 		ClearScreen(clBlack);
 		draw_fa();
 	}else
-		ret = NULL;
+		ret = NULL;*/
 	log_dbg("end; ret = %p.", ret);
 	return ret;
 }
