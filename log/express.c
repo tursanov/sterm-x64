@@ -585,8 +585,8 @@ static bool xlog_print_xlrt_bank(void)
 	size_t id_len = (xlog_data[BANK_REQ_ID_LEN_OLD] == BANK_INFO_DELIM) ?
 		BANK_REQ_ID_LEN_OLD : BANK_REQ_ID_LEN_NEW;
 	size_t l = 0;
-	if (xlog_data_len > (id_len + BANK_TERM_ID_LEN))
-		l = xlog_data_len - (id_len + BANK_TERM_ID_LEN);
+	if (xlog_data_len > (id_len + 1 + BANK_TERM_ID_LEN + 1))
+		l = xlog_data_len - (id_len + 1 + BANK_TERM_ID_LEN + 1);
 	return	prn_write_str("*БАНК*") && prn_write_eol() &&
 /* Номер заказа в системе */
 		prn_write_char_raw('*') &&
@@ -594,11 +594,11 @@ static bool xlog_print_xlrt_bank(void)
 		prn_write_char_raw('*') && prn_write_eol() &&
 /* Технологический номер кассы */
 		prn_write_char_raw('*') &&
-		prn_write_chars_raw((char *)xlog_data + id_len, BANK_TERM_ID_LEN) &&
+		prn_write_chars_raw((char *)xlog_data + id_len + 1, BANK_TERM_ID_LEN) &&
 		prn_write_char_raw('*') && prn_write_eol() &&
 /* Оставшаяся информация */
 		prn_write_char_raw('*') &&
-		prn_write_chars_raw((char *)xlog_data + id_len + BANK_TERM_ID_LEN, l) &&
+		prn_write_chars_raw((char *)xlog_data + id_len + 1 + BANK_TERM_ID_LEN + 1, l) &&
 		prn_write_char_raw('*') && prn_write_eol();
 }
 
