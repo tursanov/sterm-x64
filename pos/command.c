@@ -635,6 +635,7 @@ static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int
 	int l = 0;
 	if (buf == NULL)
 		return false;
+	bool ret = true;
 	switch (param){
 		case POS_PARAM_TERMID:
 			normalize_termid();
@@ -730,17 +731,17 @@ static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int
 			if (required){
 				pos_set_error(POS_ERROR_CLASS_KEYBOARD,
 					POS_ERR_UNKNOWN_OBJ, (intptr_t)name);
-				return false;
-			}else
-				return true;
+				ret = false;
+			}
 	}
-	if (pos_write_array(buf, (uint8_t *)name, strlen(name)) &&
-				pos_write_array(buf, (uint8_t *)val, l))
-		return true;
-	else{
-		pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_SYSTEM, 0);
-		return false;
+	if (ret && (l > 0)){
+		if (!pos_write_array(buf, (uint8_t *)name, strlen(name)) ||
+				!pos_write_array(buf, (uint8_t *)val, l)){
+			pos_set_error(POS_ERROR_CLASS_SYSTEM, POS_ERR_SYSTEM, 0);
+			ret = false;
+		}
 	}
+	return ret;
 }
 
 /* Запись в поток команд заданного параметра для запроса ИПТ */
