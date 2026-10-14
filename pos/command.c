@@ -336,7 +336,7 @@ static void make_pos_resp(struct pos_response *pos_resp)
 				break;
 		}
 	}
-	log_info("\n\tres_code = 0x%.hhx;"
+	log_info("\n\tres_code = 0x%.2hhx;"
 			"\n\tresp_code = %s;"
 			"\n\tid_pos = %s;"
 			"\n\tinvoice = %u;"

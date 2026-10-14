@@ -265,6 +265,7 @@ static bool create_sterm_log_lst(void)
 			"newcheque.dat",
 			"pos.log",
 			"sterm.conf",
+			"sterm.core",
 			"sterm.dat",
 			"sterm-logs.txt",
 		};

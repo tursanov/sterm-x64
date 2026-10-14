@@ -116,6 +116,7 @@ ssize_t pos_serial_receive(void)
 		else
 			log_sys_err("Žè¨¡ª  readv:");
 	}else if (len > 0){
+#if defined __RAW_POS_LOG__
 		size_t l = len;
 		if (l > v[0].iov_len)
 			l = v[0].iov_len;
@@ -124,6 +125,7 @@ ssize_t pos_serial_receive(void)
 			l = len - v[0].iov_len;
 			log_data_pos(NULL, v[1].iov_base, l);
 		}
+#endif
 		in_data_len += len;
 		cur_block_len += len;
 		while (cur_block_len >= cur_block_exp_len){
@@ -169,12 +171,14 @@ ssize_t pos_serial_transmit(void)
 		else
 			log_sys_err("Žè¨¡ª  writev:");
 	}else if (len > 0){
+#if defined __RAW_POS_LOG__
 		size_t l = len;
 		log_data_pos("’Œ --> ˆ’", v[0].iov_base, l);
 		if ((n == 2) && (len > v[0].iov_len)){
 			l = len - v[0].iov_len;
 			log_data_pos(NULL, v[1].iov_base, l);
 		}
+#endif
 		out_data_head += len;
 		out_data_head %= sizeof(out_data);
 		out_data_len -= len;
@@ -209,7 +213,9 @@ bool pos_serial_get_msg(struct pos_data_buf *buf)
 			in_data + (in_data_head + l1) % sizeof(in_data), l2);
 	buf->data_len = l1 + l2;
 	buf->data_index = buf->block_start = 0;
-//	log_data_pos("ˆ’ --> ’Œ", buf->un.data, buf->data_len);
+#if !defined __RAW_POS_LOG__
+	log_data_pos("ˆ’ --> ’Œ", buf->un.data, buf->data_len);
+#endif
 	in_data_head += l1 + l2;
 	in_data_head %= sizeof(in_data);
 	in_data_len -= l1 + l2;
@@ -241,7 +247,9 @@ bool pos_serial_send_msg(struct pos_data_buf *buf)
 		memcpy(out_data + (offs + l1) % sizeof(out_data),
 				buf->un.data + l1, l2);
 	out_data_len += l1 + l2;
-//	log_data_pos("’Œ --> ˆ’", buf->un.data, buf->data_len);
+#if !defined __RAW_POS_LOG__
+	log_data_pos("’Œ --> ˆ’", buf->un.data, buf->data_len);
+#endif
 	pos_t0 = u_times();
 	poll_ok = false;
 	return true;

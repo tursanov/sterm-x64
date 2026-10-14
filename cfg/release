@@ -42,7 +42,10 @@ option		__USE_NUMPAD__
 #option		__KEEP_NEWER_XSLT__
 
 # При аварийном завершении терминала формировать файл дампа
-#option		__USE_CORE_DUMP__
+option		__USE_CORE_DUMP__
+
+# В лог заносится обмен с ИПТ в необработанном виде (иначе -- полные пакеты)
+#option		__RAW_POS_LOG__
 
 # Каталог, в котором находятся файлы терминала. / в конце не обязателен
 STERM_HOME	/home/sterm
@@ -54,5 +57,7 @@ KDIR		/usr/src/linux-headers-4.9.0-12-amd64
 # Используется для статической компиляции некоторых утилит
 #option		__DO_STATIC__
 
-CFLAGS		-Wall -Wextra -Wno-sign-compare -Wno-switch -Wno-format-security -Wno-unused-result -pipe -pthread -O3 -DNDEBUG -I$(INCLUDE) -D_GNU_SOURCE
-CXXFLAGS	-Wall -Weffc++ -Wextra -Wno-sign-compare -Wno-switch -Wno-format-security -Wno-unused-result -pipe -pthread -O3 -DNDEBUG -I$(INCLUDE) -D_GNU_SOURCE
+#CFLAGS		-Wall -Wextra -Wno-sign-compare -Wno-switch -Wno-format-security -Wno-unused-result -pipe -pthread -O3 -DNDEBUG -I$(INCLUDE) -D_GNU_SOURCE
+#CXXFLAGS	-Wall -Weffc++ -Wextra -Wno-sign-compare -Wno-switch -Wno-format-security -Wno-unused-result -pipe -pthread -O3 -DNDEBUG -I$(INCLUDE) -D_GNU_SOURCE
+CFLAGS		-Wall -Wextra -Wno-sign-compare -Wno-switch -Wno-format-security -Wno-unused-result -g -pipe -pthread -I$(INCLUDE) -D_GNU_SOURCE
+CXXFLAGS	-Wall -Weffc++ -Wextra -Wno-sign-compare -Wno-switch -Wno-format-security -Wno-unused-result -g -pipe -pthread -I$(INCLUDE) -D_GNU_SOURCE

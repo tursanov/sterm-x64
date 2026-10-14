@@ -16,5 +16,6 @@
 /home/sterm/period.txt
 /home/sterm/pos.log
 /home/sterm/sterm.conf
+/home/sterm/sterm.core
 /home/sterm/sterm.dat
 /home/sterm/sterm-logs.txt

@@ -177,6 +177,11 @@ static void xlog_fill_scr_bank(struct log_gui_context *ctx)
 /*	memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data + offs, BANK_AMOUNT_LEN);
 	ctx->scr_data_len += BANK_AMOUNT_LEN;
 	ctx->scr_data[ctx->scr_data_len++] = 0;*/
+	size_t l = xlog_data_len - offs;
+	memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data + offs, l);
+	ctx->scr_data_len += l;
+	ctx->scr_data[ctx->scr_data_len++] = 0;
+	ctx->scr_data[ctx->scr_data_len++] = 0;
 }
 
 /* Занесение в экранный буфер записи типа XLRT_IPCHANGE */
