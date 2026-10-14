@@ -41,10 +41,15 @@ uint32_t log_para = 0;			/* номер абзаца ответа на ЦКЛ при обработке ответа */
 /* Информация для ИПТ */
 struct bank_data bd;
 
+void clear_bank_info_ex(struct bank_data *bd)
+{
+	memset(bd, 0, sizeof(*bd));
+}
+
 /* Очистка банковской информации */
 void clear_bank_info(void)
 {
-	memset(&bd, 0, sizeof(bd));
+	clear_bank_info_ex(&bd);
 }
 
 /* Получение информации о банковском абзаце */
@@ -809,48 +814,48 @@ static inline uint16_t read_uint16(const uint8_t *data, size_t n)
 }
 
 /* Сканирование банковского абзаца (синтаксис уже проверен) */
-static void scan_bank_info(uint8_t *txt, size_t id_len)
+void scan_bank_info(uint8_t *txt, size_t len, size_t id_len, struct bank_data *bd)
 {
-	clear_bank_info();
+	clear_bank_info_ex(bd);
 	int idx = 0;
 /* Номер заказа в системе */
-	bd.req_id = read_uint64(txt, id_len);
+	bd->req_id = read_uint64(txt, id_len);
 	idx += id_len + 1;
 /* Технологический номер терминала */
-	memcpy(bd.term_id, txt + idx, BANK_TERM_ID_LEN);
-	bd.term_id[BANK_TERM_ID_LEN] = 0;
+	memcpy(bd->term_id, txt + idx, BANK_TERM_ID_LEN);
+	bd->term_id[BANK_TERM_ID_LEN] = 0;
 	idx += BANK_TERM_ID_LEN + 1;
 /* Тип платежа */
-	bd.op = txt[idx];
+	bd->op = txt[idx];
 	idx += 2;
 /* ОД/ПВД */
-	bd.ticket = txt[idx] == 'p';
+	bd->ticket = txt[idx] == 'p';
 	idx += 2;
 /* Признак переоформления */
 	if (txt[idx] == '0'){
-		bd.repayment = '0';
+		bd->repayment = '0';
 		idx += 2;
 	}else if (txt[idx] == '1'){
-		bd.repayment = '1';
+		bd->repayment = '1';
 		idx += 2;
-		memcpy(bd.prev_blank_nr, txt + idx, BANK_BLANK_NR_LEN);
-		bd.prev_blank_nr[BANK_BLANK_NR_LEN] = 0;
+		memcpy(bd->prev_blank_nr, txt + idx, BANK_BLANK_NR_LEN);
+		bd->prev_blank_nr[BANK_BLANK_NR_LEN] = 0;
 		idx += BANK_BLANK_NR_LEN + 2;
 	}else{
-		bd.repayment = 0;
+		bd->repayment = 0;
 		idx++;
 	}
 /* Информация о документах в заказе */
-	for (int i = 0; i < BANK_MAX_DOCS; i++){
+	for (int i = 0; (i < BANK_MAX_DOCS) && (idx < len); i++){
 		if (!isdigit(txt[idx]))
  			break;
-		struct bank_doc_info *di = bd.doc_info + i;
+		struct bank_doc_info *di = bd->doc_info + i;
 		memcpy(di->blank_nr, txt + idx, BANK_BLANK_NR_LEN);
 		di->blank_nr[BANK_BLANK_NR_LEN] = 0;
 		idx += BANK_BLANK_NR_LEN + 1;
 		uint64_t q = 0, r = 0;
 		bool quot = true;
-		for (int j = 0; j < BANK_AMOUNT_MAX_LEN; j++){
+		for (int j = 0; (j < BANK_AMOUNT_MAX_LEN) && (idx < len); j++){
 			uint8_t b = txt[idx++];
 			if (isdigit(b)){
 				b -= 0x30;
@@ -870,7 +875,7 @@ static void scan_bank_info(uint8_t *txt, size_t id_len)
 		if (r < 10)
 			r *= 10;
 		di->amount = q * 100 + r;
-		bd.nr_docs++;
+		bd->nr_docs++;
  	}
 }
 
@@ -2053,9 +2058,9 @@ static void preexecute_resp(void)
 					text_buf, l, XLRT_AUX, log_para++);
 				break;
 			case dst_bank:
-				scan_bank_info(text_buf,
+				scan_bank_info(text_buf, l,
 					text_buf[BANK_REQ_ID_LEN_OLD] == BANK_INFO_DELIM ?
-						BANK_REQ_ID_LEN_OLD : BANK_REQ_ID_LEN_NEW);
+						BANK_REQ_ID_LEN_OLD : BANK_REQ_ID_LEN_NEW, &bd);
 				log_number = xlog_write_rec(hxlog, text_buf, l,
 					XLRT_BANK, log_para++);
 				break;

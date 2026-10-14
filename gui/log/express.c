@@ -153,35 +153,60 @@ static void xlog_fill_scr_special(struct log_gui_context *ctx)
 static void xlog_fill_scr_bank(struct log_gui_context *ctx)
 {
 	static const char bank_msg[] = "bank";
-	size_t id_len = (xlog_data[BANK_REQ_ID_LEN_OLD] == BANK_INFO_DELIM) ?
+	char *scr_data = (char *)ctx->scr_data;
+	struct bank_data bd;
+	int id_len = (xlog_data[BANK_REQ_ID_LEN_OLD] == BANK_INFO_DELIM) ?
 		BANK_REQ_ID_LEN_OLD : BANK_REQ_ID_LEN_NEW;
-	off_t offs = 0;
+	scan_bank_info(xlog_data, xlog_data_len, id_len, &bd);
 	ctx->scr_data_len = 0;
 	ctx->scr_data[ctx->scr_data_len++] = 0;
 	memcpy(ctx->scr_data + ctx->scr_data_len, bank_msg, sizeof(bank_msg));
 	ctx->scr_data_len += sizeof(bank_msg);
 	ctx->scr_data[ctx->scr_data_len++] = 0;
 /* Номер заказа в системе */
-	memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data + offs, id_len);
-	ctx->scr_data_len += id_len;
+	int rc = sprintf(scr_data + ctx->scr_data_len, "zakaz: %.*lu", id_len, bd.req_id);
+	ctx->scr_data_len += rc + 1;
 	ctx->scr_data[ctx->scr_data_len++] = 0;
-	ctx->scr_data[ctx->scr_data_len++] = 0;
-	offs += id_len + 1;
 /* Технологический номер кассы */
-	memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data + offs, BANK_TERM_ID_LEN);
-	ctx->scr_data_len += BANK_TERM_ID_LEN;
+	rc = sprintf(scr_data + ctx->scr_data_len, "tm: %s", bd.term_id);
+	ctx->scr_data_len += rc + 1;
 	ctx->scr_data[ctx->scr_data_len++] = 0;
+/* Оставшиеся данные */
+	size_t offs = id_len + 1 + BANK_TERM_ID_LEN + 1;
+	if (offs < xlog_data_len){
+		size_t l = xlog_data_len - offs;
+		memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data + offs, l);
+		ctx->scr_data_len += l;
+		ctx->scr_data[ctx->scr_data_len++] = 0;
+		ctx->scr_data[ctx->scr_data_len++] = 0;
+	}
+#if FANCY_XLRT_BANK
+/* Тип платежа */
+	rc = sprintf(scr_data + ctx->scr_data_len, "tip: %c (%s)", bd.op,
+		bd.ticket ? "osn" : "pwd");
+	ctx->scr_data_len += rc + 1;
 	ctx->scr_data[ctx->scr_data_len++] = 0;
-	offs += BANK_TERM_ID_LEN + 1;
-/* Сумма заказа */	/* FIXME */
-/*	memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data + offs, BANK_AMOUNT_LEN);
-	ctx->scr_data_len += BANK_AMOUNT_LEN;
-	ctx->scr_data[ctx->scr_data_len++] = 0;*/
-	size_t l = xlog_data_len - offs;
-	memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data + offs, l);
-	ctx->scr_data_len += l;
-	ctx->scr_data[ctx->scr_data_len++] = 0;
-	ctx->scr_data[ctx->scr_data_len++] = 0;
+/* Признак возврата */
+	if (bd.repayment == '0')
+		rc = sprintf(scr_data + ctx->scr_data_len, "wozwrat nereestrowyj");
+	else if (bd.repayment == '1')
+		rc = sprintf(scr_data + ctx->scr_data_len, "wozwrat reestrowyj (%s)",
+			bd.prev_blank_nr);
+	else
+		rc = 0;
+	if (rc > 0){
+		ctx->scr_data_len += rc + 1;
+		ctx->scr_data[ctx->scr_data_len++] = 0;
+	}
+/* Документы в заказе */
+	for (size_t i = 0; i < bd.nr_docs; i++){
+		const struct bank_doc_info *di = bd.doc_info + i;
+		rc = sprintf(scr_data + ctx->scr_data_len, "   #%zu: %s (%lu.%lu)",
+			i + 1, di->blank_nr, di->amount / 100, di->amount % 100);
+		ctx->scr_data_len += rc + 1;
+		ctx->scr_data[ctx->scr_data_len++] = 0;
+	}
+#endif
 }
 
 /* Занесение в экранный буфер записи типа XLRT_IPCHANGE */

@@ -210,9 +210,12 @@ struct bank_info {
 /* Данные банковского абзаца */
 extern struct bank_data bd;
 /* Очистка банковской информации */
+extern void clear_bank_info_ex(struct bank_data *bd);
 extern void clear_bank_info(void);
 /* Получение информации о банковском абзаце */
 extern ssize_t get_bank_info(struct bank_info *items, size_t nr_items);
+/* Сканирование банковского абзаца (синтаксис уже проверен) */
+extern void scan_bank_info(uint8_t *txt, size_t len, size_t id_len, struct bank_data *bd);
 
 #if 0
 /* Информация для ИПТ */
