@@ -217,39 +217,6 @@ extern ssize_t get_bank_info(struct bank_info *items, size_t nr_items);
 /* Сканирование банковского абзаца (синтаксис уже проверен) */
 extern void scan_bank_info(uint8_t *txt, size_t len, size_t id_len, struct bank_data *bd);
 
-#if 0
-/* Информация для ИПТ */
-#define BANK_ID_LEN_OLD		7
-#define BANK_ID_LEN_NEW		12
-#define BANK_TERM_ID_LEN	5
-#define BANK_AMOUNT_QUOT_LEN	7
-#define BANK_AMOUNT_DELIM_LEN	1
-#define BANK_AMOUNT_REM_LEN	1
-#define BANK_AMOUNT_LEN		(BANK_AMOUNT_QUOT_LEN + BANK_AMOUNT_DELIM_LEN + BANK_AMOUNT_REM_LEN)
-
-#define BANK_PARA_LEN_OLD	(BANK_ID_LEN_OLD + BANK_TERM_ID_LEN + BANK_AMOUNT_LEN)
-#define BANK_PARA_LEN_NEW	(BANK_ID_LEN_NEW + BANK_TERM_ID_LEN + BANK_AMOUNT_LEN)
-
-struct bank_info {
-	uint64_t id;
-	char termid[BANK_TERM_ID_LEN];
-	uint32_t amount1;
-	uint32_t amount2;
-};
-
-extern struct bank_info bi;
-extern struct bank_info bi_pos;
-
-/* Очистка содержимого структуры */
-extern void clear_bank_info(struct bank_info *p, bool full);
-/* Сброс содержимого обеих областей памяти */
-extern void reset_bank_info(void);
-/* Добавление содержимого первой области ко второй */
-extern void add_bank_info(void);
-/* Возврат к предыдущему значению */
-extern void rollback_bank_info(void);
-#endif
-
 /* Номер абзаца ответа на КЛ при обработке ответа */
 extern uint32_t log_para;
 /* Создание "карты" ответа */

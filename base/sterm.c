@@ -1778,65 +1778,6 @@ static int handle_ping(struct kbd_event *e)
 
 static void show_cheque_fa(void);
 
-#if 0
-/* Завершение работы банковского приложения */
-static void on_end_pos(void)
-{
-	bool reset_bi = true;
-	pos_active = false;
-	online = true;
-	pop_term_info();
-	if (apc){
-		static struct custom_btn _btns[] = {
-			{
-				.text	= "Успешный расчет",
-				.cmd	= DLG_BTN_YES,
-			},
-			{
-				.text	= "Повтор расчета",
-				.cmd	= DLG_BTN_RETRY,
-			},
-			{
-				.text	= "Отказ от расчета",
-				.cmd	= DLG_BTN_CANCEL,
-			},
-			{
-				.text	= NULL,
-				.cmd	= 0,
-			},
-		};
-		struct custom_btn *btns = (pos_err_xdesc == NULL) ? _btns : _btns + 1;
-		hide_cursor();
-		int rc = message_box("АВТОМАТИЧЕСКАЯ ПЕЧАТЬ ЧЕКА",
-			"Выберите дальнейшее действие", (intptr_t)btns, 0, al_center);
-		show_cursor();
-		switch (rc){
-			case DLG_BTN_YES:
-				show_cheque_fa();
-				apc = fa_active;
-				break;
-			case DLG_BTN_RETRY:
-				reset_bi = false;
-/* FIXME: в этом случае по окончании работы с ИПТ мы не посылаем INIT CHECK (pos_new) */
-				if (pos_get_state() == pos_finish)
-					pos_set_state(pos_idle);
-				show_pos();
-				apc = pos_active;
-				break;
-			default:
-				apc = false;
-		}
-
-	}
-	if (!apc && (pos_err_xdesc != NULL))
-		set_term_astate(ast_pos_error);
-	if (reset_bi)
-		clear_bank_info();
-	if (!apc)
-		redraw_term(true, main_title);
-}
-#endif
-
 /* Обработчик окна POS-терминала */
 static int handle_pos(struct kbd_event *e)
 {
