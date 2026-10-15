@@ -45,6 +45,8 @@ static bool support_1222_1224_1225;
 
 static bool process_fa_cmd(int cmd);
 
+void fa_cheque();
+
 static char cashier_name[64+1] = {0};
 static char cashier_post[64+1] = {0};
 static char cashier_inn[12+1] = {0};
@@ -315,7 +317,14 @@ bool init_fa(int arg)
 		fa_set_group(FAPP_GROUP_MENU);
 	} else {
 		fa_menu = NULL;
-		process_fa_cmd(arg);
+		
+		if (arg == cmd_cheque_fa) {
+		    fa_active = false;
+		    fa_cheque();
+		    fa_active = true;
+		} else {
+    		process_fa_cmd(arg);
+		}
 	}
 
 	return true;
@@ -1547,18 +1556,15 @@ static bool process_fa_cmd(int cmd) {
 			ClearScreen(clBlack);
 			draw_menu(fa_menu);
 			break;
-			break;
 		case cmd_pos_day_close:
 			pos_day_close();
 			ClearScreen(clBlack);
 			draw_menu(fa_menu);
 			break;
-			break;
 		case cmd_pos_service_operations:
 			pos_service_operations();
 			ClearScreen(clBlack);
 			draw_menu(fa_menu);
-			break;
 			break;
 		default:
 			ret = false;
