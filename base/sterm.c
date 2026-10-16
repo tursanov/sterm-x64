@@ -1776,8 +1776,6 @@ static int handle_ping(struct kbd_event *e)
 	return cmd_none;
 }
 
-static void show_cheque_fa(void);
-
 /* Обработчик окна POS-терминала */
 static int handle_pos(struct kbd_event *e)
 {
