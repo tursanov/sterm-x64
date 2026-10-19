@@ -83,6 +83,8 @@ void ui_cart_select_documents();
 void ui_cart_create()
 {
 	pos_incomplete_op = pos_check_last_operation();
+	
+	printf("ui_cart_create: pos_incomplete_op: %d\n", pos_incomplete_op);
 
 	if (ui_cart != NULL)
 	{
@@ -139,7 +141,7 @@ void ui_cart_select_documents()
             {
                 D *x = LIST_ITEM(li, D);
                 
-                printf("x = %p, d->val = %p\n", x, d->val);
+                //printf("x = %p, d->val = %p\n", x, d->val);
                 
                 if (d->val == x)
                 {
@@ -457,6 +459,8 @@ void ui_cart_process_enter()
         return;
     }
     
+    printf("ui_cart_process_enter start\n");
+    
     if (sc->tab_selected_doc >= 0)
     {
         ui_doc_t *d = &sc->docs[sc->tab_selected_doc];
@@ -471,6 +475,8 @@ void ui_cart_process_enter()
     else if (sc->tab_selected_flags == CART_TAB_SELECTED_DELETE)
     {
     }
+
+    printf("ui_cart_process_enter end\n");
 }
 
 void ui_cart_process_space(bool ctrl)
@@ -489,7 +495,6 @@ void ui_cart_process_space(bool ctrl)
     if (cart_toggle_document(sc, d, ctrl))
         ui_cart_redraw_all();
 }
-
 
 
 bool cart_process(const struct kbd_event *_e) {
@@ -938,6 +943,8 @@ void process_other_items(__attribute__((unused)) selected_docs_t *sd)
 
 void process_non_cash_items(selected_docs_t *sd)
 {
+    printf("process_non_cash_items start\n");
+
     if (get_unprocessed_non_cash_annulment_invoice())
     {
         message_box("Ошибка",
@@ -1002,15 +1009,14 @@ void process_non_cash_items(selected_docs_t *sd)
 
     struct pos_response* resp = pos_query(&params);
    
+    free_bank_items(bi);
+    
     if (resp == NULL)
     {
         message_box("Ошибка", "ИПТ не подключен или не отвечает", dlg_yes, 0, al_center);
-        free_bank_items(bi);
         ui_cart_redraw_all();
         return;
     }
-    
-    free_bank_items(bi);
     
     if (resp->res_code == POS_QUERY_SUCCESS
         || resp->res_code == POS_QUERY_INCOMPLETED
@@ -1085,6 +1091,8 @@ void process_docs()
     get_selected_docs(&sd);
     
     char type = ui_sel_subcart->val->type;
+    
+    printf("process_docs start\n");
 
     if (type == OTHER_ITEMS)
     {
@@ -1099,15 +1107,19 @@ void process_docs()
             && sd.has_y
             && sd.sum.e > 0)
     {
+        printf("process_docs: process_non_cash_items\n");
         process_non_cash_items(&sd);
     }
     else
     {
+        printf("process_docs: process_print_docs\n");
         process_print_docs(&sd);
         ui_cart_redraw_all();
     }
 
     free_selected_docs(&sd);
+    
+    printf("process_docs end\n");
 }
 
 void set_printing_state(list_t *list, uint8_t state)
