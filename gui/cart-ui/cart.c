@@ -1132,10 +1132,11 @@ void process_print_docs(selected_docs_t* sd)
         
         ui_subcart_t *sc = ui_sel_subcart;
 
-
         set_printing_state(list, PRINT_STATE_PRINTING);
        
         bool ret = print_cheque(sc->val, list);
+        
+        printf("process_print_docs: last_cheque_process_started: %d\n", last_cheque_process_started);
         
         if (last_cheque_process_started)
         {

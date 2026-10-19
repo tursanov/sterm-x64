@@ -626,7 +626,9 @@ int fd_create_doc(uint8_t doc_type, const uint8_t *pattern_footer, size_t patter
 		
 		if (ret == 0x45 && err_info_len > 0)
 		{
-            uint8_t err = err_info[2];
+            uint8_t err = err_info[1];
+            
+            printf("err: %.2x %.2x %.2x\n", err_info[0], err_info[1], err_info[2]);
             
             if (err == 0x02 || err == 0x03 || err == 0x04 || err == 0x07
                 || err == 0x12 || err == 0x14 || err == 0x16 || err == 0x17)
