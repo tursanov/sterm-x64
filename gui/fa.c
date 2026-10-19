@@ -235,6 +235,13 @@ static bool fa_create_menu(void)
 	return true;
 }
 
+static void redraw_menu(struct menu *mnu)
+{
+	ClearScreen(clBlack);
+	draw_menu(mnu);
+}
+
+
 static bool fa_set_group(int n)
 {
 	if (fa_arg != cmd_fa)
@@ -242,13 +249,12 @@ static bool fa_set_group(int n)
 	bool ret = false;
 	fa_cm = cmd_none;
 	fa_active_group = n;
-	ClearScreen(clBlack);
 	if (n == FAPP_GROUP_MENU){
-		draw_menu(fa_menu);
+		redraw_menu(fa_menu);
 		ret = true;
 	} else if (n == FAPP_GROUP_SALES_MENU) {
 		fa_sales_menu->selected = 0;
-		draw_menu(fa_sales_menu);
+		redraw_menu(fa_sales_menu);
 		ret = true;
 	}
 	return ret;
@@ -1403,8 +1409,7 @@ void fa_unmark_reissue_doc() {
 void fa_reset_fs() {
 	if (message_box("Уведомление", "Тестовый ФН будет реинициализирован. Продолжить?",
 				dlg_yes_no, 0, al_center) == DLG_BTN_YES) {
-		ClearScreen(clBlack);
-		draw_menu(fa_menu);
+		redraw_menu(fa_menu);
 				
 		kbd_flush_queue();
 		uint8_t ret = kkt_reset_fs(0x16);
@@ -1418,8 +1423,7 @@ void fa_reset_fs() {
 				ret);
 		
 		message_box("Уведомление", buffer, dlg_yes, 0, al_center);
-		ClearScreen(clBlack);
-		draw_menu(fa_menu);
+		redraw_menu(fa_menu);
 	}
 	fa_set_group(FAPP_GROUP_MENU);
 }
@@ -1447,8 +1451,7 @@ void fa_print_last_doc() {
 			"Продолжить?",
 					dlg_yes_no, 0, al_center) == DLG_BTN_YES) {
 
-			ClearScreen(clBlack);
-			draw_menu(fa_menu);
+			redraw_menu(fa_menu);
 
 			status = fd_print_last_doc(ldi.last_type);
 
@@ -1472,8 +1475,7 @@ void fa_print_last_doc() {
 static void fa_newcheque() {
 	newcheque_execute();
 
-	ClearScreen(clBlack);
-	draw_menu(fa_sales_menu);
+	redraw_menu(fa_sales_menu);
 }
 
 static void fa_archive() {
@@ -1512,10 +1514,8 @@ static void process_pos_check_last_operation()
     message_box("Уведомление",
             msg,
             dlg_yes, 0, al_center);
-	ClearScreen(clBlack);
-	draw_menu(fa_menu);
+	redraw_menu(fa_menu);
 }
-
 
 static bool process_fa_cmd(int cmd) {
 	bool ret = true;
@@ -1567,18 +1567,15 @@ static bool process_fa_cmd(int cmd) {
 			break;
 		case cmd_pos_day_open:
 			pos_day_open();
-			ClearScreen(clBlack);
-			draw_menu(fa_menu);
+			redraw_menu(fa_menu);
 			break;
 		case cmd_pos_day_close:
 			pos_day_close();
-			ClearScreen(clBlack);
-			draw_menu(fa_menu);
+			redraw_menu(fa_menu);
 			break;
 		case cmd_pos_service_operations:
 			pos_service_operations();
-			ClearScreen(clBlack);
-			draw_menu(fa_menu);
+			redraw_menu(fa_menu);
 			break;
 		default:
 			ret = false;
