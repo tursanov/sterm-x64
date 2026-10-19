@@ -166,6 +166,8 @@ struct para_info{
 #define BANK_REQ_ID_LEN_OLD	7
 #define BANK_REQ_ID_LEN_NEW	12
 #define BANK_TERM_ID_LEN	6
+#define BANK_TERM_ID_POS_LEN	4
+#define BANK_TERM_ID_TM_LEN	2
 #define BANK_BLANK_NR_LEN	14
 #define BANK_AMOUNT_MIN_LEN	1
 #define BANK_AMOUNT_MAX_LEN	10

@@ -1,4 +1,4 @@
-/* Работа с потоком команд POS-эмулятора. (c) A.Popov, gsr 2004 */
+/* Работа с потоком команд POS-эмулятора. (c) A.Popov, gsr 2004-2005, 2024, 2026 */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -595,6 +595,71 @@ bool pos_req_save_command_finish(struct pos_data_buf *buf)
 	return ret;
 }
 
+static int pos_write_term_id(char *buf)
+{
+	int l = 0;
+/* Сначала проверяем идентификатор терминала, пришедший с банковским абзацем */
+	bool zero = false;
+	for (int i = 0; i < BANK_TERM_ID_LEN; i++){
+		if (bd.term_id[i] == 0){
+			zero = true;
+			break;
+		}
+	}
+	if (!zero){
+		memcpy(buf, bd.term_id, BANK_TERM_ID_LEN);
+		l += BANK_TERM_ID_LEN;
+/* Пытаемся сформировать идентификатор из данных абзаца для ККТ */
+	}else if ((_ad != NULL) && (_ad->p1 != NULL)){
+		if (_ad->p1->p != NULL){
+			uint8_t b = 0;
+			for (int i = 0, k = 0; i < BANK_TERM_ID_POS_LEN; i++){
+				if (k == 0){
+					uint8_t b = _ad->p1->p[i];
+					if (b != 0)
+						b = recode(b);
+					else{
+						k++;
+						b = 0x30;
+					}
+				}else
+					b = 0x30;
+				buf[l++] = b;
+			}
+		}else{
+			memset(buf, 0x30, BANK_TERM_ID_POS_LEN);
+			l += BANK_TERM_ID_POS_LEN;
+		}
+		if (_ad->p1->t != NULL){
+			uint8_t b = 0;
+			for (int i = 0, k = 0; i < BANK_TERM_ID_TM_LEN; i++){
+				if (k == 0){
+					uint8_t b = _ad->p1->t[i];
+					if (b != 0)
+						b = recode(b);
+					else{
+						k++;
+						b = 0x30;
+					}
+				}else
+					b = 0x30;
+				buf[l++] = b;
+			}
+		}else{
+			memset(buf + l, 0x30, BANK_TERM_ID_TM_LEN);
+			l += BANK_TERM_ID_TM_LEN;
+		}
+	}else{
+/* Записываем нулевой идентификатор */
+		memset(buf, 0x30, BANK_TERM_ID_LEN);
+		l += BANK_TERM_ID_LEN;
+	}
+/* Добавляем к идентификатору адрес терминала */
+	write_hex_byte((uint8_t *)(buf + l), cfg.gaddr);
+	write_hex_byte((uint8_t *)(buf + l + 2), cfg.iaddr);
+	return BANK_TERM_ID_LEN + 4;
+}
+
 /* Запись в поток команд заданного параметра в ответ на запрос ИПТ */
 static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int param,
 		bool required)
@@ -607,11 +672,7 @@ static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int
 	bool ret = true;
 	switch (param){
 		case POS_PARAM_TERMID:
-			memcpy(val, bd.term_id, BANK_TERM_ID_LEN);
-			l = BANK_TERM_ID_LEN;
-			write_hex_byte((uint8_t *)(val + l), cfg.gaddr);
-			write_hex_byte((uint8_t *)(val + l + 2), cfg.iaddr);
-			l += 4;
+			l = pos_write_term_id(val);
 			break;
 		case POS_PARAM_CLERKID:
 			l = 0;
