@@ -154,6 +154,7 @@ struct scr_geom *sg = &sg80x20;
 /* Звуковые сигналы */
 int err_beep(void)
 {
+	log_dbg("Бип-бип-бип!");
 	beep_sync(ERR_FREQ, 250);
 	return cmd_none;
 }
@@ -1659,71 +1660,6 @@ static void cm_ctrl_v(struct kbd_event *e)
 	}
 }
 
-
-char *format_datetime(char *buffer, size_t size)
-{
-    if (!buffer || size < 27)
-        return NULL;
-
-    struct timeval tv;
-    struct tm tm_info;
-
-    gettimeofday(&tv, NULL);
-    localtime_r(&tv.tv_sec, &tm_info);
-
-    int date_len = strftime(buffer, size, "%Y-%m-%d", &tm_info);
-
-    if (date_len == 0)
-        return NULL;
-
-    char *time_ptr = buffer + date_len;
-    size_t time_space = size - date_len - 1;
-
-    snprintf(time_ptr, time_space, "\n%02d:%02d:%02d.%03d",
-             tm_info.tm_hour,
-             tm_info.tm_min,
-             tm_info.tm_sec,
-             (int)(tv.tv_usec / 1000));
-
-    return time_ptr;
-}
-
-static void cm_ctrl_m(struct kbd_event *e)
-{
-    if (!e->repeated)
-		err_beep();
-    char buffer[256];
-    
-    format_datetime(buffer, sizeof(buffer));
-    
-    const char *path = "/home/sterm/period.txt";
-    int ret = 0;
-
-    FILE *f = fopen(path, "w");
-    if (!f)
-        ret = -1;
-
-    if (ret != -1 && fputs(buffer, f) == EOF) {
-        fclose(f);
-        ret = -1;
-    }
-
-    if (ret != -1 && fclose(f) != 0) {
-        ret = -1;
-    }
-
-	if (ret == -1) {
-		sprintf(buffer, "Ошибка записи на диск");
-	}
-
-	char text[512];
-
-	sprintf(text, "Создан файл period.txt\n%s", buffer);
-        
-	message_box("Уведомление", text, dlg_yes, 0, al_center);
-}
-
-
 static int cm_break_ln(struct kbd_event *e)
 {
 	uint16_t i,l,ll;
@@ -2212,6 +2148,39 @@ static bool handle_sel(struct kbd_event *e)
 	return true;
 }
 
+static bool handle_ctrl_m(struct kbd_event *e)
+{
+	if ((e->key != KEY_M) || e->repeated || ((e->shift_state & SHIFT_CTRL) == 0))
+		return false;
+	static char buffer[256], msg[256];
+	buffer[0] = msg[0] = 0;
+	bool ok = false;
+	FILE *f = fopen(FA_PERIOD_FILE, "w");
+	if (f == NULL)
+		snprintf(msg, sizeof(msg), "Ошибка открытия %s для записи: %m", FA_PERIOD_FILE);
+	else{
+		struct timeval tv;
+		gettimeofday(&tv, NULL);
+		struct tm *tm = localtime(&tv.tv_sec);
+		snprintf(buffer, sizeof(buffer), "%.4u-%.2u-%.2u\n%.2u:%.2u:%.2u.%.3lu",
+			tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+			tm->tm_hour, tm->tm_min, tm->tm_sec, tv.tv_usec / 1000);
+		if (fputs(buffer, f) == EOF)
+			snprintf(msg, sizeof(msg), "Ошибка записи в %s: %m", FA_PERIOD_FILE);
+		if (fclose(f) != 0)
+			snprintf(msg, sizeof(msg), "Ошибка закрытия %s: %m", FA_PERIOD_FILE);
+	}
+	if (msg[0] == 0){
+		snprintf(msg, sizeof(msg), "Создан файл %s\n%s", FA_PERIOD_FILE, buffer);
+		log_dbg("Информация была записана в %s.", FA_PERIOD_FILE);
+		ok = true;
+	}else
+		log_err("%s.", msg);
+	message_box(ok ? "ИНФОРМАЦИЯ" : "ОШИБКА", msg, dlg_yes, 0, al_center);
+        draw_scr_text();
+	return ok;
+}
+
 /* Основной обработчик клавиатуры экрана */
 int scr_handle_kbd(struct kbd_event *e)
 {
@@ -2219,26 +2188,26 @@ int scr_handle_kbd(struct kbd_event *e)
 		uint16_t key;
 		int (*fn)();
 	} handlers[] = {
-		{KEY_LALT,cm_next_key},
-		{KEY_RALT,cm_next_key},
-		{KEY_F3,cm_ch_key},
-		{KEY_F4,cm_key},
-		{KEY_F6,cm_clear},
-		{KEY_F12,cm_hex},
-		{KEY_UP,cm_up2},
-		{KEY_LEFT,cm_left2},
-		{KEY_DOWN,cm_down2},
-		{KEY_RIGHT,cm_right2},
-		{KEY_HOME,cm_home},
-		{KEY_END,cm_end},
-		{KEY_PGUP,cm_pgup},
-		{KEY_PGDN,cm_pgdn},
-		{KEY_DEL,cm_del},
-		{KEY_BACKSPACE,cm_bkspace},
-		{KEY_INS,cm_ins},
-		{KEY_NUMENTER,cm_break_ln},
-		{KEY_NUMSLASH,cm_del_chars},
-		{KEY_NUMLOCK,cm_new_ln},
+		{KEY_LALT,	cm_next_key},
+		{KEY_RALT,	cm_next_key},
+		{KEY_F3,	cm_ch_key},
+		{KEY_F4,	cm_key},
+		{KEY_F6,	cm_clear},
+		{KEY_F12	,cm_hex},
+		{KEY_UP,	cm_up2},
+		{KEY_LEFT,	cm_left2},
+		{KEY_DOWN,	cm_down2},
+		{KEY_RIGHT,	cm_right2},
+		{KEY_HOME,	cm_home},
+		{KEY_END,	cm_end},
+		{KEY_PGUP,	cm_pgup},
+		{KEY_PGDN,	cm_pgdn},
+		{KEY_DEL,	cm_del},
+		{KEY_BACKSPACE,	cm_bkspace},
+		{KEY_INS,	cm_ins},
+		{KEY_NUMENTER,	cm_break_ln},
+		{KEY_NUMSLASH,	cm_del_chars},
+		{KEY_NUMLOCK,	cm_new_ln},
 	};
 	int i;
 	if ((e->key == KEY_LSHIFT) || (e->key == KEY_RSHIFT) || (e->key == KEY_CAPS)){
@@ -2253,13 +2222,6 @@ int scr_handle_kbd(struct kbd_event *e)
 	if (e->repeated)
 		kbd_flush_queue();
 		
-    if (e->key == KEY_M && (e->shift_state & SHIFT_CTRL) != 0)
-    {
-        cm_ctrl_m(e);
-        draw_scr_text();
-        return cmd_none;
-    }
-		
 	if (switch_window(e))
 		return cmd_none;
 	if (quick_astate(_term_aux_state))
@@ -2269,6 +2231,8 @@ int scr_handle_kbd(struct kbd_event *e)
 	else if (handle_sel(e))
 		return cmd_none;
 	else if (handle_clipboard(e))
+		return cmd_none;
+	else if (handle_ctrl_m(e))
 		return cmd_none;
 	else if ((e->key != KEY_DEL) || (e->shift_state != 0)) 
 		cancel_selection();

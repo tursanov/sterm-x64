@@ -595,37 +595,6 @@ bool pos_req_save_command_finish(struct pos_data_buf *buf)
 	return ret;
 }
 
-static bool termid_empty(void)
-{
-	bool ret = true;
-	for (size_t i = 0; i < sizeof(bd.term_id); i++){
-		if (bd.term_id[i] != '0'){
-			ret = false;
-			break;
-		}
-	}
-	return ret;
-}
-
-static void normalize_termid(void)
-{
-	if (_ad &&
-		_ad->p1 &&
-		_ad->p1->p && _ad->p1->p[0] && _ad->p1->p[1] &&
-		_ad->p1->t && _ad->p1->t[0] &&
-		termid_empty())
-	{
-		size_t p_len = strlen(_ad->p1->p + 1);
-		size_t t_len = strlen(_ad->p1->t);
-
-		if (p_len + t_len == sizeof(bd.term_id)) {
-			memcpy(bd.term_id, _ad->p1->p + 1, p_len);
-			memcpy(bd.term_id + p_len, _ad->p1->t, t_len);
-			recode_str(bd.term_id, sizeof(bd.term_id));
-		}
-	}
-}
-
 /* Запись в поток команд заданного параметра в ответ на запрос ИПТ */
 static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int param,
 		bool required)
@@ -638,7 +607,6 @@ static bool pos_write_resp_param(struct pos_data_buf *buf, const char *name, int
 	bool ret = true;
 	switch (param){
 		case POS_PARAM_TERMID:
-			normalize_termid();
 			memcpy(val, bd.term_id, BANK_TERM_ID_LEN);
 			l = BANK_TERM_ID_LEN;
 			write_hex_byte((uint8_t *)(val + l), cfg.gaddr);

@@ -51,6 +51,8 @@ extern "C" {
 #define SPRN_LOG_PREFIX		"sprn"
 #define XCHG_LOG_PREFIX		"xchg"
 #define LOG_EXT			"txt"
+/* Отладочный файл для ФП */
+#define FA_PERIOD_FILE		_("period.txt")
 
 #define STERM_LOG_LST		_("sterm-logs.txt")
 

@@ -77,51 +77,6 @@ ssize_t get_bank_info(struct bank_info *items, size_t nr_items)
 	return ret;
 }
 
-#if 0
-/* Информация для ИПТ */
-struct bank_info bi;
-struct bank_info bi_pos;
-
-/* Очистка содержимого структуры */
-void clear_bank_info(struct bank_info *p, bool full)
-{
-	if (full){
-		p->id = 0;
-		memset(p->termid, 0x30, sizeof(p->termid));
-/*		memset(&p->dt, 0, sizeof(p->dt));*/
-	}
-	p->amount1 = p->amount2 = 0;
-}
-
-/* Сброс содержимого обеих областей памяти */
-void reset_bank_info(void)
-{
-	clear_bank_info(&bi, false);
-	clear_bank_info(&bi_pos, false);
-}
-
-/* Добавление содержимого первой области ко второй */
-void add_bank_info(void)
-{
-	bi_pos.id = bi.id;
-	memcpy(bi_pos.termid, bi.termid, sizeof(bi.termid));
-/*	memcpy(&bi_pos.dt, &bi.dt, sizeof(bi.dt));*/
-	bi_pos.amount1 += bi.amount1;
-	bi_pos.amount2 += bi.amount2;
-	while (bi_pos.amount2 > 10){
-		bi_pos.amount1++;
-		bi_pos.amount2 -= 10;
-	}
-}
-
-/* Возврат к предыдущему значению */
-void rollback_bank_info(void)
-{
-	memcpy(&bi, &bi_pos, sizeof(bi));
-	clear_bank_info(&bi_pos, false);
-}
-#endif
-
 /* Проверка атрибутов символа (Ар2 V) */
 static bool check_attr(uint8_t bg, uint8_t fg)
 {

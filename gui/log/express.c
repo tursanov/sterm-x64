@@ -171,15 +171,6 @@ static void xlog_fill_scr_bank(struct log_gui_context *ctx)
 	rc = sprintf(scr_data + ctx->scr_data_len, "tm: %s", bd.term_id);
 	ctx->scr_data_len += rc + 1;
 	ctx->scr_data[ctx->scr_data_len++] = 0;
-/* Оставшиеся данные */
-	size_t offs = id_len + 1 + BANK_TERM_ID_LEN + 1;
-	if (offs < xlog_data_len){
-		size_t l = xlog_data_len - offs;
-		memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data + offs, l);
-		ctx->scr_data_len += l;
-		ctx->scr_data[ctx->scr_data_len++] = 0;
-		ctx->scr_data[ctx->scr_data_len++] = 0;
-	}
 #if FANCY_XLRT_BANK
 /* Тип платежа */
 	rc = sprintf(scr_data + ctx->scr_data_len, "tip: %c (%s)", bd.op,
@@ -204,6 +195,16 @@ static void xlog_fill_scr_bank(struct log_gui_context *ctx)
 		rc = sprintf(scr_data + ctx->scr_data_len, "   #%zu: %s (%lu.%lu)",
 			i + 1, di->blank_nr, di->amount / 100, di->amount % 100);
 		ctx->scr_data_len += rc + 1;
+		ctx->scr_data[ctx->scr_data_len++] = 0;
+	}
+#else
+/* Оставшиеся данные */
+	size_t offs = id_len + 1 + BANK_TERM_ID_LEN + 1;
+	if (offs < xlog_data_len){
+		size_t l = xlog_data_len - offs;
+		memcpy(ctx->scr_data + ctx->scr_data_len, xlog_data + offs, l);
+		ctx->scr_data_len += l;
+		ctx->scr_data[ctx->scr_data_len++] = 0;
 		ctx->scr_data[ctx->scr_data_len++] = 0;
 	}
 #endif

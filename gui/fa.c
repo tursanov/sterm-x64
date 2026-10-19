@@ -45,7 +45,7 @@ static bool support_1222_1224_1225;
 
 static bool process_fa_cmd(int cmd);
 
-void fa_cheque();
+//void fa_cheque();
 
 static char cashier_name[64+1] = {0};
 static char cashier_post[64+1] = {0};
@@ -318,13 +318,13 @@ bool init_fa(int arg)
 	} else {
 		fa_menu = NULL;
 		
-		if (arg == cmd_cheque_fa) {
+/*		if (arg == cmd_cheque_fa) {
 		    fa_active = false;
 		    fa_cheque();
 		    fa_active = true;
-		} else {
+		} else {*/
     		process_fa_cmd(arg);
-		}
+//		}
 	}
 
 	return true;
@@ -1590,8 +1590,10 @@ static bool process_fa_cmd(int cmd) {
 
 bool process_fa(const struct kbd_event *e)
 {
-	if (fa_arg != cmd_fa)
+/*	if (fa_arg != cmd_fa){
+		log_dbg("fa_arg = %d.", fa_arg);
 		return false;
+	}*/
 	if (!e->pressed)
 		return true;
 	if (fa_active_group == FAPP_GROUP_MENU) {
