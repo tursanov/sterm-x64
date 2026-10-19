@@ -1501,6 +1501,22 @@ static bool process_fa_sales_cmd(int cmd) {
 	return ret;
 }
 
+static void process_pos_check_last_operation()
+{
+	bool result = pos_check_last_operation();
+	const char *msg = result
+	    ? "ВНИМАНИЕ! Обнаружена незавершенная операция"
+        : "Незавершенных операций не обнаружено";
+	
+	ClearScreen(clBlack);
+    message_box("Уведомление",
+            msg,
+            dlg_yes, 0, al_center);
+	ClearScreen(clBlack);
+	draw_menu(fa_menu);
+}
+
+
 static bool process_fa_cmd(int cmd) {
 	bool ret = true;
 	switch (cmd){
@@ -1547,9 +1563,7 @@ static bool process_fa_cmd(int cmd) {
 			fa_archive();
 			break;
 		case cmd_pos_check_last_operation:
-			pos_check_last_operation();	
-			ClearScreen(clBlack);
-			draw_menu(fa_menu);
+		    process_pos_check_last_operation();
 			break;
 		case cmd_pos_day_open:
 			pos_day_open();
