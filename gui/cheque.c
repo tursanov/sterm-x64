@@ -882,9 +882,13 @@ bool cheque_execute(void) {
 //		kbd_get_event(&e);
 //	} while ((ret = cheque_process(&e)) > 0);
 
+	printf("cart_process start\n");
+	
 	do {
 		kbd_get_event(&e);
 	} while ((ret = cart_process(&e)) > 0);
+	
+	printf("cart_process end. current_c != NULL: %d\n", current_c != NULL);
 
 
 	return current_c != NULL;

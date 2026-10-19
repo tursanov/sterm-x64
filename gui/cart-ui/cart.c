@@ -510,6 +510,8 @@ bool cart_process(const struct kbd_event *_e) {
 	e.ch = kbd_get_char_ex(e.key);
 
 	if (e.pressed) {
+	    printf("cart_process: e.key: %d\n", e.key);
+	
 		switch (e.key) {
 			case KEY_ESCAPE:
 				return 0;

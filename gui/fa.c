@@ -240,8 +240,6 @@ static void redraw_menu(struct menu *mnu)
 	ClearScreen(clBlack);
 	draw_menu(mnu);
 }
-
-
 static bool fa_set_group(int n)
 {
 	if (fa_arg != cmd_fa)
@@ -1242,150 +1240,152 @@ static size_t get_phone(char *src, char *dst) {
 
 void fa_cheque() {
 //	bool changed = false;
-	bool have_unformed_docs = false;
+	//bool have_unformed_docs = false;
 	bool result;
 
 	cheque_init();
+	
+	while ((result = cheque_execute()));
 
-	while ((result = cheque_execute())) {
-		bool has_errors = false;
-		list_item_t *li = _ad->clist.head;
-		have_unformed_docs = false;
-
-		while (li) {
-			C *c = LIST_ITEM(li, C);
-			li = li->next;
-
-//			bool have_u = false;
-			size_t doc_count = 0;
-
-			ffd_tlv_reset();
-
-			ffd_tlv_add_string(1021, cashier_cashier);
-			if (cashier_inn[0])
-				ffd_tlv_add_fixed_string(1203, cashier_inn, 12);
-			ffd_tlv_add_uint8(1054, c->t1054);
-			ffd_tlv_add_uint8(1055, c->t1055);
-			if (c->pe)
-				ffd_tlv_add_string(1008, c->pe);
-			ffd_tlv_add_vln(1031, (uint64_t)c->sum.n);
-			ffd_tlv_add_vln(1081, (uint64_t)c->sum.e);
-			ffd_tlv_add_vln(1215, (uint64_t)c->sum.p);
-			ffd_tlv_add_vln(1216, 0);
-			ffd_tlv_add_vln(1217, (uint64_t)c->sum.b);
-
-			char agent_phone[19+1];
-			char phone[19+1];
-			bool is_same_agent;
-			bool attr = kkt_has_param("COMP1057WO1171");
-			if (C_is_same_inn(c, user_inn, agent_phone, &is_same_agent)) {
-				ffd_tlv_add_uint8(1057, 1 << 6);
-
-				if (!attr || is_same_agent) {
-					get_phone(agent_phone, phone);
-					ffd_tlv_add_string(1171, phone);
-				}
-			}
-
-			if (_ad->t1086 != NULL) {
-				ffd_tlv_stlv_begin(1084, 320);
-				ffd_tlv_add_string(1085, "ТЕРМИНАЛ");
-				ffd_tlv_add_string(1086, _ad->t1086);
-				ffd_tlv_stlv_end();
-			}
-
-			for (list_item_t *i1 = c->klist.head; i1; i1 = i1->next) {
-				K *k = LIST_ITEM(i1, K);
-				if (doc_no_is_not_empty(&k->u)) {
-//					have_u = true;
-					have_unformed_docs = true;
-				} else {
-					for (list_item_t *i2 = k->llist.head; i2; i2 = i2->next) {
-						L *l = LIST_ITEM(i2, L);
-						ffd_tlv_stlv_begin(1059, 1024);
-						ffd_tlv_add_uint8(1214, l->r);
-						char s1030[256];
-						sprintf(s1030, "%s документ \xfc%s", l->s, k->b.s ? k->b.s : "");
-						ffd_tlv_add_string(1030, s1030);
-						ffd_tlv_add_vln(1079, l->t);
-						ffd_tlv_add_fvln(1023, 1, 0);
-						if (l->n > 0)
-							ffd_tlv_add_uint8(1199, l->n);
-						if ((l->n >= 1 && l->n <= 4) || l->n >= 7) {
-							log_dbg("ADD 1198, %lld.", (long long)l->c);
-							ffd_tlv_add_vln(1198, l->c);
-							log_dbg("ADD 1200, %lld.", (long long)l->c);
-							ffd_tlv_add_vln(1200, l->c);
-						}
-						if (l->i == 0) {
-							// если ИНН == 0, но есть l->z, значит перевозчик не российский.
-							if (l->z && l->z[0] != 0) {
-								ffd_tlv_add_fixed_string(1226, "000000000000", 12);
-
-								if (support_1222_1224_1225)
-								{
-								    ffd_tlv_add_uint8(1222, 64);
-							    	ffd_tlv_stlv_begin(1224, 512);
-							        	ffd_tlv_add_string(1225, l->z);
-							      	    if (l->h && strcmp(l->h, agent_phone) != 0) {
-							        	    ffd_tlv_add_string(1171, l->h);
-							        	}
-							   	 	ffd_tlv_stlv_end();
-								}
-
-							}
-						} else if (l->i != user_inn) {
-							char inn[12+1];
-							if (c->p > 9999999999ll)
-								sprintf(inn, "%.12ld", l->i);
-							else
-								sprintf(inn, "%.10ld", l->i);
-							ffd_tlv_add_fixed_string(1226, inn, 12);
-							
-							if (support_1222_1224_1225)
-							{
-							    ffd_tlv_add_uint8(1222, 64);
-							    ffd_tlv_stlv_begin(1224, 512);
-							        ffd_tlv_add_string(1225, l->z);
-							        if (l->h && strcmp(l->h, agent_phone) != 0) {
-							            ffd_tlv_add_string(1171, l->h);
-							        }
-							    ffd_tlv_stlv_end();
-							}
-						}
-						ffd_tlv_stlv_end();
-					}
-					doc_count++;
-				}
-			}
-
-			if (doc_count > 0) {
-				uint8_t* pattern_footer = NULL;
-				size_t pattern_footer_size = 0;
-
-				cheque_begin_op("Идет печать чека...");
-				if (fa_create_doc(CHEQUE, pattern_footer, pattern_footer_size, update_cheque, NULL)) {
-					AD_remove_C(c);
-					cheque_sync_first();
-					cheque_draw();
-//					changed = true;
-				} else {
-					has_errors = true;
-					cheque_draw();
-					break;
-				}
-			}
-		}
-
-		if (!has_errors)
-			break;
-	}
-
-	AD_calc_sum();
-
-	if (result && have_unformed_docs)
-		message_box("Уведомление", "Внимание! Имеются документы, для которых\n"
-				"не завершено переоформление", dlg_yes, 0, al_center);
+//	while ((result = cheque_execute())) {
+//		bool has_errors = false;
+//		list_item_t *li = _ad->clist.head;
+//		have_unformed_docs = false;
+//
+//		while (li) {
+//			C *c = LIST_ITEM(li, C);
+//			li = li->next;
+//
+////			bool have_u = false;
+//			size_t doc_count = 0;
+//
+//			ffd_tlv_reset();
+//
+//			ffd_tlv_add_string(1021, cashier_cashier);
+//			if (cashier_inn[0])
+//				ffd_tlv_add_fixed_string(1203, cashier_inn, 12);
+//			ffd_tlv_add_uint8(1054, c->t1054);
+//			ffd_tlv_add_uint8(1055, c->t1055);
+//			if (c->pe)
+//				ffd_tlv_add_string(1008, c->pe);
+//			ffd_tlv_add_vln(1031, (uint64_t)c->sum.n);
+//			ffd_tlv_add_vln(1081, (uint64_t)c->sum.e);
+//			ffd_tlv_add_vln(1215, (uint64_t)c->sum.p);
+//			ffd_tlv_add_vln(1216, 0);
+//			ffd_tlv_add_vln(1217, (uint64_t)c->sum.b);
+//
+//			char agent_phone[19+1];
+//			char phone[19+1];
+//			bool is_same_agent;
+//			bool attr = kkt_has_param("COMP1057WO1171");
+//			if (C_is_same_inn(c, user_inn, agent_phone, &is_same_agent)) {
+//				ffd_tlv_add_uint8(1057, 1 << 6);
+//
+//				if (!attr || is_same_agent) {
+//					get_phone(agent_phone, phone);
+//					ffd_tlv_add_string(1171, phone);
+//				}
+//			}
+//
+//			if (_ad->t1086 != NULL) {
+//				ffd_tlv_stlv_begin(1084, 320);
+//				ffd_tlv_add_string(1085, "ТЕРМИНАЛ");
+//				ffd_tlv_add_string(1086, _ad->t1086);
+//				ffd_tlv_stlv_end();
+//			}
+//
+//			for (list_item_t *i1 = c->klist.head; i1; i1 = i1->next) {
+//				K *k = LIST_ITEM(i1, K);
+//				if (doc_no_is_not_empty(&k->u)) {
+////					have_u = true;
+//					have_unformed_docs = true;
+//				} else {
+//					for (list_item_t *i2 = k->llist.head; i2; i2 = i2->next) {
+//						L *l = LIST_ITEM(i2, L);
+//						ffd_tlv_stlv_begin(1059, 1024);
+//						ffd_tlv_add_uint8(1214, l->r);
+//						char s1030[256];
+//						sprintf(s1030, "%s документ \xfc%s", l->s, k->b.s ? k->b.s : "");
+//						ffd_tlv_add_string(1030, s1030);
+//						ffd_tlv_add_vln(1079, l->t);
+//						ffd_tlv_add_fvln(1023, 1, 0);
+//						if (l->n > 0)
+//							ffd_tlv_add_uint8(1199, l->n);
+//						if ((l->n >= 1 && l->n <= 4) || l->n >= 7) {
+//							log_dbg("ADD 1198, %lld.", (long long)l->c);
+//							ffd_tlv_add_vln(1198, l->c);
+//							log_dbg("ADD 1200, %lld.", (long long)l->c);
+//							ffd_tlv_add_vln(1200, l->c);
+//						}
+//						if (l->i == 0) {
+//							// если ИНН == 0, но есть l->z, значит перевозчик не российский.
+//							if (l->z && l->z[0] != 0) {
+//								ffd_tlv_add_fixed_string(1226, "000000000000", 12);
+//
+//								if (support_1222_1224_1225)
+//								{
+//								    ffd_tlv_add_uint8(1222, 64);
+//							    	ffd_tlv_stlv_begin(1224, 512);
+//							        	ffd_tlv_add_string(1225, l->z);
+//							      	    if (l->h && strcmp(l->h, agent_phone) != 0) {
+//							        	    ffd_tlv_add_string(1171, l->h);
+//							        	}
+//							   	 	ffd_tlv_stlv_end();
+//								}
+//
+//							}
+//						} else if (l->i != user_inn) {
+//							char inn[12+1];
+//							if (c->p > 9999999999ll)
+//								sprintf(inn, "%.12ld", l->i);
+//							else
+//								sprintf(inn, "%.10ld", l->i);
+//							ffd_tlv_add_fixed_string(1226, inn, 12);
+//							
+//							if (support_1222_1224_1225)
+//							{
+//							    ffd_tlv_add_uint8(1222, 64);
+//							    ffd_tlv_stlv_begin(1224, 512);
+//							        ffd_tlv_add_string(1225, l->z);
+//							        if (l->h && strcmp(l->h, agent_phone) != 0) {
+//							            ffd_tlv_add_string(1171, l->h);
+//							        }
+//							    ffd_tlv_stlv_end();
+//							}
+//						}
+//						ffd_tlv_stlv_end();
+//					}
+//					doc_count++;
+//				}
+//			}
+//
+//			if (doc_count > 0) {
+//				uint8_t* pattern_footer = NULL;
+//				size_t pattern_footer_size = 0;
+//
+//				cheque_begin_op("Идет печать чека...");
+//				if (fa_create_doc(CHEQUE, pattern_footer, pattern_footer_size, update_cheque, NULL)) {
+//					AD_remove_C(c);
+//					cheque_sync_first();
+//					cheque_draw();
+////					changed = true;
+//				} else {
+//					has_errors = true;
+//					cheque_draw();
+//					break;
+//				}
+//			}
+//		}
+//
+//		if (!has_errors)
+//			break;
+//	}
+//
+//	AD_calc_sum();
+//
+//	if (result && have_unformed_docs)
+//		message_box("Уведомление", "Внимание! Имеются документы, для которых\n"
+//				"не завершено переоформление", dlg_yes, 0, al_center);
 
 	fa_set_group(FAPP_GROUP_MENU);
 
@@ -1519,6 +1519,9 @@ static void process_pos_check_last_operation()
 
 static bool process_fa_cmd(int cmd) {
 	bool ret = true;
+
+	printf("process_fa_cmd start: %d\n", cmd);
+
 	switch (cmd){
 		case cmd_reg_fa:
 			fa_registration();
@@ -1581,6 +1584,7 @@ static bool process_fa_cmd(int cmd) {
 			ret = false;
 			break;
 	}
+
 	return ret;
 }
 
