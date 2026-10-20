@@ -928,7 +928,7 @@ struct pos_response *pos_query(const struct pos_query_params *params)
 	ClearScreen(clBlack);
 	show_pos();
 	struct pos_response *ret = &pos_resp;
-	for (bool flag = true; flag && fa_active;){
+	for (bool flag = true; flag;){
 		switch (pos_get_state()){
 			case pos_new:
 				ret = NULL;
