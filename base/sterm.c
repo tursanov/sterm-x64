@@ -865,7 +865,7 @@ void release_garbage(void)
 		pos_active = false;
 	}/*else
 		pos_set_state(pos_new);*/
-	if (fa_active)
+	if (fa_active && !pos_active)
 		release_fa();
 	end_message_box();
 	if (ssaver_active)

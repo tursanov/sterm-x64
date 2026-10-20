@@ -323,7 +323,7 @@ bool init_fa(int arg)
 		fa_menu = NULL;
 		
 		if (arg == cmd_cheque_fa) {
-		    fa_active = false;
+	        fa_active = false;
 		    fa_cheque();
 		    fa_active = true;
 		} else {
@@ -344,6 +344,9 @@ form_t *cheque_corr_form_2 = NULL;
 
 void release_fa(void)
 {
+    log_dbg("fa_release. pos_active = %d, fa_active = %d", pos_active, fa_active);
+    printf("fa_release. pos_active = %d, fa_active = %d\n", pos_active, fa_active);
+    
 	if (reg_form) {
 		form_destroy(reg_form);
 		reg_form = NULL;
@@ -1591,8 +1594,16 @@ static bool process_fa_cmd(int cmd) {
 
 bool process_fa(const struct kbd_event *e)
 {
+	log_dbg("pos_active = %d.", pos_active);
+	printf("pos_active = %d.\n", pos_active);
+    
+    if (pos_active) {
+        return true;
+    }
+
 	if (fa_arg != cmd_fa){
 		log_dbg("fa_arg = %d.", fa_arg);
+    	printf("fa_arg = %d.\n", fa_arg);
 		return false;
 	}
 	if (!e->pressed)
