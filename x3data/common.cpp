@@ -26,8 +26,8 @@ const char *get_x3data_sync_name(uint32_t what)
 		uint32_t what;
 		const char *name;
 	} map[] = {
-		{X3_SYNC_XPRN_GRIDS,	"разметки бланков БПУ"},
-		{X3_SYNC_XPRN_ICONS,	"пиктограмммы БПУ"},
+		{X3_SYNC_SPRN_GRIDS,	"разметки бланков БПУ"},
+		{X3_SYNC_SPRN_ICONS,	"пиктограмммы БПУ"},
 		{X3_SYNC_KKT_GRIDS,	"разметки бланков ККТ"},
 		{X3_SYNC_KKT_ICONS,	"пиктограмммы ККТ"},
 		{X3_SYNC_KKT_PATTERNS,	"шаблоны печати ККТ"},

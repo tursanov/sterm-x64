@@ -1594,8 +1594,8 @@ static bool process_fa_cmd(int cmd) {
 
 bool process_fa(const struct kbd_event *e)
 {
-	log_dbg("pos_active = %d.", pos_active);
-	printf("pos_active = %d.\n", pos_active);
+/*	log_dbg("pos_active = %d.", pos_active);
+	printf("pos_active = %d.\n", pos_active);*/
     
     if (pos_active) {
         return true;

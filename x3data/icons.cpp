@@ -100,10 +100,10 @@ bool IconInfo::parse(const uint8_t *data, size_t len)
 	return ret;
 }
 
-static list<IconInfo> icons_to_create_xprn;
-static list<IconInfo>::const_iterator icons_to_create_xprn_ptr = icons_to_create_xprn.cbegin();
-static list<IconInfo> icons_to_remove_xprn;
-static list<IconInfo> icons_failed_xprn;
+static list<IconInfo> icons_to_create_sprn;
+static list<IconInfo>::const_iterator icons_to_create_sprn_ptr = icons_to_create_sprn.cbegin();
+static list<IconInfo> icons_to_remove_sprn;
+static list<IconInfo> icons_failed_sprn;
 
 static list<IconInfo> icons_to_create_kkt;
 static list<IconInfo>::const_iterator icons_to_create_kkt_ptr = icons_to_create_kkt.cbegin();
@@ -116,10 +116,10 @@ static void clr_icon_lists(list<IconInfo> &icons_to_create, list<IconInfo> &icon
 	icons_to_remove.clear();
 }
 
-static inline void clr_icon_lists_xprn()
+static inline void clr_icon_lists_sprn()
 {
-	clr_icon_lists(icons_to_create_xprn, icons_to_remove_xprn);
-	icons_to_create_xprn_ptr = icons_to_create_xprn.cbegin();
+	clr_icon_lists(icons_to_create_sprn, icons_to_remove_sprn);
+	icons_to_create_sprn_ptr = icons_to_create_sprn.cbegin();
 }
 
 static inline void clr_icon_lists_kkt()
@@ -130,13 +130,13 @@ static inline void clr_icon_lists_kkt()
 
 static inline void clr_icon_lists()
 {
-	clr_icon_lists_xprn();
+	clr_icon_lists_sprn();
 	clr_icon_lists_kkt();
 }
 
-bool need_icons_update_xprn()
+bool need_icons_update_sprn()
 {
-	return !icons_to_create_xprn.empty() || !icons_to_remove_xprn.empty();
+	return !icons_to_create_sprn.empty() || !icons_to_remove_sprn.empty();
 }
 
 bool need_icons_update_kkt()
@@ -188,7 +188,7 @@ static bool find_stored_icons(list<IconInfo> &stored_icons, const char *pattern)
 }
 
 /* Поиск на диске пиктограмм для БПУ */
-static bool find_stored_icons_xprn(list<IconInfo> &stored_icons)
+static bool find_stored_icons_sprn(list<IconInfo> &stored_icons)
 {
 	stored_icons.clear();
 	find_stored_icons(stored_icons, "^Z[0-9]{7}\\.[Bb][Mm][Pp]$");
@@ -239,9 +239,9 @@ static void check_stored_icons(const list<IconInfo> &x3_icons, list<IconInfo> &i
 }
 
 /* Создание списка пиктограмм для БПУ */
-static inline void check_stored_icons_xprn(const list<IconInfo> &x3_icons)
+static inline void check_stored_icons_sprn(const list<IconInfo> &x3_icons)
 {
-	check_stored_icons(x3_icons, icons_to_create_xprn, icons_to_remove_xprn, find_stored_icons_xprn);
+	check_stored_icons(x3_icons, icons_to_create_sprn, icons_to_remove_sprn, find_stored_icons_sprn);
 }
 
 /* Создание списка пиктограмм для ККТ */
@@ -251,11 +251,11 @@ static inline void check_stored_icons_kkt(const list<IconInfo> &x3_icons)
 }
 
 /* Поиск в абзаце ответа идентификаторов пиктограмм для БПУ/ККТ */
-static bool check_x3_icons(const uint8_t *data, size_t len, list<IconInfo> &x3_icons_xprn, list<IconInfo> &x3_icons_kkt)
+static bool check_x3_icons(const uint8_t *data, size_t len, list<IconInfo> &x3_icons_sprn, list<IconInfo> &x3_icons_kkt)
 {
 	if ((data == NULL) || (len == 0))
 		return false;
-	x3_icons_xprn.clear();
+	x3_icons_sprn.clear();
 	x3_icons_kkt.clear();
 	for (size_t i = 0; (data[i] == 0x3c) && ((i + 1) < len); i++){
 		const uint8_t *p = (const uint8_t *)memchr(data + i + 1, 0x3e, len - i - 1);
@@ -264,21 +264,21 @@ static bool check_x3_icons(const uint8_t *data, size_t len, list<IconInfo> &x3_i
 		IconInfo gi;
 		if (gi.parse(data + i, len - 1)){
 			if (gi.prefix() == "Z")
-				x3_icons_xprn.push_back(gi);
+				x3_icons_sprn.push_back(gi);
 			else if (gi.prefix() == "Y")
 				x3_icons_kkt.push_back(gi);
 		}
 		i += p - (data + i);
 	}
-	return !x3_icons_xprn.empty() || !x3_icons_kkt.empty();
+	return !x3_icons_sprn.empty() || !x3_icons_kkt.empty();
 }
 
 bool check_x3_icons(const uint8_t *data, size_t len)
 {
-	list<IconInfo> x3_icons_xprn, x3_icons_kkt;
-	bool ret = check_x3_icons(data, len, x3_icons_xprn, x3_icons_kkt);
+	list<IconInfo> x3_icons_sprn, x3_icons_kkt;
+	bool ret = check_x3_icons(data, len, x3_icons_sprn, x3_icons_kkt);
 	if (ret){
-		check_stored_icons_xprn(x3_icons_xprn);
+		check_stored_icons_sprn(x3_icons_sprn);
 		check_stored_icons_kkt(x3_icons_kkt);
 	}
 	return ret;
@@ -455,14 +455,14 @@ void on_response_icon(void)
 					icon_auto_req_len = req_len;
 					send_icon_auto_request();
 				}
-			}else if (req_type == req_icon_xprn){
-				store_icon(*icons_to_create_xprn_ptr++);
+			}else if (req_type == req_icon_sprn){
+				store_icon(*icons_to_create_sprn_ptr++);
 				icon_buf_idx = 0;
-				if (icons_to_create_xprn_ptr == icons_to_create_xprn.cend()){
-					x3data_sync_ok |= X3_SYNC_XPRN_ICONS;
+				if (icons_to_create_sprn_ptr == icons_to_create_sprn.cend()){
+					x3data_sync_ok |= X3_SYNC_SPRN_ICONS;
 					sync_icons_kkt();
 				}else
-					send_icon_request(*icons_to_create_xprn_ptr);
+					send_icon_request(*icons_to_create_sprn_ptr);
 			}else if (req_type == req_icon_kkt){
 				store_icon(*icons_to_create_kkt_ptr++);
 				icon_buf_idx = 0;
@@ -481,8 +481,8 @@ void on_response_icon(void)
 		non_icon_resp = 2;
 	}
 	if ((err_msg[0] != 0) || (non_icon_resp != 0)){
-		if (req_type == req_icon_xprn)
-			x3data_sync_fail |= X3_SYNC_XPRN_ICONS;
+		if (req_type == req_icon_sprn)
+			x3data_sync_fail |= X3_SYNC_SPRN_ICONS;
 		else if (req_type == req_icon_kkt)
 			x3data_sync_fail |= X3_SYNC_KKT_ICONS;
 	}
@@ -520,13 +520,13 @@ static bool sync_icons(list<IconInfo> &icons_to_create, list<IconInfo> &icons_to
 	return true;
 }
 
-bool sync_icons_xprn()
+bool sync_icons_sprn()
 {
 	bool ret = true;
-	if (need_icons_update_xprn()){
-		req_type = req_icon_xprn;
-		icons_to_create_xprn_ptr = icons_to_create_xprn.cbegin();
-		ret = sync_icons(icons_to_create_xprn, icons_to_remove_xprn, icons_failed_xprn);
+	if (need_icons_update_sprn()){
+		req_type = req_icon_sprn;
+		icons_to_create_sprn_ptr = icons_to_create_sprn.cbegin();
+		ret = sync_icons(icons_to_create_sprn, icons_to_remove_sprn, icons_failed_sprn);
 	}else
 		ret = sync_icons_kkt();
 	return ret;
@@ -546,37 +546,37 @@ bool sync_icons_kkt()
 
 #if 0
 /* Получение списка пиктограмм из БПУ */
-static bool find_xprn_icons(list<IconInfo> &xprn_icons)
+static bool find_sprn_icons(list<IconInfo> &sprn_icons)
 {
 	bool ret = false;
-	xprn_icons.clear();
-	if (xprn->beginGridLst(xprnOpCallback)){
-		xprn_wait.wait();
-		if (xprn->statusOK()){
-			xprn_icons.assign(xprn->icons().cbegin(), xprn->icons().cend());
+	sprn_icons.clear();
+	if (sprn->beginGridLst(sprnOpCallback)){
+		sprn_wait.wait();
+		if (sprn->statusOK()){
+			sprn_icons.assign(sprn->icons().cbegin(), sprn->icons().cend());
 			ret = true;
 		}else
-			log_err("Ошибка получения списка пиктограмм из БПУ: %s.", XPrn::status_str(xprn->status()));
+			log_err("Ошибка получения списка пиктограмм из БПУ: %s.", XPrn::status_str(sprn->status()));
 	}else
 		log_err("Невозможно начать получение списка пиктограмм из БПУ.");
 	return ret;
 }
 
 /* Создание списка пиктограмм БПУ для загрузки и удаления */
-static void check_xprn_icons(const list<IconInfo> &stored_icons, list<IconInfo> &icons_to_load,
+static void check_sprn_icons(const list<IconInfo> &stored_icons, list<IconInfo> &icons_to_load,
 	list<IconInfo> &icons_to_erase)
 {
 	icons_to_load.clear();
 	icons_to_erase.clear();
 /* Создаём список пиктограмм в БПУ */
-	list<IconInfo> xprn_icons;
-	if (!find_xprn_icons(xprn_icons))
+	list<IconInfo> sprn_icons;
+	if (!find_sprn_icons(sprn_icons))
 		return;
 /* Ищем пиктограммы для загрузки */
 	for (const auto &p : stored_icons){
-		auto p1 = find_if(xprn_icons.cbegin(), xprn_icons.cend(),
+		auto p1 = find_if(sprn_icons.cbegin(), sprn_icons.cend(),
 			[p](const IconInfo &gi) {return gi.id() == p.id();});
-		if (p1 == xprn_icons.end())
+		if (p1 == sprn_icons.end())
 			icons_to_load.push_back(p);
 		else if (p.isNewer(*p1)){
 			icons_to_load.push_back(p);
@@ -584,7 +584,7 @@ static void check_xprn_icons(const list<IconInfo> &stored_icons, list<IconInfo> 
 		}
 	}
 /* Ищем пиктограммы для удаления */
-	for (const auto &p : xprn_icons){
+	for (const auto &p : sprn_icons){
 		if (find_if(stored_icons.cbegin(), stored_icons.cend(),
 				[p](const IconInfo &gi) {return gi.id() == p.id();}) == stored_icons.cend())
 			icons_to_erase.push_back(p);
@@ -592,38 +592,38 @@ static void check_xprn_icons(const list<IconInfo> &stored_icons, list<IconInfo> 
 }
 
 /* Запись заданной пиктограммы в БПУ */
-static bool write_icon_to_xprn(const IconInfo &gi)
+static bool write_icon_to_sprn(const IconInfo &gi)
 {
-	if (xprn == NULL)
+	if (sprn == NULL)
 		return false;
 	bool ret = false;
 	static char path[PATH_MAX];
 	snprintf(path, ASIZE(path), "%s\\%s.BMP", icon_folder, gi.name().c_str());
-	if (xprn->beginGridLoad(path, gi.nr(), xprnOpCallback)){
-		xprn_wait.wait();
-		ret = xprn->statusOK();
+	if (sprn->beginGridLoad(path, gi.nr(), sprnOpCallback)){
+		sprn_wait.wait();
+		ret = sprn->statusOK();
 		if (!ret)
-			log_err("Ошибка загрузки пиктограммы %s в БПУ: %s.", path, XPrn::status_str(xprn->status()));
+			log_err("Ошибка загрузки пиктограммы %s в БПУ: %s.", path, XPrn::status_str(sprn->status()));
 	}else
-		log_err("Невозможно начать загрузку пиктограммы %s в БПУ: %s.", path, XPrn::status_str(xprn->status()));
+		log_err("Невозможно начать загрузку пиктограммы %s в БПУ: %s.", path, XPrn::status_str(sprn->status()));
 	return ret;
 }
 
 /* Удаление заданной пиктограммы из БПУ */
-static bool erase_icon_from_xprn(const IconInfo &gi)
+static bool erase_icon_from_sprn(const IconInfo &gi)
 {
-	if (xprn == NULL)
+	if (sprn == NULL)
 		return false;
 	bool ret = false;
-	if (xprn->beginGridErase(gi.nr(), xprnOpCallback)){
-		xprn_wait.wait();
-		ret = xprn->statusOK();
+	if (sprn->beginGridErase(gi.nr(), sprnOpCallback)){
+		sprn_wait.wait();
+		ret = sprn->statusOK();
 		if (!ret)
 			log_err("Ошибка удаления пиктограммы %s из БПУ: %s.", gi.name().c_str(),
-				XPrn::status_str(xprn->status()));
+				XPrn::status_str(sprn->status()));
 	}else
 		log_err("Невозможно начать удаление пиктограммы %s из БПУ: %s.", gi.name().c_str(),
-			XPrn::status_str(xprn->status()));
+			XPrn::status_str(sprn->status()));
 	return ret;
 }
 
@@ -639,8 +639,8 @@ static bool update_icons_vtsv(const list<IconInfo> &icons_to_load, const list<Ic
 		snprintf(txt, ASIZE(txt), "Удаление из БПУ пиктограммы %s (%u из %u)",
 			p.name().c_str(), n++, icons_to_erase.size());
 		init_notify(false, txt);
-		erase_icon_from_xprn(p);
-/*		if (!erase_icon_from_xprn(p)){
+		erase_icon_from_sprn(p);
+/*		if (!erase_icon_from_sprn(p)){
 			ret = false;
 			break;
 		}*/
@@ -653,7 +653,7 @@ static bool update_icons_vtsv(const list<IconInfo> &icons_to_load, const list<Ic
 		snprintf(txt, ASIZE(txt), "Загрузка в БПУ пиктограммы %s (%u из %u)",
 			p.name().c_str(), n++, icons_to_load.size());
 		init_notify(false, txt);
-		if (!write_icon_to_xprn(p))
+		if (!write_icon_to_sprn(p))
 			icons_failed.push_back(p);
 /*		{
 			ret = false;
@@ -662,8 +662,8 @@ static bool update_icons_vtsv(const list<IconInfo> &icons_to_load, const list<Ic
 	}
 /* Проверяем, что пиктограммы успешно загрузились */
 	Sleep(3000);
-	list<IconInfo> xprn_icons;
-	if (!find_xprn_icons(xprn_icons))
+	list<IconInfo> sprn_icons;
+	if (!find_sprn_icons(sprn_icons))
 		return false;
 	bool ok = true;
 	for (const auto &p : icons_to_load){
@@ -671,9 +671,9 @@ static bool update_icons_vtsv(const list<IconInfo> &icons_to_load, const list<Ic
 			[p](const IconInfo &gi) {return gi.id() == p.id();});
 		if (p1 != icons_failed.end())
 			continue;
-		p1 = find_if(xprn_icons.cbegin(), xprn_icons.cend(),
+		p1 = find_if(sprn_icons.cbegin(), sprn_icons.cend(),
 			[p](const IconInfo &gi) {return gi.id() == p.id();});
-		if (p1 == xprn_icons.end()){
+		if (p1 == sprn_icons.end()){
 			icons_failed.push_back(p);
 			ok = false;
 		}else if (p.isNewer(*p1)){
@@ -690,13 +690,13 @@ static bool update_icons_sprn(const list<IconInfo> &stored_icons, list<IconInfo>
 {
 /* Сначала удаляем все пиктограммы из БПУ */
 	init_notify(false, "Удаление пиктограмм из БПУ");
-	if (!xprn->beginGridEraseAll(xprnOpCallback)){
-		log_err("Невозможно начать удаление пиктограмм из БПУ: %s.", XPrn::status_str(xprn->status()));
+	if (!sprn->beginGridEraseAll(sprnOpCallback)){
+		log_err("Невозможно начать удаление пиктограмм из БПУ: %s.", XPrn::status_str(sprn->status()));
 		return false;
 	}
-	xprn_wait.wait();
-	if (!xprn->statusOK()){
-		log_err("Ошибка удаления пиктограмм из БПУ: %s.", XPrn::status_str(xprn->status()));
+	sprn_wait.wait();
+	if (!sprn->statusOK()){
+		log_err("Ошибка удаления пиктограмм из БПУ: %s.", XPrn::status_str(sprn->status()));
 		return false;
 	}
 //	bool ret = true;
@@ -707,7 +707,7 @@ static bool update_icons_sprn(const list<IconInfo> &stored_icons, list<IconInfo>
 		snprintf(txt, ASIZE(txt), "Загрузка в БПУ пиктограммы %s (%u из %u)",
 			p.name().c_str(), n++, stored_icons.size());
 		init_notify(false, txt);
-		if (!write_icon_to_xprn(p))
+		if (!write_icon_to_sprn(p))
 			icons_failed.push_back(p);
 /*		{
 			ret = false;
@@ -718,9 +718,9 @@ static bool update_icons_sprn(const list<IconInfo> &stored_icons, list<IconInfo>
 }
 
 /* Обновление пиктограмм в БПУ */
-bool update_xprn_icons(InitializationNotify_t init_notify)
+bool update_sprn_icons(InitializationNotify_t init_notify)
 {
-	if (xprn == NULL){
+	if (sprn == NULL){
 		log_err("БПУ отсутствует.");
 		return false;
 	}
@@ -728,24 +728,24 @@ bool update_xprn_icons(InitializationNotify_t init_notify)
 	init_notify(false, "Обновление пиктограмм в БПУ");
 	Sleep(100);
 	list<IconInfo> stored_icons, icons_to_load, icons_to_erase;
-	find_stored_icons_xprn(stored_icons);
-	check_xprn_icons(stored_icons, icons_to_load, icons_to_erase);
+	find_stored_icons_sprn(stored_icons);
+	check_sprn_icons(stored_icons, icons_to_load, icons_to_erase);
 	if (!icons_to_load.empty() || !icons_to_erase.empty()){
-		if (xprn->type() == XPrnType::Videoton)
-			ret = update_icons_vtsv(icons_to_load, icons_to_erase, icons_failed_xprn, init_notify); 
-		else if (xprn->type() == XPrnType::Spectrum)
-			ret = update_icons_sprn(stored_icons, icons_failed_xprn, init_notify);
+		if (sprn->type() == XPrnType::Videoton)
+			ret = update_icons_vtsv(icons_to_load, icons_to_erase, icons_failed_sprn, init_notify); 
+		else if (sprn->type() == XPrnType::Spectrum)
+			ret = update_icons_sprn(stored_icons, icons_failed_sprn, init_notify);
 	}else
 		ret = true;
 	if (!ret && !isTermcoreState(TS_INIT)){
 		static char txt[256];
-		uint8_t status = xprn->status();
-		if (xprn->statusOK(status))
+		uint8_t status = sprn->status();
+		if (sprn->statusOK(status))
 			snprintf(txt, ASIZE(txt), "Ошибка обновления пиктограмм в БПУ.");
 		else
 			snprintf(txt, ASIZE(txt), "Ошибка обновления пиктограмм в БПУ: %s.",
-				xprn->status_str(status));
-		termcore_callbacks.callMessageBox("ОБНОВЛЕНИЕ РАЗМЕТОК", txt);
+				sprn->status_str(status));
+		termcore_callbacks.callMessageBox("ОБНОВЛЕНИЕ ПИКТОГРАММ", txt);
 	}
 	return ret;
 }

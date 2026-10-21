@@ -135,10 +135,10 @@ bool GridInfo::parse(const uint8_t *data, size_t len)
 	return ret;
 }
 
-static list<GridInfo> grids_to_create_xprn;
-static list<GridInfo>::const_iterator grids_to_create_xprn_ptr = grids_to_create_xprn.cbegin();
-static list<GridInfo> grids_to_remove_xprn;
-static list<GridInfo> grids_failed_xprn;
+static list<GridInfo> grids_to_create_sprn;
+static list<GridInfo>::const_iterator grids_to_create_sprn_ptr = grids_to_create_sprn.cbegin();
+static list<GridInfo> grids_to_remove_sprn;
+static list<GridInfo> grids_failed_sprn;
 
 static list<GridInfo> grids_to_create_kkt;
 static list<GridInfo>::const_iterator grids_to_create_kkt_ptr = grids_to_create_kkt.cbegin();
@@ -151,10 +151,10 @@ static void clr_grid_lists(list<GridInfo> &grids_to_create, list<GridInfo> &grid
 	grids_to_remove.clear();
 }
 
-static inline void clr_grid_lists_xprn()
+static inline void clr_grid_lists_sprn()
 {
-	clr_grid_lists(grids_to_create_xprn, grids_to_remove_xprn);
-	grids_to_create_xprn_ptr = grids_to_create_xprn.cbegin();
+	clr_grid_lists(grids_to_create_sprn, grids_to_remove_sprn);
+	grids_to_create_sprn_ptr = grids_to_create_sprn.cbegin();
 }
 
 static inline void clr_grid_lists_kkt()
@@ -165,13 +165,13 @@ static inline void clr_grid_lists_kkt()
 
 static inline void clr_grid_lists()
 {
-	clr_grid_lists_xprn();
+	clr_grid_lists_sprn();
 	clr_grid_lists_kkt();
 }
 
-bool need_grids_update_xprn()
+bool need_grids_update_sprn()
 {
-	return !grids_to_create_xprn.empty() || !grids_to_remove_xprn.empty();
+	return !grids_to_create_sprn.empty() || !grids_to_remove_sprn.empty();
 }
 
 bool need_grids_update_kkt()
@@ -223,7 +223,7 @@ static bool find_stored_grids(list<GridInfo> &stored_grids, const char *pattern)
 }
 
 /* Поиск на диске разметок для БПУ */
-static bool find_stored_grids_xprn(list<GridInfo> &stored_grids)
+static bool find_stored_grids_sprn(list<GridInfo> &stored_grids)
 {
 	stored_grids.clear();
 	find_stored_grids(stored_grids, "^HU[1-9].[Bb][Mm][Pp]$");
@@ -275,9 +275,9 @@ static void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &g
 }
 
 /* Создание списка разметок для БПУ */
-static inline void check_stored_grids_xprn(const list<GridInfo> &x3_grids)
+static inline void check_stored_grids_sprn(const list<GridInfo> &x3_grids)
 {
-	check_stored_grids(x3_grids, grids_to_create_xprn, grids_to_remove_xprn, find_stored_grids_xprn);
+	check_stored_grids(x3_grids, grids_to_create_sprn, grids_to_remove_sprn, find_stored_grids_sprn);
 }
 
 /* Создание списка разметок для ККТ */
@@ -287,11 +287,11 @@ static inline void check_stored_grids_kkt(const list<GridInfo> &x3_grids)
 }
 
 /* Поиск в абзаце ответа идентификаторов разметок для БПУ/ККТ */
-static bool check_x3_grids(const uint8_t *data, size_t len, list<GridInfo> &x3_grids_xprn, list<GridInfo> &x3_grids_kkt)
+static bool check_x3_grids(const uint8_t *data, size_t len, list<GridInfo> &x3_grids_sprn, list<GridInfo> &x3_grids_kkt)
 {
 	if ((data == NULL) || (len == 0))
 		return false;
-	x3_grids_xprn.clear();
+	x3_grids_sprn.clear();
 	x3_grids_kkt.clear();
 	for (size_t i = 0; (data[i] == 0x3c) && ((i + 1) < len); i++){
 		const uint8_t *p = (const uint8_t *)memchr(data + i + 1, 0x3e, len - i - 1);
@@ -300,21 +300,21 @@ static bool check_x3_grids(const uint8_t *data, size_t len, list<GridInfo> &x3_g
 		GridInfo gi;
 		if (gi.parse(data + i, len - 1)){
 			if ((gi.prefix() == "HU") || (gi.prefix() == "L"))
-				x3_grids_xprn.push_back(gi);
+				x3_grids_sprn.push_back(gi);
 			else if (gi.prefix() == "M")
 				x3_grids_kkt.push_back(gi);
 		}
 		i += p - (data + i);
 	}
-	return !x3_grids_xprn.empty() || !x3_grids_kkt.empty();
+	return !x3_grids_sprn.empty() || !x3_grids_kkt.empty();
 }
 
 bool check_x3_grids(const uint8_t *data, size_t len)
 {
-	list<GridInfo> x3_grids_xprn, x3_grids_kkt;
-	bool ret = check_x3_grids(data, len, x3_grids_xprn, x3_grids_kkt);
+	list<GridInfo> x3_grids_sprn, x3_grids_kkt;
+	bool ret = check_x3_grids(data, len, x3_grids_sprn, x3_grids_kkt);
 	if (ret){
-		check_stored_grids_xprn(x3_grids_xprn);
+		check_stored_grids_sprn(x3_grids_sprn);
 		check_stored_grids_kkt(x3_grids_kkt);
 	}
 	return ret;
@@ -491,20 +491,20 @@ void on_response_grid(void)
 					grid_auto_req_len = req_len;
 					send_grid_auto_request();
 				}
-			}else if (req_type == req_grid_xprn){
-				store_grid(*grids_to_create_xprn_ptr++);
+			}else if (req_type == req_grid_sprn){
+				store_grid(*grids_to_create_sprn_ptr++);
 				grid_buf_idx = 0;
-				if (grids_to_create_xprn_ptr == grids_to_create_xprn.cend()){
-					x3data_sync_ok |= X3_SYNC_XPRN_GRIDS;
+				if (grids_to_create_sprn_ptr == grids_to_create_sprn.cend()){
+					x3data_sync_ok |= X3_SYNC_SPRN_GRIDS;
 					sync_grids_kkt();
 				}else
-					send_grid_request(*grids_to_create_xprn_ptr);
+					send_grid_request(*grids_to_create_sprn_ptr);
 			}else if (req_type == req_grid_kkt){
 				store_grid(*grids_to_create_kkt_ptr++);
 				grid_buf_idx = 0;
 				if (grids_to_create_kkt_ptr == grids_to_create_kkt.cend()){
 					x3data_sync_ok |= X3_SYNC_KKT_GRIDS;
-					sync_icons_xprn();
+					sync_icons_sprn();
 				}else
 					send_grid_request(*grids_to_create_kkt_ptr);
 			}
@@ -517,8 +517,8 @@ void on_response_grid(void)
 		non_grid_resp = 2;
 	}
 	if ((err_msg[0] != 0) || (non_grid_resp != 0)){
-		if (req_type == req_grid_xprn)
-			x3data_sync_fail |= X3_SYNC_XPRN_GRIDS;
+		if (req_type == req_grid_sprn)
+			x3data_sync_fail |= X3_SYNC_SPRN_GRIDS;
 		else if (req_type == req_grid_kkt)
 			x3data_sync_fail |= X3_SYNC_KKT_GRIDS;
 	}
@@ -556,13 +556,13 @@ static bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to
 	return true;
 }
 
-bool sync_grids_xprn()
+bool sync_grids_sprn()
 {
 	bool ret = true;
-	if (need_grids_update_xprn()){
-		req_type = req_grid_xprn;
-		grids_to_create_xprn_ptr = grids_to_create_xprn.cbegin();
-		ret = sync_grids(grids_to_create_xprn, grids_to_remove_xprn, grids_failed_xprn);
+	if (need_grids_update_sprn()){
+		req_type = req_grid_sprn;
+		grids_to_create_sprn_ptr = grids_to_create_sprn.cbegin();
+		ret = sync_grids(grids_to_create_sprn, grids_to_remove_sprn, grids_failed_sprn);
 	}else
 		ret = sync_grids_kkt();
 	return ret;
@@ -576,43 +576,43 @@ bool sync_grids_kkt()
 		grids_to_create_kkt_ptr = grids_to_create_kkt.cbegin();
 		ret = sync_grids(grids_to_create_kkt, grids_to_remove_kkt, grids_failed_kkt);
 	}else
-		ret = sync_icons_xprn();
+		ret = sync_icons_sprn();
 	return ret;
 }
 
 #if 0
 /* Получение списка разметок из БПУ */
-static bool find_xprn_grids(list<GridInfo> &xprn_grids)
+static bool find_sprn_grids(list<GridInfo> &sprn_grids)
 {
 	bool ret = false;
-	xprn_grids.clear();
-	if (xprn->beginGridLst(xprnOpCallback)){
-		xprn_wait.wait();
-		if (xprn->statusOK()){
-			xprn_grids.assign(xprn->grids().cbegin(), xprn->grids().cend());
+	sprn_grids.clear();
+	if (sprn->beginGridLst(sprnOpCallback)){
+		sprn_wait.wait();
+		if (sprn->statusOK()){
+			sprn_grids.assign(sprn->grids().cbegin(), sprn->grids().cend());
 			ret = true;
 		}else
-			log_err("Ошибка получения списка разметок из БПУ: %s.", XPrn::status_str(xprn->status()));
+			log_err("Ошибка получения списка разметок из БПУ: %s.", XPrn::status_str(sprn->status()));
 	}else
 		log_err("Невозможно начать получение списка разметок из БПУ.");
 	return ret;
 }
 
 /* Создание списка разметок БПУ для загрузки и удаления */
-static void check_xprn_grids(const list<GridInfo> &stored_grids, list<GridInfo> &grids_to_load,
+static void check_sprn_grids(const list<GridInfo> &stored_grids, list<GridInfo> &grids_to_load,
 	list<GridInfo> &grids_to_erase)
 {
 	grids_to_load.clear();
 	grids_to_erase.clear();
 /* Создаём список разметок в БПУ */
-	list<GridInfo> xprn_grids;
-	if (!find_xprn_grids(xprn_grids))
+	list<GridInfo> sprn_grids;
+	if (!find_sprn_grids(sprn_grids))
 		return;
 /* Ищем разметки для загрузки */
 	for (const auto &p : stored_grids){
-		auto p1 = find_if(xprn_grids.cbegin(), xprn_grids.cend(),
+		auto p1 = find_if(sprn_grids.cbegin(), sprn_grids.cend(),
 			[p](const GridInfo &gi) {return gi.id() == p.id();});
-		if (p1 == xprn_grids.end())
+		if (p1 == sprn_grids.end())
 			grids_to_load.push_back(p);
 		else if (p.isNewer(*p1)){
 			grids_to_load.push_back(p);
@@ -620,7 +620,7 @@ static void check_xprn_grids(const list<GridInfo> &stored_grids, list<GridInfo> 
 		}
 	}
 /* Ищем разметки для удаления */
-	for (const auto &p : xprn_grids){
+	for (const auto &p : sprn_grids){
 		if (find_if(stored_grids.cbegin(), stored_grids.cend(),
 				[p](const GridInfo &gi) {return gi.id() == p.id();}) == stored_grids.cend())
 			grids_to_erase.push_back(p);
@@ -628,38 +628,38 @@ static void check_xprn_grids(const list<GridInfo> &stored_grids, list<GridInfo> 
 }
 
 /* Запись заданной разметки в БПУ */
-static bool write_grid_to_xprn(const GridInfo &gi)
+static bool write_grid_to_sprn(const GridInfo &gi)
 {
-	if (xprn == NULL)
+	if (sprn == NULL)
 		return false;
 	bool ret = false;
 	static char path[PATH_MAX];
 	snprintf(path, ASIZE(path), "%s\\%s.BMP", grid_folder, gi.name().c_str());
-	if (xprn->beginGridLoad(path, gi.nr(), xprnOpCallback)){
-		xprn_wait.wait();
-		ret = xprn->statusOK();
+	if (sprn->beginGridLoad(path, gi.nr(), sprnOpCallback)){
+		sprn_wait.wait();
+		ret = sprn->statusOK();
 		if (!ret)
-			log_err("Ошибка загрузки разметки %s в БПУ: %s.", path, XPrn::status_str(xprn->status()));
+			log_err("Ошибка загрузки разметки %s в БПУ: %s.", path, XPrn::status_str(sprn->status()));
 	}else
-		log_err("Невозможно начать загрузку разметки %s в БПУ: %s.", path, XPrn::status_str(xprn->status()));
+		log_err("Невозможно начать загрузку разметки %s в БПУ: %s.", path, XPrn::status_str(sprn->status()));
 	return ret;
 }
 
 /* Удаление заданной разметки из БПУ */
-static bool erase_grid_from_xprn(const GridInfo &gi)
+static bool erase_grid_from_sprn(const GridInfo &gi)
 {
-	if (xprn == NULL)
+	if (sprn == NULL)
 		return false;
 	bool ret = false;
-	if (xprn->beginGridErase(gi.nr(), xprnOpCallback)){
-		xprn_wait.wait();
-		ret = xprn->statusOK();
+	if (sprn->beginGridErase(gi.nr(), sprnOpCallback)){
+		sprn_wait.wait();
+		ret = sprn->statusOK();
 		if (!ret)
 			log_err("Ошибка удаления разметки %s из БПУ: %s.", gi.name().c_str(),
-				XPrn::status_str(xprn->status()));
+				XPrn::status_str(sprn->status()));
 	}else
 		log_err("Невозможно начать удаление разметки %s из БПУ: %s.", gi.name().c_str(),
-			XPrn::status_str(xprn->status()));
+			XPrn::status_str(sprn->status()));
 	return ret;
 }
 
@@ -675,8 +675,8 @@ static bool update_grids_vtsv(const list<GridInfo> &grids_to_load, const list<Gr
 		snprintf(txt, ASIZE(txt), "Удаление из БПУ разметки %s (%u из %u)",
 			p.name().c_str(), n++, grids_to_erase.size());
 		init_notify(false, txt);
-		erase_grid_from_xprn(p);
-/*		if (!erase_grid_from_xprn(p)){
+		erase_grid_from_sprn(p);
+/*		if (!erase_grid_from_sprn(p)){
 			ret = false;
 			break;
 		}*/
@@ -689,7 +689,7 @@ static bool update_grids_vtsv(const list<GridInfo> &grids_to_load, const list<Gr
 		snprintf(txt, ASIZE(txt), "Загрузка в БПУ разметки %s (%u из %u)",
 			p.name().c_str(), n++, grids_to_load.size());
 		init_notify(false, txt);
-		if (!write_grid_to_xprn(p))
+		if (!write_grid_to_sprn(p))
 			grids_failed.push_back(p);
 /*		{
 			ret = false;
@@ -698,8 +698,8 @@ static bool update_grids_vtsv(const list<GridInfo> &grids_to_load, const list<Gr
 	}
 /* Проверяем, что разметки успешно загрузились */
 	Sleep(3000);
-	list<GridInfo> xprn_grids;
-	if (!find_xprn_grids(xprn_grids))
+	list<GridInfo> sprn_grids;
+	if (!find_sprn_grids(sprn_grids))
 		return false;
 	bool ok = true;
 	for (const auto &p : grids_to_load){
@@ -707,8 +707,8 @@ static bool update_grids_vtsv(const list<GridInfo> &grids_to_load, const list<Gr
 			[p](const GridInfo &gi) {return gi.id() == p.id();});
 		if (p1 != grids_failed.end())
 			continue;
-		p1 = find_if(xprn_grids, [p](const GridInfo &gi) {return gi.id() == p.id();});
-		if (p1 == xprn_grids.end()){
+		p1 = find_if(sprn_grids, [p](const GridInfo &gi) {return gi.id() == p.id();});
+		if (p1 == sprn_grids.end()){
 			grids_failed.push_back(p);
 			ok = false;
 		}else if (p.isNewer(*p1)){
@@ -725,13 +725,13 @@ static bool update_grids_sprn(const list<GridInfo> &stored_grids, list<GridInfo>
 {
 /* Сначала удаляем все разметки из БПУ */
 	init_notify(false, "Удаление разметок из БПУ");
-	if (!xprn->beginGridEraseAll(xprnOpCallback)){
-		log_err("Невозможно начать удаление разметок из БПУ: %s.", XPrn::status_str(xprn->status()));
+	if (!sprn->beginGridEraseAll(sprnOpCallback)){
+		log_err("Невозможно начать удаление разметок из БПУ: %s.", XPrn::status_str(sprn->status()));
 		return false;
 	}
-	xprn_wait.wait();
-	if (!xprn->statusOK()){
-		log_err("Ошибка удаления разметок из БПУ: %s.", XPrn::status_str(xprn->status()));
+	sprn_wait.wait();
+	if (!sprn->statusOK()){
+		log_err("Ошибка удаления разметок из БПУ: %s.", XPrn::status_str(sprn->status()));
 		return false;
 	}
 //	bool ret = true;
@@ -742,7 +742,7 @@ static bool update_grids_sprn(const list<GridInfo> &stored_grids, list<GridInfo>
 		snprintf(txt, ASIZE(txt), "Загрузка в БПУ разметки %s (%u из %u)",
 			p.name().c_str(), n++, stored_grids.size());
 		init_notify(false, txt);
-		if (!write_grid_to_xprn(p))
+		if (!write_grid_to_sprn(p))
 			grids_failed.push_back(p);
 /*		{
 			ret = false;
@@ -753,9 +753,9 @@ static bool update_grids_sprn(const list<GridInfo> &stored_grids, list<GridInfo>
 }
 
 /* Обновление разметок в БПУ */
-bool update_xprn_grids(InitializationNotify_t init_notify)
+bool update_sprn_grids(InitializationNotify_t init_notify)
 {
-	if (xprn == NULL){
+	if (sprn == NULL){
 		log_err("БПУ отсутствует.");
 		return false;
 	}
@@ -763,23 +763,23 @@ bool update_xprn_grids(InitializationNotify_t init_notify)
 	init_notify(false, "Обновление разметок в БПУ");
 	Sleep(100);
 	list<GridInfo> stored_grids, grids_to_load, grids_to_erase;
-	find_stored_grids_xprn(stored_grids);
-	check_xprn_grids(stored_grids, grids_to_load, grids_to_erase);
+	find_stored_grids_sprn(stored_grids);
+	check_sprn_grids(stored_grids, grids_to_load, grids_to_erase);
 	if (!grids_to_load.empty() || !grids_to_erase.empty()){
-		if (xprn->type() == XPrnType::Videoton)
-			ret = update_grids_vtsv(grids_to_load, grids_to_erase, grids_failed_xprn, init_notify); 
-		else if (xprn->type() == XPrnType::Spectrum)
-			ret = update_grids_sprn(stored_grids, grids_failed_xprn, init_notify);
+		if (sprn->type() == XPrnType::Videoton)
+			ret = update_grids_vtsv(grids_to_load, grids_to_erase, grids_failed_sprn, init_notify); 
+		else if (sprn->type() == XPrnType::Spectrum)
+			ret = update_grids_sprn(stored_grids, grids_failed_sprn, init_notify);
 	}else
 		ret = true;
 	if (!ret && !isTermcoreState(TS_INIT)){
 		static char txt[256];
-		uint8_t status = xprn->status();
-		if (xprn->statusOK(status))
+		uint8_t status = sprn->status();
+		if (sprn->statusOK(status))
 			snprintf(txt, ASIZE(txt), "Ошибка обновления разметок в БПУ.");
 		else
 			snprintf(txt, ASIZE(txt), "Ошибка обновления разметок в БПУ: %s.",
-				xprn->status_str(status));
+				sprn->status_str(status));
 		termcore_callbacks.callMessageBox("ОБНОВЛЕНИЕ РАЗМЕТОК", txt);
 	}
 	return ret;

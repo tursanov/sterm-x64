@@ -609,14 +609,14 @@ const char *find_term_astate(intptr_t ast, bool *x3_err)
 	}
 	if ((x3_err != NULL) && *x3_err){
 		switch (req_type){
-			case req_grid_xprn:
-				x3data_sync_fail |= X3_SYNC_XPRN_GRIDS;
+			case req_grid_sprn:
+				x3data_sync_fail |= X3_SYNC_SPRN_GRIDS;
 				break;
 			case req_grid_kkt:
 				x3data_sync_fail |= X3_SYNC_KKT_GRIDS;
 				break;
-			case req_icon_xprn:
-				x3data_sync_fail |= X3_SYNC_XPRN_ICONS;
+			case req_icon_sprn:
+				x3data_sync_fail |= X3_SYNC_SPRN_ICONS;
 				break;
 			case req_icon_kkt:
 				x3data_sync_fail |= X3_SYNC_KKT_ICONS;
@@ -3300,7 +3300,7 @@ static int need_pos(void)
 			cfg.kkt_apc){
 		struct AD_state ads;
 		AD_get_state(&ads);
-		if (ads.cashless_cheque_count > 0 && (has_bank_data || ads.order_id > 0)) {
+		if ((ads.cashless_cheque_count > 0) && (has_bank_data || (ads.order_id > 0))) {
 			if (ads.cashless_cheque_count > 1) {
 				message_box(
 					"ВНИМАНИЕ!",
@@ -3320,10 +3320,10 @@ static int need_pos(void)
 				redraw_term(true, main_title);
 				ret = -1;
 			}else{
-				int64_t s = ads.cashless_total_sum;
+/*				int64_t s = ads.cashless_total_sum;
 				if (s < 0)
 					s *= -1;
-/*				bi.amount1 = s / 100;
+				bi.amount1 = s / 100;
 				bi.amount2 = ((s % 100) + 5) / 10;
 				if (ads.order_id > 0)
 					bi.id = ads.order_id;
@@ -3345,17 +3345,17 @@ static bool x3data_sync_dlg(void)
 	int rc = snprintf(msg, sizeof(msg), "Необходимо синхронизировать с \"Экспресс\" следующие данные:\n");
 	if (rc > 0)
 		offs += rc;
-	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_GRIDS)){
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_SPRN_GRIDS)){
 		rc = snprintf(msg + offs, sizeof(msg) - offs, "%s;\n",
-			get_x3data_sync_name(X3_SYNC_XPRN_GRIDS));
+			get_x3data_sync_name(X3_SYNC_SPRN_GRIDS));
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
-	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_ICONS)){
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_SPRN_ICONS)){
 		rc = snprintf(msg + offs, sizeof(msg) - offs, "%s;\n",
-			get_x3data_sync_name(X3_SYNC_XPRN_ICONS));
+			get_x3data_sync_name(X3_SYNC_SPRN_ICONS));
 		if (rc > 0){
 			offs += rc;
 			n++;
@@ -3421,17 +3421,17 @@ void x3data_sync_report_dlg(void)
 	int rc = snprintf(msg, sizeof(msg), "Результаты синхронизации данных с \"Экспресс\":\n");
 	if (rc > 0)
 		offs += rc;
-	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_GRIDS)){
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_SPRN_GRIDS)){
 		rc = snprintf(msg + offs, sizeof(msg) - offs, "%20s : %-20s\n",
-			get_x3data_sync_name(X3_SYNC_XPRN_GRIDS), get_x3data_sync_result(X3_SYNC_XPRN_GRIDS));
+			get_x3data_sync_name(X3_SYNC_SPRN_GRIDS), get_x3data_sync_result(X3_SYNC_SPRN_GRIDS));
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
-	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_ICONS)){
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_SPRN_ICONS)){
 		rc = snprintf(msg + offs, sizeof(msg) - offs, "%20s : %-20s\n",
-			get_x3data_sync_name(X3_SYNC_XPRN_ICONS), get_x3data_sync_result(X3_SYNC_XPRN_ICONS));
+			get_x3data_sync_name(X3_SYNC_SPRN_ICONS), get_x3data_sync_result(X3_SYNC_SPRN_ICONS));
 		if (rc > 0){
 			offs += rc;
 			n++;
@@ -3482,12 +3482,12 @@ static bool begin_x3data_sync(void)
 	bool ret = false;
 	store_orig_scr_text();
 	reset_x3data_flags();
-	if (x3data_to_sync && X3_SYNC_XPRN_GRIDS)
-		ret = sync_grids_xprn();
+	if (x3data_to_sync && X3_SYNC_SPRN_GRIDS)
+		ret = sync_grids_sprn();
 	else if (x3data_to_sync && X3_SYNC_KKT_GRIDS)
 		ret = sync_grids_kkt();
-	else if (x3data_to_sync && X3_SYNC_XPRN_ICONS)
-		ret = sync_icons_xprn();
+	else if (x3data_to_sync && X3_SYNC_SPRN_ICONS)
+		ret = sync_icons_sprn();
 	else if (x3data_to_sync && X3_SYNC_KKT_ICONS)
 		ret = sync_icons_kkt();
 	else if (x3data_to_sync && X3_SYNC_KKT_PATTERNS)
@@ -3536,10 +3536,10 @@ static void on_response(bool *need_sync_dev_data)
 			set_term_state(st_resp);
 			if (req_type == req_pos_cheque)
 				on_response_pos();
-			else if ((req_type == req_grid_xprn) || (req_type == req_grid_kkt)){
+			else if ((req_type == req_grid_sprn) || (req_type == req_grid_kkt)){
 				on_response_grid();
 				set_sync_dev_data(c_state != cs_hasreq);
-			}else if ((req_type == req_icon_xprn) || (req_type == req_icon_kkt)){
+			}else if ((req_type == req_icon_sprn) || (req_type == req_icon_kkt)){
 				on_response_icon();
 				set_sync_dev_data(c_state != cs_hasreq);
 			}else if (req_type == req_patterns){

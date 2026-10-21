@@ -10,13 +10,13 @@ extern "C" {
 #endif
 
 extern bool check_x3_icons(const uint8_t *data, size_t len);
-extern bool need_icons_update_xprn(void);
+extern bool need_icons_update_sprn(void);
 extern bool need_icons_update_kkt(void);
 static inline bool need_icons_update(void)
 {
-	return need_icons_update_xprn() || need_icons_update_kkt();
+	return need_icons_update_sprn() || need_icons_update_kkt();
 }
-extern bool sync_icons_xprn(void);
+extern bool sync_icons_sprn(void);
 extern bool sync_icons_kkt(void);
 extern void on_response_icon(void);
 
