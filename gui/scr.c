@@ -487,21 +487,21 @@ void reset_scr(void)
 /* Запомнить состояние текущего окна ввода */
 static bool sync_input_window(int n)
 {
-	struct input_window *p;
 	if ((n < 0) || (n >= MAX_WINDOWS))
 		return false;
-	p=&inp_buf[n];
-	p->line=line; p->col=col;
-	p->page=page;
-	p->lang=main_lang;
-	p->cur_lang=kbd_lang;
-	p->input_mode=input_mode;
-	p->first_key=scr_first_key;
-	p->hex_input=hex_input;
-	memcpy(p->hex_val,hex_val,sizeof(hex_val));
-	p->hex_ptr=hex_ptr;
-	p->key_input=key_input;
-	p->wait_key=wait_key;
+	struct input_window *p = inp_buf + n;
+	p->line = line;
+	p->col = col;
+	p->page = page;
+	p->lang = main_lang;
+	p->cur_lang = kbd_lang;
+	p->input_mode = input_mode;
+	p->first_key = scr_first_key;
+	p->hex_input = hex_input;
+	memcpy(p->hex_val, hex_val, sizeof(hex_val));
+	p->hex_ptr = hex_ptr;
+	p->key_input = key_input;
+	p->wait_key = wait_key;
 	return true;
 }
 
@@ -537,8 +537,7 @@ static bool set_input_window(int n)
 /* Пересчитать позиции курсора перед изменением разрешения экрана */
 static void adjust_input_cursors(void)
 {
-	int i,w=sg->lines*sg->w,prev_lines,prev_cols;
-	struct input_window *win;
+	int w = sg->lines * sg->w, prev_lines = 0, prev_cols = 0;
 	bool is_req = scr_is_req();
 	if (is_req)
 		sync_input_window(cur_window);
@@ -549,21 +548,21 @@ static void adjust_input_cursors(void)
 		prev_lines = sg32x8.lines;
 		prev_cols = sg32x8.w;
 	}
-	for (i = 0; i < MAX_WINDOWS; i++){
-		int n,k;
-		if ((win = &inp_buf[i]) != NULL){
-			n = win->page*prev_lines*prev_cols + win->line*prev_cols + win->col;
-			if (n >= sizeof(win->buf))
-				n = sizeof(win->buf) - 1;
-			win->page = n / w;
-			k = n % w;
-			win->line = k / sg->w;
-			win->col = k % sg->w;
-			if (is_req && (i == cur_window)){
-				page = win->page;
-				line = win->line;
-				col = win->col;
-			}
+	for (int i = 0; i < MAX_WINDOWS; i++){
+		struct input_window *win = inp_buf + i;
+		if (win == NULL)
+			continue;
+		int n = win->page * prev_lines * prev_cols + win->line * prev_cols + win->col;
+		if (n >= sizeof(win->buf))
+			n = sizeof(win->buf) - 1;
+		win->page = n / w;
+		int k = n % w;
+		win->line = k / sg->w;
+		win->col = k % sg->w;
+		if (is_req && (i == cur_window)){
+			page = win->page;
+			line = win->line;
+			col = win->col;
 		}
 	}
 }
@@ -571,20 +570,19 @@ static void adjust_input_cursors(void)
 /* Установка режима экрана (80x20/32x8) */
 int set_scr_mode(int m, bool need_redraw, bool is_main)
 {
-	int _m=cur_mode;
-	cur_mode=m;
+	int _m = cur_mode;
+	cur_mode = m;
 	if (is_main)
-		main_mode=cur_mode;
+		main_mode = cur_mode;
 	if (m == m80x20)
-		sg=&sg80x20;
+		sg = &sg80x20;
 	else
-		sg=&sg32x8;
+		sg = &sg32x8;
 	if (m != _m){
 		adjust_input_cursors();
 		if (!scr_is_req())
-			line=col=page=0;
+			line = col = page = 0;
 	}
-	
 	if (need_redraw)
 		draw_scr(true, main_title);
 	else

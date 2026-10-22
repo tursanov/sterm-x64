@@ -903,7 +903,7 @@ static bool pos_screen_insert_menu(const char *name, char **items, int count, in
 }
 
 /* Удаление экрана */
-void  pos_screen_destroy(void)
+void pos_screen_destroy(void)
 {
 	if (pos_screen_initialized()){
 		pos_screen_cls();

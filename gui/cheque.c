@@ -553,6 +553,7 @@ int cheque_draw() {
 	return 0;
 }
 
+#if 0
 static void next_focus() {
 	if (active_button == 0)
 		active_button = 1;
@@ -627,6 +628,7 @@ static void prev_focus() {
 	}
 	cheque_draw();
 }
+#endif
 
 static bool check_phone(const char *s) {
 	if (*s++ != '+')
@@ -665,6 +667,7 @@ bool check_phone_or_email(const char *pe, bool allowNone) {
 	return check_email(pe);
 }
 
+#if 0
 static void select_phone_or_email() {
 	C *c = LIST_ITEM(active_item, C);
 	form_t *form = NULL;
@@ -871,6 +874,7 @@ static bool cheque_process(const struct kbd_event *_e) {
 
 	return 1;
 }
+#endif
 
 bool cheque_execute(void) {
 	struct kbd_event e;

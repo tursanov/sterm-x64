@@ -722,48 +722,50 @@ bool set_term_busy(bool busy)
 	return true;
 }
 
-/* Информация о текущем состоянии терминала */
-struct term_info{
+/* Стек состояний терминала */
+static struct term_info{
 	int st;		/* st_* */
 	intptr_t ast;	/* ast_* */
 	int m;
 	bool scr_visible;
 	bool cursor_visible;
 	bool term_busy;
-};
+} tstack[10];
 
-/* Стек состояний терминала */
-static struct term_info	tstack[10];
-static int tstack_ptr;
+static int tstack_ptr = 0;
 
-bool push_term_info(void)
+bool __push_term_info(void)
 {
+	bool ret = true;
 	if (tstack_ptr < ASIZE(tstack)){
-		struct term_info *ti=&tstack[tstack_ptr++];
-		ti->st=_term_state;
-		ti->ast=_term_aux_state;
-		ti->m=cur_mode;
-		ti->scr_visible=scr_visible;
-		ti->cursor_visible=cursor_visible;
-		ti->term_busy=term_busy;
-		return true;
+		struct term_info *ti = tstack + tstack_ptr++;
+		ti->st = _term_state;
+		ti->ast = _term_aux_state;
+		ti->m = cur_mode;
+		ti->scr_visible = scr_visible;
+		ti->cursor_visible = cursor_visible;
+		ti->term_busy = term_busy;
 	}else
-		return false;
+		ret = false;
+	log_dbg("tstack_ptr = %d.", tstack_ptr);
+	return ret;
 }
 
-bool pop_term_info(void)
+bool __pop_term_info(void)
 {
+	bool ret = true;
 	if (tstack_ptr > 0){
-		struct term_info *ti=&tstack[--tstack_ptr];
-		_term_state=ti->st;
-		_term_aux_state=ti->ast;
-		set_scr_mode(ti->m,false,false);
-		scr_visible=ti->scr_visible;
+		const struct term_info *ti = tstack + --tstack_ptr;
+		_term_state = ti->st;
+		_term_aux_state = ti->ast;
+		set_scr_mode(ti->m, false, false);
+		scr_visible = ti->scr_visible;
 		set_cursor_visibility(ti->cursor_visible);
 		set_term_busy(ti->term_busy);
-		return true;
 	}else
-		return false;
+		ret = false;
+	log_dbg("tstack_ptr = %d.", tstack_ptr);
+	return ret;
 }
 
 /* Функции-"обёртки" для рисования КЛ */
@@ -1795,7 +1797,7 @@ static int handle_fa(struct kbd_event *e)
 		online = true;
 		pop_term_info();
 		scr_visible = true;
-		show_cursor();
+//		show_cursor();
 		apc = false;
 		redraw_term(true, main_title);
 	}
@@ -2256,8 +2258,8 @@ void show_pos(void)
 	}else if (!pos_active){
 		pos_active = true;
 		online = false;
-		guess_term_state();
-		set_term_astate(ast_none);
+/*		guess_term_state();
+		set_term_astate(ast_none);*/
 		push_term_info();
 		set_term_busy(true);
 		set_scr_mode(m32x8, true, false);

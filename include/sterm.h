@@ -176,8 +176,18 @@ extern bool	term_delay(int d);
 extern void	show_req(void);
 extern void	reject_req(void);
 extern void	send_request(void);
-extern bool	push_term_info(void);
-extern bool	pop_term_info(void);
+extern bool	__push_term_info(void);
+#define push_term_info()				\
+	do {						\
+		log_dbg("Вызываем push_term_info.");	\
+		__push_term_info();			\
+	} while (false)
+extern bool	__pop_term_info(void);
+#define pop_term_info()					\
+	do {						\
+		log_dbg("Вызываем pop_term_info.");	\
+		__pop_term_info();			\
+	} while (false)
 extern int	get_key_type(void);
 extern void	flush_home(void);
 extern bool	is_escape(uint8_t c);
