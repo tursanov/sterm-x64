@@ -152,7 +152,7 @@ static bool calculate(void)
 				if (operands[1] != 0)
 					operands[0] /= operands[1];
 				else
-					return false;
+					ret = false;
 				break;
 			default:
 				ret = false;
