@@ -1,7 +1,7 @@
 /* Расширенный калькулятор терминала. (c) gsr, А.Попов 2000-2001 */
 
-#if !defined CALC_H
-#define CALC_H
+#if !defined GUI_CALC_H
+#define GUI_CALC_H
 
 #if defined __cplusplus
 extern "C" {
@@ -47,4 +47,4 @@ extern bool	draw_op(void);	/* Вывод операнда на экран */
 }
 #endif
 
-#endif		/* CALC_H */
+#endif		/* GUI_CALC_H */

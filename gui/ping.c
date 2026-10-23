@@ -468,6 +468,7 @@ bool init_ping()
 	make_host_names();
 	if (!create_icmp_sock())
 		return false;
+	online = false;
 	ping_active = true;
 
 	cur_ping_line = 0;

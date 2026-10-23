@@ -1,10 +1,7 @@
-/*
-	sterm calculator
-	(c) gsr 2000
-*/
+/* Расширенный калькулятор терминала. (c) gsr, А.Попов 2000-2001 */
 
-#ifndef ADV_CALC_H
-#define ADV_CALC_H
+#if !defined GUI_ADV_CALC_H
+#define GUI_ADV_CALC_H
 
 #if defined __cplusplus
 extern "C" {
@@ -47,4 +44,4 @@ extern bool	adv_draw_op(void);	/* Вывод операнда на экран */
 }
 #endif
 
-#endif		/* ADV_CALC_H */
+#endif		/* GUI_ADV_CALC_H */

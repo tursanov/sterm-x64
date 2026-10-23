@@ -171,6 +171,7 @@ bool pos_screen_create(int x, int y, int cols, int rows,
 		screen = NULL;
 		return false;
 	}
+	online = false;
 	screen->gc->pFont = font;
 	screen->cols = cols;
 	screen->rows = rows;
@@ -911,6 +912,7 @@ void pos_screen_destroy(void)
 		free(screen);
 		screen = NULL;
 		pos_active = false;
+		pop_term_info();
 	}
 }
 

@@ -1,7 +1,4 @@
-/*
-	sterm calculator
-	(c) gsr 2000
-*/
+/* Калькулятор терминала. (c) gsr, А.Попов 2000-2001 */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,6 +37,7 @@ GCPtr pGC = NULL;
 
 void init_calc(void)
 {
+	online = false;
 	pGC = CreateGC(BEVEL_LEFT, BEVEL_TOP, BEVEL_WIDTH, BEVEL_HEIGHT);
 
 	calc_active=true;

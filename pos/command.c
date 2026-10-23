@@ -10,6 +10,7 @@
 #include "kkt/kkt.h"
 #include "pos/command.h"
 #include "pos/error.h"
+#include "pos/screen.h"
 #include "ds1990a.h"
 #include "genfunc.h"
 #include "numbers.h"

@@ -296,7 +296,7 @@ bool init_fa(int arg)
 {
 	fa_arg = arg;
 	fa_active = true;
-//	push_term_info();
+	online = false;
 	scr_visible = false;
 	set_term_busy(true);
 	set_scr_mode(m80x20, true, false);

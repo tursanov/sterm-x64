@@ -344,6 +344,7 @@ int process_xchange(struct kbd_event *e)
 
 void init_xchg_view(void)
 {
+	online = false;
 	xchg_active = true;
 	set_scr_mode(m80x20, false, false);
 	set_term_state(st_xchange);
@@ -353,7 +354,6 @@ void init_xchg_view(void)
 	scr_show_pgnum(false);
 	scr_show_mode(false);
 	scr_show_language(false);
-/*	scr_visible = false;*/
 	end();
 	draw_scr_bevel();
 	draw_xchange();

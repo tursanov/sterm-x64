@@ -1,7 +1,4 @@
-/*
-	sterm calculator
-	(c) gsr 2000
-*/
+/* Расширенный калькулятор терминала. (c) gsr, А.Попов 2000-2001 */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -469,6 +466,7 @@ bool adv_process_calc_key(int index, struct kbd_event *e)
 
 void adv_init_calc(void)
 {
+	online = false;
 	calc_active=true;
 	set_term_busy(true);
 	set_term_state(st_none);

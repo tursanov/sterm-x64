@@ -2120,17 +2120,10 @@ static int show_sprn_error(int sprn_ret, bool rejectable)
 {
 	int ret;
 	online = false;
-/*	guess_term_state();
-	push_term_info();
-	hide_cursor();
-	scr_visible = false;*/
 	set_term_busy(true);
-/*	ClearScreen(clBlack);*/
 	ret = rejectable ? show_sprn_error_rejectable(sprn_ret) :
 		show_sprn_error_nonrejectable(sprn_ret);
 	online = true;
-/*	pop_term_info();
-	ClearScreen(clBtnFace);*/
 	redraw_term(true, main_title);
 	return ret;
 }
