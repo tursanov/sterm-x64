@@ -5,13 +5,14 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
-#include "kbd.h"
-#include "paths.h"
-#include "sterm.h"
 #include "gui/scr.h"
 #include "gui/options.h"
 #include "gui/adv_calc.h"
 #include "gui/exgdi.h"
+#include "kbd.h"
+#include "paths.h"
+#include "sterm.h"
+#include "termlog.h"
 
 /* Размеры кнопки и отступ м/у кнопками */
 #define BCX	45
@@ -492,13 +493,14 @@ bool adv_process_calc(struct kbd_event *e)
 	static int oldIdx = -1;
 	int index=-1;
 	bool down = (e->pressed || e->repeated);
-	
 	if (e->key == KEY_NONE)
 		return true;
 	
 	if (e->key == KEY_TAB && e->pressed && !e->repeated)
 		return false;
 	
+	if ((e->key == KEY_BREAK) && (e->shift_state & SHIFT_CTRL))	/* Ctrl + NumLock или Break */
+		e->key = KEY_NUMLOCK;
 	if (oldIdx != -1) {
 		cbtns[oldIdx].down = false;
 		RedrawBtn(oldIdx);
@@ -514,8 +516,8 @@ bool adv_process_calc(struct kbd_event *e)
 	case KEY_NUMLOCK:
 		if (e->shift_state & SHIFT_CTRL)
 			index = CB_MC;
-		else	
-			index=CB_CLEAR;
+		else if (e->shift_state == 0)
+			index = CB_CLEAR;
 		break;
 	case KEY_ESCAPE:
 		index = CB_CE;
