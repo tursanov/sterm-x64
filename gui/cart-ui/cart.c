@@ -23,6 +23,9 @@
 #include "kkt/fd/tlv.h"
 #include "kkt/fdo.h"
 
+#define CART_SCROLL_BOTTOM_GAP 10
+#define CART_SCROLL_TOP_GAP 5
+
 int cart_start_y = 0;
 
 bool is_admin_mode() {
@@ -30,6 +33,8 @@ bool is_admin_mode() {
 }
 
 static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl);
+static void ui_cart_process_delete(void);
+static void ui_cart_move_subcart(bool up);
 
 
 static void update_cheque(void *arg __attribute__((unused))) {
@@ -71,17 +76,21 @@ FontPtr cart_sfnt = NULL;
 ui_cart_t *ui_cart = NULL;
 ui_subcart_t *ui_sel_subcart = NULL;
 int ui_sel_subcart_index = -1;
+int cart_scroll_y = 0;
 
 void process_docs();
 bool print_cheque(SubCart *sc, list_t *klist);
-void ui_select_next_subcart(bool select_first);
-void ui_select_prev_subcart(bool select_last);
+void ui_select_next_subcart();
+void ui_select_prev_subcart();
 void get_doc_selection(list_t* sel);
 void ui_cart_select_documents();
 
 
 void ui_cart_create()
 {
+    cart_scroll_y = 0;
+    cart_start_y = pos_incomplete_op ? 35 : 0;
+    
 	pos_incomplete_op = pos_check_last_operation();
 	
 	printf("ui_cart_create: pos_incomplete_op: %d\n", pos_incomplete_op);
@@ -185,59 +194,268 @@ void ui_cart_calc_bounds()
 	}
 }
 
+/*
+ * Общая высота всех подкорзин (без верхнего и нижнего паддинга).
+ */
+static int cart_content_total_height(void)
+{
+	int total = 0;
+	int n = ui_cart->subcart_count;
+	for (int i = 0; i < n; i++)
+		total += ui_cart->subcarts[i].height;
+	if (n > 1)
+		total += (n - 1) * CART_YGAP;
+	return total;
+}
+
+/*
+ * Абсолютная Y-координата верхней границы подкорзины (без учёта скролла).
+ */
+static int ui_subcart_get_abs_y(ui_subcart_t *sc)
+{
+	int y = CART_YGAP + cart_start_y;
+	for (int i = 0; i < ui_cart->subcart_count; i++) {
+		ui_subcart_t *_sc = &ui_cart->subcarts[i];
+		if (_sc == sc)
+			return y;
+		y += _sc->height + CART_YGAP;
+	}
+	return 0;
+}
+
+/*
+ * Абсолютная Y-координата панели кнопок (ACTION / DELETE) подкорзины.
+ * Соответствует y, с которого ui_subcart_draw начинает рисовать кнопки:
+ *   заголовок подкорзины + заголовок таблицы + все документы.
+ */
+static int ui_subcart_get_buttons_abs_y(ui_subcart_t *sc)
+{
+    int y = ui_subcart_get_abs_y(sc);
+    y += CART_YGAP * 4 + cart_fnt->max_height * 2;
+    for (int i = 0; i < sc->doc_count; i++)
+        y += sc->docs[i].height + CART_YGAP_DOC;
+    return y;
+}
+
+static int ui_subcart_get_selected_abs_y(ui_subcart_t *sc)
+{
+    /* Если выделена кнопка (Tab переключил на ACTION / DELETE),
+     * цель ? кнопка, а не документ. */
+    if (sc_action_selected(sc) || sc_delete_selected(sc))
+        return ui_subcart_get_buttons_abs_y(sc);
+
+    int y = ui_subcart_get_abs_y(sc);
+    y += CART_YGAP * 4 + cart_fnt->max_height * 2;
+    if (sc->tab_selected_doc >= 0) {
+        for (int i = 0; i < sc->tab_selected_doc; i++)
+            y += sc->docs[i].height + CART_YGAP_DOC;
+    }
+    return y;
+}
+
+static int ui_subcart_get_selected_height(ui_subcart_t *sc)
+{
+    if (sc_action_selected(sc) || sc_delete_selected(sc))
+        return CART_BUTTON_HEIGHT;
+    if (sc->tab_selected_doc >= 0)
+        return sc->docs[sc->tab_selected_doc].height;
+    return CART_BUTTON_HEIGHT;
+}
+
+/*
+ * Подогнать cart_scroll_y так, чтобы выбранный элемент был полностью виден.
+ *
+ * Логика:
+ *   - если элемент выше вьюпорта ? показываем его верх;
+ *   - если элемент ушёл выше вьюпорта ? сдвигаем содержимое вниз (уменьшаем скролл);
+ *   - если элемент ушёл ниже вьюпорта ? сдвигаем содержимое вверх так,
+ *     чтобы нижняя граница элемента совпала с нижней границей вьюпорта.
+ */
+static void ui_cart_ensure_visible(void)
+{
+    if (ui_sel_subcart == NULL)
+        return;
+
+    ui_subcart_t *sc = ui_sel_subcart;
+    int viewport_top = cart_start_y;
+    int viewport_h = DISCY - cart_start_y;
+    if (viewport_h <= 0)
+        return;
+
+    /*
+     * Случай ?выбрана кнопка? (Tab перевёл фокус на ACTION или DELETE).
+     * Прокручиваем так, чтобы нижняя граница подкорзины (панель кнопок +
+     * её нижний бордер + CART_YGAP*3 отступ) была видна внизу вьюпорта
+     * с зазором CART_SCROLL_BOTTOM_GAP.
+     *
+     * При этом игнорируем положение выделенного документа: пользователь
+     * явно переключил фокус на кнопки и хочет их видеть.
+     */
+    if (sc_action_selected(sc) || sc_delete_selected(sc)) {
+        int subcart_bottom =
+            ui_subcart_get_abs_y(sc) + sc->height;
+        int bottom_scroll =
+            subcart_bottom
+            - (viewport_top + viewport_h - CART_SCROLL_BOTTOM_GAP);
+        if (bottom_scroll < 0)
+            bottom_scroll = 0;
+        cart_scroll_y = bottom_scroll;
+    } else {
+        /* Случай ?выбран документ?. */
+        int abs_y = ui_subcart_get_selected_abs_y(sc);
+        int h_sel = ui_subcart_get_selected_height(sc);
+
+        if (h_sel > viewport_h) {
+            cart_scroll_y = abs_y - viewport_top;
+        } else {
+            int drawn_y = abs_y - cart_scroll_y;
+            if (drawn_y < viewport_top) {
+                cart_scroll_y = abs_y - viewport_top;
+            } else if (drawn_y + h_sel
+                    > viewport_top + viewport_h - CART_SCROLL_BOTTOM_GAP) {
+                cart_scroll_y = abs_y + h_sel
+                              - (viewport_top + viewport_h
+                                 - CART_SCROLL_BOTTOM_GAP);
+            }
+        }
+
+        /* Последний документ ? заодно подтягиваем панель кнопок. */
+        if (sc->tab_selected_doc == (int)sc->doc_count - 1) {
+            int btn_bottom =
+                ui_subcart_get_buttons_abs_y(sc) + CART_BUTTON_HEIGHT;
+            int needed = btn_bottom
+                       - (viewport_top + viewport_h - CART_SCROLL_BOTTOM_GAP);
+            if (cart_scroll_y < needed)
+                cart_scroll_y = needed;
+        }
+
+        /* Первый документ ? верхняя граница подкорзины в кадре.
+         * Только в этом режиме (флаг NONE), чтобы не перебивать
+         * прокрутку до кнопок при Tab. */
+        if (sc->tab_selected_doc == 0) {
+            int subcart_top_scroll =
+                ui_subcart_get_abs_y(sc) - viewport_top - CART_SCROLL_TOP_GAP;
+            if (subcart_top_scroll < 0)
+                subcart_top_scroll = 0;
+            if (cart_scroll_y > subcart_top_scroll)
+                cart_scroll_y = subcart_top_scroll;
+        }
+    }
+
+    if (cart_scroll_y < 0)
+        cart_scroll_y = 0;
+
+    int max_scroll = cart_content_total_height()
+                   + CART_YGAP + CART_SCROLL_BOTTOM_GAP - viewport_h;
+    if (max_scroll < 0)
+        max_scroll = 0;
+    if (cart_scroll_y > max_scroll)
+        cart_scroll_y = max_scroll;
+}
+/*
+ * Прокрутить так, чтобы верхняя граница подкорзины оказалась
+ * у верхнего края вьюпорта (с небольшим отступом).
+ * Используется при переключении между подкорзинами (PgUp/PgDn).
+ *
+ * При короткой подкорзине (влезает в экран) это естественно ставит
+ * кнопки её нижнего ряда близко к нижнему краю видимой области.
+ * При длинной подкорзине ? показывает её сверху (документы видны),
+ * кнопки окажутся ниже вьюпорта; до них можно добраться Tab'ом
+ * (там сработает ui_cart_ensure_visible).
+ */
+static void ui_cart_scroll_to_subcart_top(ui_subcart_t *sc)
+{
+    if (sc == NULL)
+        return;
+
+    int viewport_top = cart_start_y;
+    int viewport_h = DISCY - cart_start_y;
+    if (viewport_h <= 0)
+        return;
+
+    int subcart_abs_y = ui_subcart_get_abs_y(sc);
+    cart_scroll_y = subcart_abs_y - viewport_top - CART_SCROLL_TOP_GAP;
+
+    if (cart_scroll_y < 0)
+        cart_scroll_y = 0;
+
+    int max_scroll = cart_content_total_height()
+                   + CART_YGAP
+                   + CART_SCROLL_BOTTOM_GAP
+                   - viewport_h;
+    if (max_scroll < 0)
+        max_scroll = 0;
+    if (cart_scroll_y > max_scroll)
+        cart_scroll_y = max_scroll;
+}
+
 void ui_cart_redraw_all()
 {
 	ClearGC(cart_screen, clSilver);
-	
+
 	ui_cart_calc_bounds();
-	
-	
+
 	if (pos_incomplete_op)
-	{
-	    cart_start_y = 35;
-	}
+		cart_start_y = 35;
 	else
-	{
-	    cart_start_y = 0;
-	}
-	
-    if (pos_incomplete_op)
-	{
-	    const char *text = "ВНИМАНИЕ! Имеется незавершенная операция в ИПТ";
-	    int x = CART_XGAP * 3;
-	    int y = CART_YGAP;
-	    int w = DISCX - CART_XGAP * 6;
-	    int h = CART_BUTTON_HEIGHT;
-	    
-    	fill_rect(cart_screen, x, y, w, h, 2, RGB(200, 100, 100), RGB(200, 150, 150));
-    	
-		int tw = GetTextWidth(cart_screen, text);
+		cart_start_y = 0;
 
-		x += (w - tw) / 2;
-		y += (h - GetTextHeight(cart_screen))/2;
-		SetTextColor(cart_screen, RGB(100, 50, 50));
-		TextOut(cart_screen, x, y, text);
-    }
-
-	int y = CART_YGAP + cart_start_y;
-	for (int i = 0; i < ui_cart->subcart_count; i++)
-	{
+	/*
+	 * Рисуем подкорзины с учётом скролла.
+	 * Подкорзины, полностью ушедшие над вьюпортом, не рисуем ?
+	 * они всё равно будут затёрты серебром ниже.
+	 * Как только y вышел за нижнюю границу панели ? обрываем цикл.
+	 */
+	int y = CART_YGAP + cart_start_y - cart_scroll_y;
+	for (int i = 0; i < ui_cart->subcart_count; i++) {
 		ui_subcart_t *sc = &ui_cart->subcarts[i];
-		printf("ui_cart_redraw_all: i: %d, y: %d, sc->height: %d\n", i, y, sc->height);
-		ui_subcart_draw(sc, y);
+
+		if (y >= DISCY)
+			break;
+
+		if (y + sc->height > cart_start_y)
+			ui_subcart_draw(sc, y);
+
 		y += sc->height + CART_YGAP;
 	}
-	
-	if (ui_cart->subcart_count == 0)
-	{
-        draw_button(cart_screen,
-            CART_XGAP * 3, y,
-            DISCX - CART_XGAP * 6, CART_BUTTON_HEIGHT,
-            "Нет документов для обработки",
-            true);
+
+	/*
+	 * Затираем всё, что оказалось выше вьюпорта (включая область,
+	 * где потом будет нарисован баннер незавершённой операции).
+	 * Это нужно, потому что GDI не умеет клиппинг, а контент,
+	 * сдвинутый скроллом вверх, может заехать на баннер.
+	 */
+	if (cart_start_y > 0) {
+		fill_rect(cart_screen, 0, 0, DISCX, cart_start_y,
+		          0, clSilver, clSilver);
+	}
+
+	/* Баннер ?есть незавершённая операция? ? рисуем поверх всего */
+	if (pos_incomplete_op) {
+		const char *text = "ВНИМАНИЕ! Имеется незавершенная операция в ИПТ";
+		int bx = CART_XGAP * 3;
+		int by = CART_YGAP;
+		int bw = DISCX - CART_XGAP * 6;
+		int bh = CART_BUTTON_HEIGHT;
+
+		fill_rect(cart_screen, bx, by, bw, bh,
+		          2, RGB(200, 100, 100), RGB(200, 150, 150));
+
+		int tw = GetTextWidth(cart_screen, text);
+		bx += (bw - tw) / 2;
+		by += (bh - GetTextHeight(cart_screen)) / 2;
+		SetTextColor(cart_screen, RGB(100, 50, 50));
+		TextOut(cart_screen, bx, by, text);
+	}
+
+	if (ui_cart->subcart_count == 0) {
+		draw_button(cart_screen,
+		    CART_XGAP * 3, CART_YGAP + cart_start_y,
+		    DISCX - CART_XGAP * 6, CART_BUTTON_HEIGHT,
+		    "Нет документов для обработки",
+		    true);
 	}
 }
-
 void ui_cart_draw(GCPtr s, FontPtr f, FontPtr sf)
 {
 	cart_screen = s;
@@ -269,187 +487,221 @@ int ui_cart_get_y(ui_subcart_t *sc)
 	return 0;
 }
 
-static void ui_cart_tab_select_next()
+static void ui_cart_tab_select_next(void)
 {
     ui_subcart_t *sc = ui_sel_subcart;
-    
     if (sc == NULL)
-    {
         return;
-    }
-    
-    if (sc_action_selected(sc))
-    {
-        if (sc_delete_enabled(sc))
-        {
+
+    bool action_en = sc_action_enabled(sc);
+    bool delete_en = sc_delete_enabled(sc);
+
+    if (sc_action_selected(sc)) {
+        /* ACTION -> DELETE, если активна */
+        if (delete_en) {
             sc->tab_selected_flags = CART_TAB_SELECTED_DELETE;
+        } else if (sc->tab_selected_doc >= 0) {
+            /* иначе возвращаемся на ранее выбранный документ */
+            sc->tab_selected_flags = CART_TAB_SELECTED_NONE;
         }
-        else
-        {
-            ui_select_next_subcart(true);
-            return;
-        }
+        /* если DELETE неактивна и документа нет ? остаёмся на ACTION */
     }
-    else if (sc_delete_selected(sc))
-    {
-        ui_select_next_subcart(true);
-        return;
-    }
-    else if (sc->tab_selected_doc >= 0)
-    {
-        sc->tab_selected_doc++;
-        if (sc->tab_selected_doc >= sc->doc_count)
-        {
-            sc->tab_selected_doc = -1;
-            if (sc_action_enabled(sc))
-            {
-                sc->tab_selected_flags = CART_TAB_SELECTED_ACTION;
-            }
-            else if (sc_delete_enabled(sc))
-            {
-                sc->tab_selected_flags = CART_TAB_SELECTED_DELETE;
-            }
-            else
-            {
-                ui_select_next_subcart(true);
-                return;
-            }
-        }
-    }
-
-    ui_subcart_draw(sc, ui_cart_get_y(sc));
-}
-
-static void ui_cart_tab_select_prev()
-{
-    ui_subcart_t *sc = ui_sel_subcart;
-    
-    if (sc == NULL)
-    {
-        return;
-    }
-    
-    if (sc_action_selected(sc))
-    {
-        sc->tab_selected_doc = sc->doc_count - 1;
-        sc->tab_selected_flags = 0;
-    }
-    else if (sc_delete_selected(sc))
-    {
-        if (sc_action_enabled(sc))
-        {
+    else if (sc_delete_selected(sc)) {
+        /* DELETE -> документ (тот, что был) */
+        if (sc->tab_selected_doc >= 0) {
+            sc->tab_selected_flags = CART_TAB_SELECTED_NONE;
+        } else if (action_en) {
+            /* если документа не было (теоретически) ? на ACTION */
             sc->tab_selected_flags = CART_TAB_SELECTED_ACTION;
         }
-        else
-        {
-            sc->tab_selected_doc = sc->doc_count - 1;
-            sc->tab_selected_flags = 0;
-        }
     }
-    else
-    {
-        sc->tab_selected_doc--;
-        if (sc->tab_selected_doc < 0)
-        {
-            sc->tab_selected_doc = -1;
-            ui_select_prev_subcart(true);
-            return;
+    else if (sc->tab_selected_doc >= 0) {
+        /* документ -> ACTION (или DELETE, если ACTION неактивна) */
+        if (action_en) {
+            sc->tab_selected_flags = CART_TAB_SELECTED_ACTION;
+        } else if (delete_en) {
+            sc->tab_selected_flags = CART_TAB_SELECTED_DELETE;
         }
+        /* если обе неактивны ? остаёмся на документе */
     }
-    
-    ui_subcart_draw(sc, ui_cart_get_y(sc));
+
+    ui_cart_ensure_visible();
+    ui_cart_redraw_all();
 }
 
-void ui_select_next_subcart(bool select_first)
+static void ui_cart_tab_select_prev(void)
+{
+    ui_subcart_t *sc = ui_sel_subcart;
+    if (sc == NULL)
+        return;
+
+    bool action_en = sc_action_enabled(sc);
+    bool delete_en = sc_delete_enabled(sc);
+
+    if (sc_action_selected(sc)) {
+        /* ACTION -> документ */
+        if (sc->tab_selected_doc >= 0) {
+            sc->tab_selected_flags = CART_TAB_SELECTED_NONE;
+        }
+    }
+    else if (sc_delete_selected(sc)) {
+        /* DELETE -> ACTION, иначе -> документ */
+        if (action_en) {
+            sc->tab_selected_flags = CART_TAB_SELECTED_ACTION;
+        } else if (sc->tab_selected_doc >= 0) {
+            sc->tab_selected_flags = CART_TAB_SELECTED_NONE;
+        }
+    }
+    else if (sc->tab_selected_doc >= 0) {
+        /* документ -> DELETE, иначе -> ACTION */
+        if (delete_en) {
+            sc->tab_selected_flags = CART_TAB_SELECTED_DELETE;
+        } else if (action_en) {
+            sc->tab_selected_flags = CART_TAB_SELECTED_ACTION;
+        }
+    }
+
+    ui_cart_ensure_visible();
+    ui_cart_redraw_all();
+}
+
+static void ui_cart_doc_select_next(void)
+{
+    ui_subcart_t *sc = ui_sel_subcart;
+    if (sc == NULL || sc->doc_count == 0)
+        return;
+
+    sc->tab_selected_flags = CART_TAB_SELECTED_NONE;
+    if (sc->tab_selected_doc < 0)
+        sc->tab_selected_doc = 0;
+    else if (sc->tab_selected_doc < (int)sc->doc_count - 1)
+        sc->tab_selected_doc++;
+
+    ui_cart_ensure_visible();
+    ui_cart_redraw_all();
+}
+
+static void ui_cart_doc_select_prev(void)
+{
+    ui_subcart_t *sc = ui_sel_subcart;
+    if (sc == NULL || sc->doc_count == 0)
+        return;
+
+    sc->tab_selected_flags = CART_TAB_SELECTED_NONE;
+    if (sc->tab_selected_doc < 0)
+        sc->tab_selected_doc = 0;
+    else if (sc->tab_selected_doc > 0)
+        sc->tab_selected_doc--;
+
+    ui_cart_ensure_visible();
+    ui_cart_redraw_all();
+}
+
+void ui_select_next_subcart()
 {
     if (ui_cart->subcart_count == 0)
-    {
         return;
+
+    /* Сброс выделения в текущей (уходящей) подкорзине */
+    if (ui_sel_subcart != NULL) {
+        ui_sel_subcart->tab_selected_doc = -1;
+        ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_NONE;
     }
-    
-    ui_subcart_t *sc = ui_sel_subcart;
 
     ui_sel_subcart_index += 1;
-    if (ui_sel_subcart_index >= ui_cart->subcart_count)
+    if (ui_sel_subcart_index >= (int)ui_cart->subcart_count)
         ui_sel_subcart_index = 0;
-        
-    sc->tab_selected_doc = -1;
-    sc->tab_selected_flags = 0;
 
     ui_sel_subcart = &ui_cart->subcarts[ui_sel_subcart_index];
-    
-    if (sc_action_enabled(ui_sel_subcart) && !select_first)
-    {
-        ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_ACTION;
-    }
-    else if (sc_delete_enabled(ui_sel_subcart) && !select_first)
-    {
-        ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_DELETE;
-    }
-    else
-    {
-        ui_sel_subcart->tab_selected_doc = 0;
-    }
-    
+
+    /* Курсор ? на первый документ новой подкорзины */
+    ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_NONE;
+    ui_sel_subcart->tab_selected_doc = 0;
+
+    ui_cart_scroll_to_subcart_top(ui_sel_subcart);
     ui_cart_redraw_all();
-    
-    printf("ui_sel_subcart_index = %d\n", ui_sel_subcart_index);
 }
 
-void ui_select_prev_subcart(bool select_last)
+void ui_select_prev_subcart()
 {
     if (ui_cart->subcart_count == 0)
-    {
         return;
+
+    /* Сброс выделения в текущей (уходящей) подкорзине */
+    if (ui_sel_subcart != NULL) {
+        ui_sel_subcart->tab_selected_doc = -1;
+        ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_NONE;
     }
-    
-    ui_subcart_t *sc = ui_sel_subcart;
 
     ui_sel_subcart_index -= 1;
     if (ui_sel_subcart_index < 0)
-        ui_sel_subcart_index = ui_cart->subcart_count - 1;
-        
-    sc->tab_selected_doc = -1;
-    sc->tab_selected_flags = 0;
+        ui_sel_subcart_index = (int)ui_cart->subcart_count - 1;
 
     ui_sel_subcart = &ui_cart->subcarts[ui_sel_subcart_index];
-    
-    if (select_last)
-    {
-        if (sc_delete_enabled(ui_sel_subcart))
-        {
-            ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_DELETE;
-        }
-        else if (sc_action_enabled(ui_sel_subcart))
-        {
-            ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_ACTION;
-        }
-        else
-        {
-            ui_sel_subcart->tab_selected_doc = ui_sel_subcart->doc_count - 1;
-        }
-    }
-    else
-    {
-        if (sc_action_enabled(ui_sel_subcart))
-        {
-            ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_ACTION;
-        }
-        else if (sc_delete_enabled(ui_sel_subcart))
-        {
-            ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_DELETE;
-        }
-        else
-        {
-            ui_sel_subcart->tab_selected_doc = 0;
-        }
-    }
-    
+
+    /* Курсор ? на первый документ новой подкорзины */
+    ui_sel_subcart->tab_selected_flags = CART_TAB_SELECTED_NONE;
+    ui_sel_subcart->tab_selected_doc = 0;
+
+    ui_cart_scroll_to_subcart_top(ui_sel_subcart);
     ui_cart_redraw_all();
-    
-    printf("ui_sel_subcart_index = %d\n", ui_sel_subcart_index);
 }
 
+/*
+ * Перемещение выделенной подкорзины вверх/вниз в пользовательском порядке.
+ *
+ *   up = true  -> поменять местами с предыдущей подкорзиной
+ *   up = false -> поменять местами со следующей
+ *
+ * Если перемещение невозможно (первая/последняя), ничего не делает.
+ *
+ * Меняет порядок в двух местах:
+ *   - ui_cart->subcarts[] ? то, что видит оператор;
+ *   - cart.ordered[]      ? ?истина? для последующих ui_cart_create().
+ *
+ * ВАЖНО: полная перестройка cart_build() (после удаления/проведения
+ * документов) сбрасывает порядок к дефолтному из cart_order(). Если нужно
+ * сохранять порядок между сессиями ? нужен отдельный persistent-механизм
+ * (см. комментарий в конце функции).
+ */
+static void ui_cart_move_subcart(bool up)
+{
+    if (ui_cart == NULL || ui_sel_subcart == NULL)
+        return;
+    if (ui_cart->subcart_count < 2)
+        return;
+
+    int src = ui_sel_subcart_index;
+    int dst = up ? src - 1 : src + 1;
+    if (dst < 0 || dst >= (int)ui_cart->subcart_count)
+        return;
+
+    /* Swap UI-элементов (полное копирование структуры:
+     * указатель на docs, val, состояние выделения и т.д.) */
+    ui_subcart_t tmp = ui_cart->subcarts[src];
+    ui_cart->subcarts[src] = ui_cart->subcarts[dst];
+    ui_cart->subcarts[dst] = tmp;
+
+    /* Swap в cart.ordered[] ? только если массивы синхронны по длине.
+     * В норме: cart.ordered включает только непустые подкорзины,
+     * и ui_cart->subcarts строится ровно из них же. */
+    if ((int)cart.ordered_count == (int)ui_cart->subcart_count
+        && dst < (int)cart.ordered_count) {
+        SubCart *tmp_o = cart.ordered[src];
+        cart.ordered[src] = cart.ordered[dst];
+        cart.ordered[dst] = tmp_o;
+    }
+
+    /* Наша подкорзина теперь по индексу dst. Указатель ui_sel_subcart
+     * до этого указывал на &ui_cart->subcarts[src] ? тот же адрес,
+     * но содержимое там теперь другое. Перенаправляем. */
+    ui_sel_subcart_index = dst;
+    ui_sel_subcart = &ui_cart->subcarts[dst];
+
+    /* Скроллим к верху подкорзины на новом месте. */
+    ui_cart_scroll_to_subcart_top(ui_sel_subcart);
+    ui_cart_redraw_all();
+}
 
 void ui_cart_process_enter()
 {
@@ -458,22 +710,31 @@ void ui_cart_process_enter()
     {
         return;
     }
-    
+
     printf("ui_cart_process_enter start\n");
-    
-    if (sc->tab_selected_doc >= 0)
-    {
-        ui_doc_t *d = &sc->docs[sc->tab_selected_doc];
-        d->expanded = !d->expanded;
-        
-        ui_cart_redraw_all();
-    }
-    else if (sc->tab_selected_flags == CART_TAB_SELECTED_ACTION)
+
+    /*
+     * Порядок важен: если фокус на кнопке, приоритет у кнопки.
+     * tab_selected_doc при этом может быть >= 0 ? это ?документ,
+     * к которому вернёмся при повторном Tab?, а не цель Enter.
+     */
+    if (sc_action_selected(sc))
     {
         process_docs();
     }
-    else if (sc->tab_selected_flags == CART_TAB_SELECTED_DELETE)
+    else if (sc_delete_selected(sc))
     {
+        ui_cart_process_delete();
+    }
+    else if (sc->tab_selected_doc >= 0)
+    {
+        ui_doc_t *d = &sc->docs[sc->tab_selected_doc];
+        d->expanded = !d->expanded;
+
+        /* Высота документа изменилась ? пересчитать её и перерисовать,
+         * а если раскрытый не помещается ? прокрутить. */
+        ui_cart_ensure_visible();
+        ui_cart_redraw_all();
     }
 
     printf("ui_cart_process_enter end\n");
@@ -512,32 +773,50 @@ bool cart_process(const struct kbd_event *_e) {
 	if (e.pressed) {
 	    printf("cart_process: e.key: %d\n", e.key);
 	
-		switch (e.key) {
-			case KEY_ESCAPE:
-				return 0;
+        switch (e.key) {
+            case KEY_ESCAPE:
+                return 0;
+
+            /* Документы вверх/вниз */
+            case KEY_UP:
+                ui_cart_doc_select_prev();
+                break;
+            case KEY_DOWN:
+                ui_cart_doc_select_next();
+                break;
+
+            /* Tab / Left / Right ? документ ? кнопки */
             case KEY_TAB:
             case KEY_RIGHT:
-            case KEY_DOWN:
                 ui_cart_tab_select_next();
                 break;
             case KEY_LEFT:
-            case KEY_UP:
                 ui_cart_tab_select_prev();
                 break;
+
             case KEY_SPACE:
                 ui_cart_process_space((e.shift_state & SHIFT_CTRL) != 0);
                 break;
             case KEY_ENTER:
                 ui_cart_process_enter();
                 break;
+
+            /* Подкорзины */
             case KEY_PGDN:
-                ui_select_next_subcart(false);
+                if ((e.shift_state & SHIFT_CTRL) != 0)
+                    ui_cart_move_subcart(false);        /* Ctrl+PgDn ? вниз */
+                else
+                    ui_select_next_subcart(false);      /* PgDn ? к след. подкорзине */
                 break;
+
             case KEY_PGUP:
-                ui_select_prev_subcart(false);
-                break;
+                if ((e.shift_state & SHIFT_CTRL) != 0)
+                    ui_cart_move_subcart(true);         /* Ctrl+PgUp ? вверх */
+                else
+                    ui_select_prev_subcart(false);      /* PgUp ? к пред. подкорзине */
+                break;            
         }
-	}
+    }
 
 	return 1;
 }
@@ -926,21 +1205,95 @@ void free_bank_items(bank_items_t *items)
     free(items->ords);
     free(items);
 }
+
 void process_other_items(__attribute__((unused)) selected_docs_t *sd)
 {
     if (message_box("Предупреждение",
             "ВНИМАНИЕ! Вы хотите УДАЛИТЬ выделенные документы БЕЗ проведения операций по ним?",
-            dlg_yes_no, 0, al_center) == DLG_BTN_YES
-        && message_box("Предупреждение",
-            "ВНИМАНИЕ! Вы действительно хотите УДАЛИТЬ выделенные документы БЕЗ проведения операций по ним?",
             dlg_yes_no, 0, al_center) == DLG_BTN_YES)
     {
-        AD_remove_K_list(&sd->klist);
-        
-        cart_build();
-        ui_cart_create();
         ui_cart_redraw_all();
+        if (message_box("Предупреждение",
+            "ВНИМАНИЕ! Вы действительно хотите УДАЛИТЬ выделенные документы БЕЗ проведения операций по ним?",
+            dlg_yes_no, 0, al_center) == DLG_BTN_YES)
+        {
+            AD_remove_K_list(&sd->klist);
+        
+            cart_build();
+            ui_cart_create();
+            ui_cart_redraw_all();
+            return;
+        }
     }
+    ui_cart_redraw_all();
+}
+
+/*
+ * Удаление выделенных документов из текущей подкорзины.
+ *
+ * Требует ДВОЙНОГО подтверждения одним и тем же диалогом ? защита от
+ * случайного нажатия. Удаление выполняется только если пользователь
+ * оба раза ответил ?Да?.
+ */
+static void ui_cart_process_delete(void)
+{
+    ui_subcart_t *sc = ui_sel_subcart;
+    if (sc == NULL)
+        return;
+
+    /* Собираем документы, реально помеченные ?галочками? в этой подкорзине */
+    selected_docs_t sd;
+    memset(&sd, 0, sizeof(sd));
+    get_selected_docs(&sd);
+
+    if (sd.klist.count == 0) {
+        free_selected_docs(&sd);
+        message_box("Предупреждение",
+            "Не выделено ни одного документа для удаления",
+            dlg_yes, 0, al_center);
+        ui_cart_redraw_all();
+        return;
+    }
+
+    /* Не удаляем, если в подкорзине есть документы в процессе
+     * банковской операции / печати / проверки. */
+    if (ui_subcart_items_disabled(sc)) {
+        free_selected_docs(&sd);
+        message_box("Ошибка",
+            "В подкорзине есть документы в процессе обработки.\n"
+            "Дождитесь завершения операций и повторите удаление.",
+            dlg_yes, 0, al_center);
+        ui_cart_redraw_all();
+        return;
+    }
+
+    /* Первое подтверждение */
+    if (message_box("Предупреждение",
+            "ВНИМАНИЕ!\n"
+            "Вы хотите УДАЛИТЬ выделенные документы БЕЗ проведения операций по ним?",
+            dlg_yes_no, 0, al_center) != DLG_BTN_YES) {
+        free_selected_docs(&sd);
+        ui_cart_redraw_all();
+        return;
+    }
+
+    /* Второе подтверждение ? тем же вопросом */
+    if (message_box("Предупреждение",
+            "ВНИМАНИЕ!\n"
+            "Вы хотите УДАЛИТЬ выделенные документы БЕЗ проведения операций по ним?",
+            dlg_yes_no, 0, al_center) != DLG_BTN_YES) {
+        free_selected_docs(&sd);
+        ui_cart_redraw_all();
+        return;
+    }
+
+    /* Удаляем и перестраиваем корзину */
+    AD_remove_K_list(&sd.klist);
+    free_selected_docs(&sd);
+
+    cart_build();
+    ui_cart_create();
+    ui_cart_redraw_all();
 }
 
 void process_non_cash_items(selected_docs_t *sd)

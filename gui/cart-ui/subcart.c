@@ -30,7 +30,7 @@ static const char* sc_tab_title[MAX_SUB_CART][CART_MAX_TAB_COL] =
 
 float cart_tab_fr[CART_MAX_TAB_COL] = { 1, 1, 1.4, 0.6, 1 };
 
-static void cart_set_group_selected(list_t *group, bool value);
+//static void cart_set_group_selected(list_t *group, bool value);
 
 
 static void ui_subcart_set_title(ui_subcart_t* sc)
@@ -81,18 +81,20 @@ void ui_subcart_init(ui_subcart_t *sc, SubCart *val, bool tab_selected)
     
 	if (tab_selected)
 	{
-	    if (sc_action_enabled(sc))
-	    {
-    	    sc->tab_selected_flags = CART_TAB_SELECTED_ACTION;
-        }
-        else if (sc_delete_enabled(sc))
-	    {
-    	    sc->tab_selected_flags = CART_TAB_SELECTED_DELETE;
-        }
-        else
-        {
-            sc->tab_selected_doc = 0;
-        }
+	    sc->tab_selected_flags = CART_TAB_SELECTED_NONE;
+	    sc->tab_selected_doc = 0;
+//	    if (sc_action_enabled(sc))
+//	    {
+//    	    sc->tab_selected_flags = CART_TAB_SELECTED_ACTION;
+//        }
+//        else if (sc_delete_enabled(sc))
+//	    {
+//    	    sc->tab_selected_flags = CART_TAB_SELECTED_DELETE;
+//        }
+//        else
+//        {
+//            sc->tab_selected_doc = 0;
+//        }
 	}
 
 	int i = 0;
