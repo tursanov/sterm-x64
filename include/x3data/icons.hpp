@@ -84,5 +84,5 @@ public:
 	}
 };
 
-extern bool update_xprn_icons(InitializationNotify_t init_notify);
+extern bool update_sprn_icons(InitializationNotify_t init_notify);
 extern bool update_kkt_icons(InitializationNotify_t init_notify);

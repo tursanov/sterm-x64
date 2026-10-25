@@ -66,5 +66,5 @@ public:
 	}
 };
 
-extern bool update_xprn_grids(InitializationNotify_t init_notify);
+extern bool update_sprn_grids(InitializationNotify_t init_notify);
 extern bool update_kkt_grids(InitializationNotify_t init_notify);

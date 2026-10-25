@@ -609,14 +609,14 @@ const char *find_term_astate(intptr_t ast, bool *x3_err)
 	}
 	if ((x3_err != NULL) && *x3_err){
 		switch (req_type){
-			case req_grid_xprn:
-				x3data_sync_fail |= X3_SYNC_XPRN_GRIDS;
+			case req_grid_sprn:
+				x3data_sync_fail |= X3_SYNC_SPRN_GRIDS;
 				break;
 			case req_grid_kkt:
 				x3data_sync_fail |= X3_SYNC_KKT_GRIDS;
 				break;
-			case req_icon_xprn:
-				x3data_sync_fail |= X3_SYNC_XPRN_ICONS;
+			case req_icon_sprn:
+				x3data_sync_fail |= X3_SYNC_SPRN_ICONS;
 				break;
 			case req_icon_kkt:
 				x3data_sync_fail |= X3_SYNC_KKT_ICONS;
@@ -722,48 +722,78 @@ bool set_term_busy(bool busy)
 	return true;
 }
 
-/* Информация о текущем состоянии терминала */
-struct term_info{
-	int st;		/* st_* */
-	intptr_t ast;	/* ast_* */
+/* Стек состояний терминала */
+#define TSTACK_SIZE		10
+static struct term_info{
+	int st;
+	intptr_t ast;
 	int m;
 	bool scr_visible;
 	bool cursor_visible;
 	bool term_busy;
-};
+	bool online;
+} tstack[TSTACK_SIZE];
 
-/* Стек состояний терминала */
-static struct term_info	tstack[10];
-static int tstack_ptr;
+static int tstack_ptr = 0;
 
-bool push_term_info(void)
+bool __push_term_info(void)
 {
+	bool ret = true;
 	if (tstack_ptr < ASIZE(tstack)){
-		struct term_info *ti=&tstack[tstack_ptr++];
-		ti->st=_term_state;
-		ti->ast=_term_aux_state;
-		ti->m=cur_mode;
-		ti->scr_visible=scr_visible;
-		ti->cursor_visible=cursor_visible;
-		ti->term_busy=term_busy;
-		return true;
-	}else
-		return false;
+		struct term_info *ti = tstack + tstack_ptr++;
+		ti->st = _term_state;
+		ti->ast = _term_aux_state;
+		ti->m = cur_mode;
+		ti->scr_visible = scr_visible;
+		ti->cursor_visible = cursor_visible;
+		ti->term_busy = term_busy;
+		ti->online = online;
+		log_dbg("[tstack_ptr = %d]:\n"
+				"\tst             = %s;\n"
+				"\tast            = %s;\n"
+				"\tm              = %d;\n"
+				"\tscr_visible    = %d;\n"
+				"\tcursor_visible = %d;\n"
+				"\tterm_busy      = %d;\n"
+				"\tonline         = %d.",
+			tstack_ptr,
+			find_term_state(ti->st), find_term_astate(ti->ast, NULL),
+			ti->m, ti->scr_visible, ti->cursor_visible, ti->term_busy, ti->online);
+	}else{
+		log_err("Переполнение стека.");
+		ret = false;
+	}
+	return ret;
 }
 
-bool pop_term_info(void)
+bool __pop_term_info(void)
 {
+	bool ret = true;
 	if (tstack_ptr > 0){
-		struct term_info *ti=&tstack[--tstack_ptr];
-		_term_state=ti->st;
-		_term_aux_state=ti->ast;
-		set_scr_mode(ti->m,false,false);
-		scr_visible=ti->scr_visible;
+		const struct term_info *ti = tstack + --tstack_ptr;
+		_term_state = ti->st;
+		_term_aux_state = ti->ast;
+		set_scr_mode(ti->m, false, false);
+		scr_visible = ti->scr_visible;
 		set_cursor_visibility(ti->cursor_visible);
 		set_term_busy(ti->term_busy);
-		return true;
-	}else
-		return false;
+		online = ti->online;
+		log_dbg("[tstack_ptr = %d]:\n"
+				"\tst             = %s;\n"
+				"\tast            = %s;\n"
+				"\tm              = %d;\n"
+				"\tscr_visible    = %d;\n"
+				"\tcursor_visible = %d;\n"
+				"\tterm_busy      = %d;\n"
+				"\tonline         = %d.",
+			tstack_ptr,
+			find_term_state(ti->st), find_term_astate(ti->ast, NULL),
+			ti->m, ti->scr_visible, ti->cursor_visible, ti->term_busy, ti->online);
+	}else{
+		log_err("Стек пуст.");
+		ret = false;
+	}
+	return ret;
 }
 
 /* Функции-"обёртки" для рисования КЛ */
@@ -1549,7 +1579,6 @@ static int handle_menu(struct kbd_event *e)
 		int cm = get_menu_command(mnu);
 		release_menu(mnu,true);
 		mnu = NULL;
-		online = !xlog_active && !plog_active && !klog_active;
 		pop_term_info();
 		ClearScreen(clBtnFace);
 		if (cm == cmd_none){
@@ -1635,7 +1664,6 @@ static int handle_options(struct kbd_event *e)
 		}else
 			cfg.kkt_log_stream = idx_to_kkt_log_stream(cfg.kkt_log_stream);
 		release_options(true);
-		online = true;
 		pop_term_info();
 		s_state = prev_s_state;
 		if (optn_cm == cmd_store_optn){
@@ -1677,7 +1705,6 @@ static int handle_calculator(struct kbd_event *e)
 			release_calc();
 		else
 			adv_release_calc();
-		online = true;
 		pop_term_info();
 		redraw_term(true, main_title);
 	}
@@ -1690,7 +1717,6 @@ static int handle_xlog(struct kbd_event *e)
 	int cm = log_process(xlog_gui_ctx, e);
 	if (cm == cmd_exit){
 		log_release_view(xlog_gui_ctx);
-		online = true;
 		pop_term_info();
 		ClearScreen(clBtnFace);
 		redraw_term(true, main_title);
@@ -1707,7 +1733,6 @@ static int handle_plog(struct kbd_event *e)
 	int cm = log_process(plog_gui_ctx, e);
 	if (cm == cmd_exit){
 		log_release_view(plog_gui_ctx);
-		online = true;
 		pop_term_info();
 		ClearScreen(clBtnFace);
 		redraw_term(true, main_title);
@@ -1723,7 +1748,6 @@ static int handle_klog(struct kbd_event *e)
 	int cm = log_process(klog_gui_ctx, e);
 	if (cm == cmd_exit){
 		log_release_view(klog_gui_ctx);
-		online = true;
 		pop_term_info();
 		ClearScreen(clBtnFace);
 		redraw_term(true, main_title);
@@ -1740,7 +1764,6 @@ static int handle_xchange(struct kbd_event *e)
 	int cm = process_xchange(e);
 	if (cm == cmd_exit){
 		release_xchg_view();
-		online = true;
 		pop_term_info();
 		redraw_term(true, main_title);
 		if ((hbyte < HB_ERROR) && (hbyte > HB_OK)){	/* Обработка ответа */
@@ -1757,7 +1780,6 @@ static int handle_help(struct kbd_event *e)
 {
 	if (!process_help(e)){
 		release_help();
-		online = true;
 		pop_term_info();
 		redraw_term(true, main_title);
 	}
@@ -1769,7 +1791,6 @@ static int handle_ping(struct kbd_event *e)
 {
 	if (!process_ping(e)){
 		release_ping();
-		online = true;
 		pop_term_info();
 		redraw_term(true, main_title);
 	}
@@ -1792,10 +1813,8 @@ static int handle_fa(struct kbd_event *e)
 {
 	if (!process_fa(e)){
 		release_fa();
-		online = true;
 		pop_term_info();
-		scr_visible = true;
-		show_cursor();
+//		scr_visible = true;
 		apc = false;
 		redraw_term(true, main_title);
 	}
@@ -1815,12 +1834,13 @@ static void blank_screen(void)
 /* Проверка возможности гашения экрана */
 static bool check_screen_blank(uint32_t idle)
 {
+	bool ret = false;
 	if ((cfg.blank_time > 0) && !ssaver_active &&
 			(idle > cfg.blank_time * 60) && online){
 		blank_screen();
-		return true;
-	}else
-		return false;
+		ret = true;
+	}
+	return ret;
 }
 
 /* Получение команды терминала */
@@ -2061,7 +2081,6 @@ static void show_keys(void)
 static void show_xchange(void)
 {
 	push_term_info();
-	online = false;
 	init_xchg_view();
 }
 
@@ -2069,7 +2088,6 @@ static void show_xchange(void)
 static void show_help(void)
 {
 	if (!help_active){
-		online = false;
 		guess_term_state();
 		push_term_info();
 		init_help(_("readme"));
@@ -2080,7 +2098,6 @@ static void show_help(void)
 static void show_calculator(void)
 {
 	if (!calc_active){
-		online = false;
 		guess_term_state();
 		push_term_info();
 		if (cfg.simple_calc)
@@ -2094,7 +2111,6 @@ static void show_calculator(void)
 static void show_xlog(void)
 {
 	if (!xlog_active){
-		online = false;
 		guess_term_state();
 		push_term_info();
 		log_init_view(xlog_gui_ctx);
@@ -2134,7 +2150,6 @@ static void show_plog(void)
 		set_term_astate(ast_illegal);
 		err_beep();
 	}else if (!plog_active){
-		online = false;
 		guess_term_state();
 		push_term_info();
 		log_init_view(plog_gui_ctx);
@@ -2170,7 +2185,6 @@ static void show_klog(void)
 		set_term_astate(ast_illegal);
 		err_beep();
 	}else{
-		online = false;
 		guess_term_state();
 		push_term_info();
 		fdo_suspend();
@@ -2208,7 +2222,6 @@ static void show_options(void)
 	if ((kt != key_srv) && (kt != key_dbg))
 		err_beep();
 	else if (!optn_active){
-		online = false;
 		cfg.kkt_log_stream = kkt_log_stream_to_idx(cfg.kkt_log_stream);
 		if (s_state == ss_ready)
 			guess_term_state();
@@ -2225,13 +2238,10 @@ static void show_options(void)
 static void show_ping(void)
 {
 	if (!ping_active){
-		online = false;
 		guess_term_state();
 		push_term_info();
-		if (!init_ping()){
-			online = true;
+		if (!init_ping())
 			pop_term_info();
-		}
 	}
 }
 
@@ -2255,9 +2265,8 @@ void show_pos(void)
 		err_beep();
 	}else if (!pos_active){
 		pos_active = true;
-		online = false;
-		guess_term_state();
-		set_term_astate(ast_none);
+/*		guess_term_state();
+		set_term_astate(ast_none);*/
 		push_term_info();
 		set_term_busy(true);
 		set_scr_mode(m32x8, true, false);
@@ -2271,10 +2280,8 @@ void show_pos(void)
 				bmp_up, bmp_down)){
 			pos_screen_draw();
 			pos_set_state(pos_init);
-		}else{
-			online = true;
+		}else
 			pop_term_info();
-		}
 	}
 }
 
@@ -2288,13 +2295,10 @@ static void show_fa_with_arg(int arg) {
 	if (!cfg.has_kkt || (kkt == NULL))
 		show_no_kkt();
 	else if (!fa_active){
-		online = false;
 		guess_term_state();
 		push_term_info();
-		if (!init_fa(arg)) {
-			online = true;
+		if (!init_fa(arg))
 			pop_term_info();
-		}
 	}
 }
 
@@ -2332,10 +2336,10 @@ static const char *get_kkt_patterns_ver(void)
 /* Вывод на экран информации о терминале */
 static void show_term_info(void)
 {
-	online = false;
 	guess_term_state();
 	set_term_astate(ast_none);
 	push_term_info();
+	online = false;
 	hide_cursor();
 	scr_visible = false;
 	set_term_busy(true);
@@ -2370,7 +2374,6 @@ static void show_term_info(void)
 		"Изготовитель", "Esc");
 	ClearScreen(clBlack);
 	message_box("Информация о терминале", buf, dlg_none, 0, al_left);
-	online = true;
 	pop_term_info();
 	ClearScreen(clBtnFace);
 	redraw_term(true, main_title);
@@ -2563,15 +2566,14 @@ static void show_iplir_version(void)
 	}else
 		log_err("getLogLevel: %x (%s).", rc.code, rc.message);
 	if (ok){
-		online = false;
 		guess_term_state();
 		push_term_info();
+		online = false;
 		hide_cursor();
 		scr_visible = false;
 		set_term_busy(true);
 		ClearScreen(clBlack);
 		message_box("Информация о ПО VipNet", txt, dlg_none, 0, al_left);
-		online = true;
 		pop_term_info();
 		ClearScreen(clBtnFace);
 		redraw_term(true, main_title);
@@ -2880,15 +2882,14 @@ static void show_kkt_info(void)
 		"Поддержка ставок НДС 5% и 7%", kkt_has_param("SUPPORT_VAT_5_7") ? "да" : "нет",
 		"Поддержка ставки НДС 22%", kkt_has_param("SUPPORT_VAT_22") ? "да" : "нет"
 	);
-	online = false;
 	guess_term_state();
 	push_term_info();
+	online = false;
 	hide_cursor();
 	scr_visible = false;
 	set_term_busy(true);
 	ClearScreen(clBlack);
 	message_box("ККТ и ФН", txt, dlg_none, 0, al_left);
-	online = true;
 	pop_term_info();
 	ClearScreen(clBtnFace);
 	redraw_term(true, main_title);
@@ -3072,7 +3073,6 @@ static void do_print_log(struct log_gui_context *ctx,
 			log_release_view(ctx);
 		if (wipe_fn != NULL)
 			wipe_fn();
-		online = true;
 		pop_term_info();
 		ClearScreen(clBtnFace);
 		redraw_term(true, main_title);
@@ -3300,7 +3300,7 @@ static int need_pos(void)
 			cfg.kkt_apc){
 		struct AD_state ads;
 		AD_get_state(&ads);
-		if (ads.cashless_cheque_count > 0 && (has_bank_data || ads.order_id > 0)) {
+		if ((ads.cashless_cheque_count > 0) && (has_bank_data || (ads.order_id > 0))) {
 			if (ads.cashless_cheque_count > 1) {
 				message_box(
 					"ВНИМАНИЕ!",
@@ -3319,17 +3319,10 @@ static int need_pos(void)
 				ClearScreen(clBtnFace);
 				redraw_term(true, main_title);
 				ret = -1;
-			}else{
-				int64_t s = ads.cashless_total_sum;
-				if (s < 0)
-					s *= -1;
-/*				bi.amount1 = s / 100;
-				bi.amount2 = ((s % 100) + 5) / 10;
-				if (ads.order_id > 0)
-					bi.id = ads.order_id;
-				clear_bank_info(&bi_pos, true);*/	/* FIXME */
+			}else if (ads.actual_cheque_count == ads.cashless_cheque_count)
+				ret = -1;
+			else
 				ret = 1;
-			}
 		}
 	}
 	return ret;
@@ -3345,17 +3338,17 @@ static bool x3data_sync_dlg(void)
 	int rc = snprintf(msg, sizeof(msg), "Необходимо синхронизировать с \"Экспресс\" следующие данные:\n");
 	if (rc > 0)
 		offs += rc;
-	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_GRIDS)){
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_SPRN_GRIDS)){
 		rc = snprintf(msg + offs, sizeof(msg) - offs, "%s;\n",
-			get_x3data_sync_name(X3_SYNC_XPRN_GRIDS));
+			get_x3data_sync_name(X3_SYNC_SPRN_GRIDS));
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
-	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_ICONS)){
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_SPRN_ICONS)){
 		rc = snprintf(msg + offs, sizeof(msg) - offs, "%s;\n",
-			get_x3data_sync_name(X3_SYNC_XPRN_ICONS));
+			get_x3data_sync_name(X3_SYNC_SPRN_ICONS));
 		if (rc > 0){
 			offs += rc;
 			n++;
@@ -3421,17 +3414,17 @@ void x3data_sync_report_dlg(void)
 	int rc = snprintf(msg, sizeof(msg), "Результаты синхронизации данных с \"Экспресс\":\n");
 	if (rc > 0)
 		offs += rc;
-	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_GRIDS)){
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_SPRN_GRIDS)){
 		rc = snprintf(msg + offs, sizeof(msg) - offs, "%20s : %-20s\n",
-			get_x3data_sync_name(X3_SYNC_XPRN_GRIDS), get_x3data_sync_result(X3_SYNC_XPRN_GRIDS));
+			get_x3data_sync_name(X3_SYNC_SPRN_GRIDS), get_x3data_sync_result(X3_SYNC_SPRN_GRIDS));
 		if (rc > 0){
 			offs += rc;
 			n++;
 		}
 	}
-	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_XPRN_ICONS)){
+	if ((offs < sizeof(msg)) && (x3data_to_sync & X3_SYNC_SPRN_ICONS)){
 		rc = snprintf(msg + offs, sizeof(msg) - offs, "%20s : %-20s\n",
-			get_x3data_sync_name(X3_SYNC_XPRN_ICONS), get_x3data_sync_result(X3_SYNC_XPRN_ICONS));
+			get_x3data_sync_name(X3_SYNC_SPRN_ICONS), get_x3data_sync_result(X3_SYNC_SPRN_ICONS));
 		if (rc > 0){
 			offs += rc;
 			n++;
@@ -3482,12 +3475,12 @@ static bool begin_x3data_sync(void)
 	bool ret = false;
 	store_orig_scr_text();
 	reset_x3data_flags();
-	if (x3data_to_sync && X3_SYNC_XPRN_GRIDS)
-		ret = sync_grids_xprn();
+	if (x3data_to_sync && X3_SYNC_SPRN_GRIDS)
+		ret = sync_grids_sprn();
 	else if (x3data_to_sync && X3_SYNC_KKT_GRIDS)
 		ret = sync_grids_kkt();
-	else if (x3data_to_sync && X3_SYNC_XPRN_ICONS)
-		ret = sync_icons_xprn();
+	else if (x3data_to_sync && X3_SYNC_SPRN_ICONS)
+		ret = sync_icons_sprn();
 	else if (x3data_to_sync && X3_SYNC_KKT_ICONS)
 		ret = sync_icons_kkt();
 	else if (x3data_to_sync && X3_SYNC_KKT_PATTERNS)
@@ -3536,10 +3529,10 @@ static void on_response(bool *need_sync_dev_data)
 			set_term_state(st_resp);
 			if (req_type == req_pos_cheque)
 				on_response_pos();
-			else if ((req_type == req_grid_xprn) || (req_type == req_grid_kkt)){
+			else if ((req_type == req_grid_sprn) || (req_type == req_grid_kkt)){
 				on_response_grid();
 				set_sync_dev_data(c_state != cs_hasreq);
-			}else if ((req_type == req_icon_xprn) || (req_type == req_icon_kkt)){
+			}else if ((req_type == req_icon_sprn) || (req_type == req_icon_kkt)){
 				on_response_icon();
 				set_sync_dev_data(c_state != cs_hasreq);
 			}else if (req_type == req_patterns){

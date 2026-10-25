@@ -10,13 +10,13 @@ extern "C" {
 #endif
 
 extern bool check_x3_grids(const uint8_t *data, size_t len);
-extern bool need_grids_update_xprn(void);
+extern bool need_grids_update_sprn(void);
 extern bool need_grids_update_kkt(void);
 static inline bool need_grids_update(void)
 {
-	return need_grids_update_xprn() || need_grids_update_kkt();
+	return need_grids_update_sprn() || need_grids_update_kkt();
 }
-extern bool sync_grids_xprn(void);
+extern bool sync_grids_sprn(void);
 extern bool sync_grids_kkt(void);
 extern void on_response_grid(void);
 

@@ -1,11 +1,10 @@
-/* Просмотр обмена с "Экспресс" по TCP/IP. (c) gsr 2004 */
+/* Просмотр обмена с "Экспресс" по TCP/IP. (c) gsr 2004, 2026 */
 
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "prn/express.h"
 #include "genfunc.h"
 #include "kbd.h"
 #include "xchange.h"
@@ -225,54 +224,6 @@ bool draw_xchange(void)
 	return true;
 }
 
-static bool printing;
-
-/* Печать текущего экрана обмена */
-static void print_xchange(void)
-{
-	static char buf[(SCR_LINES + 1) * (SCR_COLS + 2) + 3];
-	char *p;
-	int i, n, m, k, l;
-	sprintf(buf, "ТЕРМИНАЛ \"ЭКСПРЕСС-2А-К\" %.2hX:%.2hX. ОБМЕН С ХОСТ-ЭВМ ПО TCP/IP\n\r",
-			(uint16_t)cfg.gaddr, (uint16_t)cfg.iaddr);
-	p = buf + strlen(buf);
-/* Ищем первую выводимую запись и индекс первой выводимой строки в ней */
-	n = xlog_count_items();
-	for (m = k = 0; k < n; k++){
-		l = count_item_lines(k);
-		if ((m + l) > first_line_index)
-			break;
-		m += l;
-	}
-	if (k == n){	/* запись не найдена, переходим к первой */
-		first_line_index = 0;
-		m = k = 0;
-	}
-	for (; (m < (first_line_index + SCR_LINES)) && (k < n); k++){
-		l = count_item_lines(k);
-		for (i = 0; i < l; i++){
-			if ((m + i) < first_line_index)
-				continue;
-			else if ((m + i) >= (first_line_index + SCR_LINES))
-				break;
-			else if (get_item_line(p, k, i, l, true)){
-				p += strlen(p);
-				*p++ = '\n';
-				*p++ = '\r';
-			}
-		}
-		m += l;
-	}
-	*p++ = '\x1c';
-	*p++ = '\x0b';
-	l = p - buf;
-/* Буфер готов, выводим его на печать */
-	recode_str(buf, l);
-	printing = true;
-	xprn_print((const uint8_t *)buf, l);
-	printing = false;
-}
-
 /* Вызывается при добавлении нового сообщения в журнал */
 void on_new_xchg_item(void)
 {
@@ -286,16 +237,10 @@ int process_xchange(struct kbd_event *e)
 	bool flag = false;
 	if ((e == NULL) || !e->pressed)
 		return cmd_none;
-	else if (!printing && kbd_exact_shift_state(e, SHIFT_CTRL) &&
-			(e->key == KEY_J))
+	else if (kbd_exact_shift_state(e, SHIFT_CTRL) && (e->key == KEY_J))	/* выход по Ctrl+О */
 		return cmd_exit;
 	else if (e->shift_state & (SHIFT_SHIFT | SHIFT_ALT | SHIFT_CTRL))
 		return cmd_none;
-	else if (printing){
-		if (!e->repeated)
-			err_beep();
-		return cmd_none;
-	}
 	switch (e->key){
 		case KEY_UP:
 		case KEY_NUMUP:
@@ -321,17 +266,10 @@ int process_xchange(struct kbd_event *e)
 		case KEY_NUMEND:
 			flag = end();
 			break;
-		case KEY_F2:
-			if (cfg.has_xprn)
-				print_xchange();
-			else{
-				set_term_astate(ast_noxprn);
-				err_beep();
-			}
-			break;
 		case KEY_ENTER:
 			return cmd_enter;
 		case KEY_ESCAPE:
+		case KEY_F10:
 			return cmd_exit;
 	}
 	if (flag){
@@ -344,6 +282,7 @@ int process_xchange(struct kbd_event *e)
 
 void init_xchg_view(void)
 {
+	online = false;
 	xchg_active = true;
 	set_scr_mode(m80x20, false, false);
 	set_term_state(st_xchange);
@@ -353,7 +292,6 @@ void init_xchg_view(void)
 	scr_show_pgnum(false);
 	scr_show_mode(false);
 	scr_show_language(false);
-/*	scr_visible = false;*/
 	end();
 	draw_scr_bevel();
 	draw_xchange();

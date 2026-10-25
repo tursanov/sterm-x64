@@ -2032,11 +2032,11 @@ static void preexecute_resp(void)
 					RedrawScr(false, get_main_title());
 					log_dbg("use_integrator = %d.", use_integrator);
 					check_x3_grids(text_buf, l);
-					log_dbg("need_grids_update_xprn = %d; need_grids_update_kkt = %d.",
-						need_grids_update_xprn(), need_grids_update_kkt());
+					log_dbg("need_grids_update_sprn = %d; need_grids_update_kkt = %d.",
+						need_grids_update_sprn(), need_grids_update_kkt());
 					check_x3_icons(text_buf, l);
-					log_dbg("need_icons_update_xprn = %d; need_icons_update_kkt = %d.",
-						need_icons_update_xprn(), need_icons_update_kkt());
+					log_dbg("need_icons_update_sprn = %d; need_icons_update_kkt = %d.",
+						need_icons_update_sprn(), need_icons_update_kkt());
 					check_x3_kkt_patterns(text_buf, l);
 					log_dbg("need_patterns_update = %d.", need_patterns_update());
 					check_x3_xslt(text_buf, l);
@@ -2120,17 +2120,10 @@ static int show_sprn_error(int sprn_ret, bool rejectable)
 {
 	int ret;
 	online = false;
-/*	guess_term_state();
-	push_term_info();
-	hide_cursor();
-	scr_visible = false;*/
 	set_term_busy(true);
-/*	ClearScreen(clBlack);*/
 	ret = rejectable ? show_sprn_error_rejectable(sprn_ret) :
 		show_sprn_error_nonrejectable(sprn_ret);
 	online = true;
-/*	pop_term_info();
-	ClearScreen(clBtnFace);*/
 	redraw_term(true, main_title);
 	return ret;
 }
@@ -2389,12 +2382,12 @@ bool find_pos_data(int *nr)
 uint32_t need_x3_sync(void)
 {
 	uint32_t ret = X3_SYNC_NONE;
-	if (need_grids_update_xprn())
-		ret |= X3_SYNC_XPRN_GRIDS;
+	if (need_grids_update_sprn())
+		ret |= X3_SYNC_SPRN_GRIDS;
 	if (need_grids_update_kkt())
 		ret |= X3_SYNC_KKT_GRIDS;
-	if (need_icons_update_xprn())
-		ret |= X3_SYNC_XPRN_ICONS;
+	if (need_icons_update_sprn())
+		ret |= X3_SYNC_SPRN_ICONS;
 	if (need_icons_update_kkt())
 		ret |= X3_SYNC_KKT_ICONS;
 	if (need_patterns_update())

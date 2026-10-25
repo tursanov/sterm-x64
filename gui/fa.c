@@ -296,11 +296,11 @@ bool init_fa(int arg)
 {
 	fa_arg = arg;
 	fa_active = true;
-	hide_cursor();
+	online = false;
 	scr_visible = false;
-	scr_visible = false;
-	set_scr_mode(m80x20, true, false);
 	set_term_busy(true);
+	set_scr_mode(m80x20, true, false);
+	hide_cursor();
 
 	fdo_suspend();
 	fa_check_fn();
@@ -386,8 +386,8 @@ void release_fa(void)
 		release_menu(fa_sales_menu,false);
 		fa_sales_menu = NULL;
 	}
-	online = true;
-	pop_term_info();
+//	online = true;
+//	pop_term_info();
 	ClearScreen(clBtnFace);
 	fa_active = false;
 }
@@ -680,10 +680,12 @@ static void update_form(void *form) {
 		form_draw((form_t *)form);
 }
 
+#if 0
 static void update_cheque(void *arg __attribute__((unused))) {
 	kbd_flush_queue();
 	cheque_draw();
 }
+#endif
 
 static void fa_set_cashier_info(form_t * form) {
 	if (form != NULL) {
@@ -1217,6 +1219,7 @@ void fa_cheque_corr() {
 	fa_set_group(FAPP_GROUP_MENU);
 }
 
+#if 0
 static size_t get_phone(char *src, char *dst) {
 	if (src == NULL)
 		return 0;
@@ -1240,6 +1243,7 @@ static size_t get_phone(char *src, char *dst) {
 
 	return len;
 }
+#endif
 
 void fa_cheque() {
 //	bool changed = false;
@@ -1594,8 +1598,8 @@ static bool process_fa_cmd(int cmd) {
 
 bool process_fa(const struct kbd_event *e)
 {
-	log_dbg("pos_active = %d.", pos_active);
-	printf("pos_active = %d.\n", pos_active);
+/*	log_dbg("pos_active = %d.", pos_active);
+	printf("pos_active = %d.\n", pos_active);*/
     
     if (pos_active) {
         return true;

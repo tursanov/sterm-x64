@@ -1198,7 +1198,7 @@ static void set_optn_line_geom(void)
 
 void init_options(void)
 {
-	int i;
+	online = false;
 	optn_active = true;
 	set_term_busy(true);
 	scr_visible = false;
@@ -1210,7 +1210,7 @@ void init_options(void)
 	optn_mem_gc = CreateMemGC(GetCX(optn_gc), GetCY(optn_gc));
 	optn_fnt = CreateFont(_("fonts/terminal10x18.fnt"), false);
 	set_optn_line_geom();
-	for (i = 0; i < ASIZE(optn_groups); i++)
+	for (int i = 0; i < ASIZE(optn_groups); i++)
 		optn_read_group(&cfg, i);
 	optn_set_group(OPTN_GROUP_MENU);
 	sprn_params_read = false;

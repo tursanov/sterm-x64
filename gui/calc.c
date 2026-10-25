@@ -1,146 +1,142 @@
-/*
-	sterm calculator
-	(c) gsr 2000
-*/
+/* Калькулятор терминала. (c) gsr, А.Попов 2000-2001, 2026 */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
-#include "kbd.h"
-#include "sterm.h"
-#include "gui/scr.h"
-#include "gui/options.h"
 #include "gui/calc.h"
 #include "gui/exgdi.h"
+#include "gui/options.h"
+#include "gui/scr.h"
+#include "sterm.h"
 
-double operands[2]={0,0};		/* операнды */
-int cur_operand=0;			/* текущий операнд */
-int action = op_none;			/* действие */
-char op_buf[128];			/* текстовое представление операнда */
-int op_ptr;				/* указатель текущей позиции op_buf */
-int op_sign;				/* знак операнда */
-bool can_op_destroy;			/* флаг перезаписи операнда */
-int op_x0;				/* начало операнда (вместе со знаком) */
+static double operands[2] = {0, 0};	/* операнды */
+static int cur_operand = 0;		/* текущий операнд */
+static int action = op_none;		/* действие */
+static char op_buf[128];		/* текстовое представление операнда */
+static int op_ptr = 0;			/* указатель текущей позиции op_buf */
+static int op_sign = 1;			/* знак операнда */
+static bool can_op_destroy = true;	/* флаг перезаписи операнда */
 
-#define BEVEL_LEFT		0
-#define BEVEL_TOP		490
-#define BEVEL_WIDTH		800
+#define BEVEL_LEFT	0
+#define BEVEL_TOP	490
+#define BEVEL_WIDTH	800
 #define BEVEL_HEIGHT	(600-BEVEL_TOP)
 
-#define DEL_Y			34
+#define DEL_Y		34
 
 #define CALC_LEFT	201	
 #define CALC_TOP	1
 #define CALC_WIDTH	(BEVEL_WIDTH-402)
 #define CALC_HEIGHT	(DEL_Y-10)
 
-GCPtr pGC = NULL;
+static GCPtr pGC = NULL;
 
-void init_calc(void)
+static void clear_op(void)
 {
-	pGC = CreateGC(BEVEL_LEFT, BEVEL_TOP, BEVEL_WIDTH, BEVEL_HEIGHT);
-
-	calc_active=true;
-	set_term_busy(true);
-	set_term_state(st_none);
-	set_term_astate(ast_none);
-	hide_cursor();
-	scr_visible = false;
-	
-	SetBrushColor(pGC, clBlack);
-	FillBox(pGC, 0, DEL_Y, BEVEL_WIDTH, BEVEL_HEIGHT-DEL_Y);
-	SetBrushColor(pGC, clSilver);
-	FillBox(pGC, 2, 0, BEVEL_WIDTH-4, DEL_Y-6);
-	DrawBorder(pGC, CALC_LEFT-1, CALC_TOP-1, CALC_WIDTH+2, CALC_HEIGHT+2,
-		1, clGray, clWhite);
-	
-	SetFont(pGC, font_status);
-	SetTextColor(pGC, clBlack);
-	DrawText(pGC, 40, 0, CALC_LEFT-1, CALC_HEIGHT, "Калькулятор:", 0);
-		
-	clear_calc();
-	draw_calc();
+	snprintf(op_buf, sizeof(op_buf), "0");
+	op_ptr = 0;
+	op_sign = 1;
+	can_op_destroy = true;
 }
 
-void release_calc(void)
+static void clear_calc(void)
 {
-	SetBrushColor(pGC, clSilver);
-	ClearGC(pGC, clSilver);
-	DeleteGC(pGC);
-	
-	calc_active=false;
-}
-
-void clear_calc(void)	//Сброс калькулятора в начальное состояние
-{
-	memset(operands,0,2*sizeof(double));
-	cur_operand=0;
+	memset(operands, 0, sizeof(operands));
+	cur_operand = 0;
 	action=op_none;
 	clear_op();
 }
 
-void clear_op(void)	//Сброс текущего операнда
+static bool get_op_val(double *v)
 {
-	sprintf(op_buf,"0");
-	op_ptr=0;
-	op_sign=1;
-	can_op_destroy=true;
-}
-
-bool get_op_val(double *v)
-{
-	char *eptr;
-	double vv=strtod(op_buf,&eptr);
-	if (*eptr != 0)
-		return false;
-	else{
+	bool ret = true;
+	char *eptr = NULL;
+	double vv = strtod(op_buf, &eptr);
+	if (*eptr == 0)
 		*v = (op_sign == 1) ? vv : -vv;
-		return true;
-	}
+	else
+		ret = false;
+	return ret;
 }
 
-bool set_op_val(double v)
+static bool set_op_val(double v)
 {
-	int n=0,m=0,k;
-	double w=fabs(v);
+	int n = 0;
+	double w = fabs(v), vv = w;
 	while (w >= 1){
 		w /= 10;
 		n++;
 	}
 	if (n > MAX_DIGITS)
 		return false;
-	m=MAX_DIGITS-(n+1);
+	int m = MAX_DIGITS - (n + 1);
 	if (m < 0)
-		m=0;
-	sprintf(op_buf,"%*.*f",MAX_DIGITS,m,fabs(v));
+		m = 0;
+	snprintf(op_buf, sizeof(op_buf), "%*.*f", MAX_DIGITS, m, vv);
+	size_t l = strlen(op_buf);
 /** calculator bug resolve **/
-	for (n=0; n < strlen(op_buf); n++)
+	for (n = 0; n < l; n++){
 		if (op_buf[n] == '.')
 			break;
+	}
 /** end of modifications **/
-	for (k=n; k < strlen(op_buf); k++)
-		if ((op_buf[k] != '.') && (op_buf[k] != '0'))
-			n=k+1;
-	if (n == 0) n=1;
-	op_buf[n]=0;
+	for (int k = n + 1; k < l; k++){
+		if (op_buf[k] != '0')
+			n = k + 1;
+	}
+	if (n == 0)
+		n = 1;
+	op_buf[n] = 0;
 	op_sign = (v < 0) ? -1 : 1;
 	return true;
 }
 
-void calc_error(void)
+static bool draw_op(void)
+{
+	char buf[MAX_DIGITS + 2];
+	char *p = buf;
+	memset(p, 0, MAX_DIGITS + 2);
+	if (op_sign < 0)
+		*p++ = '-';
+	memcpy(p, op_buf, strlen(op_buf));
+	SetBrushColor(pGC, clSilver);
+	FillBox(pGC, CALC_LEFT, CALC_TOP, CALC_WIDTH, CALC_HEIGHT);
+	SetFont(pGC, font32x8);
+	SetTextColor(pGC, clRed);
+	DrawText(pGC, CALC_LEFT, CALC_TOP + 2, CALC_WIDTH, CALC_HEIGHT, buf, 0);
+	return true;
+}
+
+bool draw_calc(void)
+{
+	return draw_op();
+}
+
+static void calc_error(void)
 {
 	clear_calc();
-	sprintf(op_buf,"Ошибка !");
+	snprintf(op_buf, sizeof(op_buf), "Ошибка !");
 	draw_op();
 	err_beep();
 }
 
-bool calculate(void)	//Вычисление текущего результата
+static bool adjust_op(void)
 {
-	if (!get_op_val(&operands[cur_operand]))
+	bool ret = true;
+	if (!get_op_val(operands + cur_operand)){
+		calc_error();
+		ret = false;
+	}
+	return ret;
+}
+
+static bool calculate(void)
+{
+	if (!get_op_val(operands + cur_operand))
 		return false;
+	bool ret = true;
 	if ((cur_operand > 0) && !can_op_destroy){
 		switch (action){
 			case op_plus:
@@ -156,121 +152,80 @@ bool calculate(void)	//Вычисление текущего результата
 				if (operands[1] != 0)
 					operands[0] /= operands[1];
 				else
-					return false;
+					ret = false;
 				break;
+			default:
+				ret = false;
 		}
-		action=op_none;
+		action = op_none;
 	}
-	return true;
+	return ret;
 }
 
-bool calc_right_char(int ch)
+static bool is_correct_char(int ch)
 {
 	return isdigit(ch) || (ch == '.');
 }
 
-bool calc_right_op(int ch)
-{
-	return	(ch == '+') ||
-		(ch == '-') ||
-		(ch == '*') ||
-		(ch == '/');
-}
-
-bool calc_input_char(int ch)	//Ввод очередного символа
+static bool calc_input_char(int ch)
 {
 	if (can_op_destroy)
 		clear_op();
-	if (!calc_right_char(ch) || (op_ptr >= MAX_DIGITS))
+	if (!is_correct_char(ch) || (op_ptr >= MAX_DIGITS))
 		return false;
-	op_buf[op_ptr++]=ch;
-	op_buf[op_ptr]=0;
-	can_op_destroy=false;
+	op_buf[op_ptr++] = ch;
+	op_buf[op_ptr] = 0;
+	can_op_destroy = false;
 	adjust_op();
 	return true;
 }
 
-int get_action(uint16_t key)
+static int get_action(uint8_t key)
 {
+	int ret = op_none;
 	switch (key){
 		case KEY_NUMPLUS:
-			return op_plus;
+			ret = op_plus;
+			break;
 		case KEY_NUMMINUS:
-			return op_minus;
+			ret = op_minus;
+			break;
 		case KEY_NUMMUL:
-			return op_mul;
+			ret = op_mul;
+			break;
 		case KEY_NUMSLASH:
-			return op_div;
-		default:
-			return op_none;
+			ret = op_div;
+			break;
 	}
+	return ret;
 }
 
-bool calc_input_op(int op)
-{
-	action=op;
-	return can_op_destroy=true;
-}
-
-bool ch_op_sign(void)		//Изменение знака
+static bool ch_op_sign(void)
 {
 	op_sign *= -1;
 	return true;
 }
 
-bool calc_bk_char(void)		//Удаление предыдущего символа
+static bool calc_bk_char(void)
 {
+	bool ret = true;
 	if (op_ptr > 0){
 		if (op_ptr > 1)
-			op_buf[--op_ptr]=0;
+			op_buf[--op_ptr] = 0;
 		else
 			clear_op();
 		adjust_op();
-		return true;
 	}else
-		return false;
-}
-
-bool adjust_op(void)
-{
-	if (get_op_val(&operands[cur_operand]))
-		return true;
-	else{
-		calc_error();
-		return false;
-	}
-}
-
-bool draw_op(void)		//Вывод операнда на экран
-{
-	char *buf = malloc(MAX_DIGITS+2);
-	char *p = buf;
-	
-	memset(p, 0, MAX_DIGITS+2);
-	if (op_sign < 0)
-		*p++ = '-';
-	memcpy(p, op_buf, strlen(op_buf));
-	
-	SetBrushColor(pGC, clSilver);
-	FillBox(pGC, CALC_LEFT, CALC_TOP, CALC_WIDTH, CALC_HEIGHT);
-	SetFont(pGC, font32x8);
-	SetTextColor(pGC, clRed);
-	DrawText(pGC, CALC_LEFT, CALC_TOP+2, CALC_WIDTH, CALC_HEIGHT,	buf, 0);
-	free(buf);
-	
-	return true;
-}
-
-bool draw_calc(void)		//Рисование калькулятора
-{
-	return draw_op();
+		ret = false;
+	return ret;
 }
 
 bool process_calc(struct kbd_event *e)
 {
-	int act = op_none;
-	if ((e == NULL) || !e->pressed)
+	if ((e == NULL) || !e->pressed || (e->shift_state != 0))
 		return true;
+	bool ret = true;
+	int act = op_none;
 	switch (e->key){
 		case KEY_NUMDEL:
 		case KEY_NUMINS:
@@ -290,9 +245,9 @@ bool process_calc(struct kbd_event *e)
 		case KEY_NUMMINUS:
 		case KEY_NUMMUL:
 		case KEY_NUMSLASH:
-			act=get_action(e->key);
+			act = get_action(e->key);
 			if (cur_operand == 0)
-				action=act;
+				action = act;
 			__fallthrough__;
 		case KEY_NUMENTER:
 			if (!calculate())
@@ -300,12 +255,12 @@ bool process_calc(struct kbd_event *e)
 			else{
 				if (set_op_val(operands[0])){
 					if (cur_operand == 0)
-						cur_operand=1;
+						cur_operand = 1;
 					if (e->key == KEY_NUMENTER)
-						cur_operand=0;
-					can_op_destroy=true;
+						cur_operand = 0;
+					can_op_destroy = true;
 					draw_op();
-					action=act;
+					action = act;
 				}else
 					calc_error();
 			}
@@ -329,8 +284,37 @@ bool process_calc(struct kbd_event *e)
 			break;
 		case KEY_TAB:
 			if (!e->repeated)
-				return false;
+				ret = false;
 	}
-	return true;
+	return ret;
 }
 
+void init_calc(void)
+{
+	online = false;
+	pGC = CreateGC(BEVEL_LEFT, BEVEL_TOP, BEVEL_WIDTH, BEVEL_HEIGHT);
+	calc_active = true;
+	set_term_busy(true);
+	set_term_state(st_none);
+	set_term_astate(ast_none);
+	hide_cursor();
+	scr_visible = false;
+	SetBrushColor(pGC, clBlack);
+	FillBox(pGC, 0, DEL_Y, BEVEL_WIDTH, BEVEL_HEIGHT-DEL_Y);
+	SetBrushColor(pGC, clSilver);
+	FillBox(pGC, 2, 0, BEVEL_WIDTH-4, DEL_Y-6);
+	DrawBorder(pGC, CALC_LEFT-1, CALC_TOP-1, CALC_WIDTH+2, CALC_HEIGHT+2, 1, clGray, clWhite);
+	SetFont(pGC, font_status);
+	SetTextColor(pGC, clBlack);
+	DrawText(pGC, 40, 0, CALC_LEFT - 1, CALC_HEIGHT, "Калькулятор:", 0);
+	clear_calc();
+	draw_calc();
+}
+
+void release_calc(void)
+{
+	SetBrushColor(pGC, clSilver);
+	ClearGC(pGC, clSilver);
+	DeleteGC(pGC);
+	calc_active = false;
+}

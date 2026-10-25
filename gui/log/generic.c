@@ -875,6 +875,7 @@ int log_process(struct log_gui_context *ctx, struct kbd_event *e)
 /* Инициализация интерфейса пользователя */
 bool log_init_view(struct log_gui_context *ctx)
 {
+	online = false;
 	int w = LOG_SCREEN_COLS * font80x20->max_width;
 	int h = LOG_SCREEN_LINES * font80x20->max_height;
 	if (ctx->init != NULL)
