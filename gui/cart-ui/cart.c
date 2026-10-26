@@ -1841,61 +1841,19 @@ static void cart_set_group_selected(list_t *group, bool value)
 
 
 
-/*
- * Аналог лямбды в Cart.DrawDocument / _activeRegions.Add(document, checkboxRect, ...).
- *
- *   sc   ? подкорзина (SubCartDrawInfo.SubCart)
- *   doc  ? документ, по чекбоксу которого кликнули
- *   ctrl ? была ли зажата клавиша Ctrl
- *
- * Возвращает true, если что-то изменилось и нужно перерисовать экран.
- */
 static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
 {
     if (sc == NULL || doc == NULL || ui_cart == NULL)
         return false;
 
-    bool admin = is_admin_mode();
     char type = sc->val->type;
 
-    /* 1. FastPaymentItems ? без админа клик игнорируется. */
-    if (type == FAST_PAYMENT_ITEMS && !admin)
-        return false;
-
-    /* 2. Считаем, сколько уже выбрано в этой подкорзине.
-     *    Заодно запоминаем первый выбранный (для проверки Kind в п.4). */
-    int checked = 0;
-    ui_doc_t *first_checked = NULL;
-    for (int i = 0; i < sc->doc_count; i++) {
-        if (sc->docs[i].selected) {
-            checked++;
-            if (first_checked == NULL)
-                first_checked = &sc->docs[i];
-        }
-    }
-    //int old_checked = checked;
-
-    /* 3. CancelNonCash/CancelRefundNonCash: нельзя снять чекбокс,
-     *    если что-то уже выбрано (одновременно ? только один). */
-    if (checked > 0
-        && (type == CANCEL_NON_CASH_ITEMS || type == CANCEL_REFUND_NON_CASH_ITEMS)
-        && !doc->selected)
-        return false;
-
-    /* 4. RefundNonCash: отметка документа другого Kind сбрасывает всё выделение. */
-    if (!doc->selected && type == REFUND_NON_CASH_ITEMS && checked > 0) {
-        if (first_checked && first_checked->val->k->v != doc->val->k->v) {
-            for (int i = 0; i < sc->doc_count; i++)
-                sc->docs[i].selected = false;
-            checked = 0;
-            first_checked = NULL;
-        }
-    }
-
-    /* 5. Ctrl ? множественное выделение. */
+    /* ============================================================
+     * Ctrl+Space ? групповые операции по подкорзине.
+     * ============================================================ */
     if (ctrl) {
+        /* Если что-то уже выделено ? снять всё в подкорзине. */
         if (doc->selected) {
-            /* Снять все в подкорзине. */
             bool changed = false;
             for (int i = 0; i < sc->doc_count; i++) {
                 if (sc->docs[i].selected) {
@@ -1906,61 +1864,184 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
             return changed;
         }
 
+        /* C/G: только одна квитанция. Ctrl+Space = выделить всё по
+         * квитанции первого документа. */
+        if (type == CANCEL_NON_CASH_ITEMS || type == CANCEL_REFUND_NON_CASH_ITEMS) {
+            int inv = doc->val->k->c;
+            if (inv == 0) {
+                message_box("Предупреждение",
+                    "Документ не имеет связанной квитанции. Выбор невозможен.",
+                    dlg_yes, 0, al_center);
+                return false;
+            }
+            bool changed = false;
+            for (int i = 0; i < sc->doc_count; i++) {
+                ui_doc_t *d = &sc->docs[i];
+                if (d->val->k->c == inv && !d->selected) {
+                    d->selected = true;
+                    changed = true;
+                }
+            }
+            return changed;
+        }
+
+        /* F: только в пределах одного вида (ОСН/ПВД). */
+        if (type == REFUND_NON_CASH_ITEMS) {
+            int v = doc->val->k->v;
+            bool changed = false;
+            for (int i = 0; i < sc->doc_count; i++) {
+                ui_doc_t *d = &sc->docs[i];
+                if (d->val->k->v == v && !d->selected) {
+                    d->selected = true;
+                    changed = true;
+                }
+            }
+            return changed;
+        }
+
+        /* D/E: до лимита MAX_DOCS, группу ? целиком. */
+        if (type == NON_CASH_ITEMS || type == FAST_PAYMENT_ITEMS) {
+            int checked = 0;
+            for (int i = 0; i < sc->doc_count; i++)
+                if (sc->docs[i].selected) checked++;
+
+            bool changed = false;
+            for (int i = 0; i < sc->doc_count; i++) {
+                ui_doc_t *d = &sc->docs[i];
+                if (d->selected) continue;
+
+                int delta = (d->val->group && d->val->group->count > 0)
+                          ? (int)d->val->group->count : 1;
+                if (checked + delta > MAX_DOCS)
+                    break;
+
+                if (d->val->group && d->val->group->count > 0) {
+                    cart_set_group_selected(d->val->group, true);
+                    checked = 0;
+                    for (int j = 0; j < sc->doc_count; j++)
+                        if (sc->docs[j].selected) checked++;
+                } else {
+                    d->selected = true;
+                    checked++;
+                }
+                changed = true;
+            }
+            return changed;
+        }
+
+        /* A, B, H, I ? без ограничений. */
         bool changed = false;
         for (int i = 0; i < sc->doc_count; i++) {
-            ui_doc_t *d = &sc->docs[i];
-            if (d->selected)
-                continue;
-
-            int delta = (d->val->group && d->val->group->count > 0)
-                            ? (int)d->val->group->count
-                            : 1;
-            if (checked + delta > MAX_DOCS)
-                break;
-
-            if (d->val->group && d->val->group->count > 0) {
-                cart_set_group_selected(d->val->group, true);
-                /* пересчитать, сколько теперь выбрано */
-                checked = 0;
-                for (int j = 0; j < sc->doc_count; j++)
-                    if (sc->docs[j].selected)
-                        checked++;
-            } else {
-                d->selected = true;
-                checked++;
+            if (!sc->docs[i].selected) {
+                sc->docs[i].selected = true;
+                changed = true;
             }
-            changed = true;
-
-            /* В CancelNonCash/CancelRefundNonCash ? только один документ. */
-            if (type == CANCEL_NON_CASH_ITEMS || type == CANCEL_REFUND_NON_CASH_ITEMS)
-                break;
         }
         return changed;
     }
 
-    /* 6. Обычный клик без Ctrl. */
+    /* ============================================================
+     * Обычный клик (без Ctrl).
+     * ============================================================ */
 
-    /* Проверка лимита при добавлении. */
-    if (!doc->selected) {
-        int delta = (doc->val->group && doc->val->group->count > 0)
-                        ? (int)doc->val->group->count
-                        : 1;
-        if (checked + delta > MAX_DOCS) {
+    /* --- C, G: одна квитанция, атомарно. --- */
+    if (type == CANCEL_NON_CASH_ITEMS || type == CANCEL_REFUND_NON_CASH_ITEMS) {
+        int inv = doc->val->k->c;
+        if (inv == 0) {
             message_box("Предупреждение",
-                "Нельзя добавить дополнительные документы для оформления, т.к. будет превышен лимит.",
+                "Документ не имеет связанной квитанции. Выбор невозможен.",
                 dlg_yes, 0, al_center);
             return false;
         }
-    }
-
-    /* Группа ? переключаем всю. */
-    if (doc->val->group && doc->val->group->count > 0) {
-        bool value = !doc->selected;
-        cart_set_group_selected(doc->val->group, value);
+        if (!doc->selected) {
+            for (int i = 0; i < sc->doc_count; i++) {
+                ui_doc_t *d = &sc->docs[i];
+                if (d->selected && d->val->k->c != inv) {
+                    message_box("Предупреждение",
+                        "Можно выбирать только документы,\n"
+                        "относящиеся к одной квитанции.",
+                        dlg_yes, 0, al_center);
+                    return false;
+                }
+            }
+        }
+        bool new_val = !doc->selected;
+        for (int i = 0; i < sc->doc_count; i++) {
+            ui_doc_t *d = &sc->docs[i];
+            if (d->val->k->c == inv)
+                d->selected = new_val;
+        }
         return true;
     }
 
-    /* Обычный документ. */
+    /* --- F: не смешивать ОСН и ПВД; группа ? атомарно. --- */
+    if (type == REFUND_NON_CASH_ITEMS) {
+        if (!doc->selected) {
+            int v = doc->val->k->v;
+
+            /* Проверка на несовместимость с уже выделенными */
+            for (int i = 0; i < sc->doc_count; i++) {
+                ui_doc_t *d = &sc->docs[i];
+                if (d->selected && d->val->k->v != v) {
+                    message_box("Предупреждение",
+                        "Нельзя одновременно выбирать документы ОСН и ПВД\n"
+                        "в подкорзине \"КАРТА ВОЗВРАТ\".",
+                        dlg_yes, 0, al_center);
+                    return false;
+                }
+            }
+
+            /* Проверка однородности группы */
+            if (doc->val->group && doc->val->group->count > 0) {
+                for (list_item_t *li = doc->val->group->head; li; li = li->next) {
+                    D *gd = LIST_ITEM(li, D);
+                    if (gd->k->v != v) {
+                        message_box("Предупреждение",
+                            "Документы в группе имеют разный вид деятельности (ОСН/ПВД).",
+                            dlg_yes, 0, al_center);
+                        return false;
+                    }
+                }
+            }
+        }
+        bool new_val = !doc->selected;
+        if (doc->val->group && doc->val->group->count > 0)
+            cart_set_group_selected(doc->val->group, new_val);
+        else
+            doc->selected = new_val;
+        return true;
+    }
+
+    /* --- D, E: лимит 35, группа ? атомарно. --- */
+    if (type == NON_CASH_ITEMS || type == FAST_PAYMENT_ITEMS) {
+        if (!doc->selected) {
+            int delta = (doc->val->group && doc->val->group->count > 0)
+                      ? (int)doc->val->group->count : 1;
+            int checked = 0;
+            for (int i = 0; i < sc->doc_count; i++)
+                if (sc->docs[i].selected) checked++;
+
+            if (checked + delta > MAX_DOCS) {
+                message_box("Предупреждение",
+                    "Нельзя добавить дополнительные документы:\n"
+                    "будет превышен лимит 35.",
+                    dlg_yes, 0, al_center);
+                return false;
+            }
+            if (doc->val->group && doc->val->group->count > 0)
+                cart_set_group_selected(doc->val->group, true);
+            else
+                doc->selected = true;
+        } else {
+            if (doc->val->group && doc->val->group->count > 0)
+                cart_set_group_selected(doc->val->group, false);
+            else
+                doc->selected = false;
+        }
+        return true;
+    }
+
+    /* --- A, B, H, I ? без ограничений. --- */
     doc->selected = !doc->selected;
     return true;
 }
