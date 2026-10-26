@@ -1541,26 +1541,7 @@ void process_docs()
     
     printf("process_docs start\n");
 
-    if (type == OTHER_ITEMS)
-    {
-        /* Левая кнопка ?ПЕЧАТЬ? для H ? только для админа.
-         * Если ACTION заблокирован, ui_cart_process_enter сюда не попадёт,
-         * но защитная проверка не помешает. */
-        if (is_admin_mode()) {
-            process_print_docs(&sd);
-            ui_cart_redraw_all();
-        } else {
-            free_selected_docs(&sd);
-            message_box("Предупреждение",
-            "ВНИМАНИЕ! Только администратор может напечатать документы из этой подкорзины",
-            dlg_yes, 0, al_center);
-            ui_cart_redraw_all();        
-            fprintf(stderr,
-                "process_docs: печать H/I запрещена (не админ)\n");
-            return;
-        }
-    }
-    else if ((type == NON_CASH_ITEMS
+    if ((type == NON_CASH_ITEMS
             || type == CANCEL_REFUND_NON_CASH_ITEMS
             || type == REFUND_NON_CASH_ITEMS
             || type == CANCEL_NON_CASH_ITEMS
