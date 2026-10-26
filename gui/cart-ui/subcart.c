@@ -328,13 +328,23 @@ const char *get_action_text(ui_subcart_t *sc, bool *is_enabled)
     foreach_selected_documents(sc, &p, (doc_func_t)doc_get_params);
     
     bool first_sc = &ui_cart->subcarts[0] == sc;
-    
+
+    /* H/I (OTHER_ITEMS / ERROR_ITEMS) ? печать только для админа,
+     * и независимо от позиции в списке (эти подкорзины всегда последние). */
+    bool is_other_or_error = (sc->val->type == OTHER_ITEMS
+                           || sc->val->type == ERROR_ITEMS);
+
+    bool action_allowed = is_other_or_error
+        ? is_admin_mode()
+        : first_sc;
+
     *is_enabled = p.has_items
         && !pos_incomplete_op
         && !p.has_unformed
         && p.same_processing_state
         && p.same_check_state
-        && first_sc;
+        && action_allowed;
+    
         
     printf("sc->val->type: '%c'\n", sc->val->type);
     printf("p.has_items: %d, pos_incomplete_op: %d, "
@@ -372,10 +382,6 @@ const char *get_action_text(ui_subcart_t *sc, bool *is_enabled)
                 return p.in_check_state ? "СБП ПРОВЕРКА" : "СБП ОПЛАТА";
             }
         }
-    }
-    else if (sc->val->type == OTHER_ITEMS || sc->val->type == ERROR_ITEMS)
-    {
-        return "УДАЛИТЬ";
     }
     
     return "ПЕЧАТЬ ЧЕКА";

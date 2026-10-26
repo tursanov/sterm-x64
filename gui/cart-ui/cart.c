@@ -1297,6 +1297,7 @@ void free_bank_items(bank_items_t *items)
     free(items);
 }
 
+__attribute__((unused)) 
 void process_other_items(__attribute__((unused)) selected_docs_t *sd)
 {
     if (message_box("Предупреждение",
@@ -1542,7 +1543,18 @@ void process_docs()
 
     if (type == OTHER_ITEMS)
     {
-        process_other_items(&sd);
+        /* Левая кнопка ?ПЕЧАТЬ? для H ? только для админа.
+         * Если ACTION заблокирован, ui_cart_process_enter сюда не попадёт,
+         * но защитная проверка не помешает. */
+        if (is_admin_mode()) {
+            process_print_docs(&sd);
+            ui_cart_redraw_all();
+        } else {
+            fprintf(stderr,
+                "process_docs: печать H/I запрещена (не админ)\n");
+            free_selected_docs(&sd);
+            return;
+        }
     }
     else if ((type == NON_CASH_ITEMS
             || type == CANCEL_REFUND_NON_CASH_ITEMS
