@@ -1550,9 +1550,13 @@ void process_docs()
             process_print_docs(&sd);
             ui_cart_redraw_all();
         } else {
+            free_selected_docs(&sd);
+            message_box("Предупреждение",
+            "ВНИМАНИЕ! Только администратор может напечатать документы из этой подкорзины",
+            dlg_yes, 0, al_center);
+            ui_cart_redraw_all();        
             fprintf(stderr,
                 "process_docs: печать H/I запрещена (не админ)\n");
-            free_selected_docs(&sd);
             return;
         }
     }
