@@ -403,12 +403,13 @@ static bool do_transaction(uint8_t prefix, uint8_t cmd, void *param)
 		}
 	}else
 		kkt_rx_len = 0;		/* kkt_reset_rx() ®¡­ã«ï¥â kkt_status */
+	if (kkt_rx_len > 0)
+		log_data_kkt("ŠŠ’ --> ’Œ", kkt_rx, kkt_rx_len);
 	uint32_t flags = 0;
 	if (apc && (prefix == KKT_SRV) &&
 			((cmd == KKT_SRV_BEGIN_DOC) || (cmd == KKT_SRV_SEND_DOC) ||
 			 (cmd == KKT_SRV_END_DOC)))
 		flags = KLOG_REC_APC;
-	log_data_kkt("ŠŠ’ --> ’Œ", kkt_rx, kkt_rx_len);
 	klog_write_rec(hklog, &t0, kkt_tx, kkt_tx_len, kkt_status, kkt_rx, kkt_rx_len, flags);
 	return ret;
 }

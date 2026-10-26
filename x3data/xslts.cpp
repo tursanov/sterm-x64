@@ -277,11 +277,30 @@ static bool store_xslt(const XSLTInfo &xi)
 static bool remove_xslt(const XSLTInfo &xi)
 {
 	static char path[PATH_MAX];
-	snprintf(path, ASIZE(path), XSLT_FOLDER "/%s.XSL", xi.name().c_str());
+	int len __attribute__((unused)) =
+		snprintf(path, ASIZE(path), XSLT_FOLDER "/%s.XSL", xi.name().c_str());
+#if defined __SMART_X3_DATA_REMOVE__
+	int n = 0;
+	for (uint8_t mask = 0; mask < 8; mask++){
+		for (int i = 0; i < 3; i++){
+			int idx = len - i - 1;
+			path[idx] &= 0x9f;
+			path[idx] |= 0x40;
+			if (mask & (1 << i))
+				path[idx] |= 0x20;
+		}
+		if (unlink(path) == 0)
+			n++;
+		else if (errno != ENOENT)
+			log_sys_err("Ошибка удаления таблицы XSLT %s:", path);
+	}
+	return n > 0;
+#else
 	bool ret = unlink(path) == 0;
 	if (!ret)
 		log_sys_err("Ошибка удаления таблицы XSLT %s:", path);
 	return ret;
+#endif		/* __SMART_X3_DATA_REMOVE__ */
 }
 
 /* Вызывается после получения ответа на запрос таблицы XSLT */

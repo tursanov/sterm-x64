@@ -3285,44 +3285,13 @@ static bool need_apc(void)
 #endif
 			resp_printed && has_kkt_data){
 		struct AD_state ads;
-		ret = AD_get_state(&ads);
-	}
-	return ret;
-}
-
-static int need_pos(void)
-{
-	int ret = 0;
-	if (cfg.bank_system &&
-#if defined __EXT_POS__
-			!cfg.ext_pos &&
-#endif
-			cfg.kkt_apc){
-		struct AD_state ads;
-		AD_get_state(&ads);
-		if ((ads.cashless_cheque_count > 0) && (has_bank_data || (ads.order_id > 0))) {
-			if (ads.cashless_cheque_count > 1) {
-				message_box(
-					"ВНИМАНИЕ!",
-					"Процесс автоматической печати не может быть продолжен.\n"
-					"Для выполнения расчета по банковской карте необходимо\n"
-					"войти в фискальное приложение, запомнить или записать суммы\n"
-					"по каждому чеку, содержащему оплату по безналичному расчету,\n"
-					"а также проанализировать вид операции (оплата, возврат или отмена).\n"
-					"Далее необходимо войти в банковское приложение и совершить\n"
-					"соответствующие операции по банковской карте для каждого чека отдельно.\n"
-					"После успешного расчета по банковской карте для печати\n"
-					"кассовых чеков необходимо использовать Фискальное приложение.\n"
-					"ВАЖНО: для каждого кассового чека с суммой оплаты по безналичному\n"
-					"расчету должна быть оформлена операция по банковской карте на ту же сумму.",
-					dlg_yes, DLG_BTN_YES, al_center);
-				ClearScreen(clBtnFace);
-				redraw_term(true, main_title);
-				ret = -1;
-			}else if (ads.actual_cheque_count == ads.cashless_cheque_count)
-				ret = -1;
-			else
-				ret = 1;
+		if (AD_get_state(&ads)){
+			log_dbg("actual_cheque_count = %d; cashless_total_sum = %ld; "
+				"cashless_cheque_count = %d.",
+				ads.actual_cheque_count, ads.cashless_total_sum,
+				ads.cashless_cheque_count);
+			ret = (ads.actual_cheque_count > 0) &&
+				(ads.cashless_cheque_count < ads.actual_cheque_count);
 		}
 	}
 	return ret;
@@ -3544,26 +3513,12 @@ static void on_response(bool *need_sync_dev_data)
 			}else if (!execute_resp() && !rejecting_req)
 				show_req();
 			if ((req_type == req_regular) && (c_state != cs_hasreq)){
-				if (need_apc()){
+				apc = need_apc();
+				if (apc){
 					log_dbg("Требуется автоматическая печать чеков.");
 					show_req();
-					apc = true;
-					int np = need_pos();
-					log_dbg("need_pos вернул %d.", np);
-					switch (np){
-						case 0:
-						case 1:
-							show_cheque_fa();
-							apc = fa_active;
-							break;
-/*						case 1:
-							show_pos();
-							apc = pos_active;
-							break;*/
-						default:
-							apc = false;
-					}
-					log_dbg("apc = %d.", apc);
+					show_cheque_fa();
+					apc = fa_active;
 				}else if (TST_FLAG(OBp, GDF_RESP_INIT)){
 					x3data_to_sync = need_x3_sync();
 					if (x3data_to_sync != X3_SYNC_NONE){
