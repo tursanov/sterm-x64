@@ -108,6 +108,8 @@ void pos_day_open();
 void pos_day_close();
 void pos_service_operations();
 
+extern const char *printsum(int64_t sum, char *buf);
+
 
 #if defined __cplusplus
 }

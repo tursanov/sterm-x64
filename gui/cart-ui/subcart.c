@@ -133,21 +133,73 @@ void ui_subcart_calc_bounds(ui_subcart_t *sc)
 static int ui_subcart_header_with_box_draw(ui_subcart_t *sc, int x, int y, int w)
 {
 	fill_rect(cart_screen, x, y, w, sc->height, BORDER_WIDTH, clBlack, 0);
-	
+
 	SetTextColor(cart_screen, clBlack);
-	
-	int tw = GetTextWidth(cart_screen, sc->title);
-    DrawBorder(cart_screen, CART_XGAP, y, tw + CART_XGAP * 4, cart_fnt->max_height + CART_YGAP * 2, 2, clBlack, clBlack);
-    
+
+	/* --- Статистика выделения: "2 из 35 (200.00 РУБ.)" --- */
+	int     sel_count   = 0;
+	int     total_count = (int)sc->doc_count;
+	int64_t sel_sum     = 0;
+
+	for (int i = 0; i < sc->doc_count; i++) {
+		ui_doc_t *d = &sc->docs[i];
+		if (!d->selected)
+			continue;
+		sel_count++;
+		S s;
+		K_calc_sum(d->val->k, &s);
+		sel_sum += s.a;
+	}
+
+	char sumbuf[64];
+	printsum(sel_sum, sumbuf);
+
+	char stats[128];
+	snprintf(stats, sizeof(stats), "%d из %d (%s)",
+	         sel_count, total_count, sumbuf);
+
+	/* --- Габариты: заголовок + отступ + статистика --- */
+	int tw_title = GetTextWidth(cart_screen, sc->title);
+	int tw_stats = GetTextWidth(cart_screen, stats);
+	int gap      = CART_XGAP * 3;
+	int max_box_w = w - CART_XGAP * 2;
+	int desired_w = tw_title + gap + tw_stats + CART_XGAP * 4;
+	int box_w = desired_w < max_box_w ? desired_w : max_box_w;
+
+	DrawBorder(cart_screen, CART_XGAP, y, box_w,
+	           cart_fnt->max_height + CART_YGAP * 2, 2, clBlack, clBlack);
+
 	y += CART_YGAP;
-	TextOut(cart_screen, x + CART_XGAP, y, sc->title);
-	
-	
+	int text_x = x + CART_XGAP;
+
+	/* Заголовок ? всегда */
+	TextOut(cart_screen, text_x, y, sc->title);
+
+	/* Статистика ? справа от заголовка.
+	 * Влезает целиком ? рисуем целиком.
+	 * Не влезает ? рисуем обрезанной до "...". */
+	int stats_x = text_x + tw_title + gap;
+	int box_right = CART_XGAP + box_w - CART_XGAP;
+
+	if (stats_x + tw_stats <= box_right) {
+		TextOut(cart_screen, stats_x, y, stats);
+	} else if (box_right - stats_x > 30) {
+		int avail  = box_right - stats_x;
+		int n      = (int)strlen(stats);
+		int chars  = (int)((int64_t)n * avail / tw_stats) - 3;
+		if (chars < 1) chars = 1;
+		if (chars > n - 4) chars = n - 4;
+		char truncated[128];
+		memcpy(truncated, stats, chars);
+		memcpy(truncated + chars, "...", 3);
+		truncated[chars + 3] = 0;
+		TextOut(cart_screen, stats_x, y, truncated);
+	}
+
 	y += CART_YGAP * 2 + cart_fnt->max_height;
 
 	return y;
 }
-
 
 static int ui_subcart_table_header_draw(ui_subcart_t *sc, int x, int y, int col_width)
 {
