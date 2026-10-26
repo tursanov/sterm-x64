@@ -23,8 +23,15 @@
 #include "kkt/fd/tlv.h"
 #include "kkt/fdo.h"
 
-#define CART_SCROLL_BOTTOM_GAP 10
-#define CART_SCROLL_TOP_GAP 5
+/* Скроллбар справа от области корзины */
+#define CART_SCROLLBAR_WIDTH       4    /* толщина ползунка/трека */
+#define CART_SCROLLBAR_MARGIN      0     /* отступ от краёв трека */
+#define CART_SCROLLBAR_MIN_THUMB   20    /* минимальная высота ползунка */
+#define CART_SCROLLBAR_TOP_PAD     5   /* отступ сверху от вьюпорта до трека */
+#define CART_SCROLLBAR_BOTTOM_PAD  5   /* отступ снизу от трека до края */
+
+#define CART_SCROLL_BOTTOM_GAP 0
+#define CART_SCROLL_TOP_GAP 0
 
 int cart_start_y = 0;
 
@@ -263,6 +270,88 @@ static int ui_subcart_get_selected_height(ui_subcart_t *sc)
 }
 
 /*
+ * Рисует вертикальный скроллбар справа от области корзины.
+ *
+ * Трек занимает всю высоту экрана минус отступы CART_SCROLLBAR_TOP_PAD
+ * (сверху, от y=0) и CART_SCROLLBAR_BOTTOM_PAD (снизу, от y=DISCY).
+ * Внутри трека ? маленький CART_SCROLLBAR_MARGIN между треком и ползунком.
+ *
+ * Высота и позиция ползунка рассчитываются от реального диапазона прокрутки
+ * (viewport), а не от высоты трека ? иначе при наличии баннера незавершённой
+ * операции ползунок двигался бы непропорционально фактическому скроллу.
+ *
+ * Если содержимое полностью влезает в вьюпорт ? скроллбар не рисуется.
+ */
+static void ui_cart_draw_scrollbar(void)
+{
+    if (ui_cart == NULL || ui_cart->subcart_count == 0)
+        return;
+
+    /* Трек ? по краям экрана, независимо от cart_start_y. */
+    int track_top    = CART_SCROLLBAR_TOP_PAD;
+    int track_bottom = DISCY - CART_SCROLLBAR_BOTTOM_PAD;
+    int track_h      = track_bottom - track_top;
+
+    if (track_h <= 2 * CART_SCROLLBAR_MARGIN)
+        return;
+
+    /* Реальная видимая область контента (учитывает баннер). */
+    int viewport_h = DISCY - cart_start_y;
+    if (viewport_h <= 0)
+        return;
+
+    int content_h = cart_content_total_height()
+                  + CART_YGAP + CART_SCROLL_BOTTOM_GAP;
+    if (content_h <= viewport_h)
+        return;                                 /* всё видно ? скроллбар не нужен */
+
+    int max_scroll = content_h - viewport_h;
+    if (max_scroll <= 0)
+        return;
+
+    int bar_x = DISCX - CART_SCROLLBAR_WIDTH - CART_SCROLLBAR_MARGIN;
+    int bar_w = CART_SCROLLBAR_WIDTH;
+
+    /* --- Трек (светлая полоса) --- */
+    fill_rect(cart_screen,
+              bar_x,
+              track_top + CART_SCROLLBAR_MARGIN,
+              bar_w,
+              track_h - CART_SCROLLBAR_MARGIN * 2,
+              0,
+              clSilver, clSilver);
+
+    /* --- Ползунок --- */
+    /* Пропорционален доле видимой части от всего контента.
+     * Рассчитывается от track_h (визуальная длина трека),
+     * а не от viewport_h ? иначе ползунок ?прилипнет? к одному краю. */
+    int thumb_h = (int)((int64_t)track_h * viewport_h / content_h);
+    if (thumb_h < CART_SCROLLBAR_MIN_THUMB)
+        thumb_h = CART_SCROLLBAR_MIN_THUMB;
+    int max_thumb_h = track_h - CART_SCROLLBAR_MARGIN * 2;
+    if (thumb_h > max_thumb_h)
+        thumb_h = max_thumb_h;
+
+    if (cart_scroll_y < 0)
+        cart_scroll_y = 0;
+    if (cart_scroll_y > max_scroll)
+        cart_scroll_y = max_scroll;
+
+    int free_space = track_h - CART_SCROLLBAR_MARGIN * 2 - thumb_h;
+    int thumb_y = track_top + CART_SCROLLBAR_MARGIN
+                + (int)((int64_t)cart_scroll_y * free_space / max_scroll);
+
+    fill_rect(cart_screen,
+              bar_x,
+              thumb_y,
+              bar_w,
+              thumb_h,
+              1,
+              RGB(0, 128, 0),
+              RGB(0, 200, 0));
+}
+
+/*
  * Подогнать cart_scroll_y так, чтобы выбранный элемент был полностью виден.
  *
  * Логика:
@@ -394,7 +483,7 @@ void ui_cart_redraw_all()
 	ClearGC(cart_screen, clSilver);
 
 	ui_cart_calc_bounds();
-
+	
 	if (pos_incomplete_op)
 		cart_start_y = 35;
 	else
@@ -429,6 +518,8 @@ void ui_cart_redraw_all()
 		fill_rect(cart_screen, 0, 0, DISCX, cart_start_y,
 		          0, clSilver, clSilver);
 	}
+	
+	ui_cart_draw_scrollbar();
 
 	/* Баннер ?есть незавершённая операция? ? рисуем поверх всего */
 	if (pos_incomplete_op) {
@@ -602,6 +693,9 @@ void ui_select_next_subcart()
     if (ui_cart->subcart_count == 0)
         return;
 
+    if (ui_sel_subcart_index >= (int)ui_cart->subcart_count - 1)
+        return;
+
     /* Сброс выделения в текущей (уходящей) подкорзине */
     if (ui_sel_subcart != NULL) {
         ui_sel_subcart->tab_selected_doc = -1;
@@ -609,9 +703,6 @@ void ui_select_next_subcart()
     }
 
     ui_sel_subcart_index += 1;
-    if (ui_sel_subcart_index >= (int)ui_cart->subcart_count)
-        ui_sel_subcart_index = 0;
-
     ui_sel_subcart = &ui_cart->subcarts[ui_sel_subcart_index];
 
     /* Курсор ? на первый документ новой подкорзины */
@@ -627,6 +718,9 @@ void ui_select_prev_subcart()
     if (ui_cart->subcart_count == 0)
         return;
 
+    if (ui_sel_subcart_index <= 0)
+        return;
+
     /* Сброс выделения в текущей (уходящей) подкорзине */
     if (ui_sel_subcart != NULL) {
         ui_sel_subcart->tab_selected_doc = -1;
@@ -634,9 +728,6 @@ void ui_select_prev_subcart()
     }
 
     ui_sel_subcart_index -= 1;
-    if (ui_sel_subcart_index < 0)
-        ui_sel_subcart_index = (int)ui_cart->subcart_count - 1;
-
     ui_sel_subcart = &ui_cart->subcarts[ui_sel_subcart_index];
 
     /* Курсор ? на первый документ новой подкорзины */
