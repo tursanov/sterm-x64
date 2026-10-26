@@ -333,6 +333,8 @@ typedef struct AD_state {
 	int actual_cheque_count;
 	// сумма к оплате по банковским операциям
 	int64_t cashless_total_sum;
+	// сумма к оплате за наличный расчёт
+	int64_t cash_total_sum;
 	// кол-во чеков с оплатой по банковской карте
 	int cashless_cheque_count;
 	// идентификатор заказа

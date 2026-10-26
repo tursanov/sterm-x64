@@ -2809,6 +2809,7 @@ bool AD_get_state(AD_state *s) {
 		size_t n = 0;
 		uint32_t order_id = 0;
 		int64_t cashless_sum = 0;
+		int64_t cash_sum = 0;
 
 		for (list_item_t *li2 = c->klist.head; li2 != NULL; li2 = li2->next) {
 			K *k = LIST_ITEM(li2, K);
@@ -2819,6 +2820,13 @@ bool AD_get_state(AD_state *s) {
 					sum -= k->a;
 
 					cashless_sum +=	(c->t1054 == 1 || c->t1054 == 4)
+						? sum
+						: -sum;
+				} else if (k->m == 1) {
+					int64_t sum = K_calc_total_sum(k);
+					sum -= k->a;
+
+					cash_sum +=	(c->t1054 == 1 || c->t1054 == 4)
 						? sum
 						: -sum;
 				}
@@ -2838,6 +2846,11 @@ bool AD_get_state(AD_state *s) {
 			s->cashless_total_sum += cashless_sum;
 			s->cashless_cheque_count++;
 			s->order_id = order_id;
+		}
+		
+		if (cash_sum != 0)
+		{
+		    s->cash_total_sum += cash_sum;
 		}
 	}
 

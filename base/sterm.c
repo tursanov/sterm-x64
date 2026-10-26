@@ -3286,12 +3286,11 @@ static bool need_apc(void)
 			resp_printed && has_kkt_data){
 		struct AD_state ads;
 		if (AD_get_state(&ads)){
-			log_dbg("actual_cheque_count = %d; cashless_total_sum = %ld; "
-				"cashless_cheque_count = %d.",
-				ads.actual_cheque_count, ads.cashless_total_sum,
-				ads.cashless_cheque_count);
-			ret = (ads.actual_cheque_count > 0) &&
-				(ads.cashless_cheque_count < ads.actual_cheque_count);
+			log_dbg("actual_cheque_count = %d; cash_total_sum = %ld; "
+				"cashless_total_sum = %ld.",
+				ads.actual_cheque_count, ads.cash_total_sum,
+				ads.cashless_total_sum);
+			ret = (ads.actual_cheque_count > 0) && ads.cash_total_sum > 0;
 		}
 	}
 	return ret;
