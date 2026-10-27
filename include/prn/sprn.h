@@ -15,6 +15,16 @@ extern "C" {
 extern const struct dev_info *sprn;
 extern const struct dev_info *rfid;
 
+/* Тип БПУ */
+enum {
+	SPRN_UNKNOWN = -1,	/* неизвестен */
+	SPRN_SPECTRUM,		/* "СПЕКТР-ДС" */
+	SPRN_VIDEOTON,		/* "Видеотон" TKVS-300 */
+};
+
+extern int sprn_get_type(void);
+extern void sprn_clr_type(void);
+
 /* Статус БПУ */
 extern uint8_t sprn_status;
 /* Длина заводского номера БПУ */
@@ -59,8 +69,6 @@ extern bool sprn_timeout;
 #define SPRN_NUMBER		0x01	/* запрос номера бланка */
 #define SPRN_MEDIA		0x04	/* запрос типа носителя */
 #define SPRN_ID			0x06	/* запрос идентификатора */
-#define SPRN_AUXLNG		0x09	/* переход на дополнительную зону символов */
-#define SPRN_MAINLNG		0x0b	/* переход на основную зону символов */
 #define SPRN_STATUS		0x12	/* запрос состояния БПУ */
 #define SPRN_RFID_FIND		0x14	/* поиск метки RFID */
 #define SPRN_RFID_SET_KEY	0x15	/* установка ключа RFID */
@@ -73,7 +81,6 @@ extern bool sprn_timeout;
 #define SPRN_TITLE		0x22	/* заголовок БСО */
 #define SPRN_ROTATE		0x23	/* поворот текста на 90 градусов */
 #define SPRN_ICON		0x24	/* печать пиктограммы */
-#define SPRN_LOAD_GRID		0x48	/* загрузка сетки бланка */
 #define SPRN_WR_BCODE1		0x4c	/* нанесение штрих-кода #1 (в тексте билета) */
 #define SPRN_RD_PARAMS		0x52	/* чтение парметров БПУ */
 #define SPRN_WR_PARAM		0x53	/* установка парметра БПУ */
@@ -91,26 +98,68 @@ extern bool sprn_timeout;
 #define SPRN_LOG1		0x60	/* печать на контрольной ленте */
 #define SPRN_INTERLINE		0x69	/* установка межстрочного интервала */
 #define SPRN_LOG		0x6c	/* начало печати КЛ */
-#define SPRN_RD_BCODE		0x76	/* проверка номера бланка */
+#define SPRN_RD_BCODE		0x76	/* печать текста с контролем номера бланка */
 #define SPRN_NO_BCODE		0x7b	/* печать текста без контроля номера бланка */
 
-/* Окончания команды SPRN_PRNOP */
-#define SPRN_PRNOP_HPOS_ABS	XPRN_PRNOP_HPOS_ABS	/* абсолютное горизонтальное позиционирование */
-#define SPRN_PRNOP_VPOS_ABS	XPRN_PRNOP_VPOS_ABS	/* абсолютное вертикальное позиционирование */
+/* Работа с изображениями в БПУ "Видеотон" */
+#define SPRN_PIC_LOAD		0x48	/* загрузка изображения в БПУ */
+#define SPRN_PIC_LST		0x49	/* список изображений в БПУ */
+#define SPRN_PIC_ERASE		0x4a	/* удаление изображения из БПУ */
+#define SPRN_PIC_FIND		0x4d	/* поиск изображения */
+
+/* Работа с шаблонами бланков в БПУ "СПЕКТР-ДС" */
+#define SPRN_GRID_LOAD		0xa8	/* загрузка шаблона в БПУ */
+#define SPRN_GRID_LST		0xa9	/* получение списка шаблонов */
+#define SPRN_GRID_ACQUIRE	0xaa	/* получение шаблона из БПУ */
+#define SPRN_GRID_ERASE		0xab	/* удаление шаблона */
+#define SPRN_GRID_ERASE_ALL	0xac	/* удаление всех шаблонов */
+
+/* Работа с пиктограммами в БПУ "СПЕКТР-ДС" */
+#define SPRN_ICON_LOAD		0xb8	/* загрузка пиктограмм в БПУ */
+#define SPRN_ICON_LST		0xb9	/* получение списка пиктограмм */
+#define SPRN_ICON_ACQUIRE	0xba	/* получение пиктограммы из БПУ */
+#define SPRN_ICON_ERASE_ALL	0xbc	/* удаление всех пиктограмм */
+
+/* Обновление ПО БПУ "СПЕКТР-ДС" */
+#define SPRN_UPDATE_BEGIN	0xa0	/* переход в режим обновления ПО */
 
 /* Таймауты для различных команд (в сотых долях секунды) */
-#define SPRN_NUMBER_TIMEOUT	1600	/* чтение номера бланка (16 сек) */
-#define SPRN_MEDIA_TIMEOUT	400	/* запрос типа носителя (4 сек) */
-#define SPRN_ID_TIMEOUT		250	/* запрос идентификатора (2.5 сек) */
-#define SPRN_STATUS_TIMEOUT	1200	/* запрос статуса (12 сек) */
-#define SPRN_RD_BCODE_TIMEOUT	1600	/* печать с проверкой номера бланка (12 сек) */
-#define SPRN_LOG_TIMEOUT	1200	/* печать КЛ (12 сек на абзац) */
-#define SPRN_BCODE_CTL_TIMEOUT	2200	/* печать билета с контролем штрих-кода (22 сек) */
-#define SPRN_TEXT_TIMEOUT	1200	/* печать текста без контроля штрих-кода (12 сек) */
-#define SPRN_RD_PARAMS_TIMEOUT	500	/* получение параметров БПУ (5 сек) */
-#define SPRN_WR_PARAM_TIMEOUT	300	/* установка параметра БПУ (3 сек) */
+#define SPRN_NUMBER_TIMEOUT		1600	/* чтение номера бланка (16 сек) */
+#define SPRN_MEDIA_TIMEOUT		400	/* запрос типа носителя (4 сек) */
+#define SPRN_ID_TIMEOUT			250	/* запрос идентификатора (2.5 сек) */
+#define SPRN_STATUS_TIMEOUT		1200	/* запрос статуса (12 сек) */
+#define SPRN_RD_BCODE_TIMEOUT		1600	/* печать с проверкой номера бланка (12 сек) */
+#define SPRN_LOG_TIMEOUT		1200	/* печать КЛ (12 сек на абзац) */
+#define SPRN_BCODE_CTL_TIMEOUT		2200	/* печать билета с контролем штрих-кода (22 сек) */
+#define SPRN_TEXT_TIMEOUT		1200	/* печать текста без контроля штрих-кода (12 сек) */
+#define SPRN_RD_PARAMS_TIMEOUT		500	/* получение параметров БПУ (5 сек) */
+#define SPRN_WR_PARAM_TIMEOUT		300	/* установка параметра БПУ (3 сек) */
 
-#define SPRN_INFINITE_TIMEOUT	0	/* бесконечный таймаут */
+#define SPRN_PIC_LOAD_TIMEOUT		2000	/* таймаут загрузки изображения (20 сек) */
+#define SPRN_PIC_LST_TIMEOUT		200	/* таймаут получения списка изображений в БПУ (2 сек) */
+#define SPRN_PIC_ERASE_TIMEOUT		500	/* таймаут удаления изображения (5 сек) */
+
+#define SPRN_GRID_LOAD_TIMEOUT		2000	/* таймаут загрузки шаблона (20 сек) */
+#define SPRN_GRID_LST_TIMEOUT		200	/* таймаут получения списка разметок в БПУ (2 сек) */
+#define SPRN_GRID_ERASE_TIMEOUT		500	/* таймаут удаления разметки бланка (5 сек) */
+#define SPRN_GRID_ERASE_ALL_TIMEOUT	2000	/* таймаут удаления всех разметок бланков (20 сек) */
+
+#define SPRN_ICON_LOAD_TIMEOUT		1000	/* таймаут загрузки пиктограмм (10 сек) */
+#define SPRN_ICON_LST_TIMEOUT		200	/* таймаут получения списка пиктограмм (2 сек) */
+#define SPRN_ICON_UPLOAD_TIMEOUT	500	/* таймаут передачи пиктограммы терминалу (5 сек) */
+#define SPRN_ICON_ERASE_ALL_TIMEOUT	2000	/* таймаут удаления всех пиктограмм (20 сек) */
+
+#define SPRN_UPDATE_BEGIN_TIMEOUT	100	/* таймаут начала обновления БПУ */
+
+#define BOOTLOADER_CMD_TIMEOUT		10	/* таймаут выполнения команды загрузчика */
+#define BOOTLOADER_ERASE_16K_TIMEOUT	200	/* таймаут стирания сектора FLASH 16 К */
+#define BOOTLOADER_ERASE_64K_TIMEOUT	(4 * BOOTLOADER_ERASE_16K_TIMEOUT)	/* таймаут стирания сектора FLASH 64 К */
+#define BOOTLOADER_ERASE_128K_TIMEOUT	(2 * BOOTLOADER_ERASE_64K_TIMEOUT)	/* таймаут стирания сектора FLASH 128 К */
+#define BOOTLOADER_READ_BLK_TIMEOUT	100	/* таймаут чтения блока данных (не более 256 байт) из FLASH */
+#define BOOTLOADER_WRITE_BLK_TIMEOUT	100	/* таймаут записи блока данных (не более 256 байт) во FLASH */
+#define BOOTLOADER_JMP_TIMEOUT		10	/* таймаут перехода загрузчика по заданному адресу */
+
+#define SPRN_INFINITE_TIMEOUT		0	/* бесконечный таймаут */
 
 /* Тип носителя в БПУ */
 #define SPRN_MEDIA_UNKNOWN	0x00	/* неизвестный тип */
