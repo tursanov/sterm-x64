@@ -1979,6 +1979,7 @@ static void preexecute_resp(void)
 {
 	int i, l;
 	bool no_print = true, init = TST_FLAG(ZBp, GDF_REQ_INIT);
+	clear_bank_info_ex(&bd);
 	if (init){
 		sync_date();
 		if (!resp_executing)
