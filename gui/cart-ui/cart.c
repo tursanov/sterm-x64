@@ -1305,8 +1305,9 @@ void process_other_items(__attribute__((unused)) selected_docs_t *sd)
             dlg_yes_no, 0, al_center) == DLG_BTN_YES)
     {
         ui_cart_redraw_all();
+        kbd_flush_queue();
         if (message_box("Предупреждение",
-            "ВНИМАНИЕ! Вы действительно хотите УДАЛИТЬ выделенные документы БЕЗ проведения операций по ним?",
+            "ВНИМАНИЕ! Подтвердите еще раз, что Вы действительно хотите УДАЛИТЬ выделенные документы БЕЗ проведения операций по ним?\nЭто необратимая операция.",
             dlg_yes_no, 0, al_center) == DLG_BTN_YES)
         {
             AD_remove_K_list(&sd->klist);
@@ -1368,11 +1369,13 @@ static void ui_cart_process_delete(void)
         ui_cart_redraw_all();
         return;
     }
+    
+    kbd_flush_queue();
 
     /* Второе подтверждение ? тем же вопросом */
     if (message_box("Предупреждение",
             "ВНИМАНИЕ!\n"
-            "Вы хотите УДАЛИТЬ выделенные документы БЕЗ проведения операций по ним?",
+            "Подтвердите еще раз, что хотите УДАЛИТЬ выделенные документы БЕЗ проведения операций по ним?\nЭто необратимая операция.",
             dlg_yes_no, 0, al_center) != DLG_BTN_YES) {
         free_selected_docs(&sd);
         ui_cart_redraw_all();
