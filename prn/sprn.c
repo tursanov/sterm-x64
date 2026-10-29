@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include "gui/scr.h"
 #include "prn/sprn.h"
+#include "x3data/common.h"
 #include "blimits.h"
 #include "cfg.h"
 #include "gd.h"
@@ -69,32 +70,43 @@ static int nr_semicolons;
 /* Флаг получения всех параметров БПУ */
 static bool sprn_params_received = false;
 
-/* Номер текущего изображения ("Видеотон") */
-static uint8_t cur_pic_nr = 0;
-/* Имя текущего изображения ("Видеотон") */
-static char cur_pic_name[SPRN_MAX_PIC_NAME_LEN + 1];
-static size_t cur_pic_name_len = 0;
-/* Список изображений в БПУ "Видеотон" */
-static char pic_lst[SPRN_MAX_PICS][SPRN_MAX_PIC_NAME_LEN + 1];
-/* Количество изображений в списке БПУ "Видеотон" */
-static size_t pic_lst_len = 0;
-/* Список изображений верен ("Видеотон") */
-static bool pics_valid = false;
+/* Список разметок бланков в БПУ "СПЕКТР-ДС" */
+static uint8_t sprn_grid_lst[SPRN_MAX_GRIDS * sizeof(struct pic_header)];
+/* Длина списка разметок бланков в БПУ "СПЕКТР-ДС" */
+static size_t sprn_grid_lst_len = 0;
+/* Список разметок бланков в БПУ "СПЕКТР-ДС" верен */
+static bool sprn_grid_lst_valid = false;
 
-size_t get_pic_lst_len_vtsv(void)
+/* Список пиктограмм в БПУ "СПЕКТР-ДС" */
+static uint8_t sprn_icon_lst[SPRN_MAX_ICONS * sizeof(struct pic_header)];
+/* Длина списка пиктограмм в БПУ "СПЕКТР-ДС" */
+static size_t sprn_icon_lst_len = 0;
+/* Список пиктограмм в БПУ "СПЕКТР-ДС" верен */
+static bool sprn_icon_lst_valid = false;
+
+/* Список изображений в БПУ "Видеотон" */
+static char vtsv_pic_lst[SPRN_MAX_PICS][SPRN_MAX_PIC_NAME_LEN + 1];
+/* Номер текущего изображения ("Видеотон") */
+static int vtsv_cur_pic_idx = -1;
+/* Длина имени текущего изображения ("Видеотон") */
+static size_t vtsv_cur_pic_name_len = 0;
+/* Список изображений верен ("Видеотон") */
+static bool vtsv_pic_lst_valid = false;
+
+const char *vtsv_get_pic_name(int n)
 {
-	size_t ret = 0;
-	if ((sprn_type == SPRN_VIDEOTON) && pics_valid)
-		ret = pic_lst_len;
+	const char *ret = NULL;
+	if ((sprn_type == SPRN_VIDEOTON) && vtsv_pic_lst_valid && (n < ASIZE(vtsv_pic_lst)))
+		ret = vtsv_pic_lst[n];
 	return ret;
 }
 
-const char *get_pic_name_vtsv(size_t n)
+static void vtsv_reset_pic_lst(void)
 {
-	const char *ret = NULL;
-	if ((sprn_type == SPRN_VIDEOTON) && pics_valid && (n < pic_lst_len))
-		ret = pic_lst[n];
-	return ret;
+	memset(vtsv_pic_lst, 0, sizeof(vtsv_pic_lst));
+	vtsv_cur_pic_idx = -1;
+	vtsv_cur_pic_name_len = 0;
+	vtsv_pic_lst_valid = false;
 }
 
 const struct dev_info *sprn = NULL;
@@ -195,7 +207,7 @@ enum {
 	rcv_pic_erase_find_vtsv,	/* статус поиска изображения для удаления из БПУ */
 	rcv_pic_erase_status_vtsv,	/* статус удаления изображения из БПУ */
 	rcv_pic_erase_end_vtsv,		/* окончание ответа на команду удаления изобраения из БПУ */
-/* Работа с шаблонами в БПУ "Спектр" */
+/* Работа с разметками бланков в БПУ "Спектр" */
 	rcv_grid_lst_status_sprn,	/* статус получения списка шаблонов */
 	rcv_grid_lst_nr_sprn,		/* количество шаблонов */
 	rcv_grid_lst_data_sprn,		/* заголовки шаблонов */
@@ -243,12 +255,8 @@ static void sprn_reset(void)
 	sprn_op_timeout = SPRN_INFINITE_TIMEOUT;
 	sprn_set_rcv_st(rcv_idle);
 	rcv_idx = 0;
-	cur_pic_nr = 0;
-	cur_pic_name[0] = 0;
-	cur_pic_name_len = 0;
-	memset(pic_lst, 0, sizeof(pic_lst));
-	pic_lst_len = 0;
-	pics_valid = false;
+	vtsv_reset_pic_lst();
+	sprn_grid_lst_valid = false;
 }
 
 /* Закрытие устройства для работы с БПУ */
@@ -655,20 +663,23 @@ static bool sprn_translate_params(struct term_cfg *cfg)
 	return i == ASIZE(map);
 }
 
-/* Работа с шаблонами БПУ "Видеотон" */
+/* Работа с изображениями в БПУ "Видеотон" */
 static bool is_pic_lst_delim_vtsv(uint8_t b)
 {
 	return (b == SPRN_LF) || (b == SPRN_CR);
+}
+
+static bool is_pic_nr_vtsv(uint8_t b)
+{
+	return (b >= 0x30) && (b <= 0x39);
 }
 
 static void on_rcv_pic_lst_head_vtsv(uint8_t b)
 {
 	static uint8_t header[] = "<PL";
 	if (b == header[rcv_idx++]){
-		if ((rcv_idx + 1) == sizeof(header)){
-			cur_pic_nr = 0;
+		if ((rcv_idx + 1) == sizeof(header))
 			sprn_set_rcv_st(rcv_pic_lst_delim_vtsv);
-		}
 	}else{
 		log_err("Неверный формат заголовка списка изображений БПУ \"Видеотон\".");
 		sprn_set_rcv_st(rcv_idle);
@@ -678,66 +689,56 @@ static void on_rcv_pic_lst_head_vtsv(uint8_t b)
 static void on_rcv_pic_lst_nr_vtsv(uint8_t b)
 {
 	if (b == 0x2d){		/* - */
-		if (cur_pic_nr > 10)
-			cur_pic_nr -= 7;
-		if ((cur_pic_nr > 0) && (cur_pic_nr < SPRN_MAX_PICS)){
-			cur_pic_name[0] = 0;
-			cur_pic_name_len = 0;
-			rcv_idx = 0;
-			sprn_set_rcv_st(rcv_pic_lst_name_vtsv);
+		if (vtsv_cur_pic_idx > 10)
+			vtsv_cur_pic_idx -= 7;
+		if ((vtsv_cur_pic_idx > 0) && (vtsv_cur_pic_idx <= SPRN_MAX_PICS)){
+			vtsv_cur_pic_idx--;
+			if (vtsv_pic_lst[vtsv_cur_pic_idx][0] == 0){
+				vtsv_cur_pic_name_len = 0;
+				rcv_idx = 0;
+				sprn_set_rcv_st(rcv_pic_lst_name_vtsv);
+			}else
+				sprn_set_rcv_st(rcv_idle);
 		}else
 			sprn_set_rcv_st(rcv_idle);
-	}else if ((b >= 0x30) && (b <= 0x39) && (cur_pic_nr < 10)){
-		cur_pic_nr *= 10;
-		cur_pic_nr += b - 0x30;
+	}else if (is_pic_nr_vtsv(b) && (vtsv_cur_pic_idx < 10)){
+		vtsv_cur_pic_idx *= 10;
+		vtsv_cur_pic_idx += b - 0x30;
 	}else
 		sprn_set_rcv_st(rcv_idle);
 }
 
-#if 0
-void on_rcv_pic_lst_name_vtsv(uint8_t b)
+static void on_rcv_pic_lst_name_vtsv(uint8_t b)
 {
 	if (is_pic_lst_delim_vtsv(b)){
-		if (cur_pic_name.empty())
+		if (vtsv_cur_pic_name_len == 0)
 			sprn_set_rcv_st(rcv_idle);
 		else{
-			if (cur_pic_nr <= SPRN_MAX_GRIDS){
-				Grid_info gi;
-				if (gi.parse(cur_pic_name.c_str()) && (gi.nr() == cur_pic_nr))
-					_grids.push_back(gi);
-			}else if ((cur_pic_nr - SPRN_MAX_GRIDS) <= SPRN_MAX_ICONS){
-				Icon_info ii;
-				if (ii.parse(cur_pic_name.c_str()) && (ii.nr() == (cur_pic_nr - SPRN_MAX_GRIDS)))
-					_icons.push_back(ii);
-			}
+			vtsv_pic_lst[vtsv_cur_pic_idx][vtsv_cur_pic_name_len] = 0;
 			sprn_set_rcv_st(rcv_pic_lst_delim_vtsv);
 		}
-	}else if (cur_pic_name.length() < SPRN_MAX_PIC_NAME_LEN)
-		cur_pic_name.push_back(b);
+	}else if (vtsv_cur_pic_name_len < SPRN_MAX_PIC_NAME_LEN)
+		vtsv_pic_lst[vtsv_cur_pic_idx][vtsv_cur_pic_name_len++] = b;
 	else
 		sprn_set_rcv_st(rcv_idle);
 }
 
-void on_rcv_pic_lst_delim_vtsv(uint8_t b)
+static void on_rcv_pic_lst_delim_vtsv(uint8_t b)
 {
 	if (b == 0x3e){		/* > */
-		pics_valid = true;
+		vtsv_pic_lst_valid = true;
 		sprn_set_rcv_st(rcv_end);
 	}else if (!is_pic_lst_delim_vtsv(b)){
-		if ((b >= 0x30) && (b <= 0x39)){
-			if ((_grids.size() < SPRN_MAX_GRIDS) && (_icons.size() < SPRN_MAX_ICONS)){
-				cur_pic_nr = 0;
-				sprn_set_rcv_st(rcv_pic_lst_nr_vtsv);
-				on_rcv_pic_lst_nr_vtsv(b);
-			}else
-				sprn_set_rcv_st(rcv_idle);
+		if (is_pic_nr_vtsv(b)){
+			vtsv_cur_pic_idx = 0;
+			sprn_set_rcv_st(rcv_pic_lst_nr_vtsv);
+			on_rcv_pic_lst_nr_vtsv(b);
 		}else
 			sprn_set_rcv_st(rcv_idle);
 	}
 }
 
-
-void on_rcv_pic_erase_head_vtsv(uint8_t b)
+static void on_rcv_pic_erase_head_vtsv(uint8_t b)
 {
 	static uint8_t header[] = "<PE";
 	if (b == header[rcv_idx++]){
@@ -747,10 +748,10 @@ void on_rcv_pic_erase_head_vtsv(uint8_t b)
 		sprn_set_rcv_st(rcv_idle);
 }
 
-void on_rcv_pic_erase_find_vtsv(uint8_t b)
+static void on_rcv_pic_erase_find_vtsv(uint8_t b)
 {
 	if (b == 0x30){		/* изображение не найдено */
-		sprn_status = STATUS_PIC_ERASE_ERROR;
+		sprn_status = SPRN_STATUS_PIC_ERASE_ERROR;
 		sprn_set_rcv_st(rcv_pic_erase_end_vtsv);
 	}else if (b == 0x31)	/* изображение обнаружено */
 		sprn_set_rcv_st(rcv_pic_erase_status_vtsv);
@@ -758,15 +759,15 @@ void on_rcv_pic_erase_find_vtsv(uint8_t b)
 		sprn_set_rcv_st(rcv_idle);
 }
 
-void on_rcv_pic_erase_status_vtsv(uint8_t b)
+static void on_rcv_pic_erase_status_vtsv(uint8_t b)
 {
-	if (b == STATUS_PIC_ERASED)
-		b = STATUS_OK;
+	if (b == SPRN_STATUS_PIC_ERASED)
+		b = SPRN_STATUS_OK;
 	sprn_status = b;
 	sprn_set_rcv_st(rcv_pic_erase_end_vtsv);
 }
 
-void on_rcv_pic_erase_end_vtsv(uint8_t b)
+static void on_rcv_pic_erase_end_vtsv(uint8_t b)
 {
 	if (b == 0x3e)		/* > */
 		sprn_set_rcv_st(rcv_end);
@@ -774,8 +775,8 @@ void on_rcv_pic_erase_end_vtsv(uint8_t b)
 		sprn_set_rcv_st(rcv_idle);
 }
 
-
-void on_rcv_grid_lst_status_sprn(uint8_t b)
+/* Работа с разметками бланков в БПУ "СПЕКТР-ДС" */
+static void on_rcv_grid_lst_status_sprn(uint8_t b)
 {
 	sprn_status = b;
 	if (sprn_ok(b))
@@ -784,33 +785,28 @@ void on_rcv_grid_lst_status_sprn(uint8_t b)
 		sprn_set_rcv_st(rcv_idle);
 }
 
-void on_rcv_grid_lst_nr_sprn(uint8_t b)
+static void on_rcv_grid_lst_nr_sprn(uint8_t b)
 {
 	if ((b == 0) || (b > SPRN_MAX_GRIDS))
 		sprn_set_rcv_st(rcv_idle);
 	else{
-		_nr_grids_sprn = b;
-		_grid_lst_len = _nr_grids_sprn * sizeof(GRID_HEADER_SPRN);
-		clr_grid_hdr_sprn();
-		_grid_hdr_sprn = new uint8_t[_grid_lst_len];
+		sprn_grid_lst_len = b * sizeof(struct pic_header);
 		rcv_idx = 0;
 		sprn_set_rcv_st(rcv_grid_lst_data_sprn);
 	}
 }
 
-void on_rcv_grid_lst_data_sprn(uint8_t b)
+static void on_rcv_grid_lst_data_sprn(uint8_t b)
 {
-	_grid_hdr_sprn[rcv_idx++] = b;
-	if (rcv_idx == _grid_lst_len){
-		if (process_grid_lst_sprn()){
-			pics_valid = true;
-			sprn_set_rcv_st(rcv_end);
-		}else
-			sprn_set_rcv_st(rcv_idle);
+	sprn_grid_lst[rcv_idx++] = b;
+	if (rcv_idx == sprn_grid_lst_len){
+		sprn_grid_lst_valid = true;
+		sprn_set_rcv_st(rcv_end);
 	}
 }
 
-void on_rcv_icon_lst_status_sprn(uint8_t b)
+/* Работа с пиктограммами в БПУ "СПЕКТР-ДС" */
+static void on_rcv_icon_lst_status_sprn(uint8_t b)
 {
 	sprn_status = b;
 	if (sprn_ok(b))
@@ -819,32 +815,25 @@ void on_rcv_icon_lst_status_sprn(uint8_t b)
 		sprn_set_rcv_st(rcv_idle);
 }
 
-void on_rcv_icon_lst_nr_sprn(uint8_t b)
+static void on_rcv_icon_lst_nr_sprn(uint8_t b)
 {
 	if ((b == 0) || (b > SPRN_MAX_ICONS))
 		sprn_set_rcv_st(rcv_idle);
 	else{
-		_nr_icons_sprn = b;
-		_icon_lst_len = _nr_icons_sprn * sizeof(ICON_HEADER_SPRN);
-		clr_icon_hdr_sprn();
-		_icon_hdr_sprn = new uint8_t[_icon_lst_len];
+		sprn_icon_lst_len = b * sizeof(struct pic_header);
 		rcv_idx = 0;
 		sprn_set_rcv_st(rcv_icon_lst_data_sprn);
 	}
 }
 
-void on_rcv_icon_lst_data_sprn(uint8_t b)
+static void on_rcv_icon_lst_data_sprn(uint8_t b)
 {
-	_icon_hdr_sprn[rcv_idx++] = b;
-	if (rcv_idx == _icon_lst_len){
-		if (process_icon_lst_sprn()){
-			pics_valid = true;
-			sprn_set_rcv_st(rcv_end);
-		}else
-			sprn_set_rcv_st(rcv_idle);
+	sprn_icon_lst[rcv_idx++] = b;
+	if (rcv_idx == sprn_icon_lst_len){
+		sprn_icon_lst_valid = true;
+		sprn_set_rcv_st(rcv_end);
 	}
 }
-#endif
 
 static bool sprn_do_rcv(void)
 {
@@ -859,58 +848,48 @@ static bool sprn_do_rcv(void)
 			sprn_rx[sprn_rx_len++] = b;
 		if ((b == 0x11) || (b == 0x13))
 			return ret;
-		switch (rcv_st){
-			case rcv_start:
-				on_rcv_start(b);
+		static const struct {
+			int st;
+			void (*handler)(uint8_t);
+		} map[] = {
+			{rcv_start,			on_rcv_start},
+			{rcv_cmd,			on_rcv_cmd},
+			{rcv_number_status,		on_rcv_number_status},
+			{rcv_number,			on_rcv_number},
+			{rcv_media_status,		on_rcv_media_status},
+			{rcv_media_type,		on_rcv_media_type},
+			{rcv_id_status,			on_rcv_id_status},
+			{rcv_id,			on_rcv_id},
+			{rcv_xstatus,			on_rcv_xstatus},
+			{rcv_status,			on_rcv_status},
+			{rcv_number_ctl_status,		on_rcv_number_ctl_status},
+			{rcv_wr_param_prefix,		on_rcv_wr_param_prefix},
+			{rcv_wr_param_number,		on_rcv_wr_param_number},
+			{rcv_wr_param_sign,		on_rcv_wr_param_sign},
+			{rcv_wr_param_val,		on_rcv_wr_param_val},
+			{rcv_rd_param_prefix,		on_rcv_rd_param_prefix},
+			{rcv_rd_param_vals,		on_rcv_rd_param_vals},
+			{rcv_pic_lst_head_vtsv,		on_rcv_pic_lst_head_vtsv},		
+			{rcv_pic_lst_nr_vtsv,		on_rcv_pic_lst_nr_vtsv},		
+			{rcv_pic_lst_name_vtsv,		on_rcv_pic_lst_name_vtsv},		
+			{rcv_pic_lst_delim_vtsv,	on_rcv_pic_lst_delim_vtsv},	
+			{rcv_pic_erase_head_vtsv,	on_rcv_pic_erase_head_vtsv},	
+			{rcv_pic_erase_find_vtsv,	on_rcv_pic_erase_find_vtsv},	
+			{rcv_pic_erase_status_vtsv,	on_rcv_pic_erase_status_vtsv},	
+			{rcv_pic_erase_end_vtsv,	on_rcv_pic_erase_end_vtsv},	
+			{rcv_grid_lst_status_sprn,	on_rcv_grid_lst_status_sprn},	
+			{rcv_grid_lst_nr_sprn,		on_rcv_grid_lst_nr_sprn},		
+			{rcv_grid_lst_data_sprn,	on_rcv_grid_lst_data_sprn},	
+			{rcv_icon_lst_status_sprn,	on_rcv_icon_lst_status_sprn},	
+			{rcv_icon_lst_nr_sprn,		on_rcv_icon_lst_nr_sprn},		
+			{rcv_icon_lst_data_sprn,	on_rcv_icon_lst_data_sprn},	
+		};
+		for (int i = 0; i < ASIZE(map); i++){
+			typeof(map + i) p = map + i;
+			if (rcv_st == p->st){
+				p->handler(b);
 				break;
-			case rcv_cmd:
-				on_rcv_cmd(b);
-				break;
-			case rcv_number_status:
-				on_rcv_number_status(b);
-				break;
-			case rcv_number:
-				on_rcv_number(b);
-				break;
-			case rcv_media_status:
-				on_rcv_media_status(b);
-				break;
-			case rcv_media_type:
-				on_rcv_media_type(b);
-				break;
-			case rcv_id_status:
-				on_rcv_id_status(b);
-				break;
-			case rcv_id:
-				on_rcv_id(b);
-				break;
-			case rcv_xstatus:
-				on_rcv_xstatus(b);
-				break;
-			case rcv_status:
-				on_rcv_status(b);
-				break;
-			case rcv_number_ctl_status:
-				on_rcv_number_ctl_status(b);
-				break;
-			case rcv_wr_param_prefix:
-				on_rcv_wr_param_prefix(b);
-				break;
-			case rcv_wr_param_number:
-				on_rcv_wr_param_number(b);
-				break;
-			case rcv_wr_param_sign:
-				on_rcv_wr_param_sign(b);
-				break;
-			case rcv_wr_param_val:
-				on_rcv_wr_param_val(b);
-				break;
-			case rcv_rd_param_prefix:
-				on_rcv_rd_param_prefix(b);
-				break;
-			case rcv_rd_param_vals:
-				on_rcv_rd_param_vals(b);
-				break;
+			}
 		}
 	}
 	return ret;
