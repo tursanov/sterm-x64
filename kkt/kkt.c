@@ -671,7 +671,7 @@ uint8_t kkt_end_doc(uint16_t doc_type, const uint8_t *tmpl, size_t tmpl_len,
 		kkt_timeout_factor = timeout_factor;
 		struct doc_info_arg arg;
 		if (prepare_cmd(KKT_SRV, KKT_SRV_END_DOC) && write_word(doc_type) &&
-				((tmpl_len == 0) || write_data(tmpl, tmpl_len)) &&
+				((tmpl_len == 0 && write_word(tmpl_len)) || write_data(tmpl, tmpl_len)) &&
 				kkt_open_dev_if_need()){
 			if (do_transaction(KKT_SRV, KKT_SRV_END_DOC, &arg)){
 				*di = arg.di;
