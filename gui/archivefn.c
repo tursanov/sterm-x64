@@ -98,34 +98,6 @@ static void out_printf(const char *fmt, ...) {
 	add_text_to_listbox(text);
 }
 
-static const char *get_doc_name(uint32_t type) {
-	switch (type) {
-		case REGISTRATION:
-			return "Отчет о регистрации";
-		case RE_REGISTRATION:
-			return "Отчет о перерегистрации";
-			break;
-		case OPEN_SHIFT:
-			return "Отчет об открытии смены";
-		case CLOSE_SHIFT:
-			return "Отчет о закрытии смены";
-		case CALC_REPORT:
-			return "Отчет о текущем состоянии расчетов";
-		case CHEQUE:
-			return "Чек";
-		case CHEQUE_CORR:
-			return "Чек коррекции";
-		case BSO:
-			return "БСО";
-		case BSO_CORR:
-			return "БСО коррекции";
-		case CLOSE_FS:
-			return "Отчет о закрытии ФН";
-		default:
-			return NULL;
-	}
-}
-
 struct kkt_report_hdr {
 	uint8_t date_time[5];
 	uint32_t doc_nr;

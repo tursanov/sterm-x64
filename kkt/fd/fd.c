@@ -9,59 +9,155 @@
 #include "kkt/fd/tags.h"
 #include "kkt/fdo.h"
 #include "kkt/fd/pattern.h"
+#include "cfg.h"
 #include <limits.h>
 
 static char last_error[1024] = { 0 };
 bool last_cheque_process_started = false;
+
+const char *get_doc_name(uint32_t type) {
+	switch (type) {
+		case REGISTRATION:
+			return "Отчет о регистрации";
+		case RE_REGISTRATION:
+			return "Отчет о перерегистрации";
+			break;
+		case OPEN_SHIFT:
+			return "Отчет об открытии смены";
+		case CLOSE_SHIFT:
+			return "Отчет о закрытии смены";
+		case CALC_REPORT:
+			return "Отчет о текущем состоянии расчетов";
+		case CHEQUE:
+			return "Чек";
+		case CHEQUE_CORR:
+			return "Чек коррекции";
+		case BSO:
+			return "БСО";
+		case BSO_CORR:
+			return "БСО коррекции";
+		case CLOSE_FS:
+			return "Отчет о закрытии ФН";
+		default:
+			return NULL;
+	}
+}
+
+
+/*
+ * Возвращает true, если печать документа данного типа отключена
+ * в настройках терминала (cfg.kkt_print_*).
+ *
+ * Соответствие GetPatternByType() из Utils.cs.
+ *
+ * has_email_or_phone влияет только на CHEQUE/BSO: бумажный чек
+ * не печатается, если он уходит в электронном виде (email/phone
+ * покупателя передаётся в ККТ) и в настройках отключена печать чеков.
+ *
+ * Для неизвестных типов ? false (не блокируем).
+ */
+static bool is_print_disabled(uint8_t doc_type, bool has_email_or_phone)
+{
+    switch (doc_type) {
+    case REGISTRATION:
+        return !cfg.kkt_print_reg;
+    case RE_REGISTRATION:
+        return !cfg.kkt_print_rereg;
+    case OPEN_SHIFT:
+        return !cfg.kkt_print_shift_open;
+    case CLOSE_SHIFT:
+        return !cfg.kkt_print_shift_close;
+    case CLOSE_FS:
+        return !cfg.kkt_print_fs_close;
+    case CALC_REPORT:
+        return !cfg.kkt_print_calc_state;
+    case CHEQUE:
+    case BSO:
+        return !cfg.kkt_print_cheque && has_email_or_phone;
+    case CHEQUE_CORR:
+    case BSO_CORR:
+        return !cfg.kkt_print_correction_cheque;
+    default:
+        return false;
+    }
+}
 
 static uint8_t *find_pattern(
     uint8_t doc_type,
     const uint8_t* pattern_footer,
     size_t pattern_footer_size,
     int pattern_index,
-    size_t *result_pattern_size)
+    bool has_email_or_phone,
+    size_t *result_pattern_size,
+    bool *silent)
 {
+    /*
+     * Флаги печати применяются ТОЛЬКО при создании нового документа
+     * (pattern_index == -1). Для печати уже сформированного документа
+     * (pattern_index == 3 из fd_print_last_doc / fd_print_doc) ? нет:
+     * оператор всегда должен иметь возможность допечатать чек, уже
+     * зарегистрированный в ФН.
+     *
+     * Если печать отключена ? возвращаем не NULL (иначе вызывающий код
+     * трактует это как ошибку), а валидный указатель с нулевой длиной.
+     * Указатель аллоцируется через malloc, чтобы последующий free()
+     * в вызывающем коде был корректен.
+     *
+     * Документ всё равно сформируется (kkt_end_doc с pattern_size == 0),
+     * но без печати ? как в Utils.cs (FrEndDoc с пустым pattern).
+     */
+    if (pattern_index == -1 && is_print_disabled(doc_type, has_email_or_phone)) {
+        uint8_t *empty_buf = (uint8_t *)malloc(1);
+        if (empty_buf == NULL) {
+            sprintf(last_error,
+                "Не удалось выделить память для пустого шаблона документа %.2d",
+                doc_type);
+            return NULL;
+        }
+        *result_pattern_size = 0;
+        if (silent)
+            *silent = true;
+        return empty_buf;
+    }
+    
+    if (silent)
+        *silent = false;
+    
+
     if (pattern_index == -1)
     {
         if (doc_type == CALC_REPORT)
-        {
             pattern_index = 0;
-        }
         else
-        {
             pattern_index = 1;
-        }
     }
 
-    if (doc_type == CHEQUE || doc_type == BSO || doc_type == CHEQUE_CORR || doc_type == BSO_CORR)
+    if (doc_type == CHEQUE || doc_type == BSO
+        || doc_type == CHEQUE_CORR || doc_type == BSO_CORR)
     {
         if (kkt_has_param("SUPPORT_VAT_5_7") || kkt_has_param("SUPPORT_VAT_22"))
-        {
             pattern_index += 3;
-        }
     }
-    
+
     size_t pattern_size;
     const uint8_t *pattern = kkt_find_pattern(doc_type, pattern_index, &pattern_size);
-    
+
     if (pattern == NULL)
     {
-        sprintf(last_error, "Шаблон для печати с типом документа %.2d и индексом %d не найден в списке шаблонов.",
+        sprintf(last_error,
+            "Шаблон для печати с типом документа %.2d и индексом %d не найден в списке шаблонов.",
             doc_type, pattern_index);
         return NULL;
     }
-    
+
     uint8_t *result_pattern = (uint8_t *)malloc(pattern_size + pattern_footer_size);
     memcpy(result_pattern, pattern, pattern_size);
-    if (pattern_footer_size > 0) {
+    if (pattern_footer_size > 0)
         memcpy(result_pattern + pattern_size, pattern_footer, pattern_footer_size);
-    }
-    
+
     *result_pattern_size = pattern_size + pattern_footer_size;
-    
     return result_pattern;
 }
-
 static void set_fn_error(char *s, uint8_t *err_info, size_t err_info_len __attribute__((unused)))
 {
 	s += sprintf(s, "\nкоманда ФН: %.2x, код ошибки: %.2x\n", err_info[0], err_info[1]);
@@ -513,7 +609,12 @@ void fd_set_error(uint8_t doc_type, uint8_t status, uint8_t *err_info, size_t er
 	}
 }
 
-int fd_create_doc(uint8_t doc_type, const uint8_t *pattern_footer, size_t pattern_footer_size)
+int fd_create_doc(
+    uint8_t doc_type,
+    const uint8_t *pattern_footer,
+    size_t pattern_footer_size,
+    bool has_email_or_phone,
+    after_silent_create_doc_t after_silent_create_doc)
 {
 	uint8_t ret;
 	_Alignas(_Alignof(uint16_t)) uint8_t err_info[32];
@@ -608,10 +709,14 @@ int fd_create_doc(uint8_t doc_type, const uint8_t *pattern_footer, size_t patter
 	
 	printf("------------------------------------\n");
 	
+	bool silent;
     if ((pattern = find_pattern(
             doc_type,
             pattern_footer,
-            pattern_footer_size, -1, &pattern_size)) == NULL) {
+            pattern_footer_size, -1,
+            has_email_or_phone,
+            &pattern_size,
+            &silent)) == NULL) {
 		printf("find_pattern fail\n");
 		fdo_resume();
 		return -1;
@@ -659,6 +764,11 @@ int fd_create_doc(uint8_t doc_type, const uint8_t *pattern_footer, size_t patter
 LOut:
 	free(pattern);
 	fdo_resume();
+	
+	if (ret == 0 && silent && after_silent_create_doc)
+	{
+	    after_silent_create_doc(doc_type, di.nr, di.sign);
+	}
 
 	return ret;
 }
@@ -681,7 +791,10 @@ int fd_print_last_doc(uint8_t doc_type) {
     if ((pattern = find_pattern(
             doc_type,
             pattern_footer,
-            pattern_footer_size, 3, &pattern_size)) == NULL) {
+            pattern_footer_size, 3,
+            false,
+            &pattern_size,
+            NULL)) == NULL) {
 		printf("find_pattern fail\n");
 		return -1;
 	}
@@ -736,7 +849,10 @@ int fd_print_doc(uint8_t doc_type, uint32_t doc_no) {
     if ((pattern = find_pattern(
             doc_type,
             pattern_footer,
-            pattern_footer_size, 3, &pattern_size)) == NULL) {
+            pattern_footer_size, 3,
+            false,
+            &pattern_size,
+            NULL)) == NULL) {
 		printf("find_pattern fail\n");
 		return -1;
 	}

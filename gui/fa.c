@@ -619,6 +619,19 @@ static int fa_tlv_add_cashier(form_t *form) {
 	return ffd_tlv_add_string(1021, cashier_cashier);
 }
 
+
+void after_silent_create_doc(uint8_t doc_type, uint32_t doc_no, uint32_t doc_sign)
+{
+    char text[256];
+    
+    sprintf(text, "Документ N %d (%s) сформирован. Фискальный признак: %d",
+        doc_no, get_doc_name(doc_type), doc_sign);
+
+	message_box("Уведомление", text, dlg_yes, 0, al_center);
+}
+
+
+
 bool fa_create_doc(uint16_t doc_type, const uint8_t *pattern_footer,
 		size_t pattern_footer_size, 
 		update_screen_func_t update_func, void *update_func_arg) 
@@ -626,7 +639,10 @@ bool fa_create_doc(uint16_t doc_type, const uint8_t *pattern_footer,
 	uint8_t status;
 
 	fdo_suspend();
-	if ((status = fd_create_doc(doc_type, pattern_footer, pattern_footer_size)) != 0) {
+	if ((status = fd_create_doc(doc_type,
+	        pattern_footer, pattern_footer_size,
+	        false,
+	        after_silent_create_doc)) != 0) {
 		if (status == 0x46) {
 			struct kkt_last_doc_info ldi;
 			uint8_t err_info[32];

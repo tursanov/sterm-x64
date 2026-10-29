@@ -43,6 +43,8 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl);
 static void ui_cart_process_delete(void);
 static void ui_cart_move_subcart(bool up);
 
+extern void after_silent_create_doc(uint8_t doc_type, uint32_t doc_no, uint32_t doc_sign);
+
 
 static void update_cheque(void *arg __attribute__((unused))) {
 	kbd_flush_queue();
@@ -1619,12 +1621,14 @@ typedef void (*update_screen_func_t)(void *arg);
 
 static bool fa_create_doc1(uint16_t doc_type, const uint8_t *pattern_footer,
 		size_t pattern_footer_size, 
+		bool has_email_or_phone,
 		update_screen_func_t update_func, void *update_func_arg) 
 {
 	uint8_t status;
 
 	fdo_suspend();
-	if ((status = fd_create_doc(doc_type, pattern_footer, pattern_footer_size)) != 0) {
+	if ((status = fd_create_doc(doc_type, pattern_footer, pattern_footer_size, has_email_or_phone,
+	    after_silent_create_doc)) != 0) {
 		if (status == 0x46) {
 			struct kkt_last_doc_info ldi;
 			uint8_t err_info[32];
@@ -1686,6 +1690,8 @@ bool print_cheque(SubCart *sc, list_t *klist)
     K_list_calc_sum(klist, &sum);
     
     C *cheque = sc->c;
+    
+    bool has_email_or_phone = (cheque->pe != NULL && cheque->pe[0] != 0);
     
 	ffd_tlv_reset();
 
@@ -1805,7 +1811,11 @@ bool print_cheque(SubCart *sc, list_t *klist)
 		uint8_t* pattern_footer = NULL;
 		size_t pattern_footer_size = 0;
 
-		if (fa_create_doc1(CHEQUE, pattern_footer, pattern_footer_size, update_cheque, NULL)) {
+		if (fa_create_doc1(CHEQUE,
+		    pattern_footer, pattern_footer_size,
+		    has_email_or_phone,
+		    update_cheque,
+		    NULL)) {
 		    return true;
 		}
 		

@@ -81,8 +81,16 @@ typedef struct fd_cheque_corr_params_t {
 // получение последней ошибки
 int fd_get_last_error(const char **error);
 void fd_set_error(uint8_t doc_type, uint8_t status, uint8_t *err_info, size_t err_info_len);
+
+
+typedef void (*after_silent_create_doc_t)(uint8_t doc_type, uint32_t doc_no, uint32_t doc_sign);
+
 // формирование фискального документа
-int fd_create_doc(uint8_t doc_type, const uint8_t *pattern_footer, size_t pattern_footer_size);
+int fd_create_doc(uint8_t doc_type,
+    const uint8_t *pattern_footer,
+    size_t pattern_footer_size,
+    bool has_email_or_phone,
+    after_silent_create_doc_t after_silent_create_doc);
 // печать последнего фискального документа
 int fd_print_last_doc(uint8_t doc_type);
 // печать фискального документа по номеру
@@ -101,6 +109,10 @@ int fd_close_fs();
 
 // признак того, что оформление документа началось
 extern bool last_cheque_process_started;
+
+// Название документа по его типу
+extern const char *get_doc_name(uint32_t type);
+
 
 #if defined __cplusplus
 }
