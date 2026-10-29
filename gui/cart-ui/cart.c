@@ -1393,6 +1393,236 @@ static void ui_cart_process_delete(void)
     ui_cart_redraw_all();
 }
 
+
+/*
+ * Валидация значения email/телефона.
+ *
+ * Соответствует Utils.CheckPhoneNumberOrEmail в C#:
+ *   - пустая строка / "none"    -> валидна (печатный чек);
+ *   - начинается с '+'          -> телефон (проверяем, что дальше только цифры);
+ *   - иначе                     -> email (один '@', не в начале и не в конце).
+ */
+static bool validate_phone_or_email(const char *s)
+{
+    if (s == NULL || s[0] == 0 || strcmp(s, "none") == 0)
+        return true;
+
+    if (s[0] == '+') {
+        for (const char *p = s + 1; *p; p++)
+            if (!isdigit((unsigned char)*p))
+                return false;
+        return s[1] != 0;
+    }
+
+    /* email */
+    int at = -1, right = 0;
+    for (int i = 0; s[i]; i++) {
+        if (isspace((unsigned char)s[i]))
+            return false;
+        if (s[i] == '@') {
+            if (i == 0 || at >= 0)
+                return false;
+            at = i;
+        } else if (at > 0) {
+            right++;
+        }
+    }
+    return at > 0 && right > 0;
+}
+
+/* ID пунктов формы. Результат form_execute()  id нажатой кнопки. */
+enum {
+    PHONE_EMAIL_ITEM_COMBO = 1,
+    PHONE_EMAIL_ITEM_ALL   = 2,
+    PHONE_EMAIL_BTN_OK     = 10,
+    PHONE_EMAIL_BTN_CANCEL = 11,
+};
+
+/* Копирует строку из form_data_t. Внутри data.data  char*.
+ * В проекте form_get_data с what=0 для EDIT/COMBOBOX возвращает
+ * указатель на строку в .data. */
+static bool form_get_text(form_t *form, int id, char *out, size_t out_size)
+{
+    if (out_size == 0) return false;
+    out[0] = 0;
+
+    form_data_t data;
+    if (!form_get_data(form, id, 0, &data))
+        return false;
+    if (data.data == NULL)
+        return true;                    /* пустая строка */
+
+    strncpy(out, (const char *)data.data, out_size - 1);
+    out[out_size - 1] = 0;
+    return true;
+}
+
+
+static bool show_phone_or_email_dialog(char *value, size_t value_size,
+                                       bool *do_for_all,
+                                       const char **variants, int variant_count)
+{
+    const char *ok_text = "Далее";
+
+    static const char *apply_items[] = { "Применить к текущим выбранным документам", "Применить ко всем документам текущей корзины" };
+    size_t apply_items_count = 2;
+    char apply_value[64];
+    
+    strcpy(apply_value, apply_items[0]);
+
+    bool ok = false;
+
+    while (1) {
+        form_t *form = NULL;
+        
+        kbd_lang_ex = lng_lat;
+        
+        BEGIN_FORM(form,
+            "Контактные данные для отправки кассового чека в электронной форме")
+            FORM_ITEM_EDIT_COMBOBOX(PHONE_EMAIL_ITEM_COMBO,
+                "Телефон или e-mail:", value,
+                FORM_INPUT_TYPE_TEXT, 64,
+                variants, (size_t)variant_count)
+            FORM_ITEM_EDIT_COMBOBOX(PHONE_EMAIL_ITEM_ALL,
+                "Применение:", apply_value,
+                FORM_INPUT_TYPE_TEXT, 64,
+                apply_items, (size_t)apply_items_count)
+            FORM_ITEM_BUTTON(PHONE_EMAIL_BTN_OK,     ok_text)
+            FORM_ITEM_BUTTON(PHONE_EMAIL_BTN_CANCEL, "Отмена")
+        END_FORM()
+        
+        int res = form_execute(form);
+
+        /* Сначала читаем значения, потом уничтожаем форму. */
+        char new_value[128];
+        new_value[0] = 0;
+        bool value_read = form_get_text(form, PHONE_EMAIL_ITEM_COMBO,
+                                        new_value, sizeof(new_value));
+
+        char new_value_apply[128];
+        new_value_apply[0] = 0;
+        int all_flag = 0;
+        if (form_get_text(form, PHONE_EMAIL_ITEM_ALL,
+                                        new_value_apply, sizeof(new_value_apply)))
+        {
+            all_flag = strcasecmp(new_value_apply, apply_items[1]) == 0;
+        }
+
+
+        form_destroy(form);
+        form = NULL;
+
+        if (res != PHONE_EMAIL_BTN_OK) {
+            ok = false;
+            break;
+        }
+
+        if (value_read) {
+            strncpy(value, new_value, value_size - 1);
+            value[value_size - 1] = 0;
+        }
+        *do_for_all = (all_flag != 0);
+
+        if (validate_phone_or_email(value)) {
+            ok = true;
+            break;
+        }
+
+        /* Невалидно  сообщаем и возвращаемся к форме с сохранённым значением. */
+        message_box("Ошибка",
+            "Неверное значение номера телефона или e-mail.\n"
+            "Телефон должен начинаться с '+', далее только цифры.\n"
+            "E-mail должен содержать ровно один '@', не в начале и не в конце.",
+            dlg_yes, 0, al_center);
+    }
+
+    return ok;
+}
+
+/*
+ * Установить email/телефон покупателя для подкорзины.
+ *
+ * Соответствует cart1.SetPhoneNumberOrEmail(subCart) в C#.
+ *
+ * Логика:
+ *   1. Если у чека (sc->c) уже установлен pe ? ничего не спрашиваем.
+ *   2. Собираем варианты из _ad->phones и _ad->emails.
+ *   3. Показываем диалог.
+ *   4. Устанавливаем значение в sc->c->pe.
+ *      При do_for_all ? во все C в _ad->clist (или во все подкорзины).
+ *   5. Введённое валидное новое значение добавляем в справочники
+ *      _ad->phones / _ad->emails (без дублей).
+ *
+ * Возвращает false, если пользователь отказался от ввода ? тогда
+ * вызывающий код должен прекратить обработку.
+ */
+static bool cart_set_phone_or_email(SubCart *sc)
+{
+    if (sc == NULL || sc->c == NULL)
+        return false;
+
+    /* Уже установлено ? не спрашиваем повторно. */
+    if (sc->c->pe != NULL && sc->c->pe[0] != 0)
+        return true;
+
+    /* --- Собираем варианты --- */
+    int phone_count = (int)_ad->phones.count;
+    int email_count = (int)_ad->emails.count;
+    int total = phone_count + email_count;
+
+    const char **variants = NULL;
+    if (total > 0) {
+        variants = (const char **)malloc(sizeof(char *) * total);
+        if (variants != NULL) {
+            for (int i = 0; i < phone_count; i++)
+                variants[i] = _ad->phones.values[i];
+            for (int i = 0; i < email_count; i++)
+                variants[phone_count + i] = _ad->emails.values[i];
+        }
+    }
+
+    char value[128];
+    value[0] = 0;
+    if (sc->c->pe) {
+        strncpy(value, sc->c->pe, sizeof(value) - 1);
+        value[sizeof(value) - 1] = 0;
+    }
+
+    bool do_for_all = false;
+    bool ok = show_phone_or_email_dialog(
+        value, sizeof(value), &do_for_all,
+        variants, total);
+
+    free(variants);
+
+    if (!ok)
+        return false;
+
+    /* --- Применяем --- */
+    if (do_for_all) {
+        for (list_item_t *li = _ad->clist.head; li; li = li->next) {
+            C *c = LIST_ITEM(li, C);
+            if (c->pe) free(c->pe);
+            c->pe = strdup(value);
+        }
+    } else {
+        if (sc->c->pe) free(sc->c->pe);
+        sc->c->pe = strdup(value);
+    }
+
+    /* --- Сохраняем в справочники для следующих вызовов --- */
+    if (value[0] != 0 && strcmp(value, "none") != 0) {
+        if (value[0] == '+') {
+            string_array_add(&_ad->phones, value, true, 0);
+        } else {
+            string_array_add(&_ad->emails, value, true, 1);
+        }
+    }
+
+    AD_save();
+    return true;
+}
+
 void process_non_cash_items(selected_docs_t *sd)
 {
     printf("process_non_cash_items start\n");
@@ -1404,6 +1634,14 @@ void process_non_cash_items(selected_docs_t *sd)
             dlg_yes, 0, al_center);
         return;
     }
+    
+    /* Как cart1.SetPhoneNumberOrEmail(subCart) в C# ? перед
+     * банковской операцией для нон-кеш подкорзин. */
+    if (!cart_set_phone_or_email(sd->sc->val)) {
+        fprintf(stderr,
+            "process_non_cash_items: пользователь отменил ввод email/phone\n");
+        return;
+    }    
     
     uint8_t code = 0xa3;
     
@@ -1582,6 +1820,28 @@ void set_printing_state(list_t *list, uint8_t state)
 
 void process_print_docs(selected_docs_t* sd)
 {
+    ui_subcart_t *sc = ui_sel_subcart;
+
+    /* Как в C#  спрашиваем email/phone перед печатью, но только
+     * если среди выделенных документов есть не прошедшие банк
+     * (bank_state == NONE). Иначе реквизит уже не нужен. */
+    bool any_bank_none = false;
+    for (list_item_t *li = sd->klist.head; li; li = li->next) {
+        K *k = LIST_ITEM(li, K);
+        if (k->bank_state == BANK_STATE_NONE) {
+            any_bank_none = true;
+            break;
+        }
+    }
+
+    if (any_bank_none) {
+        if (!cart_set_phone_or_email(sc->val)) {
+            fprintf(stderr,
+                "process_print_docs: пользователь отменил ввод email/phone\n");
+            return;
+        }
+    }
+
     for (int i = 0; i < 2; i++)
     {
         list_t *list = &sd->klist_by_p[i];
@@ -1702,8 +1962,8 @@ bool print_cheque(SubCart *sc, list_t *klist)
 		ffd_tlv_add_fixed_string(1203, cashier_inn, 12);
 	ffd_tlv_add_uint8(1054, cheque->t1054);
 	ffd_tlv_add_uint8(1055, cheque->t1055);
-//	if (c->pe)
-//		ffd_tlv_add_string(1008, c->pe);
+	if (has_email_or_phone)
+		ffd_tlv_add_string(1008, cheque->pe);
 	ffd_tlv_add_vln(1031, (uint64_t)sum.n);
 	ffd_tlv_add_vln(1081, (uint64_t)sum.e);
 	ffd_tlv_add_vln(1215, (uint64_t)sum.p);

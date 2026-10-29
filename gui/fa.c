@@ -624,7 +624,7 @@ void after_silent_create_doc(uint8_t doc_type, uint32_t doc_no, uint32_t doc_sig
 {
     char text[256];
     
-    sprintf(text, "Документ N %d (%s) сформирован. Фискальный признак: %d",
+    sprintf(text, "Документ N %d (%s) сформирован. Фискальный признак: %u",
         doc_no, get_doc_name(doc_type), doc_sign);
 
 	message_box("Уведомление", text, dlg_yes, 0, al_center);
