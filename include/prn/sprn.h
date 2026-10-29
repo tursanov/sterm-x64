@@ -25,6 +25,9 @@ enum {
 extern int sprn_get_type(void);
 extern void sprn_clr_type(void);
 
+extern size_t get_pic_lst_len_vtsv(void);
+extern const char *get_pic_name_vtsv(size_t n);
+
 /* Статус БПУ */
 extern uint8_t sprn_status;
 /* Длина заводского номера БПУ */
@@ -167,6 +170,14 @@ extern bool sprn_timeout;
 #define SPRN_MEDIA_PAPER	0x31	/* рулонная бумага */
 #define SPRN_MEDIA_BOTH		0x32	/* оба носителя */
 
+/* Ограничения изображений БПУ/ККТ */
+#define SPRN_MAX_GRIDS		36		/* максимальное количество разметок бланков в БПУ/ККТ (0-9 A-Z) */
+#define SPRN_MAX_ICONS		36		/* максимальное количество пиктограмм в БПУ/ККТ (0-9 A-Z) */
+#define SPRN_MAX_PICS		78		/* максимальное количество изображений в БПУ "Видеотон" */
+#define SPRN_MAX_PIC_NAME_LEN	16		/* максимальная длина названия изображения в БПУ "Видеотон" */
+#define SPRN_MAX_GRID_NAME_LEN	SPRN_MAX_PIC_NAME_LEN	/* максимальная длина названия разметки бланка */
+#define SPRN_MAX_ICON_NAME_LEN	SPRN_MAX_PIC_NAME_LEN	/* максимальная длина названия пиктограммы */
+
 /* Статус завершения команд БПУ */
 #define SPRN_STATUS_OK		0x00	/* нормальное завершение */
 #define SPRN_STATUS_NO_NUMBER	0x01	/* номер БПУ не прописан в памяти */
@@ -217,9 +228,6 @@ extern bool sprn_timeout;
 #define SPRN_STATUS_GRID_WRITE_ERR	0xb4	/* ошибка записи разметки в память БПУ */
 #define SPRN_STATUS_GRID_TIMEOUT	0xb5	/* таймаут приема разметки */
 
-/* Максимальное количество разметок */
-#define MAX_GRIDS			36	/* 0-9 A-Z */
-
 /* Загрузка пиктограмм (нет в ТЗ ВНИИЖТ) */
 #define SPRN_STATUS_ICON_ILLEGAL_ID	0xb8	/* неверный идентификатор пиктограммы */
 #define SPRN_STATUS_ICON_TOO_SHORT	0xb9	/* длина данных пиктограмм меньше допустимой */
@@ -227,9 +235,6 @@ extern bool sprn_timeout;
 #define SPRN_STATUS_ICON_CRC_ERR	0xbb	/* ошибка контрольной суммы данных пиктограмм */
 #define SPRN_STATUS_ICON_WRITE_ERR	0xbc	/* ошибка записи пиктограмм в память БПУ */
 #define SPRN_STATUS_ICON_TIMEOUT	0xbd	/* таймаут приема пиктограмм */
-
-/* Максимальное количество пиктограмм */
-#define MAX_ICONS			36	/* 0-9 A-Z */
 
 static inline bool sprn_ok(uint8_t status)
 {

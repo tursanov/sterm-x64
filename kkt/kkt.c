@@ -663,7 +663,6 @@ uint8_t kkt_end_doc(uint16_t doc_type, const uint8_t *tmpl, size_t tmpl_len,
 	uint32_t timeout_factor, struct kkt_doc_info *di,
 	uint8_t *err_info, size_t *err_info_len)
 {
-    log_dbg("doc_type: %d, tmpl: %p, tmpl_len: %u, timeout_factor: %u", doc_type, tmpl, tmpl_len);
 	assert(tmpl != NULL);
 	assert(di != NULL);
 	bool vset = false;
@@ -672,7 +671,7 @@ uint8_t kkt_end_doc(uint16_t doc_type, const uint8_t *tmpl, size_t tmpl_len,
 		struct doc_info_arg arg;
 		if (prepare_cmd(KKT_SRV, KKT_SRV_END_DOC) && write_word(doc_type) &&
 		        write_word(tmpl_len) &&
-				(tmpl_len == 0 || write_data(tmpl, tmpl_len)) &&
+				((tmpl_len == 0) || write_data(tmpl, tmpl_len)) &&
 				kkt_open_dev_if_need()){
 			if (do_transaction(KKT_SRV, KKT_SRV_END_DOC, &arg)){
 				*di = arg.di;
