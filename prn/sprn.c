@@ -17,6 +17,34 @@
 #include "sterm.h"
 #include "termlog.h"
 
+/* Тип БПУ */
+static int sprn_type = SPRN_UNKNOWN;
+
+int sprn_get_type(void)
+{
+	return sprn_type;
+}
+
+void sprn_clr_type(void)
+{
+	sprn_type = SPRN_UNKNOWN;
+}
+
+static bool sprn_set_type(const struct dev_info *sprn)
+{
+	bool ret = false;
+	if ((sprn != NULL) && (sprn->type == DEV_SPRN)){
+		ret = true;
+		if (strcmp(sprn->name, "СПЕКТР-ДС") == 0)
+			sprn_type = SPRN_SPECTRUM;
+		else if (strcmp(sprn->name, "TKVS-300") == 0)
+			sprn_type = SPRN_VIDEOTON;
+		else
+			ret = false;
+	}
+	return ret;
+}
+
 /* Статус БПУ */
 uint8_t sprn_status = 0;
 /* Заводской номер БПУ */
@@ -71,7 +99,7 @@ static void sprn_mark_operation(void)
 /* Установка таймаута в соответствии с командой */
 static void sprn_set_timeout(uint8_t cmd)
 {
-	static struct {
+	static const struct {
 		uint8_t cmd;
 		uint32_t sprn_op_timeout;
 	} map[] = {
@@ -84,12 +112,27 @@ static void sprn_set_timeout(uint8_t cmd)
 		{SPRN_LOG1,		SPRN_LOG_TIMEOUT},
 		{SPRN_RD_BCODE,		SPRN_BCODE_CTL_TIMEOUT},
 		{SPRN_NO_BCODE,		SPRN_TEXT_TIMEOUT},
+		{SPRN_RD_PARAMS,	SPRN_RD_PARAMS_TIMEOUT},
+		{SPRN_WR_PARAM,		SPRN_WR_PARAM_TIMEOUT},
+
+		{SPRN_PIC_LOAD,		SPRN_PIC_LOAD_TIMEOUT},
+		{SPRN_PIC_LST,		SPRN_PIC_LST_TIMEOUT},
+		{SPRN_PIC_ERASE,	SPRN_PIC_ERASE_TIMEOUT},
+
+		{SPRN_GRID_LOAD,	SPRN_GRID_LOAD_TIMEOUT},
+		{SPRN_GRID_LST,		SPRN_GRID_LST_TIMEOUT},
+		{SPRN_GRID_ERASE,	SPRN_GRID_ERASE_TIMEOUT},
+		{SPRN_GRID_ERASE_ALL,	SPRN_GRID_ERASE_ALL_TIMEOUT},
+
+		{SPRN_ICON_LOAD,	SPRN_ICON_LOAD_TIMEOUT},
+		{SPRN_ICON_LST,		SPRN_ICON_LST_TIMEOUT},
+		{SPRN_ICON_ERASE_ALL,	SPRN_ICON_ERASE_ALL_TIMEOUT},
 	};
-	int i;
 	sprn_op_timeout = SPRN_INFINITE_TIMEOUT;
-	for (i = 0; i < ASIZE(map); i++){
-		if (map[i].cmd == cmd){
-			sprn_op_timeout = map[i].sprn_op_timeout;
+	for (int i = 0; i < ASIZE(map); i++){
+		typeof(map + i) p = map + i;
+		if (p->cmd == cmd){
+			sprn_op_timeout = p->sprn_op_timeout;
 			break;
 		}
 	}
@@ -103,7 +146,7 @@ enum {
 	rcv_number,		/* получение номера бланка */
 	rcv_media_status,	/* ожидание кода завершения команды получения типа носителя */
 	rcv_media_type,		/* ожидание кода типа носителя */
-	rcv_id_status,	/* ожидание кода завершения инициализации БПУ */
+	rcv_id_status,		/* ожидание кода завершения инициализации БПУ */
 	rcv_id,			/* получение заводского номера БПУ */
 	rcv_xstatus,		/* ожидание байта статуса БПУ */
 	rcv_status,		/* ожидание байта завершения команды */
@@ -658,13 +701,7 @@ static int sprn_wait_op(bool show_status)
 	int ret = SPRN_RET_ERR;
 	while ((sprn_sent_len < sprn_tx_len) ||
 			((rcv_st != rcv_end) && (rcv_st != rcv_idle))){
-		if (!sprn_process())/*{
-			if (((get_cmd(false, true) == cmd_reset) &&
-					reset_term(false)) || (kt == key_none)){
-				sprn_reset();
-				ret = SPRN_RET_RST;
-			}
-		}else*/
+		if (!sprn_process())
 			break;
 	}
 	if (rcv_st == rcv_end)
@@ -696,6 +733,7 @@ static int sprn_do_cmd(uint8_t cmd)
 /* Инициализация БПУ, получение его заводского номера и параметров */
 int sprn_init(struct term_cfg *cfg)
 {
+	sprn_set_type(sprn);
 	memset(sprn_number, 0x30, sizeof(sprn_number));
 	int ret = sprn_do_cmd(SPRN_ID);
 	if ((ret == SPRN_RET_OK) && sprn_ok(sprn_status))
@@ -817,7 +855,7 @@ int sprn_get_params(struct term_cfg *cfg)
 		sprn_sent_len = 0;
 		sprn_sent_cmd = 'R';
 		sprn_mark_operation();
-		sprn_op_timeout = SPRN_RD_PARAMS_TIMEOUT;
+		sprn_set_timeout(SPRN_RD_PARAMS);
 		ret = sprn_wait_op(false);
 		sprn_close();
 		if ((ret == SPRN_RET_OK) && !sprn_translate_params(cfg))
@@ -846,7 +884,7 @@ static int sprn_set_param(int n, int val)
 	sprn_sent_cmd = 'S';
 	sprn_param_number = n + 0x30;
 	sprn_mark_operation();
-	sprn_op_timeout = SPRN_WR_PARAM_TIMEOUT;
+	sprn_set_timeout(SPRN_WR_PARAM);
 	return sprn_wait_op(false);
 }
 
