@@ -4,6 +4,7 @@
 #define X3DATA_COMMON_H
 
 #include "kkt/cmd.h"
+#include "prn/sprn.h"
 #include "express.h"
 
 #if defined __cplusplus

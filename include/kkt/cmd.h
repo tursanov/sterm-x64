@@ -148,13 +148,6 @@ extern "C" {
 #define KKT_ICON_ERASE_ALL	0xbc		/* удаление всех пиктограмм */
 #define KKT_NEW_ICON_LOAD	0xbd		/* загрузка одной пиктограммы в ККТ */
 
-#define SPRN_MAX_GRIDS		36		/* максимальное количество шаблонов в БПУ */
-#define SPRN_MAX_ICONS		36		/* максимальное количество пиктограмм в БПУ */
-#define SPRN_MAX_PICS		78		/* максимальное количество изображений в БПУ "Видеотон" */
-#define SPRN_MAX_PIC_NAME_LEN	16		/* максимальная длина названия изображения в БПУ "Видеотон" */
-#define SPRN_MAX_GRID_NAME_LEN	SPRN_MAX_PIC_NAME_LEN	/* максимальная длина названия шаблона */
-#define SPRN_MAX_ICON_NAME_LEN	SPRN_MAX_PIC_NAME_LEN	/* максимальная длина названия пиктограммы */
-
 /* Команды для работы с ФН */
 #define KKT_FS				0x66
 #define KKT_FS_STATUS			0x30	/* получение статуса ФН */

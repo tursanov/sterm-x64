@@ -69,6 +69,34 @@ static int nr_semicolons;
 /* Флаг получения всех параметров БПУ */
 static bool sprn_params_received = false;
 
+/* Номер текущего изображения ("Видеотон") */
+static uint8_t cur_pic_nr = 0;
+/* Имя текущего изображения ("Видеотон") */
+static char cur_pic_name[SPRN_MAX_PIC_NAME_LEN + 1];
+static size_t cur_pic_name_len = 0;
+/* Список изображений в БПУ "Видеотон" */
+static char pic_lst[SPRN_MAX_PICS][SPRN_MAX_PIC_NAME_LEN + 1];
+/* Количество изображений в списке БПУ "Видеотон" */
+static size_t pic_lst_len = 0;
+/* Список изображений верен ("Видеотон") */
+static bool pics_valid = false;
+
+size_t get_pic_lst_len_vtsv(void)
+{
+	size_t ret = 0;
+	if ((sprn_type == SPRN_VIDEOTON) && pics_valid)
+		ret = pic_lst_len;
+	return ret;
+}
+
+const char *get_pic_name_vtsv(size_t n)
+{
+	const char *ret = NULL;
+	if ((sprn_type == SPRN_VIDEOTON) && pics_valid && (n < pic_lst_len))
+		ret = pic_lst[n];
+	return ret;
+}
+
 const struct dev_info *sprn = NULL;
 const struct dev_info *rfid = NULL;
 /* Устройство для работы с БПУ */
@@ -140,25 +168,43 @@ static void sprn_set_timeout(uint8_t cmd)
 
 /* Состояния конечного автомата приёма */
 enum {
-	rcv_start,		/* ожидание Ар1 */
-	rcv_cmd,		/* ожидание кода команды */
-	rcv_number_status,	/* ожидание кода завершения чтения номера бланка */
-	rcv_number,		/* получение номера бланка */
-	rcv_media_status,	/* ожидание кода завершения команды получения типа носителя */
-	rcv_media_type,		/* ожидание кода типа носителя */
-	rcv_id_status,		/* ожидание кода завершения инициализации БПУ */
-	rcv_id,			/* получение заводского номера БПУ */
-	rcv_xstatus,		/* ожидание байта статуса БПУ */
-	rcv_status,		/* ожидание байта завершения команды */
-	rcv_number_ctl_status,	/* ожидание кода завершения печати с контролем штрих-кода */
-	rcv_wr_param_prefix,	/* ожидание S (установка параметра) */
-	rcv_wr_param_number,	/* ожидание номера параметра */
-	rcv_wr_param_sign,	/* ожидание знака числового значения параметра (+/-) */
-	rcv_wr_param_val,	/* получение числового значения параметра */
-	rcv_rd_param_prefix,	/* ожидание R (получение значений всех параметров) */
-	rcv_rd_param_vals,	/* получение значений всех параметров */
-	rcv_end,		/* окончание приёма данных от БПУ (в т.ч. по таймауту) */
-	rcv_idle,		/* игнорирование данных от БПУ */
+	rcv_start,			/* ожидание Ар1 */
+	rcv_cmd,			/* ожидание кода команды */
+	rcv_number_status,		/* ожидание кода завершения чтения номера бланка */
+	rcv_number,			/* получение номера бланка */
+	rcv_media_status,		/* ожидание кода завершения команды получения типа носителя */
+	rcv_media_type,			/* ожидание кода типа носителя */
+	rcv_id_status,			/* ожидание кода завершения инициализации БПУ */
+	rcv_id,				/* получение заводского номера БПУ */
+	rcv_xstatus,			/* ожидание байта статуса БПУ */
+	rcv_status,			/* ожидание байта завершения команды */
+	rcv_number_ctl_status,		/* ожидание кода завершения печати с контролем штрих-кода */
+	rcv_wr_param_prefix,		/* ожидание S (установка параметра) */
+	rcv_wr_param_number,		/* ожидание номера параметра */
+	rcv_wr_param_sign,		/* ожидание знака числового значения параметра (+/-) */
+	rcv_wr_param_val,		/* получение числового значения параметра */
+	rcv_rd_param_prefix,		/* ожидание R (получение значений всех параметров) */
+	rcv_rd_param_vals,		/* получение значений всех параметров */
+/* Работа с изображениями в БПУ "Видеотон" */
+	rcv_pic_lst_head_vtsv,		/* заголовок списка изображений в БПУ */
+	rcv_pic_lst_nr_vtsv,		/* номер изображения */
+	rcv_pic_lst_name_vtsv,		/* имя изображения */
+	rcv_pic_lst_delim_vtsv,		/* разделитель записей списка изображений (CR/LF) */
+
+	rcv_pic_erase_head_vtsv,	/* заголовок ответа на команду удаления изображения */
+	rcv_pic_erase_find_vtsv,	/* статус поиска изображения для удаления из БПУ */
+	rcv_pic_erase_status_vtsv,	/* статус удаления изображения из БПУ */
+	rcv_pic_erase_end_vtsv,		/* окончание ответа на команду удаления изобраения из БПУ */
+/* Работа с шаблонами в БПУ "Спектр" */
+	rcv_grid_lst_status_sprn,	/* статус получения списка шаблонов */
+	rcv_grid_lst_nr_sprn,		/* количество шаблонов */
+	rcv_grid_lst_data_sprn,		/* заголовки шаблонов */
+/* Работа с пиктограммами в БПУ "Спектр" */
+	rcv_icon_lst_status_sprn,	/* статус получения списка пиктограмм */
+	rcv_icon_lst_nr_sprn,		/* количество пиктограмм */
+	rcv_icon_lst_data_sprn,		/* заголовки пиктограмм */
+	rcv_end,			/* окончание приёма данных от БПУ (в т.ч. по таймауту) */
+	rcv_idle,			/* игнорирование данных от БПУ */
 };
 
 static int rcv_st = rcv_idle;
@@ -169,7 +215,7 @@ static uint8_t sprn_rx[SPRN_RX_BUF_LEN];
 static size_t sprn_rx_len = 0;
 
 /* Счётчик для некоторых состояний конечного автомата приёма */
-static off_t rcv_idx;
+static off_t rcv_idx = 0;
 
 /* Установка состояния конечного автомата приёма */
 static void sprn_set_rcv_st(int st)
@@ -197,6 +243,12 @@ static void sprn_reset(void)
 	sprn_op_timeout = SPRN_INFINITE_TIMEOUT;
 	sprn_set_rcv_st(rcv_idle);
 	rcv_idx = 0;
+	cur_pic_nr = 0;
+	cur_pic_name[0] = 0;
+	cur_pic_name_len = 0;
+	memset(pic_lst, 0, sizeof(pic_lst));
+	pic_lst_len = 0;
+	pics_valid = false;
 }
 
 /* Закрытие устройства для работы с БПУ */
@@ -602,6 +654,197 @@ static bool sprn_translate_params(struct term_cfg *cfg)
 	}
 	return i == ASIZE(map);
 }
+
+/* Работа с шаблонами БПУ "Видеотон" */
+static bool is_pic_lst_delim_vtsv(uint8_t b)
+{
+	return (b == SPRN_LF) || (b == SPRN_CR);
+}
+
+static void on_rcv_pic_lst_head_vtsv(uint8_t b)
+{
+	static uint8_t header[] = "<PL";
+	if (b == header[rcv_idx++]){
+		if ((rcv_idx + 1) == sizeof(header)){
+			cur_pic_nr = 0;
+			sprn_set_rcv_st(rcv_pic_lst_delim_vtsv);
+		}
+	}else{
+		log_err("Неверный формат заголовка списка изображений БПУ \"Видеотон\".");
+		sprn_set_rcv_st(rcv_idle);
+	}
+}
+
+static void on_rcv_pic_lst_nr_vtsv(uint8_t b)
+{
+	if (b == 0x2d){		/* - */
+		if (cur_pic_nr > 10)
+			cur_pic_nr -= 7;
+		if ((cur_pic_nr > 0) && (cur_pic_nr < SPRN_MAX_PICS)){
+			cur_pic_name[0] = 0;
+			cur_pic_name_len = 0;
+			rcv_idx = 0;
+			sprn_set_rcv_st(rcv_pic_lst_name_vtsv);
+		}else
+			sprn_set_rcv_st(rcv_idle);
+	}else if ((b >= 0x30) && (b <= 0x39) && (cur_pic_nr < 10)){
+		cur_pic_nr *= 10;
+		cur_pic_nr += b - 0x30;
+	}else
+		sprn_set_rcv_st(rcv_idle);
+}
+
+#if 0
+void on_rcv_pic_lst_name_vtsv(uint8_t b)
+{
+	if (is_pic_lst_delim_vtsv(b)){
+		if (cur_pic_name.empty())
+			sprn_set_rcv_st(rcv_idle);
+		else{
+			if (cur_pic_nr <= SPRN_MAX_GRIDS){
+				Grid_info gi;
+				if (gi.parse(cur_pic_name.c_str()) && (gi.nr() == cur_pic_nr))
+					_grids.push_back(gi);
+			}else if ((cur_pic_nr - SPRN_MAX_GRIDS) <= SPRN_MAX_ICONS){
+				Icon_info ii;
+				if (ii.parse(cur_pic_name.c_str()) && (ii.nr() == (cur_pic_nr - SPRN_MAX_GRIDS)))
+					_icons.push_back(ii);
+			}
+			sprn_set_rcv_st(rcv_pic_lst_delim_vtsv);
+		}
+	}else if (cur_pic_name.length() < SPRN_MAX_PIC_NAME_LEN)
+		cur_pic_name.push_back(b);
+	else
+		sprn_set_rcv_st(rcv_idle);
+}
+
+void on_rcv_pic_lst_delim_vtsv(uint8_t b)
+{
+	if (b == 0x3e){		/* > */
+		pics_valid = true;
+		sprn_set_rcv_st(rcv_end);
+	}else if (!is_pic_lst_delim_vtsv(b)){
+		if ((b >= 0x30) && (b <= 0x39)){
+			if ((_grids.size() < SPRN_MAX_GRIDS) && (_icons.size() < SPRN_MAX_ICONS)){
+				cur_pic_nr = 0;
+				sprn_set_rcv_st(rcv_pic_lst_nr_vtsv);
+				on_rcv_pic_lst_nr_vtsv(b);
+			}else
+				sprn_set_rcv_st(rcv_idle);
+		}else
+			sprn_set_rcv_st(rcv_idle);
+	}
+}
+
+
+void on_rcv_pic_erase_head_vtsv(uint8_t b)
+{
+	static uint8_t header[] = "<PE";
+	if (b == header[rcv_idx++]){
+		if ((rcv_idx + 1) == ASIZE(header))
+			sprn_set_rcv_st(rcv_pic_erase_find_vtsv);
+	}else
+		sprn_set_rcv_st(rcv_idle);
+}
+
+void on_rcv_pic_erase_find_vtsv(uint8_t b)
+{
+	if (b == 0x30){		/* изображение не найдено */
+		sprn_status = STATUS_PIC_ERASE_ERROR;
+		sprn_set_rcv_st(rcv_pic_erase_end_vtsv);
+	}else if (b == 0x31)	/* изображение обнаружено */
+		sprn_set_rcv_st(rcv_pic_erase_status_vtsv);
+	else
+		sprn_set_rcv_st(rcv_idle);
+}
+
+void on_rcv_pic_erase_status_vtsv(uint8_t b)
+{
+	if (b == STATUS_PIC_ERASED)
+		b = STATUS_OK;
+	sprn_status = b;
+	sprn_set_rcv_st(rcv_pic_erase_end_vtsv);
+}
+
+void on_rcv_pic_erase_end_vtsv(uint8_t b)
+{
+	if (b == 0x3e)		/* > */
+		sprn_set_rcv_st(rcv_end);
+	else
+		sprn_set_rcv_st(rcv_idle);
+}
+
+
+void on_rcv_grid_lst_status_sprn(uint8_t b)
+{
+	sprn_status = b;
+	if (sprn_ok(b))
+		sprn_set_rcv_st(rcv_grid_lst_nr_sprn);
+	else
+		sprn_set_rcv_st(rcv_idle);
+}
+
+void on_rcv_grid_lst_nr_sprn(uint8_t b)
+{
+	if ((b == 0) || (b > SPRN_MAX_GRIDS))
+		sprn_set_rcv_st(rcv_idle);
+	else{
+		_nr_grids_sprn = b;
+		_grid_lst_len = _nr_grids_sprn * sizeof(GRID_HEADER_SPRN);
+		clr_grid_hdr_sprn();
+		_grid_hdr_sprn = new uint8_t[_grid_lst_len];
+		rcv_idx = 0;
+		sprn_set_rcv_st(rcv_grid_lst_data_sprn);
+	}
+}
+
+void on_rcv_grid_lst_data_sprn(uint8_t b)
+{
+	_grid_hdr_sprn[rcv_idx++] = b;
+	if (rcv_idx == _grid_lst_len){
+		if (process_grid_lst_sprn()){
+			pics_valid = true;
+			sprn_set_rcv_st(rcv_end);
+		}else
+			sprn_set_rcv_st(rcv_idle);
+	}
+}
+
+void on_rcv_icon_lst_status_sprn(uint8_t b)
+{
+	sprn_status = b;
+	if (sprn_ok(b))
+		sprn_set_rcv_st(rcv_icon_lst_nr_sprn);
+	else
+		sprn_set_rcv_st(rcv_idle);
+}
+
+void on_rcv_icon_lst_nr_sprn(uint8_t b)
+{
+	if ((b == 0) || (b > SPRN_MAX_ICONS))
+		sprn_set_rcv_st(rcv_idle);
+	else{
+		_nr_icons_sprn = b;
+		_icon_lst_len = _nr_icons_sprn * sizeof(ICON_HEADER_SPRN);
+		clr_icon_hdr_sprn();
+		_icon_hdr_sprn = new uint8_t[_icon_lst_len];
+		rcv_idx = 0;
+		sprn_set_rcv_st(rcv_icon_lst_data_sprn);
+	}
+}
+
+void on_rcv_icon_lst_data_sprn(uint8_t b)
+{
+	_icon_hdr_sprn[rcv_idx++] = b;
+	if (rcv_idx == _icon_lst_len){
+		if (process_icon_lst_sprn()){
+			pics_valid = true;
+			sprn_set_rcv_st(rcv_end);
+		}else
+			sprn_set_rcv_st(rcv_idle);
+	}
+}
+#endif
 
 static bool sprn_do_rcv(void)
 {
