@@ -65,6 +65,7 @@ extern bool sprn_timeout;
 #define SPRN_CPI12		0x1c	/* плотность печати 12 cpi */
 #define SPRN_DLE2		0x1d	/* установка параметров печати */
 #define SPRN_CPI20		0x1e	/* плотность печати 20 cpi */
+#define SPRN_DLE_VTSV		0x3c	/* используется при работе с изображениями БПУ "Видеотон" */
 #define SPRN_RST		0x7f	/* сброс БПУ */
 
 /* Многобайтовые команды */
@@ -264,8 +265,6 @@ enum {
 extern int sprn_init(struct term_cfg *cfg);
 /* Закрытие устройства для работы с БПУ */
 extern void sprn_close(void);
-/* Возвращает true, если заводской номер БПУ состоит из одних нулей */
-extern bool sprn_is_zero_number(void);
 /* Получение статуса БПУ */
 extern int sprn_get_status(void);
 /* Получение типа носителя в БПУ */
@@ -282,17 +281,13 @@ extern int sprn_print_ticket(const uint8_t *data, size_t len, bool *sent_to_prn)
 extern int sprn_get_params(struct term_cfg *cfg);
 /* Запись параметров работы БПУ */
 extern int sprn_set_params(struct term_cfg *cfg);
+/* Получение списка разметок бланков из БПУ "СПЕКТР-ДС" */
+extern int sprn_get_grid_lst(uint8_t *data, size_t *len);
 
-/* Расшифровка ошибок БПУ */
-struct sprn_error_txt {
-	int len;		/* длина сообщения */
-	char *txt;		/* сообщение об ошибке (koi7) */
-};
-
-/* Получение информации об ошибке БПУ на основании её кода */
-extern const struct sprn_error_txt *sprn_get_error_txt(uint8_t code);
-/* Получение информации об ошибке считывателя ЭМТТ на основании её кода */
-extern const struct sprn_error_txt *rfid_get_error_txt(uint8_t code);
+/* Текстовое описание статуса БПУ */
+extern const char *sprn_status_str(uint8_t status);
+/* Текстовое описание статуса считывателя RFID */
+extern const char *rfid_status_str(uint8_t status);
 
 #if defined __cplusplus
 }

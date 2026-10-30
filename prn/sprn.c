@@ -90,7 +90,7 @@ static char vtsv_pic_lst[SPRN_MAX_PICS][SPRN_MAX_PIC_NAME_LEN + 1];
 static int vtsv_cur_pic_idx = -1;
 /* Длина имени текущего изображения ("Видеотон") */
 static size_t vtsv_cur_pic_name_len = 0;
-/* Список изображений верен ("Видеотон") */
+/* Список изображений в БПУ ("Видеотон") верен */
 static bool vtsv_pic_lst_valid = false;
 
 const char *vtsv_get_pic_name(int n)
@@ -188,8 +188,7 @@ enum {
 	rcv_media_type,			/* ожидание кода типа носителя */
 	rcv_id_status,			/* ожидание кода завершения инициализации БПУ */
 	rcv_id,				/* получение заводского номера БПУ */
-	rcv_xstatus,			/* ожидание байта статуса БПУ */
-	rcv_status,			/* ожидание байта завершения команды */
+	rcv_status,			/* ожидание статуса завершения команды */
 	rcv_number_ctl_status,		/* ожидание кода завершения печати с контролем штрих-кода */
 	rcv_wr_param_prefix,		/* ожидание S (установка параметра) */
 	rcv_wr_param_number,		/* ожидание номера параметра */
@@ -257,6 +256,7 @@ static void sprn_reset(void)
 	rcv_idx = 0;
 	vtsv_reset_pic_lst();
 	sprn_grid_lst_valid = false;
+	sprn_icon_lst_valid = false;
 }
 
 /* Закрытие устройства для работы с БПУ */
@@ -386,24 +386,39 @@ static bool sprn_do_snd(void)
 /* Обработка состояний конечного автомата приёма */
 static void on_rcv_start(uint8_t b)
 {
-	if (b == SPRN_DLE1)
+	bool err = false;
+	if (b == SPRN_DLE1)		/* обычная команда */
 		sprn_set_rcv_st(rcv_cmd);
-	else if (b == SPRN_DLE2){
+	else if (b == SPRN_DLE2){	/* чтение/установка параметров */
 		if (sprn_sent_cmd == 'S')
 			sprn_set_rcv_st(rcv_wr_param_prefix);
 		else if (sprn_sent_cmd == 'R')
 			sprn_set_rcv_st(rcv_rd_param_prefix);
-		else{
-			log_err("От БПУ получен символ 0x1d, недопустимый в даном контексте.");
-			sprn_set_rcv_st(rcv_idle);
-		}
+		else
+			err = true;
+	}else if (b == SPRN_DLE_VTSV){	/* работа с изображениями БПУ "Видеотон" */
+		if (sprn_sent_cmd == SPRN_PIC_LST){
+			vtsv_reset_pic_lst();
+			rcv_idx = 0;
+			sprn_set_rcv_st(rcv_pic_lst_head_vtsv);
+		}else if (sprn_sent_cmd == SPRN_PIC_ERASE){
+			rcv_idx = 0;
+			sprn_set_rcv_st(rcv_pic_erase_head_vtsv);
+		}else
+			err = true;
+	}else
+		err = true;
+	if (err){
+		log_err("От БПУ получен символ 0x%.2hhx, недопустимый в данном контексте.", b);
+		sprn_set_rcv_st(rcv_idle);
 	}
 }
 
 static void on_rcv_cmd(uint8_t b)
 {
 	if (b != sprn_sent_cmd){
-		log_err("БПУ отправлена команда 0x%.2hhx, а в ответ пришла 0x%.2hhx.", sprn_sent_cmd, b);
+		log_err("БПУ отправлена команда 0x%.2hhx, а в ответ пришла 0x%.2hhx.",
+			sprn_sent_cmd, b);
 		sprn_set_rcv_st(rcv_idle);
 	}else{
 		switch (b){
@@ -417,15 +432,25 @@ static void on_rcv_cmd(uint8_t b)
 				sprn_set_rcv_st(rcv_id_status);
 				break;
 			case SPRN_STATUS:
-				sprn_set_rcv_st(rcv_xstatus);
-				break;
 			case SPRN_LOG:
 			case SPRN_LOG1:
 			case SPRN_NO_BCODE:
+			case SPRN_PIC_LOAD:
+			case SPRN_GRID_LOAD:
+			case SPRN_GRID_ERASE:
+			case SPRN_GRID_ERASE_ALL:
+			case SPRN_ICON_LOAD:
+			case SPRN_ICON_ERASE_ALL:
 				sprn_set_rcv_st(rcv_status);
 				break;
 			case SPRN_RD_BCODE:
 				sprn_set_rcv_st(rcv_number_ctl_status);
+				break;
+			case SPRN_GRID_LST:
+				sprn_set_rcv_st(rcv_grid_lst_status_sprn);
+				break;
+			case SPRN_ICON_LST:
+				sprn_set_rcv_st(rcv_icon_lst_status_sprn);
 				break;
 			default:
 				log_err("От БПУ получен неизвестный код команды: 0x%.2hhx.", b);
@@ -453,7 +478,7 @@ static void on_rcv_number(uint8_t b)
 			sprn_set_rcv_st(rcv_end);
 		}
 	}else{
-		log_err("Неверный символ штрих-кода: 0x%.2hhx.", b);
+		log_err("Неверный символ номера бланка: 0x%.2hhx.", b);
 		sprn_set_rcv_st(rcv_idle);
 	}
 }
@@ -507,12 +532,6 @@ static void on_rcv_id(uint8_t b)
 }
 
 static void on_rcv_status(uint8_t b)
-{
-	sprn_status = b;
-	sprn_set_rcv_st(rcv_end);
-}
-
-static void on_rcv_xstatus(uint8_t b)
 {
 	sprn_status = b;
 	sprn_set_rcv_st(rcv_end);
@@ -676,7 +695,7 @@ static bool is_pic_nr_vtsv(uint8_t b)
 
 static void on_rcv_pic_lst_head_vtsv(uint8_t b)
 {
-	static uint8_t header[] = "<PL";
+	static uint8_t header[] = "PL";
 	if (b == header[rcv_idx++]){
 		if ((rcv_idx + 1) == sizeof(header))
 			sprn_set_rcv_st(rcv_pic_lst_delim_vtsv);
@@ -699,28 +718,35 @@ static void on_rcv_pic_lst_nr_vtsv(uint8_t b)
 				sprn_set_rcv_st(rcv_pic_lst_name_vtsv);
 			}else
 				sprn_set_rcv_st(rcv_idle);
-		}else
+		}else{
+			log_err("Недопустимый номер изображения: %d.", vtsv_cur_pic_idx);
 			sprn_set_rcv_st(rcv_idle);
+		}
 	}else if (is_pic_nr_vtsv(b) && (vtsv_cur_pic_idx < 10)){
 		vtsv_cur_pic_idx *= 10;
 		vtsv_cur_pic_idx += b - 0x30;
-	}else
+	}else{
+		log_err("Недопустимый символ в номере изображения: 0x%.2hhx.", b);
 		sprn_set_rcv_st(rcv_idle);
+	}
 }
 
 static void on_rcv_pic_lst_name_vtsv(uint8_t b)
 {
 	if (is_pic_lst_delim_vtsv(b)){
-		if (vtsv_cur_pic_name_len == 0)
+		if (vtsv_cur_pic_name_len == 0){
+			log_err("Имя изображения нулевой длины.");
 			sprn_set_rcv_st(rcv_idle);
-		else{
+		}else{
 			vtsv_pic_lst[vtsv_cur_pic_idx][vtsv_cur_pic_name_len] = 0;
 			sprn_set_rcv_st(rcv_pic_lst_delim_vtsv);
 		}
 	}else if (vtsv_cur_pic_name_len < SPRN_MAX_PIC_NAME_LEN)
 		vtsv_pic_lst[vtsv_cur_pic_idx][vtsv_cur_pic_name_len++] = b;
-	else
+	else{
+		log_err("Длина имени изображения превышает %d сиволов.", SPRN_MAX_PIC_NAME_LEN);
 		sprn_set_rcv_st(rcv_idle);
+	}
 }
 
 static void on_rcv_pic_lst_delim_vtsv(uint8_t b)
@@ -733,19 +759,23 @@ static void on_rcv_pic_lst_delim_vtsv(uint8_t b)
 			vtsv_cur_pic_idx = 0;
 			sprn_set_rcv_st(rcv_pic_lst_nr_vtsv);
 			on_rcv_pic_lst_nr_vtsv(b);
-		}else
+		}else{
+			log_err("Недопустимый символ в номере изображения: 0x%.2hhx.", b);
 			sprn_set_rcv_st(rcv_idle);
+		}
 	}
 }
 
 static void on_rcv_pic_erase_head_vtsv(uint8_t b)
 {
-	static uint8_t header[] = "<PE";
+	static uint8_t header[] = "PE";
 	if (b == header[rcv_idx++]){
 		if ((rcv_idx + 1) == ASIZE(header))
 			sprn_set_rcv_st(rcv_pic_erase_find_vtsv);
-	}else
+	}else{
+		log_err("Неверный формат ответа на команду удаления изображения из БПУ \"Видеотон\".");
 		sprn_set_rcv_st(rcv_idle);
+	}
 }
 
 static void on_rcv_pic_erase_find_vtsv(uint8_t b)
@@ -755,8 +785,10 @@ static void on_rcv_pic_erase_find_vtsv(uint8_t b)
 		sprn_set_rcv_st(rcv_pic_erase_end_vtsv);
 	}else if (b == 0x31)	/* изображение обнаружено */
 		sprn_set_rcv_st(rcv_pic_erase_status_vtsv);
-	else
+	else{
+		log_err("Неверный статус удаления изображения из БПУ \"Видеотон\": 0x%.2hhx.", b);
 		sprn_set_rcv_st(rcv_idle);
+	}
 }
 
 static void on_rcv_pic_erase_status_vtsv(uint8_t b)
@@ -771,8 +803,10 @@ static void on_rcv_pic_erase_end_vtsv(uint8_t b)
 {
 	if (b == 0x3e)		/* > */
 		sprn_set_rcv_st(rcv_end);
-	else
+	else{
+		log_err("Неверный формат ответа на команду удаления изображения из БПУ \"Видеотон\".");
 		sprn_set_rcv_st(rcv_idle);
+	}
 }
 
 /* Работа с разметками бланков в БПУ "СПЕКТР-ДС" */
@@ -860,7 +894,6 @@ static bool sprn_do_rcv(void)
 			{rcv_media_type,		on_rcv_media_type},
 			{rcv_id_status,			on_rcv_id_status},
 			{rcv_id,			on_rcv_id},
-			{rcv_xstatus,			on_rcv_xstatus},
 			{rcv_status,			on_rcv_status},
 			{rcv_number_ctl_status,		on_rcv_number_ctl_status},
 			{rcv_wr_param_prefix,		on_rcv_wr_param_prefix},
@@ -963,17 +996,6 @@ int sprn_init(struct term_cfg *cfg)
 	else
 		memset(sprn_number, 0x30, sizeof(sprn_number));
 	return ret;
-}
-
-/* Возвращает true, если заводской номер БПУ состоит из одних нулей */
-bool sprn_is_zero_number(void)
-{
-	int i;
-	for (i = 0; i < sizeof(sprn_number); i++){
-		if (sprn_number[i] != 0x30)
-			break;
-	}
-	return i == sizeof(sprn_number);
 }
 
 /* Получение статуса БПУ */
@@ -1127,163 +1149,91 @@ int sprn_set_params(struct term_cfg *cfg)
 	return ret;
 }
 
-/* Получение информации об ошибке БПУ на основании её кода */
-const struct sprn_error_txt *sprn_get_error_txt(uint8_t code)
+int sprn_get_grid_lst(uint8_t *data, size_t *len)
 {
-	static struct {
-		uint8_t code;
-		int len;
+	int ret = SPRN_RET_ERR;
+	if ((data == NULL) || (len == NULL) || (*len == 0) || (sprn_get_type() != SPRN_SPECTRUM))
+		return ret;
+	ret = sprn_do_cmd(SPRN_GRID_LST);
+	if (ret == SPRN_RET_OK){
+		log_dbg("sprn_status = 0x%.2hhx; rcv_idx = %d.", sprn_status, rcv_idx);
+		if (sprn_ok(sprn_status) && sprn_grid_lst_valid){
+			if (*len < rcv_idx)
+				ret = SPRN_RET_ERR;
+			else if (rcv_idx > 0)
+				memcpy(data, sprn_grid_lst, rcv_idx);
+			*len = rcv_idx;
+		}else{
+			ret = SPRN_RET_ERR;
+			*len = 0;
+		}
+	}else
+		*len = 0;
+	return ret;
+}
+
+/* Текстовое описание статуса */
+const char *sprn_status_str(uint8_t status)
+{
+	const char *ret = "Неизвестная ошибка";
+	static const struct {
+		uint8_t status;
 		const char *txt;
-	} err[] = {
-		{
-			.code		= SPRN_STATUS_NO_NUMBER,
-			.len		= -1,
-			.txt		= "НОМЕР БПУ НЕ ПРОПИСАН В ПАМЯТИ"
-		},
-		{
-			.code		= SPRN_STATUS_NO_BCODE,
-			.len		= -1,
-			.txt		= "ШТРИХОВОЙ КОД ОТСУТСТВУЕТ"
-		},
-		{
-			.code		= SPRN_STATUS_BCODE_LEN,
-			.len		= -1,
-			.txt		= "ДЛИНА ШТРИХОВОГО КОДА НЕ РАВНА 13"
-		},
-		{
-			.code		= SPRN_STATUS_BLANK_NR,
-			.len		= -1,
-			.txt		= "НЕСОВПАДЕНИЕ НОМЕРА БЛАНКА"
-		},
-		{
-			.code		= SPRN_STATUS_BCODE_CRC,
-			.len		= -1,
-			.txt		= "ОШИБКА КОНТРОЛЬНОЙ СУММ\x9b"
-		},
-		{
-			.code		= SPRN_STATUS_ZERO_NR,
-			.len		= -1,
-			.txt		= "НОМЕР БЛАНКА XXXXXXX000000",
-		},
-		{
-			.code		= SPRN_STATUS_PAPER_END,
-			.len		= -1,
-			.txt		= "КОНЕЦ БУМАГИ"
-		},
-		{
-			.code		= SPRN_STATUS_COVER_OPEN,
-			.len		= -1,
-			.txt		= "КР\x9bШКА ОТКР\x9bТА",
-		},
-		{
-			.code		= SPRN_STATUS_PAPER_LOCK,
-			.len		= -1,
-			.txt		= "БУМАГА ЗАСТРЯЛА НА В\x9bХОДЕ",
-		},
-		{
-			.code		= SPRN_STATUS_PAPER_WRACK,
-			.len		= -1,
-			.txt		= "БУМАГА ЗАМЯЛАСЬ",
-		},
-		{
-			.code		= SPRN_STATUS_NOTCH_ERR,
-			.len		= -1,
-			.txt		= "ОШИБКА ЧТЕНИЯ РЕПЕРНОЙ МЕТКИ",
-		},
-		{
-			.code		= SPRN_STATUS_SCANNER_ERR,
-			.len		= -1,
-			.txt		= "АППАРАТНАЯ ОШИБКА СКАНЕРА ШТРИХ-КОДА",
-		},
-		{
-			.code		= SPRN_STATUS_MEDIA_ERR,
-			.len		= -1,
-			.txt		= "ОШИБКА НОСИТЕЛЯ",
-		},
-		{
-			.code		= SPRN_STATUS_BLANK_SKEW,
-			.len		= -1,
-			.txt		= "ПЕРЕКОС БЛАНКА",
-		},
-		{
-			.code		= SPRN_STATUS_HW_ERR,
-			.len		= -1,
-			.txt		= "ОБЩАЯ АППАРАТНАЯ ОШИБКА ПРИНТЕРА",
-		},
-		{
-			.code		= SPRN_STATUS_NO_FFEED,
-			.len		= -1,
-			.txt		= "НЕТ КОМАНД\x9b ОТРЕЗКИ БЛАНКА",
-		},
-		{
-			.code		= SPRN_STATUS_VPOS_OVER,
-			.len		= -1,
-			.txt		= "ПРЕВ\x9bШЕНИЕ ОБ'ЕМА ТЕКСТА ПО ВЕРТИКАЛЬН\x9bМ ПОЗИЦИЯМ",
-		},
-		{
-			.code		= SPRN_STATUS_HPOS_OVER,
-			.len		= -1,
-			.txt		= "ПРЕВ\x9bШЕНИЕ ОБ'ЕМА ТЕКСТА ПО ГОРИЗОНТАЛЬН\x9bМ ПОЗИЦИЯМ",
-		},
-		{
-			.code		= SPRN_STATUS_LOG_ERR,
-			.len		= -1,
-			.txt		= "НАРУШЕНИЕ СТРУКТУР\x9b ИНФОРМАЦИИ ПРИ ПЕЧАТИ КЛ",
-		},
-		{	.code		= SPRN_STATUS_BC_CMD_ERR,
-			.len		= -1,
-			.txt		= "НАРУШЕНИЕ ФОРМАТА КОМАНД\x9b АНАЛИЗА ШТРИХОВОГО КОДА",
-		},
-		{	.code		= SPRN_STATUS_GRID_ERROR,
-			.len		= -1,
-			.txt		= "НАРУШЕНИЕ ПАРАМЕТРОВ НАНЕСЕНИЯ МАКЕТО",
-		},
-		{
-			.code		= SPRN_STATUS_INVALID_ARG,
-			.len		= -1,
-			.txt		= "НЕВЕРН\x9bЙ ПАРАМЕТР",
-		},
-		{
-			.code		= SPRN_STATUS_NO_ICON,
-			.len		= -1,
-			.txt		= "ПИКТОГРАММА НЕ НАЙДЕНА В БПУ",
-		},
-		{
-			.code		= SPRN_STATUS_GRID_WIDTH,
-			.len		= -1,
-			.txt		= "ШИРИНА СЕТКИ БОЛЬШЕ ШИРИН\x9b БЛАНКА В УСТАНОВКАХ",
-		},
-		{
-			.code		= SPRN_STATUS_GRID_HEIGHT,
-			.len		= -1,
-			.txt		= "В\x9bСОТА СЕТКИ БОЛЬШЕ В\x9bСОТ\x9b БЛАНКА В УСТАНОВКАХ",
-		},
-		{
-			.code		= SPRN_STATUS_GRID_NM_FMT,
-			.len		= -1,
-			.txt		= "НЕПРАВИЛЬН\x9bЙ ФОРМАТ ИМЕНИ СЕТКИ",
-		},
-		{
-			.code		= SPRN_STATUS_GRID_NM_LEN,
-			.len		= -1,
-			.txt		= "ДЛИНА ИМЕНИ СЕТКИ БОЛЬШЕ ДОПУСТИМОЙ",
-		},
-		{
-			.code		= SPRN_STATUS_GRID_NR,
-			.len		= -1,
-			.txt		= "НЕВЕРН\x9bЙ ФОРМАТ НОМЕРА СЕТКИ",
-		},
-		{
-			.code		= 0xff,
-			.len		= -1,
-			.txt		= "НЕИЗВЕСТНАЯ ОШИБКА"
-		},
+	} map[] = {
+		{SPRN_STATUS_NO_NUMBER,		"Номер БПУ не прописан в памяти"},
+		{SPRN_STATUS_NO_BCODE,		"Штриховой код отсутствует"},
+		{SPRN_STATUS_BCODE_LEN,		"Длина штрихового кода не равна 13"},
+		{SPRN_STATUS_BLANK_NR,		"Несовпадение номера бланка"},
+		{SPRN_STATUS_BCODE_CRC,		"Ошибка контрольной суммы"},
+		{SPRN_STATUS_ZERO_NR,		"Номер бланка XXXXXXX000000"},
+		{SPRN_STATUS_PAPER_END,		"Конец бумаги"},
+		{SPRN_STATUS_COVER_OPEN,	"Крышка открыта"},
+		{SPRN_STATUS_PAPER_LOCK,	"Бумага застряла на выходе"},
+		{SPRN_STATUS_PAPER_WRACK,	"Бумага замялась"},
+		{SPRN_STATUS_NOTCH_ERR,		"Ошибка чтения реперной метки"},
+		{SPRN_STATUS_SCANNER_ERR,	"Аппаратная ошибка сканера штрих-кода"},
+		{SPRN_STATUS_MEDIA_ERR,		"Ошибка носителя"},
+		{SPRN_STATUS_BLANK_SKEW,	"Перекос бланка"},
+		{SPRN_STATUS_HW_ERR,		"Общая аппаратная ошибка принтера"},
+		{SPRN_STATUS_NO_FFEED,		"Нет команды отрезки бланка"},
+		{SPRN_STATUS_VPOS_OVER,		"Превышение об'ема текста по вертикальным позициям"},
+		{SPRN_STATUS_HPOS_OVER,		"Превышение об'ема текста по горизонтальным позициям"},
+		{SPRN_STATUS_LOG_ERR,		"Нарушение структуры информации при печати кл"},
+		{SPRN_STATUS_BC_CMD_ERR,	"Нарушение формата команды анализа штрихового кода"},
+		{SPRN_STATUS_GRID_ERROR,	"Нарушение параметров нанесения макето"},
+		{SPRN_STATUS_INVALID_ARG,	"Неверный параметр"},
+		{SPRN_STATUS_NO_ICON,		"Пиктограмма не найдена в БПУ"},
+		{SPRN_STATUS_GRID_WIDTH,	"Ширина сетки больше ширины бланка в установках"},
+		{SPRN_STATUS_GRID_HEIGHT,	"Высота сетки больше высоты бланка в установках"},
+		{SPRN_STATUS_GRID_NM_FMT,	"Неправильный формат имени сетки"},
+		{SPRN_STATUS_GRID_NM_LEN,	"Длина имени сетки больше допустимой"},
+		{SPRN_STATUS_GRID_NR,		"Неверный формат номера сетки"},
+
+		{SPRN_STATUS_PIC_NOT_ERASED,	"Изображение не удалено (\"Видеотон\")"},
+		{SPRN_STATUS_PIC_ERASE_ERROR,	"Ошибка при удалении изображения (\"Видеотон\")"},
+		{SPRN_STATUS_PIC_ERASED,	"Изображение удалено (\"Видеотон\")"},
+		{SPRN_STATUS_PIC_LOAD_ERROR,	"Ошибка загрузки изображения (\"Видеотон\")"},
+
+		{SPRN_STATUS_GRID_ILLEGAL_ID,	"Неверный идентификатор разметки (\"СПЕКТР-ДС\")"},
+		{SPRN_STATUS_GRID_TOO_SHORT,	"Длина разметки меньше допустимой (\"СПЕКТР-ДС\")"},
+		{SPRN_STATUS_GRID_TOO_LONG,	"Длина разметки превышает допустимую (\"СПЕКТР-ДС\")"},
+		{SPRN_STATUS_GRID_CRC_ERR,	"Ошибка контрольной суммы разметки (\"СПЕКТР-ДС\")"},
+		{SPRN_STATUS_GRID_WRITE_ERR,	"Ошибка записи разметки в память БПУ (\"СПЕКТР-ДС\")"},
+		{SPRN_STATUS_GRID_TIMEOUT,	"Таймаут приема разметки (\"СПЕКТР-ДС\")"},
+
+		{SPRN_STATUS_ICON_ILLEGAL_ID,	"Неверный идентификатор пиктограммы (\"СПЕКТР-ДС\")"},
+		{SPRN_STATUS_ICON_TOO_SHORT,	"Длина данных пиктограмм меньше допустимой (\"СПЕКТР-ДС\")"},
+		{SPRN_STATUS_ICON_TOO_LONG,	"Длина данных пиктограмм превышает допустимую (\"СПЕКТР-ДС\")"},
+		{SPRN_STATUS_ICON_CRC_ERR,	"Ошибка контрольной суммы данных пиктограмм (\"СПЕКТР-ДС\")"},
+		{SPRN_STATUS_ICON_WRITE_ERR,	"Ошибка записи пиктограмм в память БПУ (\"СПЕКТР-ДС\")"},
+		{SPRN_STATUS_ICON_TIMEOUT,	"Таймаут приема пиктограмм (\"СПЕКТР-ДС\")"},
 	};
-	for (int i = 0; i < ASIZE(err); i++){
-		if (err[i].len == -1)
-			err[i].len = strlen(err[i].txt);
-		if ((err[i].code == 0xff) || (code == err[i].code))
-			return (struct sprn_error_txt *)&err[i].len;
+	for (int i = 0; i < ASIZE(map); i++){
+		typeof(map + i) p = map + i;
+		if (p->status == status){
+			ret = p->txt;
+			break;
+		}
 	}
-	return NULL;
+	return ret;
 }

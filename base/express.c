@@ -2054,10 +2054,10 @@ static void preexecute_resp(void)
 /* Формирование текста сообщения об ошибке БПУ */
 static const char *make_sprn_err_msg(int sprn_ret)
 {
-	char *ret = NULL;
+	const char *ret = NULL;
 	if (sprn_ret == SPRN_RET_OK){
 		if (!sprn_ok(sprn_status)){
-			ret = sprn_get_error_txt(sprn_status)->txt;
+			ret = sprn_status_str(sprn_status);
 		if ((ret == NULL) && (sprn_media != SPRN_MEDIA_BLANK) &&
 				(sprn_media != SPRN_MEDIA_BOTH))
 			ret = "НЕВЕРН\x9bЙ НОСИТЕЛЬ";

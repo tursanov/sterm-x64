@@ -17,7 +17,7 @@
 const char *kkt_status_str(uint8_t status)
 {
 	const char *ret = "Неизвестная ошибка";
-	static struct {
+	static const struct {
 		uint8_t status;
 		const char *txt;
 	} map[] = {
@@ -52,8 +52,9 @@ const char *kkt_status_str(uint8_t status)
 		{KKT_STATUS_RESP_FMT_ERROR,	"Неверный формат ответа"},
 	};
 	for (int i = 0; i < ASIZE(map); i++){
-		if (map[i].status == status){
-			ret = map[i].txt;
+		typeof(map + i) p = map + i;
+		if (p->status == status){
+			ret = p->txt;
 			break;
 		}
 	}
