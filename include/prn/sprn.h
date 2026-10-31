@@ -25,8 +25,7 @@ enum {
 extern int sprn_get_type(void);
 extern void sprn_clr_type(void);
 
-extern size_t get_pic_lst_len_vtsv(void);
-extern const char *get_pic_name_vtsv(size_t n);
+extern const char *vtsv_get_pic_name(int n);
 
 /* Статус БПУ */
 extern uint8_t sprn_status;
@@ -66,6 +65,7 @@ extern bool sprn_timeout;
 #define SPRN_CPI12		0x1c	/* плотность печати 12 cpi */
 #define SPRN_DLE2		0x1d	/* установка параметров печати */
 #define SPRN_CPI20		0x1e	/* плотность печати 20 cpi */
+#define SPRN_DLE_VTSV		0x3c	/* используется при работе с изображениями БПУ "Видеотон" */
 #define SPRN_RST		0x7f	/* сброс БПУ */
 
 /* Многобайтовые команды */
@@ -179,46 +179,51 @@ extern bool sprn_timeout;
 #define SPRN_MAX_ICON_NAME_LEN	SPRN_MAX_PIC_NAME_LEN	/* максимальная длина названия пиктограммы */
 
 /* Статус завершения команд БПУ */
-#define SPRN_STATUS_OK		0x00	/* нормальное завершение */
-#define SPRN_STATUS_NO_NUMBER	0x01	/* номер БПУ не прописан в памяти */
-#define SPRN_STATUS_NO_BCODE	0x30	/* штриховой код отсутствует */
-#define SPRN_STATUS_BCODE_LEN	0x36	/* длина штрихового кода не равна 13 */
-#define SPRN_STATUS_BLANK_NR	0x37	/* несовпадение номера бланка */
-#define SPRN_STATUS_BCODE_CRC	0x38	/* ошибка контрольной суммы штрих-кода */
-#define SPRN_STATUS_ZERO_NR	0x39	/* считался номер 000000 */
-#define SPRN_STATUS_PAPER_END	0x41	/* конец бумаги */
-#define SPRN_STATUS_COVER_OPEN	0x42	/* крышка открыта */
-#define SPRN_STATUS_PAPER_LOCK	0x43	/* бумага застряла на выходе */
-#define SPRN_STATUS_PAPER_WRACK	0x44	/* бумага замялась */
-#define SPRN_STATUS_NOTCH_ERR	0x45	/* ошибка чтения реперной метки */
-#define SPRN_STATUS_SCANNER_ERR	0x46	/* аппаратная ошибка сканера штрих-кода */
-#define SPRN_STATUS_MEDIA_ERR	0x47	/* ошибка носителя */
-#define SPRN_STATUS_BLANK_SKEW	0x4a	/* перекос бланка */
-#define SPRN_STATUS_HW_ERR	0x4f	/* общая аппаратная ошибка принтера */
-#define SPRN_STATUS_NO_FFEED	0x50	/* нет команды отрезки бланка */
-#define SPRN_STATUS_VPOS_OVER	0x51	/* превышение объёма текста по вертикальным позициям */
-#define SPRN_STATUS_HPOS_OVER	0x52	/* превышение объёма текста по горизонтальным позициям */
-#define SPRN_STATUS_LOG_ERR	0x53	/* нарушение структуры информации при печати КЛ */
-#define SPRN_STATUS_BC_CMD_ERR	0x54	/* нарушение формата команды анализа штрихового кода */
-#define SPRN_STATUS_GRID_ERROR	0x55	/* нарушение параметров нанесения макетов */
-#define SPRN_STATUS_INVALID_ARG	0x70	/* неверный параметр */
-#define SPRN_STATUS_NO_ICON	0x71	/* пиктограмма не найдена в БПУ */
-#define SPRN_STATUS_GRID_WIDTH	0x72	/* ширина сетки больше ширины бланка в установках */
-#define SPRN_STATUS_GRID_HEIGHT	0x73	/* высота сетки больше высоты бланка в установках */
-#define SPRN_STATUS_GRID_NM_FMT	0x74	/* неправильный формат имени сетки */
-#define SPRN_STATUS_GRID_NM_LEN	0x75	/* длина имени сетки больше допустимой */
-#define SPRN_STATUS_GRID_NR	0x76	/* неверный формат номера сетки */
+#define SPRN_STATUS_OK			0x00	/* нормальное завершение */
+#define SPRN_STATUS_NO_NUMBER		0x01	/* номер БПУ не прописан в памяти */
+#define SPRN_STATUS_NO_BCODE		0x30	/* штриховой код отсутствует */
+#define SPRN_STATUS_BCODE_LEN		0x36	/* длина штрихового кода не равна 13 */
+#define SPRN_STATUS_BLANK_NR		0x37	/* несовпадение номера бланка */
+#define SPRN_STATUS_BCODE_CRC		0x38	/* ошибка контрольной суммы штрих-кода */
+#define SPRN_STATUS_ZERO_NR		0x39	/* считался номер 000000 */
+#define SPRN_STATUS_PAPER_END		0x41	/* конец бумаги */
+#define SPRN_STATUS_COVER_OPEN		0x42	/* крышка открыта */
+#define SPRN_STATUS_PAPER_LOCK		0x43	/* бумага застряла на выходе */
+#define SPRN_STATUS_PAPER_WRACK		0x44	/* бумага замялась */
+#define SPRN_STATUS_NOTCH_ERR		0x45	/* ошибка чтения реперной метки */
+#define SPRN_STATUS_SCANNER_ERR		0x46	/* аппаратная ошибка сканера штрих-кода */
+#define SPRN_STATUS_MEDIA_ERR		0x47	/* ошибка носителя */
+#define SPRN_STATUS_BLANK_SKEW		0x4a	/* перекос бланка */
+#define SPRN_STATUS_HW_ERR		0x4f	/* общая аппаратная ошибка принтера */
+#define SPRN_STATUS_NO_FFEED		0x50	/* нет команды отрезки бланка */
+#define SPRN_STATUS_VPOS_OVER		0x51	/* превышение объёма текста по вертикальным позициям */
+#define SPRN_STATUS_HPOS_OVER		0x52	/* превышение объёма текста по горизонтальным позициям */
+#define SPRN_STATUS_LOG_ERR		0x53	/* нарушение структуры информации при печати КЛ */
+#define SPRN_STATUS_BC_CMD_ERR		0x54	/* нарушение формата команды анализа штрихового кода */
+#define SPRN_STATUS_GRID_ERROR		0x55	/* нарушение параметров нанесения макетов */
+#define SPRN_STATUS_INVALID_ARG		0x70	/* неверный параметр */
+#define SPRN_STATUS_NO_ICON		0x71	/* пиктограмма не найдена в БПУ */
+#define SPRN_STATUS_GRID_WIDTH		0x72	/* ширина сетки больше ширины бланка в установках */
+#define SPRN_STATUS_GRID_HEIGHT		0x73	/* высота сетки больше высоты бланка в установках */
+#define SPRN_STATUS_GRID_NM_FMT		0x74	/* неправильный формат имени сетки */
+#define SPRN_STATUS_GRID_NM_LEN		0x75	/* длина имени сетки больше допустимой */
+#define SPRN_STATUS_GRID_NR		0x76	/* неверный формат номера сетки */
+
+#define SPRN_STATUS_PIC_NOT_ERASED	0x77	/* изображение не удалено ("Видеотон") */
+#define SPRN_STATUS_PIC_ERASE_ERROR	0x88	/* ошибка при удалении изображения ("Видеотон") */
+#define SPRN_STATUS_PIC_ERASED		0xaa	/* изображение удалено ("Видеотон") */
+#define SPRN_STATUS_PIC_LOAD_ERROR	0xff	/* ошибка загрузки изображения ("Видеотон") */
 
 /* Статус выполнения команд работы с RFID */
-#define RFID_STATUS_OK		0x00	/* нормальное завершения */
-#define RFID_STATUS_INVALID_ARG	0x70	/* неверный параметр */
-#define RFID_STATUS_NONFUNCTION	0xf1	/* считыватель неработоспособен */
-#define RFID_STATUS_NO_TAG	0xf2	/* метка не обнаружена */
-#define RFID_STATUS_TAG_UNKNOWN	0xf3	/* считыватель не может работать с меткой */
-#define RFID_STATUS_COLLISION	0xf4	/* найдено более одной метки */
-#define RFID_STATUS_ACCESS_ERR	0xf5	/* ошибка доступа */
-#define RFID_STATUS_READ_ERR	0xf6	/* ошибка чтения */
-#define RFID_STATUS_HW_ERR	0xff	/* аппаратная ошибка */
+#define RFID_STATUS_OK			0x00	/* нормальное завершения */
+#define RFID_STATUS_INVALID_ARG		0x70	/* неверный параметр */
+#define RFID_STATUS_NONFUNCTION		0xf1	/* считыватель неработоспособен */
+#define RFID_STATUS_NO_TAG		0xf2	/* метка не обнаружена */
+#define RFID_STATUS_TAG_UNKNOWN		0xf3	/* считыватель не может работать с меткой */
+#define RFID_STATUS_COLLISION		0xf4	/* найдено более одной метки */
+#define RFID_STATUS_ACCESS_ERR		0xf5	/* ошибка доступа */
+#define RFID_STATUS_READ_ERR		0xf6	/* ошибка чтения */
+#define RFID_STATUS_HW_ERR		0xff	/* аппаратная ошибка */
 
 /* Загрузка разметок бланков (нет в ТЗ ВНИИЖТ) */
 #define SPRN_STATUS_GRID_ILLEGAL_ID	0xb0	/* неверный идентификатор разметки */
@@ -260,8 +265,6 @@ enum {
 extern int sprn_init(struct term_cfg *cfg);
 /* Закрытие устройства для работы с БПУ */
 extern void sprn_close(void);
-/* Возвращает true, если заводской номер БПУ состоит из одних нулей */
-extern bool sprn_is_zero_number(void);
 /* Получение статуса БПУ */
 extern int sprn_get_status(void);
 /* Получение типа носителя в БПУ */
@@ -278,17 +281,13 @@ extern int sprn_print_ticket(const uint8_t *data, size_t len, bool *sent_to_prn)
 extern int sprn_get_params(struct term_cfg *cfg);
 /* Запись параметров работы БПУ */
 extern int sprn_set_params(struct term_cfg *cfg);
+/* Получение списка разметок бланков из БПУ "СПЕКТР-ДС" */
+extern int sprn_get_grid_lst(uint8_t *data, size_t *len);
 
-/* Расшифровка ошибок БПУ */
-struct sprn_error_txt {
-	int len;		/* длина сообщения */
-	char *txt;		/* сообщение об ошибке (koi7) */
-};
-
-/* Получение информации об ошибке БПУ на основании её кода */
-extern const struct sprn_error_txt *sprn_get_error_txt(uint8_t code);
-/* Получение информации об ошибке считывателя ЭМТТ на основании её кода */
-extern const struct sprn_error_txt *rfid_get_error_txt(uint8_t code);
+/* Текстовое описание статуса БПУ */
+extern const char *sprn_status_str(uint8_t status);
+/* Текстовое описание статуса считывателя RFID */
+extern const char *rfid_status_str(uint8_t status);
 
 #if defined __cplusplus
 }
