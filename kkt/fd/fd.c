@@ -158,6 +158,7 @@ static uint8_t *find_pattern(
     *result_pattern_size = pattern_size + pattern_footer_size;
     return result_pattern;
 }
+
 static void set_fn_error(char *s, uint8_t *err_info, size_t err_info_len __attribute__((unused)))
 {
 	s += sprintf(s, "\nкоманда ФН: %.2x, код ошибки: %.2x\n", err_info[0], err_info[1]);

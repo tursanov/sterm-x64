@@ -108,6 +108,27 @@ int load_string(int fd, char **ret) {
 	return 0;
 }
 
+int load_array_string(int fd, char *s, size_t max_len)
+{
+	size_t len;
+	if (s_read(fd, &len, sizeof(len)) < 0) {
+		return -1;
+    }
+		
+    if (len > max_len) {
+        return -1;
+    }
+		
+	if (len > 0) {
+		if (s_read(fd, s, len) < 0) {
+			return -1;
+		}
+		s[len] = 0;
+	}
+    
+	return 0;
+}
+
 int save_int(int fd, uint64_t v, size_t size) {
     if (s_write(fd, &v, size) < 0)
         return -1;
@@ -141,4 +162,3 @@ int load_list(int fd, list_t *list, load_item_func_t load_item_func) {
     }
     return 0;
 }
-

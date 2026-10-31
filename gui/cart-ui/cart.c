@@ -42,6 +42,7 @@ bool is_admin_mode() {
 static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl);
 static void ui_cart_process_delete(void);
 static void ui_cart_move_subcart(bool up);
+int check_last_cheque(void);
 
 extern void after_silent_create_doc(uint8_t doc_type, uint32_t doc_no, uint32_t doc_sign);
 
@@ -138,6 +139,23 @@ void ui_cart_create()
 	}
 	
 	ui_cart_select_documents();
+	
+    int r = check_last_cheque();
+    if (r != 0) {
+        /* Каждое сообщение уже показано внутри check_last_cheque.
+         * Действия:
+         *   r == 1: откат выполнен (или несовпадение  нужен админ);
+         *   r == 2: чек в ФН, но не напечатан  предложить допечатать;
+         *   r == 3 или -1: нужен админ, пункт Чек с ошибкой формирования.
+         */
+        if (r == 2) {
+            if (message_box("Предупреждение",
+                    "Допечатать последний сформированный документ сейчас?",
+                    dlg_yes_no, 0, al_center) == DLG_BTN_YES) {
+                fd_print_last_doc(CHEQUE);      /* или через menu */
+            }
+        }
+    }	
 }
 
 void ui_cart_select_documents()
@@ -1818,8 +1836,144 @@ void set_printing_state(list_t *list, uint8_t state)
     AD_save();
 }
 
+bool need_check_last_cheque_process = false;
+
+int check_last_cheque(void)
+{
+    need_check_last_cheque_process = false;
+
+    if (!_ad || !_ad->current.active)
+        return 0;
+
+    current_cheque_t *cur = &_ad->current;
+    if (cur->doc_no == 0)
+        return 0;
+
+    /* --- 1. Статус ФН --- */
+    struct kkt_fs_status fs_st;
+    memset(&fs_st, 0, sizeof(fs_st));
+
+    if (kkt_get_fs_status(&fs_st) != 0) {
+        message_box("Ошибка",
+            "ВНИМАНИЕ! В корзине ЕКФО обнаружен неподтверждённый чек.\n"
+            "При проверке возникла ошибка получения статуса ККТ.\n"
+            "Если вы зашли с ЭКК кассира  выйдите, вставьте карту ЭКК "
+            "с административными правами, войдите в ЕКФО.\n"
+            "В меню Администрирование выберите "
+            "Чек с ошибкой формирования.",
+            dlg_yes, 0, al_center);
+        return -1;
+    }
+
+    /* --- 2. Другой ФН? --- */
+    if (cur->fs_serial[0] && strcmp(cur->fs_serial, fs_st.nr) != 0) {
+        char msg[512];
+        snprintf(msg, sizeof(msg),
+            "ВНИМАНИЕ! В корзине ЕКФО обнаружен чек, который начинал "
+            "формироваться на ККТ с номером ФН \"%s\",\n"
+            "но результат его формирования неизвестен.\n"
+            "Для обработки нужны административные права: "
+            "Администрирование  Чек с ошибкой формирования.",
+            cur->fs_serial);
+        message_box("Предупреждение", msg, dlg_yes, 0, al_center);
+        need_check_last_cheque_process = true;
+        return -1;
+    }
+
+    /* --- 3. Чек не записался в ФН  откат --- */
+    if (fs_st.last_doc_nr < cur->doc_no) {
+        /* Снять PRINTING со всех K из снимка */
+        for (size_t i = 0; i < cur->ks_docs.count; i++) {
+            K *k = AD_find_k_by_doc_no(cur->ks_docs.values[i]);
+            if (k && k->print_state == PRINT_STATE_PRINTING)
+                k->print_state = PRINT_STATE_NONE;
+        }
+        /* На всякий случай  со всех оставшихся */
+        for (list_item_t *li = _ad->clist.head; li; li = li->next) {
+            C *c = LIST_ITEM(li, C);
+            for (list_item_t *lj = c->klist.head; lj; lj = lj->next) {
+                K *k = LIST_ITEM(lj, K);
+                if (k->print_state == PRINT_STATE_PRINTING)
+                    k->print_state = PRINT_STATE_NONE;
+            }
+        }
+        current_cheque_end();
+        AD_save();
+        return 1;
+    }
+
+    /* --- 4. Документ есть в ФН  сравнить --- */
+    const char *err = NULL;
+    bool check_completed = true;
+    int cmp = current_cheque_compare_document(cur->doc_no, cur, &err, &check_completed);
+
+    if (cmp == 0) {
+        char msg[512];
+        const char *hint = (cur->doc_no != fs_st.last_doc_nr)
+            ? "Рекомендуется отпечатать его при выполнении операции "
+              "\"Документы ФН\""
+            : "Рекомендуется отпечатать его командой "
+              "\"Печать последнего сформированного документа\"";
+        snprintf(msg, sizeof(msg),
+            "ВНИМАНИЕ! В корзине ЕКФО обнаружен чек, печать которого "
+            "завершилась с ошибкой.\n"
+            "Данный чек был зарегистрирован в ККТ с номером %u, "
+            "но, возможно, не был отпечатан.\n%s",
+            (unsigned)cur->doc_no, hint);
+        message_box("Предупреждение", msg, dlg_yes, 0, al_center);
+        return 2;
+    }
+
+    if (cmp == 1) {
+        message_box("Предупреждение",
+            "ВНИМАНИЕ! В подкорзине ЕКФО обнаружен чек, формирование "
+            "которого не было завершено.\n"
+            "При сравнении предметов расчёта выявлено несовпадение чека "
+            "в ККТ и чека в подкорзине ЕКФО.\n"
+            "Для обработки нужны административные права: "
+            "Администрирование  Чек с ошибкой формирования.",
+            dlg_yes, 0, al_center);
+        need_check_last_cheque_process = true;
+        return 1;
+    }
+
+    /* cmp == -1 */
+    if (err && strcmp(err, "Данный документ не является чеком") == 0) {
+        message_box("Предупреждение",
+            "ВНИМАНИЕ! В подкорзине ЕКФО обнаружен чек, формирование "
+            "которого не было завершено.\n"
+            "Документ с этим номером в ККТ не является чеком.\n"
+            "Для обработки нужны административные права.",
+            dlg_yes, 0, al_center);
+        need_check_last_cheque_process = true;
+        return 1;
+    }
+
+    if (check_completed)
+        need_check_last_cheque_process = true;
+
+    {
+        char msg[512];
+        snprintf(msg, sizeof(msg),
+            "ВНИМАНИЕ! В подкорзине ЕКФО обнаружен чек, формирование "
+            "которого не было завершено.\n%s\n"
+            "Для обработки нужны административные права.",
+            err ? err : "Неизвестная ошибка ККТ");
+        message_box("Предупреждение", msg, dlg_yes, 0, al_center);
+    }
+    return 3;
+}
+
 void process_print_docs(selected_docs_t* sd)
 {
+    if (current_cheque_active()) {
+        message_box("Ошибка",
+            "В корзине есть незавершённый чек.\n"
+            "Обработайте его через пункт меню Чек с ошибкой формирования с использованием жетона Администратора.",
+            dlg_yes, 0, al_center);
+        return;
+    }
+
     ui_subcart_t *sc = ui_sel_subcart;
 
     /* Как в C#  спрашиваем email/phone перед печатью, но только
@@ -1841,7 +1995,7 @@ void process_print_docs(selected_docs_t* sd)
             return;
         }
     }
-
+    
     for (int i = 0; i < 2; i++)
     {
         list_t *list = &sd->klist_by_p[i];
@@ -2065,24 +2219,59 @@ bool print_cheque(SubCart *sc, list_t *klist)
 		}
 	}
 	
-	
+    if (doc_count == 0)
+        return true;
 
-	if (doc_count > 0) {
-		uint8_t* pattern_footer = NULL;
-		size_t pattern_footer_size = 0;
+    /* --- 1. Спросить статус ККТ: last_doc_number и serial_number --- */
+    struct kkt_fs_status fs_st;
+    if (kkt_get_fs_status(&fs_st) != 0) {
+        message_box("Ошибка",
+            "Не удалось получить статус ККТ перед печатью.", dlg_yes, 0, al_center);
+        return false;
+    }
+    if (fs_st.shift_state == FS_SHIFT_CLOSED) {
+        message_box("Ошибка",
+            "Смена не открыта. Необходимо открыть смену.", dlg_yes, 0, al_center);
+        return false;
+    }
 
-		if (fa_create_doc1(CHEQUE,
-		    pattern_footer, pattern_footer_size,
-		    has_email_or_phone,
-		    update_cheque,
-		    NULL)) {
-		    return true;
-		}
-		
-		return false;
-	}
-	
-	return true;
+    /* --- 2. Начать снимок current_cheque --- */
+    uint32_t expected_doc_no = fs_st.last_doc_nr + 1;
+    current_cheque_begin(klist,
+                         cheque->t1054, cheque->t1055,
+                         cheque->p,
+                         cheque->h ? cheque->h : "",
+                         cheque->pe ? cheque->pe : "",
+                         expected_doc_no,
+                         fs_st.nr);
+
+    /* --- 3. Пометить Ks как PRINTING (уже делает process_print_docs,
+     *        но продублируем здесь для надёжности) --- */
+    for (list_item_t *li = klist->head; li; li = li->next) {
+        K *k = LIST_ITEM(li, K);
+        k->print_state = PRINT_STATE_PRINTING;
+    }
+    AD_save();
+
+	uint8_t* pattern_footer = NULL;
+	size_t pattern_footer_size = 0;
+
+    /* --- 4. Печать --- */
+    bool ok = fa_create_doc1(CHEQUE, pattern_footer, pattern_footer_size,
+                             has_email_or_phone,
+                             update_cheque, NULL);
+
+    /* --- 5. Успех/неудача --- */
+    if (ok && last_cheque_process_started) {
+        /* Документ сформирован в ФН */
+        current_cheque_end();
+        return true;
+    }
+
+    /* Не напечатался или ошибка  снимок остаётся.
+     * НЕ снимаем PRINTING, чтобы CheckLastCheque сработал
+     * при следующем входе. */
+    return false;
 }
 
 /*

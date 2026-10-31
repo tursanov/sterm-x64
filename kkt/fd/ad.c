@@ -22,6 +22,8 @@ bool cashier_set_name(const char *name) {
 #else
 #include "express.h"
 #include "kkt/fd/ad.h"
+#include "kkt/fd/tlv.h"
+#include "kkt/kkt.h"
 #include "kkt/fd/dump.h"
 
 extern bool cashier_set_name(const char *name);
@@ -41,13 +43,15 @@ extern void AD_print(FILE *fd);
 
 static time_t k_dt = 0;
 
-static int dump_file_pos(const char *prefix, int fd)
-{
-	int position = lseek(fd, 0, SEEK_CUR);
-	printf("%s: file pos: %d\n", prefix, position);
+#define dump_file_pos(prefix, fd)
 
-	return 0;
-}
+//static int dump_file_pos(const char *prefix, int fd)
+//{
+//	int position = lseek(fd, 0, SEEK_CUR);
+//  printf("%s: file pos: %d\n", prefix, position);
+//
+//	return 0;
+//}
 
 static int strcmp2(const char *s1, const char *s2) {
     if (s1 == NULL && s2 == NULL)
@@ -194,7 +198,7 @@ static int bank_info_load(int fd, struct bank_info **v)
 	size_t size;
 	int ret = load_data(fd, (void **)v, &size);
 
-	printf("bank_info_load: ret: %d, size: %ld\n", ret, size);
+	//printf("bank_info_load: ret: %d, size: %ld\n", ret, size);
 
     return ret;
 }
@@ -678,7 +682,7 @@ K *K_load_v2(int fd) {
 		load_string(fd, &k->e) < 0 ||
 		// v2
 		load_string(fd, &k->z) < 0 ||
-		dump_file_pos("K_load_v2: before load y2", fd) < 0 ||
+//		dump_file_pos("K_load_v2: before load y2", fd) < 0 ||
 		LOAD_INT(fd, k->a_flag) < 0 ||
 		bank_info_load(fd, &k->y) < 0 ||
 		LOAD_INT(fd, k->s) < 0 ||
@@ -945,6 +949,19 @@ bool C_is_same_inn(C *c, int64_t user_inn, char* phone, bool *is_same_inn)
     return true;
 }
 
+K *AD_find_k_by_doc_no(int64_t doc_no) {
+    if (!_ad) return NULL;
+    for (list_item_t *li = _ad->clist.head; li; li = li->next) {
+        C *c = LIST_ITEM(li, C);
+        for (list_item_t *lj = c->klist.head; lj; lj = lj->next) {
+            K *k = LIST_ITEM(lj, K);
+            if (doc_no_to_i64(&k->d) == doc_no)
+                return k;
+        }
+    }
+    return NULL;
+}
+
 P1 *P1_create(void) {
     P1* p1 = (P1 *)malloc(sizeof(P1));
     memset(p1, 0, sizeof(P1));
@@ -1067,6 +1084,27 @@ int int64_array_add(int64_array_t *array, int64_t v, bool unique) {
 	return 1;
 }
 
+int save_int64_array(int fd, int64_array_t *a)
+{
+    if (SAVE_INT(fd, (uint32_t)a->count) < 0) return -1;
+    for (size_t i = 0; i < a->count; i++)
+        if (SAVE_INT(fd, a->values[i]) < 0) return -1;
+    return 0;
+}
+
+int load_int64_array(int fd, int64_array_t *a)
+{
+    uint32_t n;
+    int64_array_clear(a);
+    if (LOAD_INT(fd, n) < 0) return -1;
+    for (uint32_t i = 0; i < n; i++) {
+        int64_t v;
+        if (LOAD_INT(fd, v) < 0) return -1;
+        int64_array_add(a, v, false);
+    }
+    return 0;
+}
+
 int string_array_init(string_array_t *array) {
 #define DEFAULT_CAPACITY	32
 	array->capacity = DEFAULT_CAPACITY;
@@ -1146,6 +1184,383 @@ void S_subtract(S *dst, S *src)
 }
 
 
+/* Начать печать чека: сохранить снимок в AD.current.
+ * ks_list  список K*, которые печатаются (уже с PrintState=Printing).
+ * p, h, pe  метаданные чека.
+ * doc_no, fs_serial  из запроса статуса ККТ ДО начала печати. */
+void current_cheque_begin(list_t *ks_list, uint8_t t1054, uint8_t t1055,
+                          uint64_t p, const char *h, const char *pe,
+                          uint32_t doc_no, const char *fs_serial)
+{
+    current_cheque_t *cur = &_ad->current;
+
+    int64_array_clear(&cur->ks_docs);
+    free(cur->h);   cur->h   = NULL;
+    free(cur->pe);  cur->pe  = NULL;
+
+    cur->active  = true;
+    cur->doc_no  = doc_no;
+    cur->t1054   = t1054;
+    cur->t1055   = t1055;
+    cur->p       = p;
+    cur->h       = h  ? strdup(h)  : NULL;
+    cur->pe      = pe ? strdup(pe) : NULL;
+    cur->sum_n = cur->sum_e = cur->sum_p = cur->sum_b = 0;
+
+    if (fs_serial) {
+        strncpy(cur->fs_serial, fs_serial, sizeof(cur->fs_serial)-1);
+        cur->fs_serial[sizeof(cur->fs_serial)-1] = 0;
+    } else {
+        cur->fs_serial[0] = 0;
+    }
+
+    for (list_item_t *li = ks_list->head; li; li = li->next) {
+        K *k = LIST_ITEM(li, K);
+        int64_t d = doc_no_to_i64(&k->d);
+        if (d == 0) continue;
+        int64_array_add(&cur->ks_docs, d, true);
+
+        S s = { 0, 0, 0, 0, 0 };
+        K_calc_sum(k, &s);
+        cur->sum_n += s.n;
+        cur->sum_e += s.e;
+        cur->sum_p += s.p;
+        cur->sum_b += s.b;
+    }
+
+    AD_save();
+}
+
+/* Успешная печать  забываем снимок */
+void current_cheque_end(void)
+{
+    current_cheque_t *cur = &_ad->current;
+    int64_array_clear(&cur->ks_docs);
+    free(cur->h);   cur->h  = NULL;
+    free(cur->pe);  cur->pe = NULL;
+    cur->active = false;
+    AD_save();
+}
+
+/* Откат: чек не записался в ФН (last_doc_number < doc_no).
+ * Снимаем PRINTING со всех K, чистым снимок. */
+void current_cheque_rollback(void)
+{
+    current_cheque_t *cur = &_ad->current;
+
+    for (list_item_t *li = _ad->clist.head; li; li = li->next) {
+        C *c = LIST_ITEM(li, C);
+        for (list_item_t *lj = c->klist.head; lj; lj = lj->next) {
+            K *k = LIST_ITEM(lj, K);
+            if (k->print_state == PRINT_STATE_PRINTING) {
+                /* Проверяем, входит ли в текущий снимок */
+                int64_t d = doc_no_to_i64(&k->d);
+                for (size_t i = 0; i < cur->ks_docs.count; i++) {
+                    if (cur->ks_docs.values[i] == d) {
+                        k->print_state = PRINT_STATE_NONE;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    current_cheque_end();
+}
+
+/* Оставить в подкорзине  забываем снимок, Ks остаются с PrintState=NONE
+ * (в C# они остаются с Printing, но так как CurrentCheque==NULL, проверка
+ * не срабатывает. В C лучше явно снять PRINTING, чтобы оператор мог
+ * работать с этими K как с обычными). */
+void current_cheque_keep(void)
+{
+    current_cheque_t *cur = &_ad->current;
+
+    for (list_item_t *li = _ad->clist.head; li; li = li->next) {
+        C *c = LIST_ITEM(li, C);
+        for (list_item_t *lj = c->klist.head; lj; lj = lj->next) {
+            K *k = LIST_ITEM(lj, K);
+            if (k->print_state != PRINT_STATE_PRINTING)
+                continue;
+            int64_t d = doc_no_to_i64(&k->d);
+            for (size_t i = 0; i < cur->ks_docs.count; i++) {
+                if (cur->ks_docs.values[i] == d) {
+                    k->print_state = PRINT_STATE_NONE;
+                    break;
+                }
+            }
+        }
+    }
+
+    current_cheque_end();
+}
+
+/* Удалить из подкорзины  удаляет все K с PRINTING и чистит снимок.
+ * Аналог RemovePrinted() + CurrentCheque = null в C#. */
+void current_cheque_remove(void)
+{
+    LIST_INIT(to_remove, (list_item_delete_func_t)K_destroy);
+
+    for (list_item_t *li = _ad->clist.head; li; li = li->next) {
+        C *c = LIST_ITEM(li, C);
+        for (list_item_t *lj = c->klist.head; lj; lj = lj->next) {
+            K *k = LIST_ITEM(lj, K);
+            if (k->print_state == PRINT_STATE_PRINTING)
+                list_add(&to_remove, k);
+        }
+    }
+
+    /* Удаляем K из clist (используем существующий helper) */
+    AD_remove_K_list(&to_remove);
+    list_clear(&to_remove);
+
+    current_cheque_end();
+    AD_calc_sum();
+    AD_save();
+}
+
+/* Есть ли активный незавершённый чек */
+bool current_cheque_active(void)
+{
+    return _ad && _ad->current.active;
+}
+
+/* Ожидаемая запись предмета расчёта (аналог Article в CompareDocument). */
+typedef struct {
+    uint8_t t1214;
+    char    t1030[256];     /* null-terminated копия  для удобства */
+    size_t  t1030_len;      /* фактическая длина */
+    uint64_t t1079;
+    uint64_t t1023_value;
+    uint8_t  t1023_dot;
+    int     has_t1199;
+    uint8_t t1199;
+} cmp_article_t;
+
+static void make_t1030(char *dst, size_t dst_size, size_t *out_len,
+                       const L *l, const K *k)
+{
+    int n = snprintf(dst, dst_size, "%s документ \xfc%s",
+                     l->s ? l->s : "",
+                     k->b.s ? k->b.s : "");
+    if (n < 0) n = 0;
+    if ((size_t)n >= dst_size) n = (int)(dst_size - 1);
+    if (out_len) *out_len = (size_t)n;
+}
+
+/* Извлечь ожидаемый предмет расчёта из STLV 1059 в cmp_article_t. */
+static void parse_stlv_1059(cmp_article_t *a,
+                            const uint8_t *stlv, size_t stlv_len)
+{
+    memset(a, 0, sizeof(*a));
+    const uint8_t *p   = stlv;
+    const uint8_t *end = stlv + stlv_len;
+
+    while ((const uint8_t *)p + sizeof(ffd_tlv_t) <= end) {
+        const ffd_tlv_t *t = (const ffd_tlv_t *)p;
+        size_t total = FFD_TLV_SIZE(t);
+        if ((const uint8_t *)p + total > end)
+            break;
+
+        switch (t->tag) {
+        case 1214:
+            if (t->length >= 1) a->t1214 = *FFD_TLV_DATA(t);
+            break;
+        case 1030: {
+            const char *s = FFD_TLV_DATA_AS_STRING(t);
+            size_t cp = t->length;
+            if (cp >= sizeof(a->t1030)) cp = sizeof(a->t1030) - 1;
+            memcpy(a->t1030, s, cp);
+            a->t1030[cp] = 0;
+            a->t1030_len = cp;
+            break;
+        }
+        case 1079:
+            a->t1079 = ffd_tlv_data_as_vln(t);
+            break;
+        case 1023: {
+            ffd_fvln_t fv;
+            if (ffd_tlv_data_as_fvln(t, &fv) == 0) {
+                a->t1023_value = fv.value;
+                a->t1023_dot   = fv.dot;
+            }
+            break;
+        }
+        case 1199:
+            if (t->length >= 1) {
+                a->has_t1199 = 1;
+                a->t1199     = *FFD_TLV_DATA(t);
+            }
+            break;
+        }
+        p += total;
+    }
+}
+
+/*
+ * Аналог Utils.CompareDocument.
+ *
+ *   0   TLV документа в ФН совпадает с current_cheque
+ *   1   несовпадение
+ *  -1   ошибка (err = причина, check_completed = удалось ли дойти
+ *        до фазы чтения; в C# при false не выставляется
+ *        needCheckLastChequeProcess)
+ */
+int current_cheque_compare_document(uint32_t doc_no,
+                            const current_cheque_t *cur,
+                            const char **err, bool *check_completed)
+{
+    *err = NULL;
+    *check_completed = true;
+
+    /* --- 1. Тип и длина TLV --- */
+    uint16_t type = 0;
+    size_t   tlv_len = 0;
+    if (kkt_get_doc_stlv(doc_no, &type, &tlv_len) != 0) {
+        *err = "Ошибка поиска документа в ФН";
+        *check_completed = false;
+        return -1;
+    }
+    if (type != CHEQUE) {
+        *err = "Данный документ не является чеком";
+        return -1;
+    }
+    if (tlv_len == 0 || tlv_len > 64 * 1024) {
+        *err = "Некорректная длина TLV документа";
+        *check_completed = false;
+        return -1;
+    }
+
+    /* --- 2. Чтение TLV --- */
+    uint8_t *data = (uint8_t *)malloc(tlv_len);
+    if (!data) {
+        *err = "Не хватает памяти для чтения TLV";
+        *check_completed = false;
+        return -1;
+    }
+
+    size_t got_len = tlv_len;
+    uint8_t ret = kkt_read_doc_tlv(data, &got_len);
+
+    if (ret != 0) {
+        free(data);
+        *err = "Ошибка чтения TLV документа";
+        *check_completed = false;
+        return -1;
+    }
+    /* В C# status == 0x08 трактуется как повторите позже только
+     * если len != запрошенной длины. Если len совпал  данные валидны. */
+    if (got_len != tlv_len) {
+        free(data);
+        *err = "Не удалось прочитать TLV документа, повторите позже";
+        return -1;
+    }
+
+    /* --- 3. Ожидаемые предметы расчёта из ks_docs --- */
+    cmp_article_t *expected = NULL;
+    size_t expected_count = 0, expected_cap = 0;
+
+    for (size_t i = 0; i < cur->ks_docs.count; i++) {
+        K *k = AD_find_k_by_doc_no(cur->ks_docs.values[i]);
+        if (!k || doc_no_is_not_empty(&k->u))
+            continue;                       /* U  пропускаем, как в C# */
+
+        for (list_item_t *lj = k->llist.head; lj; lj = lj->next) {
+            L *l = LIST_ITEM(lj, L);
+            if (expected_count == expected_cap) {
+                expected_cap = expected_cap ? expected_cap * 2 : 8;
+                cmp_article_t *t = realloc(expected,
+                                           expected_cap * sizeof(*t));
+                if (!t) {
+                    free(expected); free(data);
+                    *err = "Не хватает памяти для сравнения";
+                    *check_completed = false;
+                    return -1;
+                }
+                expected = t;
+            }
+            cmp_article_t *a = &expected[expected_count++];
+            memset(a, 0, sizeof(*a));
+            a->t1214 = l->r;
+            make_t1030(a->t1030, sizeof(a->t1030), &a->t1030_len, l, k);
+            a->t1079       = (uint64_t)l->t;
+            a->t1023_value = 1;             /* как в PrintCheque */
+            a->t1023_dot   = 0;
+            if (l->n > 0) {
+                a->has_t1199 = 1;
+                a->t1199     = l->n;
+            }
+        }
+    }
+
+    /* --- 4. Обход TLV из ККТ и сверка --- */
+    int result = 0;
+    size_t cur_index = 0;
+    const uint8_t *p   = data;
+    const uint8_t *end = data + tlv_len;
+
+    while ((const uint8_t *)p + sizeof(ffd_tlv_t) <= end) {
+        const ffd_tlv_t *t = (const ffd_tlv_t *)p;
+        size_t total = FFD_TLV_SIZE(t);
+        if ((const uint8_t *)p + total > end)
+            break;
+
+        switch (t->tag) {
+        case 1054:
+            if (t->length < 1 || cur->t1054 != *FFD_TLV_DATA(t)) {
+                result = 1; goto LOut;
+            }
+            break;
+
+        case 1059: {
+            if (cur_index >= expected_count) { result = 1; goto LOut; }
+            cmp_article_t got;
+            parse_stlv_1059(&got, FFD_TLV_DATA(t), t->length);
+            cmp_article_t *e = &expected[cur_index++];
+
+            if (e->t1214 != got.t1214
+                || e->t1030_len != got.t1030_len
+                || memcmp(e->t1030, got.t1030, e->t1030_len) != 0
+                || e->t1079    != got.t1079
+                || e->t1023_value != got.t1023_value
+                || e->t1023_dot   != got.t1023_dot
+                || e->has_t1199   != got.has_t1199
+                || (e->has_t1199 && e->t1199 != got.t1199))
+            {
+                result = 1; goto LOut;
+            }
+            break;
+        }
+
+        case 1031:
+            if ((uint64_t)cur->sum_n != ffd_tlv_data_as_vln(t)) { result = 1; goto LOut; }
+            break;
+        case 1081:
+            if ((uint64_t)cur->sum_e != ffd_tlv_data_as_vln(t)) { result = 1; goto LOut; }
+            break;
+        case 1215:
+            if ((uint64_t)cur->sum_p != ffd_tlv_data_as_vln(t)) { result = 1; goto LOut; }
+            break;
+        case 1216:
+            if (0 != ffd_tlv_data_as_vln(t)) { result = 1; goto LOut; }
+            break;
+        case 1217:
+            if ((uint64_t)cur->sum_b != ffd_tlv_data_as_vln(t)) { result = 1; goto LOut; }
+            break;
+        }
+
+        p += total;
+    }
+
+    /* Если предметов расчёта в TLV меньше, чем мы ожидали,  несовпадение. */
+    if (cur_index != expected_count)
+        result = 1;
+
+LOut:
+    free(expected);
+    free(data);
+    return result;
+}
 
 
 AD* _ad = NULL;
@@ -1166,6 +1581,13 @@ int AD_create(uint8_t t1055) {
 	_ad->t1055 = t1055;
     _ad->clist.delete_func = (list_item_delete_func_t)C_destroy;
 	_ad->archive_items.delete_func = (list_item_delete_func_t)K_destroy;
+	
+    if (int64_array_init(&_ad->current.ks_docs) != 0)
+        return -1;
+        
+    _ad->current.active = false;
+    _ad->current.h = NULL;
+    _ad->current.pe = NULL;
 
     return 0;
 }
@@ -1181,6 +1603,14 @@ void AD_destroy() {
     string_array_free(&_ad->emails);
 	if (_ad->b_o)
 		free(_ad->b_o);
+
+    // текущий неотпечатанный чек    
+    int64_array_free(&_ad->current.ks_docs);
+    if (_ad->current.h)
+        free(_ad->current.h);
+    if (_ad->current.pe)
+        free(_ad->current.pe);
+        
     free(_ad);
     _ad = NULL;
 }
@@ -1196,6 +1626,8 @@ void AD_destroy() {
 #endif
 
 int AD_save() {
+    printf("AD_save\n");
+
     int ret = -1;
     int fd = s_open(FILE_NAME, true);
 
@@ -1208,7 +1640,21 @@ int AD_save() {
 			|| (_ad->p1 != NULL && P1_save(fd, _ad->p1) < 0)
 			|| save_string(fd, _ad->t1086) < 0
 			|| save_list(fd, &_ad->clist, (list_item_func_t)C_save) < 0
-			|| save_string(fd, _ad->b_o) < 0)
+            || save_string(fd, _ad->b_o) < 0
+            /* --- новое в v4: current_cheque --- */
+            || SAVE_INT(fd, (uint8_t)(_ad->current.active ? 1 : 0)) < 0
+            || (_ad->current.active &&
+                    (SAVE_INT(fd, _ad->current.doc_no) < 0
+                   || save_string(fd, _ad->current.fs_serial) < 0
+                   || SAVE_INT(fd, _ad->current.t1054) < 0
+                   || SAVE_INT(fd, _ad->current.t1055) < 0
+                   || SAVE_INT(fd, _ad->current.p) < 0
+                   || save_string(fd, _ad->current.h) < 0
+                   || save_string(fd, _ad->current.pe) < 0
+                   || save_int64_array(fd, &_ad->current.ks_docs) < 0
+                    )
+                )
+        )
         ret = -1;
     else
         ret = 0;
@@ -1270,9 +1716,14 @@ int AD_load(uint8_t t1055, bool clear) {
 
 	if (LOAD_INT(fd, hasP1) < 0)
 		ret = -1;
+		
+    uint8_t ver = hasP1;
+		
+	printf("AD version: %d\n", ver);
+		
+		
 	if (hasP1 < 2) // 1 ????? ?????
 	{
-		printf("**** AD version 1 ****\n");
 		if ((hasP1 && (_ad->p1 = P1_load_v1(fd)) == NULL) ||
 			load_string(fd, &_ad->t1086) < 0 ||
 			load_list(fd, &_ad->clist, (load_item_func_t)C_load_v1) < 0)
@@ -1280,7 +1731,6 @@ int AD_load(uint8_t t1055, bool clear) {
 		else
 			ret = 0;
 	} else { // 2 ????? ?????
-		printf("**** AD version > 2 ****\n");
 		if (LOAD_INT(fd, hasP1) < 0
 				|| (hasP1 && (_ad->p1 = P1_load_v2(fd)) == NULL)
 				|| load_string(fd, &_ad->t1086) < 0
@@ -1289,11 +1739,31 @@ int AD_load(uint8_t t1055, bool clear) {
 		else
 			ret = 0;
 			
-		printf("**** AD version = %d ****\n", hasP1);
-        if (hasP1 >= 3) {
+        if (ver >= 3) {
             if (load_string(fd, &_ad->b_o) < 0)
             {
                 ret = -1;
+            }
+        }
+        
+        if (ver >= 4) {
+            uint8_t active = 0;
+            if (LOAD_INT(fd, active) < 0) {
+                ret = -1;
+            } else {
+                printf("current_cheque.active: %d\n", active);
+                if (active) {
+                    _ad->current.active = true;
+                    if (LOAD_INT(fd, _ad->current.doc_no) < 0
+                     || load_array_string(fd, _ad->current.fs_serial, sizeof(_ad->current.fs_serial)) < 0
+                     || LOAD_INT(fd, _ad->current.t1054) < 0
+                     || LOAD_INT(fd, _ad->current.t1055) < 0
+                     || LOAD_INT(fd, _ad->current.p) < 0
+                     || load_string(fd, &_ad->current.h) < 0
+                     || load_string(fd, &_ad->current.pe) < 0
+                     || load_int64_array(fd, &_ad->current.ks_docs) < 0)
+                        ret = -1;
+                }
             }
         }
 	}
