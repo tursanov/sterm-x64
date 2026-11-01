@@ -10,6 +10,7 @@ GUI_OBJS =		\
 	cheque		\
 	cheque_docs \
 	cheque_reissue_docs \
+	processed_cheque \
 	dialog		\
 	exgdi		\
 	fa		\

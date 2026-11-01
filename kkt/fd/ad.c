@@ -1213,21 +1213,20 @@ void current_cheque_begin(list_t *ks_list, uint8_t t1054, uint8_t t1055,
     } else {
         cur->fs_serial[0] = 0;
     }
-
+    
+    S total;
+    K_list_calc_sum(ks_list, &total);
+    cur->sum_n = total.n;
+    cur->sum_e = total.e;
+    cur->sum_p = total.p;
+    cur->sum_b = total.b;
+    
     for (list_item_t *li = ks_list->head; li; li = li->next) {
         K *k = LIST_ITEM(li, K);
         int64_t d = doc_no_to_i64(&k->d);
-        if (d == 0) continue;
         int64_array_add(&cur->ks_docs, d, true);
-
-        S s = { 0, 0, 0, 0, 0 };
-        K_calc_sum(k, &s);
-        cur->sum_n += s.n;
-        cur->sum_e += s.e;
-        cur->sum_p += s.p;
-        cur->sum_b += s.b;
-    }
-
+    }    
+    
     AD_save();
 }
 
@@ -1295,22 +1294,27 @@ void current_cheque_keep(void)
     current_cheque_end();
 }
 
-/* Удалить из подкорзины  удаляет все K с PRINTING и чистит снимок.
- * Аналог RemovePrinted() + CurrentCheque = null в C#. */
 void current_cheque_remove(void)
 {
+    current_cheque_t *cur = &_ad->current;
     LIST_INIT(to_remove, (list_item_delete_func_t)K_destroy);
 
     for (list_item_t *li = _ad->clist.head; li; li = li->next) {
         C *c = LIST_ITEM(li, C);
         for (list_item_t *lj = c->klist.head; lj; lj = lj->next) {
             K *k = LIST_ITEM(lj, K);
-            if (k->print_state == PRINT_STATE_PRINTING)
-                list_add(&to_remove, k);
+            if (k->print_state != PRINT_STATE_PRINTING)
+                continue;
+            int64_t d = doc_no_to_i64(&k->d);
+            for (size_t i = 0; i < cur->ks_docs.count; i++) {
+                if (cur->ks_docs.values[i] == d) {
+                    list_add(&to_remove, k);
+                    break;
+                }
+            }
         }
     }
 
-    /* Удаляем K из clist (используем существующий helper) */
     AD_remove_K_list(&to_remove);
     list_clear(&to_remove);
 
@@ -1340,7 +1344,7 @@ typedef struct {
 static void make_t1030(char *dst, size_t dst_size, size_t *out_len,
                        const L *l, const K *k)
 {
-    int n = snprintf(dst, dst_size, "%s документ \xfc%s",
+    int n = snprintf(dst, dst_size, "%s\n\rдокумент \xfc%s",
                      l->s ? l->s : "",
                      k->b.s ? k->b.s : "");
     if (n < 0) n = 0;
@@ -1397,6 +1401,13 @@ static void parse_stlv_1059(cmp_article_t *a,
     }
 }
 
+static bool is_kkt_transport_error(uint8_t st)
+{
+    return st == KKT_STATUS_COM_ERROR
+        || st == KKT_STATUS_OP_TIMEOUT
+        || st == KKT_STATUS_RESP_FMT_ERROR;
+}
+
 /*
  * Аналог Utils.CompareDocument.
  *
@@ -1416,17 +1427,21 @@ int current_cheque_compare_document(uint32_t doc_no,
     /* --- 1. Тип и длина TLV --- */
     uint16_t type = 0;
     size_t   tlv_len = 0;
-    if (kkt_get_doc_stlv(doc_no, &type, &tlv_len) != 0) {
+    uint8_t st = kkt_get_doc_stlv(doc_no, &type, &tlv_len);
+    if (st != 0) {
         *err = "Ошибка поиска документа в ФН";
-        *check_completed = false;
+        printf("Ошибка поиска документа в ФН\n");
+        *check_completed = !is_kkt_transport_error(st);
         return -1;
     }
     if (type != CHEQUE) {
         *err = "Данный документ не является чеком";
+        printf("Данный документ не является чеком\n");
         return -1;
     }
     if (tlv_len == 0 || tlv_len > 64 * 1024) {
         *err = "Некорректная длина TLV документа";
+        printf("Некорректная длина TLV документа\n");
         *check_completed = false;
         return -1;
     }
@@ -1435,6 +1450,7 @@ int current_cheque_compare_document(uint32_t doc_no,
     uint8_t *data = (uint8_t *)malloc(tlv_len);
     if (!data) {
         *err = "Не хватает памяти для чтения TLV";
+        printf("Не хватает памяти для чтения TLV\n");
         *check_completed = false;
         return -1;
     }
@@ -1445,7 +1461,8 @@ int current_cheque_compare_document(uint32_t doc_no,
     if (ret != 0) {
         free(data);
         *err = "Ошибка чтения TLV документа";
-        *check_completed = false;
+        printf("Ошибка чтения TLV документа\n");
+        *check_completed = !is_kkt_transport_error(ret);
         return -1;
     }
     /* В C# status == 0x08 трактуется как повторите позже только
@@ -1453,6 +1470,7 @@ int current_cheque_compare_document(uint32_t doc_no,
     if (got_len != tlv_len) {
         free(data);
         *err = "Не удалось прочитать TLV документа, повторите позже";
+        printf("Не удалось прочитать TLV документа, повторите позже\n");
         return -1;
     }
 
@@ -1474,6 +1492,7 @@ int current_cheque_compare_document(uint32_t doc_no,
                 if (!t) {
                     free(expected); free(data);
                     *err = "Не хватает памяти для сравнения";
+                    printf("Не хватает памяти для сравнения\n");
                     *check_completed = false;
                     return -1;
                 }
@@ -1508,6 +1527,7 @@ int current_cheque_compare_document(uint32_t doc_no,
         switch (t->tag) {
         case 1054:
             if (t->length < 1 || cur->t1054 != *FFD_TLV_DATA(t)) {
+                printf("Не совпадает t1054\n");
                 result = 1; goto LOut;
             }
             break;
@@ -1527,25 +1547,42 @@ int current_cheque_compare_document(uint32_t doc_no,
                 || e->has_t1199   != got.has_t1199
                 || (e->has_t1199 && e->t1199 != got.t1199))
             {
+                printf("Не совпадает 1059\n");
                 result = 1; goto LOut;
             }
             break;
         }
 
         case 1031:
-            if ((uint64_t)cur->sum_n != ffd_tlv_data_as_vln(t)) { result = 1; goto LOut; }
+            if ((uint64_t)cur->sum_n != ffd_tlv_data_as_vln(t)) {
+                printf("Не совпадает 1031 (чек: %lu, ккт: %lu)\n",
+                    (uint64_t)cur->sum_n, ffd_tlv_data_as_vln(t));
+                result = 1; goto LOut;
+            }
             break;
         case 1081:
-            if ((uint64_t)cur->sum_e != ffd_tlv_data_as_vln(t)) { result = 1; goto LOut; }
+            if ((uint64_t)cur->sum_e != ffd_tlv_data_as_vln(t)) {
+                printf("Не совпадает 1081\n");
+                result = 1; goto LOut;
+            }
             break;
         case 1215:
-            if ((uint64_t)cur->sum_p != ffd_tlv_data_as_vln(t)) { result = 1; goto LOut; }
+            if ((uint64_t)cur->sum_p != ffd_tlv_data_as_vln(t)) {
+                printf("Не совпадает 1215\n");
+                result = 1; goto LOut;
+            }
             break;
         case 1216:
-            if (0 != ffd_tlv_data_as_vln(t)) { result = 1; goto LOut; }
+            if (0 != ffd_tlv_data_as_vln(t)) {
+                printf("Не совпадает 1216\n");
+                result = 1; goto LOut;
+            }
             break;
         case 1217:
-            if ((uint64_t)cur->sum_b != ffd_tlv_data_as_vln(t)) { result = 1; goto LOut; }
+            if ((uint64_t)cur->sum_b != ffd_tlv_data_as_vln(t)) {
+                printf("Не совпадает 1217\n");
+                result = 1; goto LOut;
+            }
             break;
         }
 
@@ -1555,7 +1592,7 @@ int current_cheque_compare_document(uint32_t doc_no,
     /* Если предметов расчёта в TLV меньше, чем мы ожидали,  несовпадение. */
     if (cur_index != expected_count)
         result = 1;
-
+        
 LOut:
     free(expected);
     free(data);
@@ -1651,6 +1688,10 @@ int AD_save() {
                    || SAVE_INT(fd, _ad->current.p) < 0
                    || save_string(fd, _ad->current.h) < 0
                    || save_string(fd, _ad->current.pe) < 0
+                    || SAVE_INT(fd, _ad->current.sum_n) < 0      /* NEW */
+                    || SAVE_INT(fd, _ad->current.sum_e) < 0      /* NEW */
+                    || SAVE_INT(fd, _ad->current.sum_p) < 0      /* NEW */
+                    || SAVE_INT(fd, _ad->current.sum_b) < 0      /* NEW */
                    || save_int64_array(fd, &_ad->current.ks_docs) < 0
                     )
                 )
@@ -1761,6 +1802,10 @@ int AD_load(uint8_t t1055, bool clear) {
                      || LOAD_INT(fd, _ad->current.p) < 0
                      || load_string(fd, &_ad->current.h) < 0
                      || load_string(fd, &_ad->current.pe) < 0
+                     || LOAD_INT(fd, _ad->current.sum_n) < 0
+                     || LOAD_INT(fd, _ad->current.sum_e) < 0
+                     || LOAD_INT(fd, _ad->current.sum_p) < 0
+                     || LOAD_INT(fd, _ad->current.sum_b) < 0                     
                      || load_int64_array(fd, &_ad->current.ks_docs) < 0)
                         ret = -1;
                 }
@@ -1931,7 +1976,7 @@ void AD_remove_K(K *k) {
 
 void AD_remove_K_list(list_t* list)
 {
-    bool changed;
+    bool changed = false;
     for (list_item_t *li = list->head; li; li = li->next)
     {
     	K *k = LIST_ITEM(li, K);

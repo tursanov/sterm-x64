@@ -39,6 +39,24 @@ bool is_admin_mode() {
 	return (kt != key_reg);
 }
 
+/*
+ * Состояние активного снимка current_cheque:
+ *   NONE    нет снимка (или он только что откатан / ещё не проверялся);
+ *   MATCH   чек есть в ФН и совпадает со снимком: нужно просто напечатать
+ *            последний документ;
+ *   ERROR   чек с ошибкой: только через "Чек с ошибкой формирования"
+ *            под администратором.
+ *
+ * Устанавливается в check_last_cheque(); используется в ui_cart_redraw_all()
+ * (баннер) и process_print_docs() (сообщение при нажатии "Печать").
+ */
+enum {
+    CURRENT_CHEQUE_NONE  = 0,
+    CURRENT_CHEQUE_MATCH = 1,
+    CURRENT_CHEQUE_ERROR = 2,
+};
+static int current_cheque_state = CURRENT_CHEQUE_NONE;
+
 static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl);
 static void ui_cart_process_delete(void);
 static void ui_cart_move_subcart(bool up);
@@ -109,6 +127,14 @@ void ui_cart_create()
 	{
 		ui_cart_destroy();
 	}
+	
+    int r = check_last_cheque();
+    if (r == 1 || r == 2
+        || (r != 0 && current_cheque_active())) {
+        cart_build();
+    }
+    
+    printf("check_last_cheque: %d\n", r);
 
 	ui_cart = __new(ui_cart_t);
 	ui_cart->subcarts = __calloc(MAX_SUB_CART, ui_subcart_t);
@@ -139,23 +165,6 @@ void ui_cart_create()
 	}
 	
 	ui_cart_select_documents();
-	
-    int r = check_last_cheque();
-    if (r != 0) {
-        /* Каждое сообщение уже показано внутри check_last_cheque.
-         * Действия:
-         *   r == 1: откат выполнен (или несовпадение  нужен админ);
-         *   r == 2: чек в ФН, но не напечатан  предложить допечатать;
-         *   r == 3 или -1: нужен админ, пункт Чек с ошибкой формирования.
-         */
-        if (r == 2) {
-            if (message_box("Предупреждение",
-                    "Допечатать последний сформированный документ сейчас?",
-                    dlg_yes_no, 0, al_center) == DLG_BTN_YES) {
-                fd_print_last_doc(CHEQUE);      /* или через menu */
-            }
-        }
-    }	
 }
 
 void ui_cart_select_documents()
@@ -504,10 +513,16 @@ void ui_cart_redraw_all()
 
 	ui_cart_calc_bounds();
 	
-	if (pos_incomplete_op)
-		cart_start_y = 35;
-	else
-		cart_start_y = 0;
+	
+    bool has_active_cheque = current_cheque_active();
+    bool print_last_only = has_active_cheque
+        && current_cheque_state == CURRENT_CHEQUE_MATCH;
+
+    if (pos_incomplete_op || has_active_cheque) {
+        cart_start_y = 35;
+    } else {
+        cart_start_y = 0;
+    }
 
 	/*
 	 * Рисуем подкорзины с учётом скролла.
@@ -541,24 +556,35 @@ void ui_cart_redraw_all()
 	
 	ui_cart_draw_scrollbar();
 
-	/* Баннер ?есть незавершённая операция? ? рисуем поверх всего */
-	if (pos_incomplete_op) {
-		const char *text = "ВНИМАНИЕ! Имеется незавершенная операция в ИПТ";
-		int bx = CART_XGAP * 3;
-		int by = CART_YGAP;
-		int bw = DISCX - CART_XGAP * 6;
-		int bh = CART_BUTTON_HEIGHT;
+    if (pos_incomplete_op || has_active_cheque) {
+        const char *text;
+        if (has_active_cheque && print_last_only) {
+            /* Короткий вариант  чтобы влезло в одну строку баннера.
+             * Полный текст выдаётся в message_box при нажатии "Печать". */
+            text = "ВНИМАНИЕ! Чек не отпечатан. "
+                   "Отпeчатайте в Печать последнего сформированного документа";
+        } else if (has_active_cheque) {
+            text = "ВНИМАНИЕ! Есть чек с ошибкой формирования  "
+                   "обработайте его в меню \"Чек с ошибкой формирования\"";
+        } else {
+            text = "ВНИМАНИЕ! Имеется незавершенная операция в ИПТ";
+        }
 
-		fill_rect(cart_screen, bx, by, bw, bh,
-		          2, RGB(200, 100, 100), RGB(200, 150, 150));
+        int bx = CART_XGAP * 3;
+        int by = CART_YGAP;
+        int bw = DISCX - CART_XGAP * 6;
+        int bh = CART_BUTTON_HEIGHT;
 
-		int tw = GetTextWidth(cart_screen, text);
-		bx += (bw - tw) / 2;
-		by += (bh - GetTextHeight(cart_screen)) / 2;
-		SetTextColor(cart_screen, RGB(100, 50, 50));
-		TextOut(cart_screen, bx, by, text);
-	}
+        fill_rect(cart_screen, bx, by, bw, bh,
+                  2, RGB(200, 100, 100), RGB(200, 150, 150));
 
+        int tw = GetTextWidth(cart_screen, text);
+        bx += (bw - tw) / 2;
+        by += (bh - GetTextHeight(cart_screen)) / 2;
+        SetTextColor(cart_screen, RGB(100, 50, 50));
+        TextOut(cart_screen, bx, by, text);
+    }
+    
 	if (ui_cart->subcart_count == 0) {
 		draw_button(cart_screen,
 		    CART_XGAP * 3, CART_YGAP + cart_start_y,
@@ -781,6 +807,15 @@ static void ui_cart_move_subcart(bool up)
         return;
     if (ui_cart->subcart_count < 2)
         return;
+        
+    /*
+     * Пока есть чек с ошибкой формирования  не даём менять порядок
+     * подкорзин: оператор должен сначала обработать ошибочный чек,
+     * а не путаться в новом порядке.
+     */
+    if (current_cheque_active())
+        return;
+        
 
     int src = ui_sel_subcart_index;
     int dst = up ? src - 1 : src + 1;
@@ -1841,6 +1876,7 @@ bool need_check_last_cheque_process = false;
 int check_last_cheque(void)
 {
     need_check_last_cheque_process = false;
+    current_cheque_state = CURRENT_CHEQUE_NONE;
 
     if (!_ad || !_ad->current.active)
         return 0;
@@ -1862,6 +1898,7 @@ int check_last_cheque(void)
             "В меню Администрирование выберите "
             "Чек с ошибкой формирования.",
             dlg_yes, 0, al_center);
+        current_cheque_state = CURRENT_CHEQUE_ERROR;
         return -1;
     }
 
@@ -1877,18 +1914,17 @@ int check_last_cheque(void)
             cur->fs_serial);
         message_box("Предупреждение", msg, dlg_yes, 0, al_center);
         need_check_last_cheque_process = true;
+        current_cheque_state = CURRENT_CHEQUE_ERROR;
         return -1;
     }
 
     /* --- 3. Чек не записался в ФН  откат --- */
     if (fs_st.last_doc_nr < cur->doc_no) {
-        /* Снять PRINTING со всех K из снимка */
         for (size_t i = 0; i < cur->ks_docs.count; i++) {
             K *k = AD_find_k_by_doc_no(cur->ks_docs.values[i]);
             if (k && k->print_state == PRINT_STATE_PRINTING)
                 k->print_state = PRINT_STATE_NONE;
         }
-        /* На всякий случай  со всех оставшихся */
         for (list_item_t *li = _ad->clist.head; li; li = li->next) {
             C *c = LIST_ITEM(li, C);
             for (list_item_t *lj = c->klist.head; lj; lj = lj->next) {
@@ -1899,6 +1935,7 @@ int check_last_cheque(void)
         }
         current_cheque_end();
         AD_save();
+        /* Снимок сброшен  оставляем NONE: баннер не нужен. */
         return 1;
     }
 
@@ -1921,6 +1958,8 @@ int check_last_cheque(void)
             "но, возможно, не был отпечатан.\n%s",
             (unsigned)cur->doc_no, hint);
         message_box("Предупреждение", msg, dlg_yes, 0, al_center);
+
+        current_cheque_state = CURRENT_CHEQUE_MATCH;
         return 2;
     }
 
@@ -1934,6 +1973,7 @@ int check_last_cheque(void)
             "Администрирование  Чек с ошибкой формирования.",
             dlg_yes, 0, al_center);
         need_check_last_cheque_process = true;
+        current_cheque_state = CURRENT_CHEQUE_ERROR;
         return 1;
     }
 
@@ -1946,6 +1986,7 @@ int check_last_cheque(void)
             "Для обработки нужны административные права.",
             dlg_yes, 0, al_center);
         need_check_last_cheque_process = true;
+        current_cheque_state = CURRENT_CHEQUE_ERROR;
         return 1;
     }
 
@@ -1961,16 +2002,29 @@ int check_last_cheque(void)
             err ? err : "Неизвестная ошибка ККТ");
         message_box("Предупреждение", msg, dlg_yes, 0, al_center);
     }
+    current_cheque_state = CURRENT_CHEQUE_ERROR;
     return 3;
 }
 
 void process_print_docs(selected_docs_t* sd)
 {
     if (current_cheque_active()) {
-        message_box("Ошибка",
-            "В корзине есть незавершённый чек.\n"
-            "Обработайте его через пункт меню Чек с ошибкой формирования с использованием жетона Администратора.",
-            dlg_yes, 0, al_center);
+        if (current_cheque_state == CURRENT_CHEQUE_MATCH) {
+            /* Чек уже зарегистрирован в ФН, повторно печатать через корзину
+             * нельзя  нужно напечатать именно последний документ. */
+            message_box("Ошибка",
+                "В корзине есть чек, зарегистрированный в ККТ, но не отпечатанный.\n"
+                "Отпечатайте его командой \"Печать последнего сформированного документа\".",
+                dlg_yes, 0, al_center);
+        } else {
+            /* Снимок либо не проверялся (сразу после сбоя печати),
+             * либо проверка показала несовпадение  только админ-меню. */
+            message_box("Ошибка",
+                "В корзине есть незавершённый чек.\n"
+                "Обработайте его через пункт меню \"Чек с ошибкой формирования\" "
+                "с использованием жетона Администратора.",
+                dlg_yes, 0, al_center);
+        }
         return;
     }
 
@@ -2012,17 +2066,27 @@ void process_print_docs(selected_docs_t* sd)
         
         printf("process_print_docs: last_cheque_process_started: %d\n", last_cheque_process_started);
         
-        if (last_cheque_process_started)
-        {
+        if (ret) {
+            /* Успех: K зарегистрированы в ФН и (если повезло) напечатаны.
+               Удаляем из корзины и чистим снимок. */
             AD_remove_K_list(list);
-            cart_build();
-            ui_cart_create();
-            ui_cart_redraw_all();
-        }
-        else
-        {
+            current_cheque_end();
+        } else if (last_cheque_process_started) {
+            /* Процесс начался, но не завершился успешно.
+               K ОСТАЮТСЯ в корзине с PrintState = PRINTING,
+               снимок ОСТАЁТСЯ active. Пользователь разрулит через
+               Чек с ошибкой формирования: Оставить или Удалить. */
+        } else {
+            /* Процесс не начинался: сбрасываем PRINTING, чистим снимок
+               (он был установлен в print_cheque до fa_create_doc1()). */
             set_printing_state(list, PRINT_STATE_NONE);
+            if (current_cheque_active())
+                current_cheque_end();
         }
+        
+        cart_build();
+        ui_cart_create();
+        ui_cart_redraw_all();        
         
         if (!ret)
         {
@@ -2155,7 +2219,9 @@ bool print_cheque(SubCart *sc, list_t *klist)
 				ffd_tlv_stlv_begin(1059, 1024);
 				ffd_tlv_add_uint8(1214, l->r);
 				char s1030[256];
-				sprintf(s1030, "%s\n\rдокумент \xfc%s", l->s, k->b.s ? k->b.s : "");
+				sprintf(s1030, "%s\n\rдокумент \xfc%s",
+				    l->s ? l->s : "",
+				    k->b.s ? k->b.s : "");
 				ffd_tlv_add_string(1030, s1030);
 				ffd_tlv_add_vln(1079, l->t);
 				ffd_tlv_add_fvln(1023, 1, 0);
@@ -2234,11 +2300,27 @@ bool print_cheque(SubCart *sc, list_t *klist)
             "Смена не открыта. Необходимо открыть смену.", dlg_yes, 0, al_center);
         return false;
     }
+    
+    struct kkt_last_doc_info ldi;
+    uint8_t err_info[32];
+    size_t err_info_len = sizeof(err_info);
+
+    if (kkt_get_last_doc_info(&ldi, err_info, &err_info_len) != 0) {
+        message_box("Ошибка", "Ошибка получения информации о последних документах", dlg_yes, 0, al_center);
+        return false;
+    }
+    if (ldi.last_nr != ldi.last_printed_nr) {
+        message_box("Ошибка",
+            "Последний сформированный документ не был напечатан.\n"
+            "Для его печати выберите \"Печать последнего сформированного документа\".", dlg_yes, 0, al_center);
+        return false;
+    }    
 
     /* --- 2. Начать снимок current_cheque --- */
     uint32_t expected_doc_no = fs_st.last_doc_nr + 1;
     current_cheque_begin(klist,
-                         cheque->t1054, cheque->t1055,
+                         cheque->t1054,
+                         cheque->t1055,
                          cheque->p,
                          cheque->h ? cheque->h : "",
                          cheque->pe ? cheque->pe : "",
@@ -2304,6 +2386,17 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
 {
     if (sc == NULL || doc == NULL || ui_cart == NULL)
         return false;
+        
+    /*
+     * Пока есть чек с ошибкой формирования (_ad->current.active),
+     * блокируем изменение выделения во всех подкорзинах.
+     * Документы этого чека уже помечены PRINTING и выделены
+     * в ui_cart_select_documents(); они обрабатываются только через
+     * пункт меню "Чек с ошибкой формирования".
+     */
+    if (current_cheque_active())
+        return false;
+        
 
     char type = sc->val->type;
 

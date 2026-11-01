@@ -269,10 +269,15 @@ void doc_get_params(doc_params_t *p, __attribute__((unused)) ui_subcart_t *sc, u
     for (list_item_t *li = d->val->related.head; li != NULL; li = li->next)
     {
         K *k = LIST_ITEM(li, K);
-        if (d->val->k->u.s != NULL)
-        {
+        
+        if (k->u.s != NULL) {
             p->has_unformed = true;
         }
+        
+//        if (d->val->k->u.s != NULL)
+//        {
+//            p->has_unformed = true;
+//        }
         
         if (!p->in_processing_state_initialized)
         {
@@ -302,7 +307,7 @@ void doc_get_params(doc_params_t *p, __attribute__((unused)) ui_subcart_t *sc, u
             || k->print_state != PRINT_STATE_NONE;
         if (in_processing_state != p->default_in_processing_state)
         {
-            p->same_check_state = false;
+            p->same_processing_state = false;
         }
         
         if (k->bank_state != BANK_STATE_SUCCESS)

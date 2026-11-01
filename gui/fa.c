@@ -16,6 +16,7 @@
 #include "gui/cheque.h"
 #include "gui/cheque_docs.h"
 #include "gui/cheque_reissue_docs.h"
+#include "gui/processed_cheque.h"
 #include "gui/dialog.h"
 #include "gui/exgdi.h"
 #include "gui/fa.h"
@@ -207,7 +208,7 @@ static bool fa_create_menu(void)
 	add_menu_item(fa_menu, new_menu_item("Отчет о текущeм состоянии расчетов", cmd_calc_report_fa, true));
 	if (kt != key_reg) {
 		add_menu_item(fa_menu, new_menu_item("Закрытие ФН", cmd_close_fs_fa, true));
-		add_menu_item(fa_menu, new_menu_item("Удаление документа из чека", cmd_del_doc_fa, true));
+		add_menu_item(fa_menu, new_menu_item("Чек с ошибкой формирования", cmd_error_cheque_fa, true));
 		add_menu_item(fa_menu, new_menu_item("Снятие у документа отметки переоформления", cmd_unmark_reissue_fa, true));
 	}
 	add_menu_item(fa_menu, new_menu_item("Расчет без обращения в АСУ \"Экспресс\"", cmd_sales_fa, true));
@@ -1415,10 +1416,8 @@ void fa_cheque() {
 	kbd_flush_queue();
 }
 
-void fa_del_doc() {
-	cheque_docs_init();
-	cheque_docs_execute();
-
+void fa_error_cheque() {
+	processed_cheque_execute();
 	fa_set_group(FAPP_GROUP_MENU);
 }
 
@@ -1451,48 +1450,81 @@ void fa_reset_fs() {
 	fa_set_group(FAPP_GROUP_MENU);
 }
 
+static void fa_finalize_current_cheque_after_print_last(uint32_t printed_doc_no)
+{
+    if (!_ad || !_ad->current.active)
+        return;
+
+    if (_ad->current.doc_no != printed_doc_no)
+        return;
+
+    printf("fa_finalize: снимок %u отпечатан, удаляем K из корзины\n",
+           (unsigned)printed_doc_no);
+
+    /* Удаляем K снимка из корзины (аналог RemovePrinted() в C#).
+     * current_cheque_remove внутри:
+     *   - AD_remove_K_list  -> убирает K из clist, AD_calc_sum + AD_save;
+     *   - list_clear        -> K_destroy освобождает сами K;
+     *   - current_cheque_end-> чистит снимок;
+     *   - AD_calc_sum + AD_save.
+     */
+    current_cheque_remove();
+
+    /*
+     * ВАЖНО: cart.ordered всё ещё ссылается на D, чьи ->related
+     * указывают на уже освобождённые K. Без пересборки следующий
+     * ui_cart_create() будет ходить по dangling-указателям.
+     * Пересобираем заранее  пользователь всё равно вернётся
+     * в корзину только после выхода из меню FA.
+     */
+    cart_build();
+}
+
 void fa_print_last_doc() {
-	struct kkt_last_doc_info ldi;
-	uint8_t err_info[32];
-	size_t err_info_len = sizeof(err_info);
+    struct kkt_last_doc_info ldi;
+    uint8_t err_info[32];
+    size_t err_info_len = sizeof(err_info);
 
-	fdo_suspend();
-	uint8_t status = kkt_get_last_doc_info(&ldi, err_info, &err_info_len);
-	fdo_resume();
-	log_dbg("status = 0x%hhx.", status);
-	if (status != 0) {
-		fd_set_error(0, status, err_info, err_info_len);
-	} else if (ldi.last_type != 0) {
-		if (message_box("Уведомление",
-			"Будет напечатан последний сформированный документ.\n"
-			"Если в результате будет напечатан кассовый чек, то необходимо проверить\n"
-			"наличие включенных в него документов АСУ \"Экспресс\" в данных для\n"
-			"чеков в корзине фискального приложения, и, если они там имеются, то следовать\n"
-			"порядку действий при ошибках печати кассовых чеков для\n"
-			"документов АСУ \"Экспресс\", содержащемуся в локальных\n"
-			"административных актах пункта продаж.\n"
-			"Продолжить?",
-					dlg_yes_no, 0, al_center) == DLG_BTN_YES) {
+    fdo_suspend();
+    uint8_t status = kkt_get_last_doc_info(&ldi, err_info, &err_info_len);
+    fdo_resume();
+    log_dbg("status = 0x%hhx.", status);
+    if (status != 0) {
+        fd_set_error(0, status, err_info, err_info_len);
+    } else if (ldi.last_type != 0) {
+        if (message_box("Уведомление",
+            "Будет напечатан последний сформированный документ.\n"
+            "Если в результате будет напечатан кассовый чек, то необходимо проверить\n"
+            "наличие включенных в него документов АСУ \"Экспресс\" в данных для\n"
+            "чеков в корзине фискального приложения, и, если они там имеются, то следовать\n"
+            "порядку действий при ошибках печати кассовых чеков для\n"
+            "документов АСУ \"Экспресс\", содержащемуся в локальных\n"
+            "административных актах пункта продаж.\n"
+            "Продолжить?",
+                    dlg_yes_no, 0, al_center) == DLG_BTN_YES) {
 
-			redraw_menu(fa_menu);
+            redraw_menu(fa_menu);
 
-			status = fd_print_last_doc(ldi.last_type);
+            status = fd_print_last_doc(ldi.last_type);
 
-			if (status != 0) {
-				fd_set_error(ldi.last_type, status, err_info, err_info_len);
-			}
-		}
-	} else
-		message_box("Уведомление", "Нет сформированных документов для печати",
-				dlg_yes, 0, al_center);
+            if (status != 0) {
+                fd_set_error(ldi.last_type, status, err_info, err_info_len);
+            } else {
+                /* Успех: если напечатали именно наш снимок  закрываем его. */
+                fa_finalize_current_cheque_after_print_last(ldi.last_nr);
+            }
+        }
+    } else
+        message_box("Уведомление", "Нет сформированных документов для печати",
+                dlg_yes, 0, al_center);
 
-	if (status != 0) {
-		const char *error;
-		fd_get_last_error(&error);
-		message_box("Ошибка", error, dlg_yes, 0, al_center);
-	}
+    if (status != 0) {
+        const char *error;
+        fd_get_last_error(&error);
+        message_box("Ошибка", error, dlg_yes, 0, al_center);
+    }
 
-	fa_set_group(FAPP_GROUP_MENU);
+    fa_set_group(FAPP_GROUP_MENU);
 }
 
 static void fa_newcheque() {
@@ -1570,8 +1602,8 @@ static bool process_fa_cmd(int cmd) {
 		case cmd_cheque_fa:
 			fa_cheque();
 			break;
-		case cmd_del_doc_fa:
-			fa_del_doc();
+		case cmd_error_cheque_fa:
+			fa_error_cheque();
 			break;
 		case cmd_unmark_reissue_fa:
 			fa_unmark_reissue_doc();
