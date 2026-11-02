@@ -1037,9 +1037,9 @@ static void init_devices(void)
 				sprn->ttyS_name, serial_settings_str(&sprn->ss), sprn->name);
 			sprn_init(&cfg);
 			log_dbg("Заводской номер БПУ %.*s.", sizeof(sprn_number), sprn_number);
-			static uint8_t grid_lst[SPRN_MAX_GRIDS * sizeof(struct pic_header)];
-			size_t len = sizeof(grid_lst);
-			int rc = sprn_get_grid_lst(grid_lst, &len);
+			static uint8_t icon_lst[SPRN_MAX_ICONS * sizeof(struct pic_header)];
+			size_t len = sizeof(icon_lst);
+			int rc = sprn_get_icon_lst(icon_lst, &len);
 			log_dbg("rc = %d; len = %zu.", rc, len);
 		}
 		rfid = get_dev_info(devices, DEV_RFID);

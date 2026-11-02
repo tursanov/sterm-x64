@@ -96,7 +96,7 @@ static bool vtsv_pic_lst_valid = false;
 const char *vtsv_get_pic_name(int n)
 {
 	const char *ret = NULL;
-	if ((sprn_type == SPRN_VIDEOTON) && vtsv_pic_lst_valid && (n < ASIZE(vtsv_pic_lst)))
+	if ((sprn_get_type() == SPRN_VIDEOTON) && vtsv_pic_lst_valid && (n < ASIZE(vtsv_pic_lst)))
 		ret = vtsv_pic_lst[n];
 	return ret;
 }
@@ -201,7 +201,6 @@ enum {
 	rcv_pic_lst_nr_vtsv,		/* номер изображения */
 	rcv_pic_lst_name_vtsv,		/* имя изображения */
 	rcv_pic_lst_delim_vtsv,		/* разделитель записей списка изображений (CR/LF) */
-
 	rcv_pic_erase_head_vtsv,	/* заголовок ответа на команду удаления изображения */
 	rcv_pic_erase_find_vtsv,	/* статус поиска изображения для удаления из БПУ */
 	rcv_pic_erase_status_vtsv,	/* статус удаления изображения из БПУ */
@@ -228,19 +227,80 @@ static size_t sprn_rx_len = 0;
 /* Счётчик для некоторых состояний конечного автомата приёма */
 static off_t rcv_idx = 0;
 
+static const char *sprn_get_rcv_st_str(int st)
+{
+	static const struct {
+		int st;
+		const char *txt;
+	} map[] = {
+		{rcv_start,			"rcv_start"},
+		{rcv_cmd,			"rcv_cmd"},
+		{rcv_number_status,		"rcv_number_status"},
+		{rcv_number,			"rcv_number"},
+		{rcv_media_status,		"rcv_media_status"},
+		{rcv_media_type,		"rcv_media_type"},
+		{rcv_id_status,			"rcv_id_status"},
+		{rcv_id,			"rcv_id"},
+		{rcv_status,			"rcv_status"},
+		{rcv_number_ctl_status,		"rcv_number_ctl_status"},
+		{rcv_wr_param_prefix,		"rcv_wr_param_prefix"},
+		{rcv_wr_param_number,		"rcv_wr_param_number"},
+		{rcv_wr_param_sign,		"rcv_wr_param_sign"},
+		{rcv_wr_param_val,		"rcv_wr_param_val"},
+		{rcv_rd_param_prefix,		"rcv_rd_param_prefix"},
+		{rcv_rd_param_vals,		"rcv_rd_param_vals"},
+		{rcv_pic_lst_head_vtsv,		"rcv_pic_lst_head_vtsv"},
+		{rcv_pic_lst_nr_vtsv,		"rcv_pic_lst_nr_vtsv"},
+		{rcv_pic_lst_name_vtsv,		"rcv_pic_lst_name_vtsv"},
+		{rcv_pic_lst_delim_vtsv,	"rcv_pic_lst_delim_vtsv"},
+		{rcv_pic_erase_head_vtsv,	"rcv_pic_erase_head_vtsv"},
+		{rcv_pic_erase_find_vtsv,	"rcv_pic_erase_find_vtsv"},
+		{rcv_pic_erase_status_vtsv,	"rcv_pic_erase_status_vtsv"},
+		{rcv_pic_erase_end_vtsv,	"rcv_pic_erase_end_vtsv"},
+		{rcv_grid_lst_status_sprn,	"rcv_grid_lst_status_sprn"},
+		{rcv_grid_lst_nr_sprn,		"rcv_grid_lst_nr_sprn"},
+		{rcv_grid_lst_data_sprn,	"rcv_grid_lst_data_sprn"},
+		{rcv_icon_lst_status_sprn,	"rcv_icon_lst_status_sprn"},
+		{rcv_icon_lst_nr_sprn,		"rcv_icon_lst_nr_sprn"},
+		{rcv_icon_lst_data_sprn,	"rcv_icon_lst_data_sprn"},
+		{rcv_end,			"rcv_end"},
+		{rcv_idle,			"rcv_idle"},
+	};
+	const char *ret = NULL;
+	for (int i = 0; i < ASIZE(map); i++){
+		typeof(map + i) p = map + i;
+		if (st == p->st){
+			ret = p->txt;
+			break;
+		}
+	}
+	if (ret == NULL){
+		static char buf[10][20];
+		static int idx = 0;
+		snprintf(buf[idx], sizeof(buf[idx]), "[%d]", st);
+		ret = buf[idx];
+		idx++;
+		idx %= ASIZE(buf);
+	}
+	return ret;
+}
+
 /* Установка состояния конечного автомата приёма */
 static void sprn_set_rcv_st(int st)
 {
-	if (st == rcv_start)
-		sprn_rx_len = 0;
-	else if ((st == rcv_end) || (st == rcv_idle)){
-		if (sprn_rx_len > 0){
-			log_data_sprn("БПУ --> ТМ", sprn_rx, sprn_rx_len);
+	if (st != rcv_st){
+		log_dbg("%s -> %s.", sprn_get_rcv_st_str(rcv_st), sprn_get_rcv_st_str(st));
+		if (st == rcv_start)
 			sprn_rx_len = 0;
+		else if ((st == rcv_end) || (st == rcv_idle)){
+			if (sprn_rx_len > 0){
+				log_data_sprn("БПУ --> ТМ", sprn_rx, sprn_rx_len);
+				sprn_rx_len = 0;
+			}
+			sprn_op_timeout = SPRN_INFINITE_TIMEOUT;
 		}
-		sprn_op_timeout = SPRN_INFINITE_TIMEOUT;
+		rcv_st = st;
 	}
-	rcv_st = st;
 }
 
 /* Сброс буферов и таймаутов */
@@ -262,6 +322,7 @@ static void sprn_reset(void)
 /* Закрытие устройства для работы с БПУ */
 void sprn_close(void)
 {
+	log_dbg("sprn_dev = %d.", sprn_dev);
 	if (sprn_dev != -1){
 		serial_close(sprn_dev);
 		sprn_dev = -1;
@@ -272,6 +333,7 @@ void sprn_close(void)
 /* Открытие устройства для работы с БПУ */
 static bool sprn_open(void)
 {
+	log_dbg("sprn = %p; sprn_dev = %d.", sprn, sprn_dev);
 	bool ret = false;
 	sprn_close();
 	if (sprn != NULL){
@@ -821,12 +883,16 @@ static void on_rcv_grid_lst_status_sprn(uint8_t b)
 
 static void on_rcv_grid_lst_nr_sprn(uint8_t b)
 {
-	if ((b == 0) || (b > SPRN_MAX_GRIDS))
+	if (b > SPRN_MAX_GRIDS)
 		sprn_set_rcv_st(rcv_idle);
 	else{
 		sprn_grid_lst_len = b * sizeof(struct pic_header);
 		rcv_idx = 0;
-		sprn_set_rcv_st(rcv_grid_lst_data_sprn);
+		if (b == 0){
+			sprn_grid_lst_valid = true;
+			sprn_set_rcv_st(rcv_end);
+		}else
+			sprn_set_rcv_st(rcv_grid_lst_data_sprn);
 	}
 }
 
@@ -851,12 +917,16 @@ static void on_rcv_icon_lst_status_sprn(uint8_t b)
 
 static void on_rcv_icon_lst_nr_sprn(uint8_t b)
 {
-	if ((b == 0) || (b > SPRN_MAX_ICONS))
+	if (b > SPRN_MAX_ICONS)
 		sprn_set_rcv_st(rcv_idle);
 	else{
 		sprn_icon_lst_len = b * sizeof(struct pic_header);
 		rcv_idx = 0;
-		sprn_set_rcv_st(rcv_icon_lst_data_sprn);
+		if (b == 0){
+			sprn_icon_lst_valid = true;
+			sprn_set_rcv_st(rcv_end);
+		}else
+			sprn_set_rcv_st(rcv_icon_lst_data_sprn);
 	}
 }
 
@@ -1149,14 +1219,59 @@ int sprn_set_params(struct term_cfg *cfg)
 	return ret;
 }
 
-int sprn_get_grid_lst(uint8_t *data, size_t *len)
+/* Получение списка изображений из БПУ  "Видеотон" */
+static int get_pic_lst_vtsv(uint8_t *data, size_t *len)
+{
+	int ret = SPRN_RET_ERR;
+	if ((data == NULL) || (len == NULL) || (*len == 0) || (sprn_get_type() != SPRN_VIDEOTON))
+		return ret;
+	ret = sprn_do_cmd(SPRN_PIC_LST);
+	if (ret == SPRN_RET_OK){
+		if (sprn_ok(sprn_status) && sprn_grid_lst_valid){
+			struct {
+				const char *name;
+				size_t len;
+			} names[ASIZE(vtsv_pic_lst)];
+			size_t l = 0;
+			int nr_pics = 0;
+			for (int i = 0; i < ASIZE(vtsv_pic_lst); i++){
+				const char *name = vtsv_pic_lst[i];
+				if (name[0] != 0){
+					typeof(names + nr_pics) p = names + nr_pics;
+					p->name = name;
+					p->len = strlen(name);
+					l += p->len + 1;
+					nr_pics++;
+				}
+			}
+			if (*len < l)
+				ret = SPRN_RET_ERR;
+			else if (l > 0){
+				for (int i = 0, offs = 0; i < nr_pics; i++){
+					typeof(names + i) p = names + i;
+					strcpy((char *)data + offs, p->name);
+					offs += p->len + 1;
+				}
+			}
+			*len = l;
+		}else{
+			ret = SPRN_RET_ERR;
+			*len = 0;
+		}
+	}else
+		*len = 0;
+	sprn_close();
+	return ret;
+}
+
+/* Получение списка разметок бланков из БПУ "СПЕКТР-ДС" */
+static int get_grid_lst_sprn(uint8_t *data, size_t *len)
 {
 	int ret = SPRN_RET_ERR;
 	if ((data == NULL) || (len == NULL) || (*len == 0) || (sprn_get_type() != SPRN_SPECTRUM))
 		return ret;
 	ret = sprn_do_cmd(SPRN_GRID_LST);
 	if (ret == SPRN_RET_OK){
-		log_dbg("sprn_status = 0x%.2hhx; rcv_idx = %d.", sprn_status, rcv_idx);
 		if (sprn_ok(sprn_status) && sprn_grid_lst_valid){
 			if (*len < rcv_idx)
 				ret = SPRN_RET_ERR;
@@ -1169,6 +1284,61 @@ int sprn_get_grid_lst(uint8_t *data, size_t *len)
 		}
 	}else
 		*len = 0;
+	sprn_close();
+	return ret;
+}
+
+/* Получение списка пиктограмм из БПУ "СПЕКТР-ДС" */
+static int get_icon_lst_sprn(uint8_t *data, size_t *len)
+{
+	int ret = SPRN_RET_ERR;
+	if ((data == NULL) || (len == NULL) || (*len == 0) || (sprn_get_type() != SPRN_SPECTRUM))
+		return ret;
+	ret = sprn_do_cmd(SPRN_ICON_LST);
+	if (ret == SPRN_RET_OK){
+		if (sprn_ok(sprn_status) && sprn_icon_lst_valid){
+			if (*len < rcv_idx)
+				ret = SPRN_RET_ERR;
+			else if (rcv_idx > 0)
+				memcpy(data, sprn_icon_lst, rcv_idx);
+			*len = rcv_idx;
+		}else{
+			ret = SPRN_RET_ERR;
+			*len = 0;
+		}
+	}else
+		*len = 0;
+	sprn_close();
+	return ret;
+}
+
+/* Получение списка разметок бланков из БПУ */
+int sprn_get_grid_lst(uint8_t *data, size_t *len)
+{
+	int ret = SPRN_RET_ERR;
+	switch (sprn_get_type()){
+		case SPRN_SPECTRUM:
+			ret = get_grid_lst_sprn(data, len);
+			break;
+		case SPRN_VIDEOTON:
+			ret = get_pic_lst_vtsv(data, len);
+			break;
+	}
+	return ret;
+}
+
+/* Получение списка пиктограмм из БПУ */
+int sprn_get_icon_lst(uint8_t *data, size_t *len)
+{
+	int ret = SPRN_RET_ERR;
+	switch (sprn_get_type()){
+		case SPRN_SPECTRUM:
+			ret = get_icon_lst_sprn(data, len);
+			break;
+		case SPRN_VIDEOTON:
+			ret = get_pic_lst_vtsv(data, len);
+			break;
+	}
 	return ret;
 }
 

@@ -368,7 +368,7 @@ static bool check_grid_header(const struct pic_header *hdr, uint8_t id)
 			if (ch == 0)
 				break;
 			else if (ch < 0x20){
-				log_err("Неправильноеимя разметки.");
+				log_err("Неправильное имя разметки.");
 				ret = false;
 				break;
 			}
