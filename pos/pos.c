@@ -485,7 +485,7 @@ int pos_get_state(void)
 
 static const char *pos_get_state_str(int st)
 {
-	static struct {
+	static const struct {
 		int st;
 		const char *txt;
 	} map[] = {
@@ -508,8 +508,9 @@ static const char *pos_get_state_str(int st)
 	};
 	const char *ret = NULL;
 	for (int i = 0; i < ASIZE(map); i++){
-		if (st == map[i].st){
-			ret = map[i].txt;
+		typeof(map + i) p = map + i;
+		if (st == p->st){
+			ret = p->txt;
 			break;
 		}
 	}

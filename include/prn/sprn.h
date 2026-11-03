@@ -281,8 +281,10 @@ extern int sprn_print_ticket(const uint8_t *data, size_t len, bool *sent_to_prn)
 extern int sprn_get_params(struct term_cfg *cfg);
 /* Запись параметров работы БПУ */
 extern int sprn_set_params(struct term_cfg *cfg);
-/* Получение списка разметок бланков из БПУ "СПЕКТР-ДС" */
+/* Получение списка разметок бланков из БПУ */
 extern int sprn_get_grid_lst(uint8_t *data, size_t *len);
+/* Получение списка пиктограмм из БПУ */
+extern int sprn_get_icon_lst(uint8_t *data, size_t *len);
 
 /* Текстовое описание статуса БПУ */
 extern const char *sprn_status_str(uint8_t status);
