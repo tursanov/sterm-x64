@@ -3727,25 +3727,25 @@ bool pair_predicate(D *item, __attribute__((unused)) SubCart *sc, D* v)
         && str_no_special_compare(v->k->y->prev_blank_nr, item->k->y->blank_nr) == 0;
 }
 
-typedef struct
-{
-    SubCart *sc;
-    D *d;
-} refund_arg_t;
+//typedef struct
+//{
+//    SubCart *sc;
+//    D *d;
+//} refund_arg_t;
 
-bool refund_action(refund_arg_t* obj, SubCart *vsc, D* v)
-{
-    if (v->group == NULL
-			&& v->k->c != 0
-			&& v->k->c == obj->d->k->c
-			&& obj->sc == vsc)
-    {
-        v->group = obj->d->group;
-        list_add_if_not_exist(obj->d->group, v);
-    }
-    
-    return true;
-}
+//bool refund_action(refund_arg_t* obj, SubCart *vsc, D* v)
+//{
+//    if (v->group == NULL
+//			&& v->k->c != 0
+//			&& v->k->c == obj->d->k->c
+//			&& obj->sc == vsc)
+//    {
+//        v->group = obj->d->group;
+//        list_add_if_not_exist(obj->d->group, v);
+//    }
+//    
+//    return true;
+//}
 
 bool other_action(D *d, __attribute__((unused)) SubCart *vsc, D *v)
 {

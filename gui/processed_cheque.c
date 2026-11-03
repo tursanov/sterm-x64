@@ -24,6 +24,11 @@
 #define PC_PADDING_X  10
 #define PC_POLL_US    20000     /* 20 мс при пустой очереди */
 
+/* Вертикальный скроллбар справа от области контента */
+#define PC_SCROLLBAR_W       4
+#define PC_SCROLLBAR_MARGIN  2
+#define PC_SCROLLBAR_MIN     20
+
 /* Коды изменения состояния из pc_process() */
 enum {
     PC_RUN_NONE    = 0,         /* экран не трогаем */
@@ -337,6 +342,39 @@ static void draw_buttons(GCPtr s) {
                    pc.button == 1, 1);
 }
 
+/* ------------------------- индикатор скролла -------------------------- */
+
+static void draw_scrollbar(GCPtr s, int top, int h) {
+    if (pc.max_scroll <= 0)
+        return;
+
+    int track_h = h - PC_SCROLLBAR_MARGIN * 2;
+    if (track_h <= 2 * PC_SCROLLBAR_MARGIN)
+        return;
+
+    int bar_x = DISCX - PC_SCROLLBAR_W - PC_SCROLLBAR_MARGIN;
+
+    /* Трек (светлая полоса) */
+    SetGCBounds(s, 0, 0, DISCX, DISCY);
+    SetBrushColor(s, clSilver);
+    SetRop2Mode(s, R2_COPY);
+    FillBox(s, bar_x, top + PC_SCROLLBAR_MARGIN,
+            PC_SCROLLBAR_W, track_h);
+
+    /* Ползунок: пропорционален доле видимой части от всего контента */
+    int total_h = h + pc.max_scroll;
+    int thumb_h = (int)((int64_t)track_h * h / total_h);
+    if (thumb_h < PC_SCROLLBAR_MIN) thumb_h = PC_SCROLLBAR_MIN;
+    if (thumb_h > track_h)          thumb_h = track_h;
+
+    int free_space = track_h - thumb_h;
+    int thumb_y = top + PC_SCROLLBAR_MARGIN
+                + (int)((int64_t)pc.scroll_y * free_space / pc.max_scroll);
+
+    SetBrushColor(s, RGB(0, 128, 0));
+    FillBox(s, bar_x, thumb_y, PC_SCROLLBAR_W, thumb_h);
+}
+
 /* ---------------------------- перерисовки ----------------------------- */
 
 /* Только кнопки: очистка полосы под ними + отрисовка. */
@@ -352,7 +390,7 @@ static void redraw_buttons(GCPtr s) {
 }
 
 /* Только контент: пересчёт max_scroll, очистка области, отрисовка
-   с клиппингом, рамка вокруг вьюпорта. */
+   с клиппингом, рамка вокруг вьюпорта, индикатор скролла. */
 static void redraw_content(GCPtr s, FontPtr f, FontPtr sf) {
     int top = pc_header_bottom();
     int h   = pc_content_h();
@@ -370,10 +408,13 @@ static void redraw_content(GCPtr s, FontPtr f, FontPtr sf) {
     SetRop2Mode(s, R2_COPY);
     FillBox(s, 0, top, DISCX, h);
 
-    /* 3. Отрисовать содержимое с клиппингом. */
+    /* 3. Отрисовать содержимое с клиппингом.
+       SetGCBounds(s, 0, top, ...) сдвигает origin в (0, top),
+       значит координаты внутри  локальные. scroll_y применяем
+       как y = -scroll_y, не прибавляя top. */
     SetGCBounds(s, 0, top, DISCX, h);
     {
-        int y = top - pc.scroll_y;
+        int y = -pc.scroll_y;
         y = draw_title(s, f, y);
         y = draw_sums(s, f, y);
         y = draw_buyer(s, f, y);
@@ -383,10 +424,11 @@ static void redraw_content(GCPtr s, FontPtr f, FontPtr sf) {
         y = draw_footer_sums(s, f, y);
     }
 
-    /* 4. Снять клиппинг и нарисовать рамку вокруг вьюпорта. */
+    /* 4. Снять клиппинг, нарисовать рамку и скроллбар. */
     SetGCBounds(s, 0, 0, DISCX, DISCY);
     DrawBorder(s, PC_PADDING_X, top, DISCX - PC_PADDING_X * 2, h,
                1, clGray, clGray);
+    draw_scrollbar(s, top, h);
 }
 
 /* Полная перерисовка: заголовок, кнопки, контент. */
