@@ -50,6 +50,9 @@ option		__USE_CORE_DUMP__
 # В лог заносится обмен с ИПТ в необработанном виде (иначе -- полные пакеты)
 #option		__RAW_POS_LOG__
 
+# Передать управление adtest, если терминал запущен с именем adtest
+#option		__AD_TEST__
+
 # Каталог, в котором находятся файлы терминала. / в конце не обязателен
 STERM_HOME	/home/sterm
 
@@ -62,5 +65,3 @@ KDIR		/usr/src/linux-headers-4.9.0-12-amd64
 
 CFLAGS		-Wall -Wextra -Wno-sign-compare -Wno-switch -Wno-format-security -Wno-unused-result -pipe -pthread -O3 -DNDEBUG -I$(INCLUDE) -D_GNU_SOURCE
 CXXFLAGS	-Wall -Weffc++ -Wextra -Wno-sign-compare -Wno-switch -Wno-format-security -Wno-unused-result -pipe -pthread -O3 -DNDEBUG -I$(INCLUDE) -D_GNU_SOURCE
-#CFLAGS		-Wall -Wextra -Wno-sign-compare -Wno-switch -Wno-format-security -Wno-unused-result -g -pipe -pthread -I$(INCLUDE) -D_GNU_SOURCE
-#CXXFLAGS	-Wall -Weffc++ -Wextra -Wno-sign-compare -Wno-switch -Wno-format-security -Wno-unused-result -g -pipe -pthread -I$(INCLUDE) -D_GNU_SOURCE
