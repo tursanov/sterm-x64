@@ -2380,8 +2380,6 @@ static void cart_set_group_selected(list_t *group, bool value)
     }
 }
 
-
-
 static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
 {
     if (sc == NULL || doc == NULL || ui_cart == NULL)

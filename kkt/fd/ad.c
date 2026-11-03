@@ -212,15 +212,28 @@ static bool bank_info_compare(struct bank_info *x, struct bank_info *y)
 	
 	if (x != NULL && y != NULL)
 	{
-		return
-			x->req_id == y->req_id
-			&& x->term_id == y->term_id
-			&& x->op == y->op
-			&& x->repayment == y->repayment
-			&& x->ticket == y->ticket
-			&& x->blank_nr == y->blank_nr
-			&& x->prev_blank_nr == y->prev_blank_nr
-			&& x->amount == y->amount;
+        return
+            x->req_id == y->req_id
+            && strcmp(x->term_id ? x->term_id : "",
+                      y->term_id ? y->term_id : "") == 0
+            && x->op == y->op
+            && x->repayment == y->repayment
+            && x->ticket == y->ticket
+            && strcmp(x->blank_nr ? x->blank_nr : "",
+                      y->blank_nr ? y->blank_nr : "") == 0
+            && strcmp(x->prev_blank_nr ? x->prev_blank_nr : "",
+                      y->prev_blank_nr ? y->prev_blank_nr : "") == 0
+            && x->amount == y->amount;
+	
+//		return
+//	x->req_id == y->req_id
+//	&& x->term_id == y->term_id
+//	&& x->op == y->op
+//	&& x->repayment == y->repayment
+//	&& x->ticket == y->ticket
+//	&& x->blank_nr == y->blank_nr
+//	&& x->prev_blank_nr == y->prev_blank_nr
+//	&& x->amount == y->amount;
 	}
 
 	return false;
@@ -1419,7 +1432,8 @@ static bool is_kkt_transport_error(uint8_t st)
  */
 int current_cheque_compare_document(uint32_t doc_no,
                             const current_cheque_t *cur,
-                            const char **err, bool *check_completed)
+                            const char **err,
+                            bool *check_completed)
 {
     *err = NULL;
     *check_completed = true;
@@ -3710,7 +3724,7 @@ bool pair_predicate(D *item, __attribute__((unused)) SubCart *sc, D* v)
 		return false;
     return v->k->y->op == '-'
         && v->k->y->repayment != '\x0'
-        && str_no_special_compare(v->k->y->prev_blank_nr, item->k->y->blank_nr);
+        && str_no_special_compare(v->k->y->prev_blank_nr, item->k->y->blank_nr) == 0;
 }
 
 typedef struct
@@ -3744,8 +3758,14 @@ bool other_action(D *d, __attribute__((unused)) SubCart *vsc, D *v)
     if (v->name && strcmp(v->name, "‚‡‚€’") == 0 && v->k->v != d->k->v)
         return true;
     // ­®¢®¥: á¢¥àª  ¯® req_id ( ­ «®£ Y.t0 ¢ C#)
-    if (v->k->y->req_id != d->k->y->req_id)
+    
+    const char *v_t0 = v->k->bank_dt ? v->k->bank_dt : "";
+    const char *d_t0 = d->k->bank_dt ? d->k->bank_dt : "";
+    if (strcmp(v_t0, d_t0) != 0)
         return true;
+    
+//    if (v->k->y->req_id != d->k->y->req_id)
+//        return true;
     v->group = d->group;
     list_add_if_not_exist(d->group, v);
     return true;

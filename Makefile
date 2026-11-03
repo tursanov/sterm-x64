@@ -31,7 +31,7 @@ BASE_OBJS =		\
 	xbase64		\
 	xchange		\
 	xml2data
-
+	
 GUI_OBJS =		\
 	adv_calc	\
 	archivefn	\
@@ -125,6 +125,9 @@ X3DATA_OBJS =		\
 	patterns	\
 	xslts
 
+AD_TEST_OBJS =		\
+    adtest
+
 OBJS =			\
 	$(addprefix base/,	$(addsuffix .o, $(BASE_OBJS)))		\
 	$(addprefix kkt/,	$(addsuffix .o, $(KKT_OBJS)))		\
@@ -137,7 +140,8 @@ OBJS =			\
 	$(addprefix pos/,	$(addsuffix .o, $(POS_OBJS)))		\
 	$(addprefix ppp/,	$(addsuffix .o, $(PPP_OBJS)))		\
 	$(addprefix prn/,	$(addsuffix .o, $(PRN_OBJS)))		\
-	$(addprefix x3data/,	$(addsuffix .o, $(X3DATA_OBJS)))
+	$(addprefix x3data/,	$(addsuffix .o, $(X3DATA_OBJS))) \
+	$(addprefix ad-test/,	$(addsuffix .o, $(AD_TEST_OBJS)))		
 
 SUBDIRS =		\
 	base		\
@@ -149,7 +153,8 @@ SUBDIRS =		\
 	prn		\
 	x3data		\
 	helpers		\
-	scripts
+	scripts \
+	ad-test
 
 .PHONY:	$(SUBDIRS)
 
@@ -162,7 +167,7 @@ $(SUBDIRS):
 sterm:	$(OBJS)
 	$(LD_BANNER)
 	@$(CC) $(CFLAGS) -o $@ $^ $(LINKAGE) -L /usr/lib/vipnet-core -lstdc++ -lvpn_api -lz -lxml2 -lxslt
-
+	
 mk_env:
 	@if [ ! -f $(STERM_HOME)/sterm.dat ]; then\
 		./helpers/mw --write-tki=$(STERM_HOME)/sterm.dat --number;\

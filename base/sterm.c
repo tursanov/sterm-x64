@@ -3720,8 +3720,16 @@ bool process_term(void)
 	return true;
 }
 
+extern int adtest(int argc, char *argv[]);
+
 int main(int argc, char **argv)
 {
+    if (strcasecmp(argv[0], "./adtest") == 0)
+    {
+        adtest(argc, argv);
+        return 0;
+    }
+
 	term_check_sum = make_check_sum(argv[0]);
 	if (!parse_cmd_line(argc, argv))
 		ret_val = RET_ERROR;
