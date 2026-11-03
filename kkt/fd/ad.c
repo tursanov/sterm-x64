@@ -3770,9 +3770,10 @@ bool other_action(D *d, __attribute__((unused)) SubCart *vsc, D *v)
     list_add_if_not_exist(d->group, v);
     return true;
 }
+
 void cart_set_groups()
 {
-    /* --- Первый проход: пары ОСПП/ВОЗВРАТ + объединение по invoice (C) --- */
+    /* ---------- ПРОХОД 1: пары ОСПП/ВОЗВРАТ + имена ---------- */
     for (int i = 0; i < MAX_SUB_CART; i++) {
         SubCart *val = &cart.sc[i];
         for (list_item_t *li = val->documents.head; li; li = li->next) {
@@ -3780,9 +3781,10 @@ void cart_set_groups()
             if (d->k->y == NULL)
                 continue;
 
-            /* Ищем пару для non-refund документа */
+            /* 1a. Для non-refund ищем пару-refund по prev_blank_nr */
             if (d->k->y->op != '-') {
-                D *pair = cart_get_first_document(d, (doc_func_t)pair_predicate);
+                D *pair = cart_get_first_document(d,
+                                                  (doc_func_t)pair_predicate);
                 if (pair != NULL) {
                     d->name = strdup("ОСПП");
                     long long sum = d->k->y->amount - pair->k->y->amount;
@@ -3797,17 +3799,32 @@ void cart_set_groups()
                     if (pair->description == NULL)
                         pair->description = strdup(d->description);
 
-                    /* pair  refund, у него группы ещё нет.
-                     * d тоже без группы, объединяем их явно. */
+                    /* Снимаем pair с возможной старой группы (как в C#) */
+                    if (pair->group != NULL) {
+                        for (list_item_t *x = pair->group->head; x; ) {
+                            list_item_t *next = x->next;
+                            if (x->obj == pair) {
+                                if (x->prev) x->prev->next = x->next;
+                                else         pair->group->head = x->next;
+                                if (x->next) x->next->prev = x->prev;
+                                else         pair->group->tail = x->prev;
+                                pair->group->count--;
+                                free(x);
+                                break;
+                            }
+                            x = next;
+                        }
+                    }
+
                     d->group = list_create(NULL);
                     list_add(d->group, d);
-                    list_add_if_not_exist(d->group, pair);
+                    list_add(d->group, pair);
                     pair->group = d->group;
-                    continue;   /* имена и группы уже назначены */
+                    continue;
                 }
             }
 
-            /* Назначаем имя для одиночного документа */
+            /* 1b. Одиночке назначаем имя (группу пока не трогаем) */
             if (d->k->y->op != '-') {
                 if (d->k->y->repayment != '\x0'
                     && d->k->y->prev_blank_nr[0] == 0)
@@ -3817,42 +3834,42 @@ void cart_set_groups()
             } else {
                 if (d->k->y->repayment != '\x0')
                     d->name = d->k->y->prev_blank_nr[0] == 0
-                              ? strdup("ВОЗВРАТ")
-                              : strdup("ВСПП");
+                              ? strdup("ВОЗВРАТ") : strdup("ВСПП");
                 else
                     d->name = strdup("ГАШЕНИЕ");
-            }
-
-            /* Объединяем по invoice в пределах этой подкорзины  только
-             * для одиночек (C#: v.Group == null && v.K.C == item.K.C
-             * && scX == scItem). */
-            if (d->k->c != 0 && d->group == NULL) {
-                d->group = list_create(NULL);
-                list_add(d->group, d);
-
-                for (list_item_t *lj = val->documents.head; lj; lj = lj->next) {
-                    D *v = LIST_ITEM(lj, D);
-                    if (v == d) continue;
-                    if (v->k->y == NULL) continue;
-                    if (v->group != NULL) continue;
-                    if (v->k->c == d->k->c) {
-                        v->group = d->group;
-                        list_add(d->group, v);
-                    }
-                }
             }
         }
     }
 
-    /* --- Второй проход: группировка одиночек по name + bank_dt --- */
+    /* ---------- ПРОХОД 2: группировка по invoice (C), только для одиночек ---------- */
     for (int i = 0; i < MAX_SUB_CART; i++) {
         SubCart *val = &cart.sc[i];
         for (list_item_t *li = val->documents.head; li; li = li->next) {
             D *d = LIST_ITEM(li, D);
-            if (d->k->y == NULL)
+            if (d->k->y == NULL || d->group != NULL || d->k->c == 0)
                 continue;
-            if (d->group != NULL)
-                continue;                       /* уже в группе */
+
+            d->group = list_create(NULL);
+            list_add(d->group, d);
+
+            for (list_item_t *lj = val->documents.head; lj; lj = lj->next) {
+                D *v = LIST_ITEM(lj, D);
+                if (v == d || v->k->y == NULL) continue;
+                if (v->group != NULL) continue;
+                if (v->k->c != d->k->c) continue;
+                v->group = d->group;
+                list_add(d->group, v);
+            }
+        }
+    }
+
+    /* ---------- ПРОХОД 3: остальные  по name + bank_dt ---------- */
+    for (int i = 0; i < MAX_SUB_CART; i++) {
+        SubCart *val = &cart.sc[i];
+        for (list_item_t *li = val->documents.head; li; li = li->next) {
+            D *d = LIST_ITEM(li, D);
+            if (d->k->y == NULL || d->group != NULL)
+                continue;
 
             d->group = list_create(NULL);
             list_add(d->group, d);
@@ -3860,7 +3877,6 @@ void cart_set_groups()
         }
     }
 }
-
 /* ======================= Sub-cart ordering ================================
  *
  * Реализует логику CartBuilder.GetSubCarts:
