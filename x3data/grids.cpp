@@ -580,25 +580,55 @@ bool sync_grids_kkt()
 	return ret;
 }
 
-#if 0
-/* Получение списка разметок из БПУ */
+/* Получение списка разметок бланков из БПУ */
 static bool find_sprn_grids(list<GridInfo> &sprn_grids)
 {
 	bool ret = false;
 	sprn_grids.clear();
-	if (sprn->beginGridLst(sprnOpCallback)){
-		sprn_wait.wait();
-		if (sprn->statusOK()){
-			sprn_grids.assign(sprn->grids().cbegin(), sprn->grids().cend());
+	int sprn_type = sprn_get_type();
+	if (sprn_type == SPRN_SPECTRUM){
+		static struct pic_header grids[SPRN_MAX_GRIDS];
+		size_t len = sizeof(grids);
+		if (sprn_get_grid_lst((uint8_t *)grids, &len) == SPRN_RET_OK){
+			size_t n = len / sizeof(*grids);
+			for (int i = 0; i < n; i++){
+				struct pic_header *hdr = grids + i;
+				char name[SPRN_MAX_GRID_NAME_LEN + 1];
+				strncpy(name, (const char *)hdr->name, SPRN_MAX_GRID_NAME_LEN);
+				name[SPRN_MAX_GRID_NAME_LEN] = 0;
+				GridInfo gi;
+				if (gi.parse(name))
+					sprn_grids.push_back(gi);
+			}
 			ret = true;
 		}else
-			log_err("Ошибка получения списка разметок из БПУ: %s.", XPrn::status_str(sprn->status()));
-	}else
-		log_err("Невозможно начать получение списка разметок из БПУ.");
+			log_err("Ошибка получения разметок бланков из БПУ.");
+	}else if (sprn_type == SPRN_VIDEOTON){
+		static char names[SPRN_MAX_PICS * (SPRN_MAX_PIC_NAME_LEN + 1)];
+		size_t len = sizeof(names);
+		if (sprn_get_grid_lst((uint8_t *)names, &len) == SPRN_RET_OK){
+			const char *name = names;
+			for (int i = 0; (len > 0) && (i < SPRN_MAX_PICS); i++){
+				GridInfo gi;
+				if (gi.parse(name))
+					sprn_grids.push_back(gi);
+				size_t l = strlen(name) + 1;
+				name += l;
+				if (l > len)
+					len = 0;
+				else
+					len -= l;
+			}
+			ret = true;
+		}else
+			log_err("Ошибка получения разметок бланков из БПУ.");
+	}
+	if (ret)
+		log_dbg("Количество разметок бланков в БПУ: %zu.", sprn_grids.size());
 	return ret;
 }
 
-/* Создание списка разметок БПУ для загрузки и удаления */
+/* Создание списка разметок бланков БПУ для загрузки и удаления */
 static void check_sprn_grids(const list<GridInfo> &stored_grids, list<GridInfo> &grids_to_load,
 	list<GridInfo> &grids_to_erase)
 {
@@ -627,6 +657,7 @@ static void check_sprn_grids(const list<GridInfo> &stored_grids, list<GridInfo> 
 	}
 }
 
+#if 0
 /* Запись заданной разметки в БПУ */
 static bool write_grid_to_sprn(const GridInfo &gi)
 {
