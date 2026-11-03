@@ -1852,9 +1852,9 @@ int AD_load(uint8_t t1055, bool clear) {
 		//K_list_dump(stdout, &_ad->archive_items, "archive_items", 0);
 	}
 	
-	//AD_print(stdout);
-
 	s_close(fd);
+
+//	AD_print(stdout);
 
     return ret;
 }
@@ -3408,7 +3408,7 @@ size_t AD_get_reissue_docs(int64_array_t* docs) {
 
 void bank_info_print(FILE *fd, struct bank_info *b)
 {
-	fprintf(fd, "%.7d;%s;%c;%s;",
+	fprintf(fd, "%.7lu;%s;%c;%s;",
 		b->req_id,
 		b->term_id,
 		b->op,
@@ -3753,17 +3753,28 @@ bool other_action(D *d, __attribute__((unused)) SubCart *vsc, D *v)
         return true;
     if (v->group != NULL)
         return true;
+
     if (!(d->name && v->name && strcmp(d->name, v->name) == 0))
         return true;
     if (v->name && strcmp(v->name, "ВОЗВРАТ") == 0 && v->k->v != d->k->v)
         return true;
 
-    /* Было: v->k->y->req_id != d->k->y->req_id.
-     * В C#: Y.t0. В C аналог  bank_dt (время старта банковской
-     * операции, "YYYYMMDDHHMMSS"). */
-    const char *v_t0 = v->k->bank_dt ? v->k->bank_dt : "";
-    const char *d_t0 = d->k->bank_dt ? d->k->bank_dt : "";
-    if (strcmp(v_t0, d_t0) != 0)
+    /*
+     * Дискриминатор одна и та же банковская операция:
+     *   1) если у обоих задан bank_dt (K прошёл POS)  по нему;
+     *   2) иначе, если у обоих задан req_id (express order_id)  по нему;
+     *   3) иначе не группируем: без метки операции любая группировка
+     *      склеит посторонние документы.
+     */
+    int match = 0;
+    if (v->k->bank_dt && d->k->bank_dt) {
+        match = (strcmp(v->k->bank_dt, d->k->bank_dt) == 0);
+    } else if (v->k->y->req_id != 0 && d->k->y->req_id != 0) {
+        match = (v->k->y->req_id == d->k->y->req_id);
+    } else {
+        return true;
+    }
+    if (!match)
         return true;
 
     v->group = d->group;

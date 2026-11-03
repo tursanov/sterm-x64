@@ -997,85 +997,82 @@ void get_doc_selection(list_t* sel)
 {
     for (int i = 0; i < ui_cart->subcart_count; i++)
     {
-		ui_subcart_t *sc = &ui_cart->subcarts[i];
-		
-		for (int j = 0; j < sc->doc_count; j++)
-		{
+        ui_subcart_t *sc = &ui_cart->subcarts[i];
+
+        /* --- Приоритет 1: документы в состоянии PRINTING ---------------
+         * Если в этой подкорзине есть хоть один такой, выделяем только
+         * её и выходим. Смысл: обрабатывать имеет смысл лишь ту
+         * подкорзину, где реально есть что печатать/откатывать. */
+        for (int j = 0; j < sc->doc_count; j++)
+        {
             ui_doc_t *d = &sc->docs[j];
-            
             if (in_print_state(d->val))
-            {
                 list_add(sel, d->val);
-            }
         }
-        
         if (sel->count > 0)
-        {
-            printf("get_doc_selection: in_print_state\n");
             return;
-        }
-        
-		for (int j = 0; j < sc->doc_count; j++)
-		{
+
+        /* --- Приоритет 2: документы в процессе банковской операции --- */
+        for (int j = 0; j < sc->doc_count; j++)
+        {
             ui_doc_t *d = &sc->docs[j];
-            
             if (in_bank_process_state(d->val) || in_check_state(d->val))
-            {
-                printf("get_doc_selection: in_bank_state or in_check_state\n");
                 list_add(sel, d->val);
-            }
         }
-        
         if (sel->count > 0)
-        {
-            printf("get_doc_selection: sel->count > 0\n");
             return;
-        }
-        
-		for (int j = 0; j < sc->doc_count; j++)
-		{
+
+        /* --- Приоритет 3: обычные документы -------------------------- */
+        for (int j = 0; j < sc->doc_count; j++)
+        {
             ui_doc_t *d = &sc->docs[j];
-            
+
             if (d->val->k->u.s != NULL)
-            {
-                printf("get_doc_selection: has_u\n");
-                continue;
-            }
-            
-            printf("get_doc_selection: group != NULL: %d\n", d->val->group != NULL);
+                continue;   /* незавершённое переоформление не выделяем */
+
             if (d->val->group != NULL && d->val->group->count > 0)
             {
-                if (sel->count + d->val->group->count > MAX_DOCS)
-                {
-                    printf("get_doc_selection: sel->count: %lu, d->val->group->count: %lu\n",
-                        sel->count, d->val->group->count);
-                    break;
+                /* Сколько членов группы лежит ИМЕННО в этой подкорзине.
+                 * Глобальный group->count сюда не годится: остальные
+                 * члены могут быть в других подкорзинах, и мы их
+                 * в этот чек всё равно не включим. */
+                int group_in_sc = 0;
+                for (int k = 0; k < sc->doc_count; k++) {
+                    D *v = sc->docs[k].val;
+                    for (list_item_t *li = d->val->group->head;
+                         li; li = li->next) {
+                        if (li->obj == v) { group_in_sc++; break; }
+                    }
                 }
-                
-                printf("get_doc_selection: d->val->group->head: %p\n",
-                                        d->val->group->head);
-                for (list_item_t *li = d->val->group->head; li != NULL; li = li->next)
-                {
-                    D *x = LIST_ITEM(li, D);
-                    list_add_if_not_exist(sel, x);
+                if (group_in_sc <= 0)
+                    group_in_sc = 1;   /* сам d */
+
+                if (sel->count + group_in_sc > MAX_DOCS)
+                    break;
+
+                /* Добавляем ТОЛЬКО тех членов группы, которые
+                 * находятся в текущей подкорзине. Чужие  пропускаем. */
+                for (int k = 0; k < sc->doc_count; k++) {
+                    D *v = sc->docs[k].val;
+                    for (list_item_t *li = d->val->group->head;
+                         li; li = li->next) {
+                        if (li->obj == v) {
+                            list_add_if_not_exist(sel, v);
+                            break;
+                        }
+                    }
                 }
             }
             else
             {
                 if (sel->count > MAX_DOCS)
-                {
                     break;
-                }
-                
                 list_add_if_not_exist(sel, d->val);
             }
-            
+
             if (d->val->k->c != 0 || sc->val->type == 'F')
-            {
-                printf("d->val->k->c != 0 || sc->val->type == 'F': true");
                 break;
-            }
-		}
+        }
     }
 }
 
@@ -2356,25 +2353,48 @@ bool print_cheque(SubCart *sc, list_t *klist)
     return false;
 }
 
-/*
- * Установить selected = value для всех документов, входящих в группу.
- * Аналог SelectMany(s => s.Documents).Where(v => d.Document.Group.Contains(v.Document)).
- * Ищет по всем подкорзинам, потому что группа может быть ?размазана?.
- */
-static void cart_set_group_selected(list_t *group, bool value)
+/* Сколько членов группы реально находится в этой подкорзине.
+ * Нужно для проверки лимита 35  считать глобальный group->count
+ * нельзя, потому что остальные члены лежат в других подкорзинах
+ * и в текущем чеке не участвуют. */
+static int cart_group_count_in_sc(ui_subcart_t *sc, list_t *group)
 {
-    if (group == NULL || ui_cart == NULL)
+    if (sc == NULL || group == NULL)
+        return 0;
+
+    int n = 0;
+    for (int j = 0; j < sc->doc_count; j++) {
+        D *v = sc->docs[j].val;
+        for (list_item_t *li = group->head; li; li = li->next) {
+            if (li->obj == v) {
+                n++;
+                break;
+            }
+        }
+    }
+    return n;
+}
+
+/*
+ * Установить selected = value для всех членов group, КОТОРЫЕ НАХОДЯТСЯ
+ * в этой подкорзине sc. Члены группы из других подкорзин не трогаем.
+ *
+ * Это осознанное отличие от C# (там группа размазывается по подкорзинам
+ * и выделяется целиком). Но чек печатается в рамках одной подкорзины
+ * (print_cheque вызывается для sc->c), поэтому перетаскивать выделение
+ * через подкорзины не имеет смысла.
+ */
+static void cart_set_group_selected(ui_subcart_t *sc, list_t *group, bool value)
+{
+    if (sc == NULL || group == NULL)
         return;
 
-    for (int i = 0; i < ui_cart->subcart_count; i++) {
-        ui_subcart_t *sc = &ui_cart->subcarts[i];
-        for (int j = 0; j < sc->doc_count; j++) {
-            D *v = sc->docs[j].val;
-            for (list_item_t *li = group->head; li; li = li->next) {
-                if (li->obj == v) {
-                    sc->docs[j].selected = value;
-                    break;
-                }
+    for (int j = 0; j < sc->doc_count; j++) {
+        D *v = sc->docs[j].val;
+        for (list_item_t *li = group->head; li; li = li->next) {
+            if (li->obj == v) {
+                sc->docs[j].selected = value;
+                break;
             }
         }
     }
@@ -2449,7 +2469,7 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
             return changed;
         }
 
-        /* D/E: до лимита MAX_DOCS, группу ? целиком. */
+        /* D/E: до лимита MAX_DOCS, группу  в пределах подкорзины. */
         if (type == NON_CASH_ITEMS || type == FAST_PAYMENT_ITEMS) {
             int checked = 0;
             for (int i = 0; i < sc->doc_count; i++)
@@ -2460,13 +2480,18 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
                 ui_doc_t *d = &sc->docs[i];
                 if (d->selected) continue;
 
-                int delta = (d->val->group && d->val->group->count > 0)
-                          ? (int)d->val->group->count : 1;
+                int delta;
+                if (d->val->group && d->val->group->count > 0)
+                    delta = cart_group_count_in_sc(sc, d->val->group);
+                else
+                    delta = 1;
+                if (delta == 0) delta = 1;
+
                 if (checked + delta > MAX_DOCS)
                     break;
 
                 if (d->val->group && d->val->group->count > 0) {
-                    cart_set_group_selected(d->val->group, true);
+                    cart_set_group_selected(sc, d->val->group, true);   /*  sc */
                     checked = 0;
                     for (int j = 0; j < sc->doc_count; j++)
                         if (sc->docs[j].selected) checked++;
@@ -2524,12 +2549,11 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
         return true;
     }
 
-    /* --- F: не смешивать ОСН и ПВД; группа ? атомарно. --- */
+    /* --- F: не смешивать ОСН и ПВД; группа  в пределах подкорзины. --- */
     if (type == REFUND_NON_CASH_ITEMS) {
         if (!doc->selected) {
             int v = doc->val->k->v;
 
-            /* Проверка на несовместимость с уже выделенными */
             for (int i = 0; i < sc->doc_count; i++) {
                 ui_doc_t *d = &sc->docs[i];
                 if (d->selected && d->val->k->v != v) {
@@ -2541,7 +2565,6 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
                 }
             }
 
-            /* Проверка однородности группы */
             if (doc->val->group && doc->val->group->count > 0) {
                 for (list_item_t *li = doc->val->group->head; li; li = li->next) {
                     D *gd = LIST_ITEM(li, D);
@@ -2556,17 +2579,22 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
         }
         bool new_val = !doc->selected;
         if (doc->val->group && doc->val->group->count > 0)
-            cart_set_group_selected(doc->val->group, new_val);
+            cart_set_group_selected(sc, doc->val->group, new_val);   /*  sc */
         else
             doc->selected = new_val;
         return true;
     }
 
-    /* --- D, E: лимит 35, группа ? атомарно. --- */
+    /* --- D, E: лимит 35, группа  в пределах подкорзины. --- */
     if (type == NON_CASH_ITEMS || type == FAST_PAYMENT_ITEMS) {
         if (!doc->selected) {
-            int delta = (doc->val->group && doc->val->group->count > 0)
-                      ? (int)doc->val->group->count : 1;
+            int delta;
+            if (doc->val->group && doc->val->group->count > 0)
+                delta = cart_group_count_in_sc(sc, doc->val->group);
+            else
+                delta = 1;
+            if (delta == 0) delta = 1;
+
             int checked = 0;
             for (int i = 0; i < sc->doc_count; i++)
                 if (sc->docs[i].selected) checked++;
@@ -2579,12 +2607,12 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
                 return false;
             }
             if (doc->val->group && doc->val->group->count > 0)
-                cart_set_group_selected(doc->val->group, true);
+                cart_set_group_selected(sc, doc->val->group, true);   /*  sc */
             else
                 doc->selected = true;
         } else {
             if (doc->val->group && doc->val->group->count > 0)
-                cart_set_group_selected(doc->val->group, false);
+                cart_set_group_selected(sc, doc->val->group, false);  /*  sc */
             else
                 doc->selected = false;
         }
