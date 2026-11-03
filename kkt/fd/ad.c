@@ -3757,136 +3757,109 @@ bool other_action(D *d, __attribute__((unused)) SubCart *vsc, D *v)
         return true;
     if (v->name && strcmp(v->name, "ВОЗВРАТ") == 0 && v->k->v != d->k->v)
         return true;
-    // новое: сверка по req_id (аналог Y.t0 в C#)
-    
+
+    /* Было: v->k->y->req_id != d->k->y->req_id.
+     * В C#: Y.t0. В C аналог  bank_dt (время старта банковской
+     * операции, "YYYYMMDDHHMMSS"). */
     const char *v_t0 = v->k->bank_dt ? v->k->bank_dt : "";
     const char *d_t0 = d->k->bank_dt ? d->k->bank_dt : "";
     if (strcmp(v_t0, d_t0) != 0)
         return true;
-    
-//    if (v->k->y->req_id != d->k->y->req_id)
-//        return true;
+
     v->group = d->group;
     list_add_if_not_exist(d->group, v);
     return true;
 }
-
 void cart_set_groups()
 {
-	for (int i = 0; i < MAX_SUB_CART; i++)
-	{
-		SubCart *val = &cart.sc[i];
-		if (val->documents.count > 0)
-		{
-		    for (list_item_t* li = val->documents.head; li != NULL; li = li->next)
-		    {
-		        D* d = LIST_ITEM(li, D);
-		        
-		        if (d->k->y != NULL)
-		        {
-    		        if (d->group == NULL)
-    		        {
-    		            d->group = list_create(NULL);
-    		            list_add(d->group, d);
-    		        }
-		            
-		            refund_arg_t arg = { .sc = val, .d = d };
-    		        cart_foreach_document(&arg, (doc_func_t)refund_action);
-    		        
-    		        if (d->k->y->op != '-')
-		            {
-		                D *pair = cart_get_first_document(d, (doc_func_t)pair_predicate);
-		                if (pair != NULL)
-		                {
-		                    d->name = strdup("ОСПП");
-		                    long long sum = d->k->y->amount - pair->k->y->amount;
-                    
-		                    if (sum > 0)
-		                    {
-		                        asprintf(&d->description, "ДОПЛАТА (%lld.%02lld)", sum / 100, sum % 100);
-		                    }
-		                    else if (sum < 0)
-		                    {
-		                        asprintf(&d->description, "ВЫПЛАТА (%lld.%02lld)", -sum / 100, -sum % 100);
-		                    }
-		                    else
-		                    {
-		                        asprintf(&d->description, "ПЕРЕОФОРМЛЕНИЕ (0.00)");
-		                    }
-                    
-                            if (pair->description == NULL)
-                            {
-		                        pair->description = strdup(d->description);
-                            }
-                            
-		                    if (pair->group != NULL)
-		                    {
-		                        list_add_if_not_exist(pair->group, d);
-		                        d->group = pair->group;
-		                    }
-		                    else
-		                    {
-		                        if (d->group == NULL)
-		                        {
-    		                        d->group = list_create(NULL);
-                                    list_add(d->group, d);
-                                }
-                                list_add_if_not_exist(d->group, pair);
-                                pair->group = d->group;
-		                    }
-		                }
-		                else
-		                {
-		                    if (d->k->y->repayment != '\x0' && d->k->y->prev_blank_nr[0] == 0)
-		                    {
-		                        d->name = strdup("ГАШЕНИЕ ВОЗВРАТА");
-		                    }
-		                    else
-		                    {
-		                        d->name = strdup("ОФОРМЛЕНИЕ");
-		                    }
-		                }
-		            }
-		            else
-		            {
-		                if (d->k->y->repayment != '\x0')
-		                {
-		                    d->name = d->k->y->prev_blank_nr[0] == 0
-		                        ? strdup("ВОЗВРАТ")
-                                : strdup("ВСПП");
-		                }
-		                else
-		                {
-		                    d->name = strdup("ГАШЕНИЕ");
-		                }
-		            }
+    /* --- Первый проход: пары ОСПП/ВОЗВРАТ + объединение по invoice (C) --- */
+    for (int i = 0; i < MAX_SUB_CART; i++) {
+        SubCart *val = &cart.sc[i];
+        for (list_item_t *li = val->documents.head; li; li = li->next) {
+            D *d = LIST_ITEM(li, D);
+            if (d->k->y == NULL)
+                continue;
+
+            /* Ищем пару для non-refund документа */
+            if (d->k->y->op != '-') {
+                D *pair = cart_get_first_document(d, (doc_func_t)pair_predicate);
+                if (pair != NULL) {
+                    d->name = strdup("ОСПП");
+                    long long sum = d->k->y->amount - pair->k->y->amount;
+                    if (sum > 0)
+                        asprintf(&d->description, "ДОПЛАТА (%lld.%02lld)",
+                                 sum / 100, sum % 100);
+                    else if (sum < 0)
+                        asprintf(&d->description, "ВЫПЛАТА (%lld.%02lld)",
+                                 -sum / 100, -sum % 100);
+                    else
+                        asprintf(&d->description, "ПЕРЕОФОРМЛЕНИЕ (0.00)");
+                    if (pair->description == NULL)
+                        pair->description = strdup(d->description);
+
+                    /* pair  refund, у него группы ещё нет.
+                     * d тоже без группы, объединяем их явно. */
+                    d->group = list_create(NULL);
+                    list_add(d->group, d);
+                    list_add_if_not_exist(d->group, pair);
+                    pair->group = d->group;
+                    continue;   /* имена и группы уже назначены */
                 }
-    	    }
-        }
-    }
-    
-	for (int i = 0; i < MAX_SUB_CART; i++)
-	{
-		SubCart *val = &cart.sc[i];
-		if (val->documents.count > 0)
-		{
-		    for (list_item_t* li = val->documents.head; li != NULL; li = li->next)
-		    {
-		        D* d = LIST_ITEM(li, D);
-		        
-		        if (d->k->y != NULL)
-		        {
-    		        if (d->group == NULL)
-    		        {
-    		            d->group = list_create(NULL);
-       		            cart_foreach_document(d, (doc_func_t)other_action);
-    		        }
-		        }
+            }
+
+            /* Назначаем имя для одиночного документа */
+            if (d->k->y->op != '-') {
+                if (d->k->y->repayment != '\x0'
+                    && d->k->y->prev_blank_nr[0] == 0)
+                    d->name = strdup("ГАШЕНИЕ ВОЗВРАТА");
+                else
+                    d->name = strdup("ОФОРМЛЕНИЕ");
+            } else {
+                if (d->k->y->repayment != '\x0')
+                    d->name = d->k->y->prev_blank_nr[0] == 0
+                              ? strdup("ВОЗВРАТ")
+                              : strdup("ВСПП");
+                else
+                    d->name = strdup("ГАШЕНИЕ");
+            }
+
+            /* Объединяем по invoice в пределах этой подкорзины  только
+             * для одиночек (C#: v.Group == null && v.K.C == item.K.C
+             * && scX == scItem). */
+            if (d->k->c != 0 && d->group == NULL) {
+                d->group = list_create(NULL);
+                list_add(d->group, d);
+
+                for (list_item_t *lj = val->documents.head; lj; lj = lj->next) {
+                    D *v = LIST_ITEM(lj, D);
+                    if (v == d) continue;
+                    if (v->k->y == NULL) continue;
+                    if (v->group != NULL) continue;
+                    if (v->k->c == d->k->c) {
+                        v->group = d->group;
+                        list_add(d->group, v);
+                    }
+                }
             }
         }
-    }    
-}
+    }
 
+    /* --- Второй проход: группировка одиночек по name + bank_dt --- */
+    for (int i = 0; i < MAX_SUB_CART; i++) {
+        SubCart *val = &cart.sc[i];
+        for (list_item_t *li = val->documents.head; li; li = li->next) {
+            D *d = LIST_ITEM(li, D);
+            if (d->k->y == NULL)
+                continue;
+            if (d->group != NULL)
+                continue;                       /* уже в группе */
+
+            d->group = list_create(NULL);
+            list_add(d->group, d);
+            cart_foreach_document(d, (doc_func_t)other_action);
+        }
+    }
+}
 
 /* ======================= Sub-cart ordering ================================
  *
