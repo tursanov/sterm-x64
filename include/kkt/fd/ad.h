@@ -47,7 +47,7 @@ extern L *L_create(void);
 // удаление составляющей
 extern void L_destroy(L *l);
 // запись составляющей в файл
-extern int L_save(int fd, L *l);
+extern int L_save(intptr_t fd, L *l);
 // загрузка составляющей из файла
 extern L *L_load_v1(int fd);
 extern L *L_load_v2(int fd);
@@ -161,7 +161,7 @@ extern void set_k_s_mv(char s, bool move_first, K* k, K* k1, K* k2);
 extern void set_k_i(K* k, K* k1, K* k2);
 
 // запись документа в файл
-extern int K_save(int fd, K *k);
+extern int K_save(intptr_t fd, K *k);
 // загрузка документа из файла
 extern K *K_load_v1(int fd);
 extern K *K_load_v2(int fd);
@@ -181,7 +181,7 @@ extern C* C_create(void);
 extern void C_destroy(C *c);
 extern bool C_addK(C *c, K *k);
 
-extern int C_save(int fd, C *c);
+extern int C_save(intptr_t fd, C *c);
 
 // загрузка из файла
 extern C* C_load_v1(int fd);

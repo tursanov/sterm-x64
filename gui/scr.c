@@ -2150,7 +2150,7 @@ static bool handle_ctrl_m(struct kbd_event *e)
 {
 	if ((e->key != KEY_M) || e->repeated || ((e->shift_state & SHIFT_CTRL) == 0))
 		return false;
-	static char buffer[256], msg[256];
+	static char buffer[256], msg[1024];
 	buffer[0] = msg[0] = 0;
 	bool ok = false;
 	FILE *f = fopen(FA_PERIOD_FILE, "w");

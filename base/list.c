@@ -199,7 +199,7 @@ int list_remove_at(list_t *list, int i) {
     return 0;
 }
 
-int list_remove_if(list_t *list, void *arg, list_item_func_t func) {
+int list_remove_if(list_t *list, intptr_t arg, list_item_func_t func) {
     int count = 0;
     for (list_item_t *item = list->head; item != NULL;) {
         list_item_t *tmp = item;
@@ -304,7 +304,7 @@ LOut:
     return ret;
 }
 
-int list_foreach(list_t *list, void *arg, list_item_func_t func) {
+int list_foreach(list_t *list, intptr_t arg, list_item_func_t func) {
     for (list_item_t *item = list->head; item != NULL; item = item->next) {
         int ret = func(arg, item->obj);
         if (ret != 0)

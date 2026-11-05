@@ -214,15 +214,12 @@ static bool bank_info_compare(struct bank_info *x, struct bank_info *y)
 	{
         return
             x->req_id == y->req_id
-            && strcmp(x->term_id ? x->term_id : "",
-                      y->term_id ? y->term_id : "") == 0
+            && strcmp(x->term_id, y->term_id) == 0
             && x->op == y->op
             && x->repayment == y->repayment
             && x->ticket == y->ticket
-            && strcmp(x->blank_nr ? x->blank_nr : "",
-                      y->blank_nr ? y->blank_nr : "") == 0
-            && strcmp(x->prev_blank_nr ? x->prev_blank_nr : "",
-                      y->prev_blank_nr ? y->prev_blank_nr : "") == 0
+            && strcmp(x->blank_nr, y->blank_nr) == 0
+            && strcmp(x->prev_blank_nr, y->prev_blank_nr) == 0
             && x->amount == y->amount;
 	
 //		return
@@ -264,7 +261,7 @@ void L_destroy(L *l) {
     free(l);
 }
 
-int L_save(int fd, L *l) {
+int L_save(intptr_t fd, L *l) {
     if (save_string(fd, l->s) < 0
 			|| SAVE_INT(fd, l->p) < 0
 			|| SAVE_INT(fd, l->r) < 0
@@ -565,7 +562,7 @@ bool K_equalByL(K *k1, K *k2) {
 }
 
 
-int K_save(int fd, K *k) {
+int K_save(intptr_t fd, K *k) {
     if (save_list(fd, &k->llist, (list_item_func_t)L_save) < 0 ||
         SAVE_INT(fd, k->o) < 0 ||
 		SAVE_INT(fd, k->a) < 0 ||
@@ -887,7 +884,7 @@ bool C_addK(C *c, K *k) {
 	return false;
 }
 
-int C_save(int fd, C *c) {
+int C_save(intptr_t fd, C *c) {
     if (save_list(fd, &c->klist, (list_item_func_t)K_save) < 0 ||
             SAVE_INT(fd, c->p) < 0 ||
             save_string(fd, c->h) < 0 ||
@@ -2067,8 +2064,9 @@ struct find_annul
 	char z1s_s;
 };
 
-int find_annul_k(struct find_annul *f, K *x)
+static int find_annul_k(intptr_t arg, K *x)
 {
+	struct find_annul *f = (struct find_annul *)arg;
 	if (x->o == 1 && doc_no_compare(&x->i1, &f->k->i1) == 0 && x->y->op == '+' && x->y->repayment == 0)
 	{
 		f->x = x;
@@ -2077,14 +2075,15 @@ int find_annul_k(struct find_annul *f, K *x)
 	return 1;
 }
 
-int change_lp(__attribute__((unused)) void *arg, L* l)
+static int change_lp(intptr_t arg __attribute__((unused)), L* l)
 {
 	l->p = 3 - l->p;
 	return 0;
 }
 
-int process_annul_items(struct find_annul *f, K *zs)
+static int process_annul_items(intptr_t arg, K *zs)
 {
+	struct find_annul *f = (struct find_annul *)arg;
 	if (zs->c != f->x->c)
 	{
 		return 1;
@@ -2097,7 +2096,7 @@ int process_annul_items(struct find_annul *f, K *zs)
 	zs->check_state = false;
 	zs->o += 2;
 	zs->s = f->zs_s;
-	list_foreach(&zs->llist, NULL, (list_item_func_t)change_lp);
+	list_foreach(&zs->llist, 0, (list_item_func_t)change_lp);
 	AD_makeCheque(zs, &zs->d, K_lp(zs), f->t1055, zs->a);
 
 	z1s->s = f->z1s_s;
@@ -2162,7 +2161,7 @@ int AD_makeAnnul(K *k, uint8_t o, uint8_t t1054, uint8_t t1055) {
 					.zs_s = 'C',
 					.z1s_s = 'D'
 				};
-				list_remove_if(&_ad->archive_items, &f, (list_item_func_t)find_annul_k);
+				list_remove_if(&_ad->archive_items, (intptr_t)&f, (list_item_func_t)find_annul_k);
 
 				if (f.x == NULL)
 				{
@@ -2172,7 +2171,7 @@ int AD_makeAnnul(K *k, uint8_t o, uint8_t t1054, uint8_t t1055) {
 				{
 					set_k_s('C', k, NULL, NULL);
 					k->c = f.x->c;
-					list_remove_if(&_ad->archive_items, &f, (list_item_func_t)process_annul_items);
+					list_remove_if(&_ad->archive_items, (intptr_t)&f, (list_item_func_t)process_annul_items);
 					AD_archive_save();
 				}
 			}
@@ -2203,8 +2202,9 @@ int AD_makeAnnul(K *k, uint8_t o, uint8_t t1054, uint8_t t1055) {
 	return 0;
 }
 
-int find_annul_return_items(struct find_annul *f, K *x)
+int find_annul_return_items(intptr_t arg, K *x)
 {
+	struct find_annul *f = (struct find_annul *)arg;
 	if (x->o == 2
 		&& (f->hasD
 			? (doc_no_compare(&x->i2, &f->k->i2) == 0 && doc_no_compare(&x->i21, &f->k->i21) == 0)
@@ -2226,8 +2226,9 @@ int find_annul_return_items(struct find_annul *f, K *x)
 	return 1;
 }
 
-int find_annul_return_items1(struct find_annul *f, K *x)
+static int find_annul_return_items1(intptr_t arg, K *x)
 {
+	struct find_annul *f = (struct find_annul *)arg;
 	if (x->o == 2
 		&& doc_no_compare(&x->i2, &f->k->i2) == 0
 		&& doc_no_compare(&x->i21, &f->k->i21) == 0
@@ -2361,7 +2362,7 @@ L2:
 						.z1s_s = 'F'
 					};
 
-					list_remove_if(&_ad->archive_items, &fa, (list_item_func_t)find_annul_return_items);
+					list_remove_if(&_ad->archive_items, (intptr_t)&fa, (list_item_func_t)find_annul_return_items);
 					bool success = fa.x != NULL
 						&& (k2->llist.count > 0
 							? fa.x2 != NULL && fa.x2->c == fa.x->c
@@ -2375,7 +2376,7 @@ L2:
 					{
 						set_k_s('G', k, k2, NULL);
 						k->c = k2->c = fa.x->c;
-						list_remove_if(&_ad->archive_items, &fa, (list_item_func_t)process_annul_items);
+						list_remove_if(&_ad->archive_items, (intptr_t)&fa, (list_item_func_t)process_annul_items);
 						AD_archive_save();
 					}
 				}
@@ -2390,7 +2391,7 @@ L2:
 						.zs_s = 'C',
 						.z1s_s = 'D'
 					};
-					list_remove_if(&_ad->archive_items, &fa, (list_item_func_t)find_annul_return_items1);
+					list_remove_if(&_ad->archive_items, (intptr_t)&fa, (list_item_func_t)find_annul_return_items1);
 					bool success = fa.x != NULL
 								   && (k2->llist.count > 0
 									   ? fa.x2 != NULL && fa.x2->c == fa.x->c
@@ -2405,7 +2406,7 @@ L2:
 					{
 						set_k_s('C', k, k2, NULL);
 						k->c = k2->c = fa.x->c;
-						list_remove_if(&_ad->archive_items, &fa, (list_item_func_t)process_annul_items);
+						list_remove_if(&_ad->archive_items, (intptr_t)&fa, (list_item_func_t)process_annul_items);
 						AD_archive_save();
 					}
 				}

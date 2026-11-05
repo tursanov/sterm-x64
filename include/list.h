@@ -14,7 +14,7 @@ typedef struct list_item_t {
 } list_item_t;
 
 typedef void (*list_item_delete_func_t)(void *obj);
-typedef int (*list_item_func_t)(void *arg, void *obj);
+typedef int (*list_item_func_t)(intptr_t arg, void *obj);
 typedef int (*list_item_compare_func_t)(void *arg, void *x, void *y);
 
 typedef struct list_t {
@@ -35,10 +35,10 @@ extern int list_add_item(list_t *list, list_item_t *item);
 extern int list_remove_item(list_t *list, list_item_t *item);
 extern int list_remove(list_t *list, void *obj);
 extern int list_remove_at(list_t *list, int i);
-extern int list_remove_if(list_t *list, void *arg, list_item_func_t func);
+extern int list_remove_if(list_t *list, intptr_t arg, list_item_func_t func);
 extern int list_clear(list_t* list);
 extern int list_compare(list_t *list1, list_t *list2, void *arg, list_item_compare_func_t func);
-extern int list_foreach(list_t* list, void *arg, list_item_func_t func);
+extern int list_foreach(list_t* list, intptr_t arg, list_item_func_t func);
 extern list_item_t *list_item_at(list_t *list, int index);
 
 #define LIST_ITEM(i, type) ((i) ? ((type *)((i)->obj)) : NULL)

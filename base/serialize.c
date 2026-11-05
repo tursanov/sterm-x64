@@ -143,7 +143,7 @@ int load_int(int fd, uint64_t *v, size_t size) {
 
 int save_list(int fd, list_t *list, list_item_func_t save_item_func) {
     if (SAVE_INT(fd, list->count) < 0 ||
-        list_foreach(list, (void *)(intptr_t)fd, save_item_func) < 0)
+        list_foreach(list, fd, save_item_func) < 0)
         return -1;
     return 0;
 }

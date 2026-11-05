@@ -40,7 +40,7 @@ struct L_dump_ctx {
 };
 
 /* Callback для list_foreach */
-static int L_dump_cb(void *arg, void *obj) {
+static int L_dump_cb(intptr_t arg, void *obj) {
     struct L_dump_ctx *ctx = (struct L_dump_ctx *)arg;
     L_dump(ctx->f, (L *)obj, ctx->indent);
     return 0; /* продолжить обход */
@@ -59,7 +59,7 @@ void K_dump(FILE *f, K *k, const char* desc, int indent) {
     /* Список составляющих */
     print_indent(f, indent + 2); fprintf(f, "llist: count=%zu\n", k->llist.count);
     struct L_dump_ctx ctx = { f, indent + 4 };
-    list_foreach(&k->llist, &ctx, L_dump_cb);
+    list_foreach(&k->llist, (intptr_t)&ctx, L_dump_cb);
 
     print_indent(f, indent + 2); fprintf(f, "o = %u\n", k->o);
     print_indent(f, indent + 2); fprintf(f, "a_flag = %s\n", k->a_flag ? "true" : "false");

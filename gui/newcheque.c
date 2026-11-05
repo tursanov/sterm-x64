@@ -174,8 +174,7 @@ static uint64_t cheque_article_vln_sum(cheque_article_t *ca) {
 	return sum;
 }
 
-static int cheque_article_save(void *arg, cheque_article_t *a) {
-	int fd = (int)(intptr_t)arg;
+static int cheque_article_save(intptr_t fd, cheque_article_t *a) {
 	int i = 0;
 	for (list_item_t *li = articles.head; li; li = li->next, i++) {
 		if (li->obj == a->article)

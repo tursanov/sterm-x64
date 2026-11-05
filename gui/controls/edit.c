@@ -94,7 +94,7 @@ static void do_cursor_blinking(edit_t *edit, bool restart)
 
 
 control_t* edit_create(int id, GCPtr gc, int x, int y, int width, int height,
-	const char *text, edit_input_type_t input_type, size_t max_length)
+	const char *text, int input_type, size_t max_length)
 {
     edit_t *edit = (edit_t *)malloc(sizeof(edit_t));
     control_api_t api = {

@@ -32,7 +32,7 @@ bool combobox_is_empty(combobox_t *combobox);
 #define screen combobox->control.gc
 
 control_t* combobox_create(int id, GCPtr gc, int x, int y, int width, int height,
-	const char *text, edit_input_type_t input_type, size_t max_length,
+	const char *text, int input_type, size_t max_length,
 	const char **items, size_t item_count, int value, int flags)
 {
     combobox_t *combobox = (combobox_t *)malloc(sizeof(combobox_t));
@@ -86,7 +86,7 @@ control_t* simple_combobox_create(int id, GCPtr gc, int x, int y, int width, int
 }
 
 control_t* edit_combobox_create(int id, GCPtr gc, int x, int y, int width, int height,
-		const char *text, edit_input_type_t input_type, size_t max_length,
+		const char *text, int input_type, size_t max_length,
 		const char **items, size_t item_count) {
 	return combobox_create(id, gc, x, y, width, height,
 		text, input_type, max_length, items, item_count, -1, 1);

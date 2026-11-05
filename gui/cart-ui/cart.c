@@ -1567,10 +1567,8 @@ static bool show_phone_or_email_dialog(char *value, size_t value_size,
             break;
         }
 
-        if (value_read) {
-            strncpy(value, new_value, value_size - 1);
-            value[value_size - 1] = 0;
-        }
+        if (value_read)
+            snprintf(value, value_size - 1, "%s", new_value);
         *do_for_all = (all_flag != 0);
 
         if (validate_phone_or_email(value)) {
