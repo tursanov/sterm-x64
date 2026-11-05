@@ -6,14 +6,17 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include "gui/scr.h"
 #include "prn/sprn.h"
+#include "x3data/bmp.h"
 #include "x3data/common.h"
 #include "blimits.h"
 #include "cfg.h"
 #include "gd.h"
+#include "numbers.h"
 #include "serial.h"
 #include "sterm.h"
 #include "termlog.h"
@@ -420,6 +423,179 @@ static bool sprn_write_text_log1(const uint8_t *data, size_t len)
 	sprn_mark_operation();
 	sprn_sent_cmd = SPRN_LOG1;
 	sprn_set_timeout(sprn_sent_cmd);
+	return true;
+}
+
+static inline bool is_pic_nr_valid(uint8_t nr)
+{
+	return (nr > 0) && (nr < 37);
+}
+
+/* Проверка изображения для БПУ "Видеотон" */
+static bool check_pic_vtsv(const uint8_t *data, size_t len, size_t min_w, size_t max_w,
+	size_t min_h, size_t max_h, bool *inverted)
+{
+	bool ret = false;
+	BITMAPFILEHEADER *hdr = (BITMAPFILEHEADER *)data;
+	BITMAPINFO *bmi = (BITMAPINFO *)(hdr + 1);
+	if ((data == NULL) || (len == 0) || (len > sizeof(sprn_tx)))
+		log_err("Неверный аргумент.");
+	else if (hdr->bfType != 0x4d42)
+		log_err("Неверный тип файла (0x%.4hx)", hdr->bfType);
+	else if (hdr->bfSize > sizeof(sprn_tx))
+		log_err("Размер данных (%u) превышает максимально допустимый (%zu).",
+			hdr->bfSize, sizeof(sprn_tx));
+	else if (hdr->bfSize != len)
+		log_err("Длина данных в заголовке (%u) не равна фактической (%zu).",
+			hdr->bfSize, len);
+	else if (bmi->bmiHeader.biWidth < (int32_t)min_w)
+		log_err("Ширина изображения (%d) меньше допустимой (%zu).",
+			bmi->bmiHeader.biWidth, min_w);
+	else if (bmi->bmiHeader.biWidth > (int32_t)max_w)
+		log_err("Ширина изображения (%d) превышает максимально допустимую (%zu).",
+			bmi->bmiHeader.biWidth, max_w);
+	else if ((bmi->bmiHeader.biWidth % 32) != 0)
+		log_err("Ширина изображения (%d) не кратна 32.", bmi->bmiHeader.biWidth);
+	else if (bmi->bmiHeader.biHeight < (int32_t)min_h)
+		log_err("Высота изображения (%d) меньше допустимой (%zu).",
+			bmi->bmiHeader.biHeight, min_h);
+	else if (abs(bmi->bmiHeader.biHeight) > (int32_t)max_h)
+		log_err("Высота изображения (%d) превышает максимально допустимую (%zu).",
+			bmi->bmiHeader.biHeight, max_h);
+	else if ((bmi->bmiHeader.biHeight % 8) != 0)
+		log_err("Высота изображения (%d) не кратна 8.", bmi->bmiHeader.biHeight);
+	else if (bmi->bmiHeader.biBitCount != 1)
+		log_err("Изображение не монохромное (%hu bpc).", bmi->bmiHeader.biBitCount);
+	else if (bmi->bmiHeader.biCompression != BI_RGB)
+		log_err("Ожидается несжатое изображение.");
+	else if ((bmi->bmiHeader.biSizeImage != 0) &&
+			(bmi->bmiHeader.biSizeImage != (len - hdr->bfOffBits)))
+		log_err("Неверный размер изображения в заголовке (%u).",
+			bmi->bmiHeader.biSizeImage);
+	else
+		ret = true;
+	if (ret){
+		*inverted = (bmi->bmiColors[0].rgbRed == 0) && (bmi->bmiColors[0].rgbGreen == 0) &&
+			(bmi->bmiColors[0].rgbBlue == 0);
+		log_dbg("inverted = %d.", *inverted);
+	}
+	return ret;
+}
+
+/* Запись в буфер передачи изображения для БПУ "Видеотон" */
+static bool write_pic_vtsv(const uint8_t *data, size_t len, uint8_t nr, const char *name,
+	size_t min_w, size_t max_w, size_t min_h, size_t max_h)
+{
+	log_dbg("data = %p; len = %d; nr = %d; name = %s; min_w = %d, max_w = %d; min_h = %d; max_h = %d.",
+		data, len, nr, name, min_w, max_w, min_h, max_h);
+	size_t name_len = strlen(name);
+	bool inverted = false;
+	if (!check_pic_vtsv(data, len, min_w, max_w, min_h, max_h, &inverted) || (name_len == 0))
+		return false;
+	else if ((nr <= SPRN_MAX_GRIDS) && !is_pic_nr_valid(nr)){
+		log_err("Неверный номер разметки бланка (%hhu).", nr);
+		return false;
+	}else if ((nr > SPRN_MAX_GRIDS) && !is_pic_nr_valid(nr - SPRN_MAX_GRIDS)){
+		log_err("Неверный номер пиктограммы (%hhu).", nr);
+		return false;
+	}
+	sprn_write_cmd(SPRN_PIC_LOAD);
+	if ((sprn_tx_len + 9 + name_len) > sizeof(sprn_tx))
+		return false;
+	if (nr > 10)
+		nr += 7;
+	sprn_tx[sprn_tx_len++] = nr;
+	BITMAPFILEHEADER *hdr = (BITMAPFILEHEADER *)data;
+	BITMAPINFO *bmi = (BITMAPINFO *)(hdr + 1);
+	write_uint(sprn_tx + sprn_tx_len, bmi->bmiHeader.biWidth / 8, 3);
+	sprn_tx_len += 3;
+	write_uint(sprn_tx + sprn_tx_len, abs(bmi->bmiHeader.biHeight) / 8, 3);
+	sprn_tx_len += 3;
+	sprn_tx[sprn_tx_len++] = 0x22;	/* " */
+	memcpy(sprn_tx + sprn_tx_len, name, name_len);
+	sprn_tx_len += name_len;
+	sprn_tx[sprn_tx_len++] = 0x22;	/* " */
+	size_t ln_cb = bmi->bmiHeader.biWidth / 8;
+	if ((sprn_tx_len + abs(bmi->bmiHeader.biHeight) * ln_cb) > sizeof(sprn_tx))
+		return false;
+	uint32_t offs = hdr->bfOffBits + (abs(bmi->bmiHeader.biHeight) - 1) * ln_cb;
+	for (int i = 0; i < abs(bmi->bmiHeader.biHeight); i++, offs -= ln_cb, sprn_tx_len += ln_cb){
+		memcpy(sprn_tx + sprn_tx_len, data + offs, ln_cb);
+		if (inverted){
+			for (uint32_t j = 0; j < ln_cb; j++)
+				sprn_tx[sprn_tx_len + j] ^= 0xff;
+		}
+	}
+	log_dbg("Изображение записано в буфер передачи.");
+	return true;
+}
+
+/* Запись в буфер передачи шаблона для БПУ "СПЕКТР-ДС" */
+static bool write_grid_sprn(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
+	const char *name)
+{
+	if ((data == NULL) || (len == 0) ||
+			((len + 4 + sizeof(struct pic_header) + sizeof(uint32_t)) > sizeof(sprn_tx)) ||
+			(name == NULL))
+		return false;
+	size_t name_len = strlen(name);
+	if ((name_len == 0) || (name_len > SPRN_MAX_PIC_NAME_LEN))
+		return false;
+	sprn_write_cmd(SPRN_GRID_LOAD);
+	sprn_tx[sprn_tx_len++] = id;
+	*(uint32_t *)(sprn_tx + sprn_tx_len) = len + sizeof(struct pic_header);
+	sprn_tx_len += sizeof(uint32_t);
+	size_t start = sprn_tx_len;
+	struct pic_header *hdr = (struct pic_header *)(sprn_tx + sprn_tx_len);
+	hdr->hdr_len = sizeof(*hdr);
+	hdr->w = (uint8_t)(w / 8);
+	hdr->h = (uint8_t)(h / 8);
+	hdr->id = id;
+	memcpy(hdr->name, name, name_len);
+	if (name_len < sizeof(hdr->name))
+		memset(hdr->name + name_len, 0, sizeof(hdr->name) - name_len);
+	hdr->data_len = len;
+	sprn_tx_len += sizeof(*hdr);
+	memcpy(sprn_tx + sprn_tx_len, data, len);
+	sprn_tx_len += len;
+	*(uint32_t *)(sprn_tx + sprn_tx_len) = pic_crc32(sprn_tx + start, sprn_tx_len - start);
+	sprn_tx_len += sizeof(uint32_t);
+	return true;
+}
+
+/* Запись в буфер передачи пиктограммы для БПУ "СПЕКТР-ДС" */
+bool write_icon_sprn(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
+	const char *name)
+{
+	bool flag = false;
+	if ((data == NULL) || (name == NULL))
+		log_err("Получен нулевой указатель.");
+	else if (len == 0)
+		log_err("Длина данных равна 0.");
+	size_t name_len = strlen(name);
+	if (name_len == 0)
+		log_err("Длина имени пиктограммы равна 0.");
+	else if (name_len > SPRN_MAX_ICON_NAME_LEN)
+		log_err("Длина имени пиктограммы (%zu) превышает допустимую (%u).",
+			name_len, SPRN_MAX_ICON_NAME_LEN);
+	else if ((sprn_tx_len + sizeof(struct pic_header) + len + sizeof(uint32_t)) > sizeof(sprn_tx))
+		log_err("Переполнение буфера передачи.");
+	else
+		flag = true;
+	if (!flag)
+		return false;
+	struct pic_header *hdr = (struct pic_header *)(sprn_tx + sprn_tx_len);
+	hdr->hdr_len = sizeof(*hdr);
+	hdr->w = (uint8_t)(w / 8);
+	hdr->h = (uint8_t)(h / 8);
+	hdr->id = id;
+	memcpy(hdr->name, name, name_len);
+	if (name_len < sizeof(hdr->name))
+		memset(hdr->name + name_len, 0, sizeof(hdr->name) - name_len);
+	hdr->data_len = len;
+	sprn_tx_len += sizeof(*hdr);
+	memcpy(sprn_tx + sprn_tx_len, data, len);
+	sprn_tx_len += len;
 	return true;
 }
 

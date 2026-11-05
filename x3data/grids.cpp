@@ -622,7 +622,8 @@ static bool find_sprn_grids(list<GridInfo> &sprn_grids)
 			ret = true;
 		}else
 			log_err("Ошибка получения разметок бланков из БПУ.");
-	}
+	}else
+		log_err("Неизвестный тип БПУ: %d.", sprn_type);
 	if (ret)
 		log_dbg("Количество разметок бланков в БПУ: %zu.", sprn_grids.size());
 	return ret;
