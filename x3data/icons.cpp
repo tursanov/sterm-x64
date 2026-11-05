@@ -826,7 +826,7 @@ static bool write_icon_to_kkt(const IconInfo &ii, bool first, bool last)
 		if (kkt_load_icon(data, len, ii.id(), w, h, name, first, last) == KKT_STATUS_OK)
 			ret = true;
 		else
-			log_err("Ошибка загрузки разметки %s в ККТ: 0x%.2hhx.", path, kkt_status);
+			log_err("Ошибка загрузки пиктограммы %s в ККТ: 0x%.2hhx.", path, kkt_status);
 	}
 	return ret;
 }

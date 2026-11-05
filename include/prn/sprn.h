@@ -110,21 +110,21 @@ extern bool sprn_timeout;
 #define SPRN_PIC_ERASE		0x4a	/* удаление изображения из БПУ */
 #define SPRN_PIC_FIND		0x4d	/* поиск изображения */
 
-/* Работа с шаблонами бланков в БПУ "СПЕКТР-ДС" */
-#define SPRN_GRID_LOAD		0xa8	/* загрузка шаблона в БПУ */
-#define SPRN_GRID_LST		0xa9	/* получение списка шаблонов */
-#define SPRN_GRID_ACQUIRE	0xaa	/* получение шаблона из БПУ */
-#define SPRN_GRID_ERASE		0xab	/* удаление шаблона */
-#define SPRN_GRID_ERASE_ALL	0xac	/* удаление всех шаблонов */
+/* Работа разметками бланков в БПУ "СПЕКТР-ДС" */
+#define SPRN_GRID_LOAD		0xa8	/* загрузка разметки бланка в БПУ */
+#define SPRN_GRID_LST		0xa9	/* получение списка разметок бланков из БПУ */
+#define SPRN_GRID_ACQUIRE	0xaa	/* получение разметки бланка из БПУ */
+#define SPRN_GRID_ERASE		0xab	/* удаление разметки бланка из БПУ */
+#define SPRN_GRID_ERASE_ALL	0xac	/* удаление всех разметок бланков из БПУ */
 
 /* Работа с пиктограммами в БПУ "СПЕКТР-ДС" */
 #define SPRN_ICON_LOAD		0xb8	/* загрузка пиктограмм в БПУ */
-#define SPRN_ICON_LST		0xb9	/* получение списка пиктограмм */
+#define SPRN_ICON_LST		0xb9	/* получение списка пиктограмм из БПУ */
 #define SPRN_ICON_ACQUIRE	0xba	/* получение пиктограммы из БПУ */
-#define SPRN_ICON_ERASE_ALL	0xbc	/* удаление всех пиктограмм */
+#define SPRN_ICON_ERASE_ALL	0xbc	/* удаление всех пиктограмм из БПУ */
 
 /* Обновление ПО БПУ "СПЕКТР-ДС" */
-#define SPRN_UPDATE_BEGIN	0xa0	/* переход в режим обновления ПО */
+#define SPRN_UPDATE_BEGIN	0xa0	/* переход в режим обновления ПО БПУ */
 
 /* Таймауты для различных команд (в сотых долях секунды) */
 #define SPRN_NUMBER_TIMEOUT		1600	/* чтение номера бланка (16 сек) */
@@ -138,21 +138,21 @@ extern bool sprn_timeout;
 #define SPRN_RD_PARAMS_TIMEOUT		500	/* получение параметров БПУ (5 сек) */
 #define SPRN_WR_PARAM_TIMEOUT		300	/* установка параметра БПУ (3 сек) */
 
-#define SPRN_PIC_LOAD_TIMEOUT		2000	/* таймаут загрузки изображения (20 сек) */
-#define SPRN_PIC_LST_TIMEOUT		200	/* таймаут получения списка изображений в БПУ (2 сек) */
-#define SPRN_PIC_ERASE_TIMEOUT		500	/* таймаут удаления изображения (5 сек) */
+#define SPRN_PIC_LOAD_TIMEOUT		2000	/* таймаут загрузки изображения в БПУ (20 сек) */
+#define SPRN_PIC_LST_TIMEOUT		200	/* таймаут получения списка изображений из БПУ (2 сек) */
+#define SPRN_PIC_ERASE_TIMEOUT		500	/* таймаут удаления изображения из БПУ (5 сек) */
 
-#define SPRN_GRID_LOAD_TIMEOUT		2000	/* таймаут загрузки шаблона (20 сек) */
-#define SPRN_GRID_LST_TIMEOUT		200	/* таймаут получения списка разметок в БПУ (2 сек) */
-#define SPRN_GRID_ERASE_TIMEOUT		500	/* таймаут удаления разметки бланка (5 сек) */
-#define SPRN_GRID_ERASE_ALL_TIMEOUT	2000	/* таймаут удаления всех разметок бланков (20 сек) */
+#define SPRN_GRID_LOAD_TIMEOUT		2000	/* таймаут загрузки разметки бланка в БПУ (20 сек) */
+#define SPRN_GRID_LST_TIMEOUT		200	/* таймаут получения списка разметок бланков из БПУ (2 сек) */
+#define SPRN_GRID_ERASE_TIMEOUT		500	/* таймаут удаления разметки бланка из БПУ (5 сек) */
+#define SPRN_GRID_ERASE_ALL_TIMEOUT	2000	/* таймаут удаления всех разметок бланков из БПУ (20 сек) */
 
-#define SPRN_ICON_LOAD_TIMEOUT		1000	/* таймаут загрузки пиктограмм (10 сек) */
-#define SPRN_ICON_LST_TIMEOUT		200	/* таймаут получения списка пиктограмм (2 сек) */
-#define SPRN_ICON_UPLOAD_TIMEOUT	500	/* таймаут передачи пиктограммы терминалу (5 сек) */
-#define SPRN_ICON_ERASE_ALL_TIMEOUT	2000	/* таймаут удаления всех пиктограмм (20 сек) */
+#define SPRN_ICON_LOAD_TIMEOUT		1000	/* таймаут загрузки пиктограмм в БПУ (10 сек) */
+#define SPRN_ICON_LST_TIMEOUT		200	/* таймаут получения списка пиктограмм из БПУ (2 сек) */
+#define SPRN_ICON_UPLOAD_TIMEOUT	500	/* таймаут передачи пиктограммы из БПУ (5 сек) */
+#define SPRN_ICON_ERASE_ALL_TIMEOUT	2000	/* таймаут удаления всех пиктограмм из БПУ (20 сек) */
 
-#define SPRN_UPDATE_BEGIN_TIMEOUT	100	/* таймаут начала обновления БПУ */
+#define SPRN_UPDATE_BEGIN_TIMEOUT	100	/* таймаут начала обновления ПО БПУ */
 
 #define BOOTLOADER_CMD_TIMEOUT		10	/* таймаут выполнения команды загрузчика */
 #define BOOTLOADER_ERASE_16K_TIMEOUT	200	/* таймаут стирания сектора FLASH 16 К */
@@ -226,12 +226,12 @@ extern bool sprn_timeout;
 #define RFID_STATUS_HW_ERR		0xff	/* аппаратная ошибка */
 
 /* Загрузка разметок бланков (нет в ТЗ ВНИИЖТ) */
-#define SPRN_STATUS_GRID_ILLEGAL_ID	0xb0	/* неверный идентификатор разметки */
-#define SPRN_STATUS_GRID_TOO_SHORT	0xb1	/* длина разметки меньше допустимой */
-#define SPRN_STATUS_GRID_TOO_LONG	0xb2	/* длина разметки превышает допустимую */
-#define SPRN_STATUS_GRID_CRC_ERR	0xb3	/* ошибка контрольной суммы разметки */
-#define SPRN_STATUS_GRID_WRITE_ERR	0xb4	/* ошибка записи разметки в память БПУ */
-#define SPRN_STATUS_GRID_TIMEOUT	0xb5	/* таймаут приема разметки */
+#define SPRN_STATUS_GRID_ILLEGAL_ID	0xb0	/* неверный идентификатор разметки бланка */
+#define SPRN_STATUS_GRID_TOO_SHORT	0xb1	/* длина разметки бланка меньше допустимой */
+#define SPRN_STATUS_GRID_TOO_LONG	0xb2	/* длина разметки бланка превышает допустимую */
+#define SPRN_STATUS_GRID_CRC_ERR	0xb3	/* ошибка контрольной суммы разметки бланка */
+#define SPRN_STATUS_GRID_WRITE_ERR	0xb4	/* ошибка записи разметки бланка в память БПУ */
+#define SPRN_STATUS_GRID_TIMEOUT	0xb5	/* таймаут приема разметки бланка */
 
 /* Загрузка пиктограмм (нет в ТЗ ВНИИЖТ) */
 #define SPRN_STATUS_ICON_ILLEGAL_ID	0xb8	/* неверный идентификатор пиктограммы */
@@ -285,6 +285,12 @@ extern int sprn_set_params(struct term_cfg *cfg);
 extern int sprn_get_grid_lst(uint8_t *data, size_t *len);
 /* Получение списка пиктограмм из БПУ */
 extern int sprn_get_icon_lst(uint8_t *data, size_t *len);
+/* Запись изображения в БПУ "Видеотон" */
+extern int load_pic_vtsv(const uint8_t *data, size_t len, uint8_t nr, const char *name,
+	size_t min_w, size_t max_w, size_t min_h, size_t max_h);
+/* Запись разметки бланка в БПУ "СПЕКТР-ДС" */
+extern int load_grid_sprn(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
+	const char *name);
 
 /* Текстовое описание статуса БПУ */
 extern const char *sprn_status_str(uint8_t status);

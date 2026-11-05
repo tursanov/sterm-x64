@@ -186,7 +186,7 @@ static int grid_selector(const struct dirent *entry)
 	return regexec(&reg, entry->d_name, 0, NULL, 0) == REG_NOERROR;
 }
 
-/* Поиск на диске разметок по регулярному выражению */
+/* Поиск на диске разметок бланков по регулярному выражению */
 static bool find_stored_grids(list<GridInfo> &stored_grids, const char *pattern)
 {
 	if (pattern == NULL)
@@ -222,7 +222,7 @@ static bool find_stored_grids(list<GridInfo> &stored_grids, const char *pattern)
 	return ret;
 }
 
-/* Поиск на диске разметок для БПУ */
+/* Поиск на диске разметок бланков для БПУ */
 static bool find_stored_grids_sprn(list<GridInfo> &stored_grids)
 {
 	stored_grids.clear();
@@ -231,7 +231,7 @@ static bool find_stored_grids_sprn(list<GridInfo> &stored_grids)
 	return !stored_grids.empty();
 }
 
-/* Поиск на диске разметок для ККТ */
+/* Поиск на диске разметок бланков для ККТ */
 static bool find_stored_grids_kkt(list<GridInfo> &stored_grids)
 {
 	stored_grids.clear();
@@ -240,17 +240,17 @@ static bool find_stored_grids_kkt(list<GridInfo> &stored_grids)
 }
 
 /*
- * Создание списков разметок для закачки/удаления на основании списка
+ * Создание списков разметок бланков для закачки/удаления на основании списка
  * из "Экспресс" и файлов на диске.
  */
 static void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove,
 	bool (*find_fn)(list<GridInfo> &))
 {
 	clr_grid_lists(grids_to_create, grids_to_remove);
-/* Создаём список разметок, хранящихся в терминале */
+/* Создаём список разметок бланков, хранящихся в терминале */
 	list<GridInfo> stored_grids;
 	find_fn(stored_grids);
-/* Ищем разметки для закачки */
+/* Ищем разметки бланков для закачки */
 	for (const auto &p : x3_grids){
 		bool found = false;
 		for (const auto &p1 : stored_grids){
@@ -266,7 +266,7 @@ static void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &g
 		if (!found)
 			grids_to_create.push_back(p);
 	}
-/* Ищем разметки для удаления */
+/* Ищем разметки бланков для удаления */
 /*	for (const auto &p : stored_grids){
 		if (find_if(x3_grids.cbegin(), x3_grids.cend(),
 				[p](const GridInfo &gi) {return gi.id() == p.id();}) == x3_grids.cend())
@@ -274,19 +274,19 @@ static void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &g
 	}*/
 }
 
-/* Создание списка разметок для БПУ */
+/* Создание списка разметок бланков для БПУ */
 static inline void check_stored_grids_sprn(const list<GridInfo> &x3_grids)
 {
 	check_stored_grids(x3_grids, grids_to_create_sprn, grids_to_remove_sprn, find_stored_grids_sprn);
 }
 
-/* Создание списка разметок для ККТ */
+/* Создание списка разметок бланков для ККТ */
 static inline void check_stored_grids_kkt(const list<GridInfo> &x3_grids)
 {
 	check_stored_grids(x3_grids, grids_to_create_kkt, grids_to_remove_kkt, find_stored_grids_kkt);
 }
 
-/* Поиск в абзаце ответа идентификаторов разметок для БПУ/ККТ */
+/* Поиск в абзаце ответа идентификаторов разметок бланков для БПУ/ККТ */
 static bool check_x3_grids(const uint8_t *data, size_t len, list<GridInfo> &x3_grids_sprn, list<GridInfo> &x3_grids_kkt)
 {
 	if ((data == NULL) || (len == 0))
@@ -320,16 +320,16 @@ bool check_x3_grids(const uint8_t *data, size_t len)
 	return ret;
 }
 
-/* Максимальный размер буфера сжатой разметки */
+/* Максимальный размер буфера сжатой разметки бланка */
 static const size_t MAX_COMPRESSED_GRID_LEN = 65536;
-/* Буфер для приёма сжатой разметки */
+/* Буфер для приёма сжатой разметки бланка */
 static uint8_t grid_buf[MAX_COMPRESSED_GRID_LEN];
-/* Текущий размер принятых данных сжатой разметки */
+/* Текущий размер принятых данных сжатой разметки бланка */
 static size_t grid_buf_idx = 0;
 /* Максимальный размер данных изображения */
 static const size_t MAX_BMP_DATA_LEN = 524288;		/* 512K */
 
-/* Автозапрос для получения разметки по частям */
+/* Автозапрос для получения разметки бланка по частям */
 static uint8_t grid_auto_req[REQ_BUF_LEN];
 /* Длина автозапроса */
 static size_t grid_auto_req_len = 0;
@@ -343,24 +343,24 @@ static size_t grid_auto_req_len = 0;
 /* Максимальная высота разметки бланка в мм */
 #define GRID_MAX_HEIGHT		82
 
-/* Проверка заголовка разметки */
+/* Проверка заголовка разметки бланка */
 static bool check_grid_header(const struct pic_header *hdr, uint8_t id)
 {
 	bool ret = false;
 	if (hdr == NULL)
 		log_err("hdr = NULL");
 	else if (hdr->hdr_len != sizeof(*hdr))
-		log_err("Несоответствие длины разметки.");
+		log_err("Несоответствие длины разметки бланка.");
 	else if (hdr->id != id)
-		log_err("Несоответствие идентификатора разметки.");
+		log_err("Несоответствие идентификатора разметки бланка.");
 	else if ((hdr->w < GRID_MIN_WIDTH) || (hdr->w > GRID_MAX_WIDTH))
-		log_err("Неправильная ширина разметки.");
+		log_err("Неправильная ширина разметки бланка.");
 	else if ((hdr->h < GRID_MIN_HEIGHT) || (hdr->h > GRID_MAX_HEIGHT))
-		log_err("Неправильная высота разметки.");
+		log_err("Неправильная высота разметки бланка.");
 	else if (!GridInfo::isIdValid(hdr->id) || (hdr->id == 0x38))
-		log_err("Неправильный идентификатор разметки.");
+		log_err("Неправильный идентификатор разметки бланка.");
 	else if ((hdr->data_len == 0) || (hdr->data_len > MAX_COMPRESSED_GRID_LEN))
-		log_err("Неправильная длина данных разметки.");
+		log_err("Неправильная длина данных разметки бланка.");
 	else{
 		ret = true;
 		for (size_t i = 0; i < sizeof(hdr->name); i++){
@@ -368,7 +368,7 @@ static bool check_grid_header(const struct pic_header *hdr, uint8_t id)
 			if (ch == 0)
 				break;
 			else if (ch < 0x20){
-				log_err("Неправильное имя разметки.");
+				log_err("Неправильное имя разметки бланка.");
 				ret = false;
 				break;
 			}
@@ -377,7 +377,7 @@ static bool check_grid_header(const struct pic_header *hdr, uint8_t id)
 	return ret;
 }
 
-/* Отправка начального запроса на получение разметки */
+/* Отправка начального запроса на получение разметки бланка */
 static void send_grid_request(const GridInfo &grid)
 {
 	int offs = get_req_offset();
@@ -388,7 +388,7 @@ static void send_grid_request(const GridInfo &grid)
 	wrap_text();
 }
 
-/* Отправка автозапроса для получения разметки */
+/* Отправка автозапроса для получения разметки бланка */
 static void send_grid_auto_request()
 {
 	req_len = get_req_offset();
@@ -398,7 +398,7 @@ static void send_grid_auto_request()
 	wrap_text();
 }
 
-/* Декодирование разметки, распаковка и сохранение в файле на диске */
+/* Декодирование разметки бланка, распаковка и сохранение в файле на диске */
 static bool store_grid(const GridInfo &gi)
 {
 	if (grid_buf_idx == 0){
@@ -454,24 +454,24 @@ static bool store_grid(const GridInfo &gi)
 	return ret;
 }
 
-/* Удаление разметки с диска */
+/* Удаление разметки бланка с диска */
 static bool remove_grid(const GridInfo &gi)
 {
 	static char path[PATH_MAX];
 	snprintf(path, ASIZE(path), GRIDS_FOLDER "/%s.BMP", gi.name().c_str());
 	bool ret = unlink(path) == 0;
 	if (!ret)
-		log_sys_err("Ошибка удаления разметки %s:", path);
+		log_sys_err("Ошибка удаления разметки бланка %s:", path);
 	return ret;
 }
 
-/* Вызывается после получения ответа на запрос разметки БПУ/ККТ */
+/* Вызывается после получения ответа на запрос разметки бланка БПУ/ККТ */
 void on_response_grid(void)
 {
 	grid_auto_req_len = 0;
 	static char err_msg[1024];
 	err_msg[0] = 0;
-/* 0 -- данные разметки; 1 -- другой ответ, обработка не требуется; 2 -- другой ответ, требуется обработка */
+/* 0 -- данные разметки бланка; 1 -- другой ответ, обработка не требуется; 2 -- другой ответ, требуется обработка */
 	int non_grid_resp = 0;
 	set_term_state(st_resp);
 	int grid_para = -1, req_para = -1;
@@ -479,7 +479,7 @@ void on_response_grid(void)
 	if (find_pic_data(&grid_para, &req_para) && (grid_para != -1)){
 		grid_len = handle_para(grid_para);
 		if (grid_len > (ASIZE(grid_buf) - grid_buf_idx)){
-			snprintf(err_msg, ASIZE(err_msg), "Переполнение буфера данных разметки.");
+			snprintf(err_msg, ASIZE(err_msg), "Переполнение буфера данных разметки бланка.");
 			non_grid_resp = 1;
 		}else if (grid_len > 0){
 			memcpy(grid_buf + grid_buf_idx, text_buf, grid_len);
@@ -509,11 +509,11 @@ void on_response_grid(void)
 					send_grid_request(*grids_to_create_kkt_ptr);
 			}
 		}else{
-			snprintf(err_msg, ASIZE(err_msg), "Получены данные разметки нулевой длины.");
+			snprintf(err_msg, ASIZE(err_msg), "Получены данные разметки бланка нулевой длины.");
 			non_grid_resp = 1;
 		}
 	}else{
-		snprintf(err_msg, ASIZE(err_msg), "Не найдены данные разметки.");
+		snprintf(err_msg, ASIZE(err_msg), "Не найдены данные разметки бланка.");
 		non_grid_resp = 2;
 	}
 	if ((err_msg[0] != 0) || (non_grid_resp != 0)){
@@ -534,7 +534,7 @@ void on_response_grid(void)
 	}
 }
 
-/* Начало синхронизации разметок с "Экспресс" */
+/* Начало синхронизации разметок бланков с "Экспресс" */
 static bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, list<GridInfo> &grids_failed)
 {
 	if (!need_grids_update())
@@ -542,7 +542,7 @@ static bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to
 	size_t n = 0;
 	grids_failed.clear();
 	list<GridInfo> _grids_to_create, _grids_to_remove;
-/* Сначала удаляем старые разметки */
+/* Сначала удаляем старые разметки бланков */
 	for (const auto &p : grids_to_remove){
 		if (remove_grid(p))
 			n++;
@@ -635,11 +635,11 @@ static void check_sprn_grids(const list<GridInfo> &stored_grids, list<GridInfo> 
 {
 	grids_to_load.clear();
 	grids_to_erase.clear();
-/* Создаём список разметок в БПУ */
+/* Создаём список разметок бланков в БПУ */
 	list<GridInfo> sprn_grids;
 	if (!find_sprn_grids(sprn_grids))
 		return;
-/* Ищем разметки для загрузки */
+/* Ищем разметки бланков для загрузки */
 	for (const auto &p : stored_grids){
 		auto p1 = find_if(sprn_grids.cbegin(), sprn_grids.cend(),
 			[p](const GridInfo &gi) {return gi.id() == p.id();});
@@ -650,7 +650,7 @@ static void check_sprn_grids(const list<GridInfo> &stored_grids, list<GridInfo> 
 			grids_to_erase.push_back(*p1);
 		}
 	}
-/* Ищем разметки для удаления */
+/* Ищем разметки бланков для удаления */
 	for (const auto &p : sprn_grids){
 		if (find_if(stored_grids.cbegin(), stored_grids.cend(),
 				[p](const GridInfo &gi) {return gi.id() == p.id();}) == stored_grids.cend())
@@ -658,26 +658,45 @@ static void check_sprn_grids(const list<GridInfo> &stored_grids, list<GridInfo> 
 	}
 }
 
-#if 0
-/* Запись заданной разметки в БПУ */
+/* Запись заданной разметки бланка в БПУ */
 static bool write_grid_to_sprn(const GridInfo &gi)
 {
-	if (sprn == NULL)
+	int sprn_type = sprn_get_type();
+	if (sprn_type == SPRN_UNKNOWN)
 		return false;
 	bool ret = false;
+	size_t len = 0, w = 0, h = 0;
 	static char path[PATH_MAX];
-	snprintf(path, ASIZE(path), "%s\\%s.BMP", grid_folder, gi.name().c_str());
-	if (sprn->beginGridLoad(path, gi.nr(), sprnOpCallback)){
-		sprn_wait.wait();
-		ret = sprn->statusOK();
-		if (!ret)
-			log_err("Ошибка загрузки разметки %s в БПУ: %s.", path, XPrn::status_str(sprn->status()));
-	}else
-		log_err("Невозможно начать загрузку разметки %s в БПУ: %s.", path, XPrn::status_str(sprn->status()));
+	snprintf(path, ASIZE(path), GRIDS_FOLDER "/%s.BMP", gi.name().c_str());
+	const uint8_t *data = read_bmp(path, len, w, h, GRID_MIN_WIDTH, GRID_MAX_WIDTH,
+		GRID_MIN_HEIGHT, GRID_MAX_HEIGHT);
+	if (data != NULL){
+		char name[SPRN_MAX_GRID_NAME_LEN + 1];
+		snprintf(name, sizeof(name), "%s.BMP", gi.name().c_str());
+		if (sprn_type == SPRN_SPECTRUM){
+			vector<uint8_t> cdata;
+			if (compress_picture(data, len, w, h, cdata) && !cdata.empty()){
+				if (load_grid_sprn(cdata.data(), cdata.size(), gi.id(),
+						w, h, name) == SPRN_RET_OK)
+					ret = true;
+				else
+					log_err("Ошибка загрузки разметки бланка %s в ККТ.", path);
+			}else
+				log_err("Ошибка сжатия разметки бланка %s.", path);
+		}else if (sprn_type == SPRN_VIDEOTON){
+			if (load_pic_vtsv(data, len, gi.nr(), name, GRID_MIN_WIDTH, GRID_MAX_WIDTH,
+					GRID_MIN_HEIGHT, GRID_MAX_HEIGHT))
+				ret = true;
+			else
+				log_err("Ошибка загрузки разметки бланка %s в ККТ.", path);
+		}else
+			log_err("Неизвестный тип БПУ: %d.", sprn_type);
+	}
 	return ret;
 }
 
-/* Удаление заданной разметки из БПУ */
+#if 0
+/* Удаление заданной разметки бланка из БПУ */
 static bool erase_grid_from_sprn(const GridInfo &gi)
 {
 	if (sprn == NULL)
@@ -687,24 +706,24 @@ static bool erase_grid_from_sprn(const GridInfo &gi)
 		sprn_wait.wait();
 		ret = sprn->statusOK();
 		if (!ret)
-			log_err("Ошибка удаления разметки %s из БПУ: %s.", gi.name().c_str(),
+			log_err("Ошибка удаления разметки бланка %s из БПУ: %s.", gi.name().c_str(),
 				XPrn::status_str(sprn->status()));
 	}else
-		log_err("Невозможно начать удаление разметки %s из БПУ: %s.", gi.name().c_str(),
+		log_err("Невозможно начать удаление разметки бланка %s из БПУ: %s.", gi.name().c_str(),
 			XPrn::status_str(sprn->status()));
 	return ret;
 }
 
-/* Обновление разметок в БПУ "Видеотон" */
+/* Обновление разметок бланков в БПУ "Видеотон" */
 static bool update_grids_vtsv(const list<GridInfo> &grids_to_load, const list<GridInfo> &grids_to_erase,
 	list<GridInfo> &grids_failed, InitializationNotify_t init_notify)
 {
 //	bool ret = true;
 	static char txt[64];
 	size_t n = 1;
-/* Сначала удаляем ненужные разметки из БПУ */
+/* Сначала удаляем ненужные разметки бланков из БПУ */
 	for (const auto &p : grids_to_erase){
-		snprintf(txt, ASIZE(txt), "Удаление из БПУ разметки %s (%u из %u)",
+		snprintf(txt, ASIZE(txt), "Удаление из БПУ разметки бланка %s (%u из %u)",
 			p.name().c_str(), n++, grids_to_erase.size());
 		init_notify(false, txt);
 		erase_grid_from_sprn(p);
@@ -715,10 +734,10 @@ static bool update_grids_vtsv(const list<GridInfo> &grids_to_load, const list<Gr
 	}
 /*	if (!ret)
 		return ret;*/
-/* Затем загружаем новые разметки */
+/* Затем загружаем новые разметки бланков */
 	n = 1;
 	for (const auto &p : grids_to_load){
-		snprintf(txt, ASIZE(txt), "Загрузка в БПУ разметки %s (%u из %u)",
+		snprintf(txt, ASIZE(txt), "Загрузка в БПУ разметки бланка %s (%u из %u)",
 			p.name().c_str(), n++, grids_to_load.size());
 		init_notify(false, txt);
 		if (!write_grid_to_sprn(p))
@@ -728,7 +747,7 @@ static bool update_grids_vtsv(const list<GridInfo> &grids_to_load, const list<Gr
 			break;
 		}*/
 	}
-/* Проверяем, что разметки успешно загрузились */
+/* Проверяем, что разметки бланков успешно загрузились */
 	Sleep(3000);
 	list<GridInfo> sprn_grids;
 	if (!find_sprn_grids(sprn_grids))
@@ -751,27 +770,27 @@ static bool update_grids_vtsv(const list<GridInfo> &grids_to_load, const list<Gr
 	return true; /*ret;*/
 }
 
-/* Обновление разметок в БПУ "СПЕКТР-ДС" */
+/* Обновление разметок бланков в БПУ "СПЕКТР-ДС" */
 static bool update_grids_sprn(const list<GridInfo> &stored_grids, list<GridInfo> &grids_failed,
 	InitializationNotify_t init_notify)
 {
-/* Сначала удаляем все разметки из БПУ */
-	init_notify(false, "Удаление разметок из БПУ");
+/* Сначала удаляем все разметки бланков из БПУ */
+	init_notify(false, "Удаление разметок бланков из БПУ");
 	if (!sprn->beginGridEraseAll(sprnOpCallback)){
-		log_err("Невозможно начать удаление разметок из БПУ: %s.", XPrn::status_str(sprn->status()));
+		log_err("Невозможно начать удаление разметок бланков из БПУ: %s.", XPrn::status_str(sprn->status()));
 		return false;
 	}
 	sprn_wait.wait();
 	if (!sprn->statusOK()){
-		log_err("Ошибка удаления разметок из БПУ: %s.", XPrn::status_str(sprn->status()));
+		log_err("Ошибка удаления разметок бланков из БПУ: %s.", XPrn::status_str(sprn->status()));
 		return false;
 	}
 //	bool ret = true;
-/* Затем загружаем новые разметки */
+/* Затем загружаем новые разметки бланков */
 	size_t n = 1;
 	for (const auto &p : stored_grids){
 		static char txt[64];
-		snprintf(txt, ASIZE(txt), "Загрузка в БПУ разметки %s (%u из %u)",
+		snprintf(txt, ASIZE(txt), "Загрузка в БПУ разметки бланка %s (%u из %u)",
 			p.name().c_str(), n++, stored_grids.size());
 		init_notify(false, txt);
 		if (!write_grid_to_sprn(p))
@@ -784,7 +803,7 @@ static bool update_grids_sprn(const list<GridInfo> &stored_grids, list<GridInfo>
 	return true; /*ret;*/
 }
 
-/* Обновление разметок в БПУ */
+/* Обновление разметок бланков в БПУ */
 bool update_sprn_grids(InitializationNotify_t init_notify)
 {
 	if (sprn == NULL){
@@ -792,7 +811,7 @@ bool update_sprn_grids(InitializationNotify_t init_notify)
 		return false;
 	}
 	bool ret = false;
-	init_notify(false, "Обновление разметок в БПУ");
+	init_notify(false, "Обновление разметок бланков в БПУ");
 	Sleep(100);
 	list<GridInfo> stored_grids, grids_to_load, grids_to_erase;
 	find_stored_grids_sprn(stored_grids);
@@ -808,9 +827,9 @@ bool update_sprn_grids(InitializationNotify_t init_notify)
 		static char txt[256];
 		uint8_t status = sprn->status();
 		if (sprn->statusOK(status))
-			snprintf(txt, ASIZE(txt), "Ошибка обновления разметок в БПУ.");
+			snprintf(txt, ASIZE(txt), "Ошибка обновления разметок бланков в БПУ.");
 		else
-			snprintf(txt, ASIZE(txt), "Ошибка обновления разметок в БПУ: %s.",
+			snprintf(txt, ASIZE(txt), "Ошибка обновления разметок бланков в БПУ: %s.",
 				sprn->status_str(status));
 		termcore_callbacks.callMessageBox("ОБНОВЛЕНИЕ РАЗМЕТОК", txt);
 	}
@@ -818,7 +837,7 @@ bool update_sprn_grids(InitializationNotify_t init_notify)
 }
 #endif
 
-/* Получение списка разметок из ККТ */
+/* Получение списка разметок бланков из ККТ */
 static bool find_kkt_grids(list<GridInfo> &kkt_grids)
 {
 	bool ret = false;
@@ -842,22 +861,22 @@ static bool find_kkt_grids(list<GridInfo> &kkt_grids)
 		}
 		ret = true;
 	}else
-		log_err("Ошибка получения списка разметок из ККТ: 0x%.2hhx (%s).",
+		log_err("Ошибка получения списка разметок бланков из ККТ: 0x%.2hhx (%s).",
 			status, kkt_status_str(status));
 	return ret;
 }
 
-/* Создание списка разметок ККТ для загрузки и удаления */
+/* Создание списка разметок бланков ККТ для загрузки и удаления */
 static void check_kkt_grids(const list<GridInfo> &stored_grids, list<GridInfo> &grids_to_load,
 	list<GridInfo> &grids_to_erase)
 {
 	grids_to_load.clear();
 	grids_to_erase.clear();
-/* Создаём список разметок в ККТ */
+/* Создаём список разметок бланков в ККТ */
 	list<GridInfo> kkt_grids;
 	if (!find_kkt_grids(kkt_grids))
 		return;
-/* Ищем разметки для загрузки */
+/* Ищем разметки бланков для загрузки */
 	for (const auto &p : stored_grids){
 		auto p1 = find_if(kkt_grids.cbegin(), kkt_grids.cend(),
 			[p](const GridInfo &gi) {return gi.id() == p.id();});
@@ -868,7 +887,7 @@ static void check_kkt_grids(const list<GridInfo> &stored_grids, list<GridInfo> &
 			grids_to_erase.push_back(*p1);
 		}
 	}
-/* Ищем разметки для удаления */
+/* Ищем разметки бланков для удаления */
 	for (const auto &p : kkt_grids){
 		if (find_if(stored_grids.cbegin(), stored_grids.cend(),
 				[p](const GridInfo &gi) {return gi.id() == p.id();}) == stored_grids.cend())
@@ -876,7 +895,7 @@ static void check_kkt_grids(const list<GridInfo> &stored_grids, list<GridInfo> &
 	}
 }
 
-/* Запись заданной разметки в ККТ */
+/* Запись заданной разметки бланка в ККТ */
 static bool write_grid_to_kkt(const GridInfo &gi)
 {
 	if (kkt == NULL)
@@ -895,27 +914,27 @@ static bool write_grid_to_kkt(const GridInfo &gi)
 			if (kkt_load_grid(cdata.data(), cdata.size(), gi.id(), w, h, name) == KKT_STATUS_OK)
 				ret = true;
 			else
-				log_err("Ошибка загрузки разметки %s в ККТ: 0x%.2hhx.", path, kkt_status);
+				log_err("Ошибка загрузки разметки бланка %s в ККТ: 0x%.2hhx.", path, kkt_status);
 		}else
-			log_err("Ошибка сжатия разметки %s.", path);
+			log_err("Ошибка сжатия разметки бланка %s.", path);
 	}
 	return ret;
 }
 
-/* Обновление разметок в ККТ "СПЕКТР-Ф" */
+/* Обновление разметок бланков в ККТ "СПЕКТР-Ф" */
 static bool update_grids_kkt(const list<GridInfo> &stored_grids, list<GridInfo> &grids_failed)
 {
-/* Сначала удаляем все разметки из ККТ */
+/* Сначала удаляем все разметки бланков из ККТ */
 	set_term_state(st_kkt_grids);
 	set_term_astate((intptr_t)"УДАЛЕНИЕ ВСЕХ РАЗМЕТОК");
 	if (kkt_erase_all_grids() != KKT_STATUS_OK){
 		static char txt[MAX_TERM_ASTATE_LEN + 1];
-		log_err("Ошибка удаления разметок из ККТ: 0x%.2hhx.", kkt_status);
+		log_err("Ошибка удаления разметок бланков из ККТ: 0x%.2hhx.", kkt_status);
 		snprintf(txt, sizeof(txt), "ОШИБКА УДАЛЕНИЯ %.2hhx", kkt_status);
 		set_term_astate((intptr_t)txt);
 		return false;
 	}
-/* Затем загружаем новые разметки */
+/* Затем загружаем новые разметки бланков */
 	size_t n = 1;
 	kkt_begin_batch_mode();
 	static char txt[MAX_TERM_ASTATE_LEN + 1];
@@ -930,7 +949,7 @@ static bool update_grids_kkt(const list<GridInfo> &stored_grids, list<GridInfo> 
 	return true;
 }
 
-/* Обновление разметок в ККТ */
+/* Обновление разметок бланков в ККТ */
 bool update_kkt_grids()
 {
 	if (kkt == NULL){

@@ -20,7 +20,7 @@ extern bool sync_grids_sprn(void);
 extern bool sync_grids_kkt(void);
 extern void on_response_grid(void);
 
-/* Обновление разметок в ККТ */
+/* Обновление разметок бланков в ККТ */
 extern bool update_kkt_grids(void);
 
 #if defined __cplusplus

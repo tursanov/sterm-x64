@@ -72,7 +72,7 @@ bool create_folder_if_need(const char *path)
 	return ret;
 }
 
-/* Сжатие файла шаблона (w и h задаются в точках) */
+/* Сжатие файла изображения (w и h задаются в точках) */
 bool compress_picture(const uint8_t *src, size_t len, size_t w,
 	size_t h __attribute__((unused)), vector<uint8_t> &dst)
 {

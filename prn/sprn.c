@@ -209,9 +209,9 @@ enum {
 	rcv_pic_erase_status_vtsv,	/* статус удаления изображения из БПУ */
 	rcv_pic_erase_end_vtsv,		/* окончание ответа на команду удаления изобраения из БПУ */
 /* Работа с разметками бланков в БПУ "Спектр" */
-	rcv_grid_lst_status_sprn,	/* статус получения списка шаблонов */
-	rcv_grid_lst_nr_sprn,		/* количество шаблонов */
-	rcv_grid_lst_data_sprn,		/* заголовки шаблонов */
+	rcv_grid_lst_status_sprn,	/* статус получения списка разметок бланков */
+	rcv_grid_lst_nr_sprn,		/* количество разметок бланков */
+	rcv_grid_lst_data_sprn,		/* заголовки разметок бланков */
 /* Работа с пиктограммами в БПУ "Спектр" */
 	rcv_icon_lst_status_sprn,	/* статус получения списка пиктограмм */
 	rcv_icon_lst_nr_sprn,		/* количество пиктограмм */
@@ -486,7 +486,7 @@ static bool check_pic_vtsv(const uint8_t *data, size_t len, size_t min_w, size_t
 static bool write_pic_vtsv(const uint8_t *data, size_t len, uint8_t nr, const char *name,
 	size_t min_w, size_t max_w, size_t min_h, size_t max_h)
 {
-	log_dbg("data = %p; len = %d; nr = %d; name = %s; min_w = %d, max_w = %d; min_h = %d; max_h = %d.",
+	log_dbg("data = %p; len = %zu; nr = %hhu; name = %s; min_w = %zu, max_w = %zu; min_h = %zu; max_h = %zu.",
 		data, len, nr, name, min_w, max_w, min_h, max_h);
 	size_t name_len = strlen(name);
 	bool inverted = false;
@@ -530,7 +530,7 @@ static bool write_pic_vtsv(const uint8_t *data, size_t len, uint8_t nr, const ch
 	return true;
 }
 
-/* Запись в буфер передачи шаблона для БПУ "СПЕКТР-ДС" */
+/* Запись в буфер передачи разметки бланка для БПУ "СПЕКТР-ДС" */
 static bool write_grid_sprn(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
 	const char *name)
 {
@@ -1518,6 +1518,40 @@ int sprn_get_icon_lst(uint8_t *data, size_t *len)
 	return ret;
 }
 
+/* Запись изображения в БПУ "Видеотон" */
+int load_pic_vtsv(const uint8_t *data, size_t len, uint8_t nr, const char *name,
+	size_t min_w, size_t max_w, size_t min_h, size_t max_h)
+{
+	log_dbg("data = %p; len = %zu; nr = %hhu; name = %s; min_w = %zu, max_w = %zu; min_h = %zu; max_h = %zu.",
+		data, len, nr, name, min_w, max_w, min_h, max_h);
+	int ret = SPRN_RET_ERR;
+	if ((data == NULL) || (len == 0) || (name == NULL) || (sprn_get_type() != SPRN_VIDEOTON))
+		return ret;
+	if (sprn_open_if_need()){
+		if (write_pic_vtsv(data, len, nr, name, min_w, max_w, min_h, max_h))
+			ret = sprn_wait_op(true);
+		sprn_close();
+	}
+	return ret;
+}
+
+/* Запись разметки бланка в БПУ "СПЕКТР-ДС" */
+int load_grid_sprn(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
+	const char *name)
+{
+	log_dbg("data = %p; len = %zu; id = %hhu; w = %zu, h = %zu; name = %s.",
+		data, len, id, w, h, name);
+	int ret = SPRN_RET_ERR;
+	if ((data == NULL) || (len == 0) || (name == NULL) || (sprn_get_type() != SPRN_SPECTRUM))
+		return ret;
+	if (sprn_open_if_need()){
+		if (write_grid_sprn(data, len, id, w, h, name))
+			ret = sprn_wait_op(true);
+		sprn_close();
+	}
+	return ret;
+}
+
 /* Текстовое описание статуса */
 const char *sprn_status_str(uint8_t status)
 {
@@ -1560,12 +1594,12 @@ const char *sprn_status_str(uint8_t status)
 		{SPRN_STATUS_PIC_ERASED,	"Изображение удалено (\"Видеотон\")"},
 		{SPRN_STATUS_PIC_LOAD_ERROR,	"Ошибка загрузки изображения (\"Видеотон\")"},
 
-		{SPRN_STATUS_GRID_ILLEGAL_ID,	"Неверный идентификатор разметки (\"СПЕКТР-ДС\")"},
-		{SPRN_STATUS_GRID_TOO_SHORT,	"Длина разметки меньше допустимой (\"СПЕКТР-ДС\")"},
-		{SPRN_STATUS_GRID_TOO_LONG,	"Длина разметки превышает допустимую (\"СПЕКТР-ДС\")"},
-		{SPRN_STATUS_GRID_CRC_ERR,	"Ошибка контрольной суммы разметки (\"СПЕКТР-ДС\")"},
-		{SPRN_STATUS_GRID_WRITE_ERR,	"Ошибка записи разметки в память БПУ (\"СПЕКТР-ДС\")"},
-		{SPRN_STATUS_GRID_TIMEOUT,	"Таймаут приема разметки (\"СПЕКТР-ДС\")"},
+		{SPRN_STATUS_GRID_ILLEGAL_ID,	"Неверный идентификатор разметки бланка (\"СПЕКТР-ДС\")"},
+		{SPRN_STATUS_GRID_TOO_SHORT,	"Длина разметки бланка меньше допустимой (\"СПЕКТР-ДС\")"},
+		{SPRN_STATUS_GRID_TOO_LONG,	"Длина разметки бланка превышает допустимую (\"СПЕКТР-ДС\")"},
+		{SPRN_STATUS_GRID_CRC_ERR,	"Ошибка контрольной суммы разметки бланка (\"СПЕКТР-ДС\")"},
+		{SPRN_STATUS_GRID_WRITE_ERR,	"Ошибка записи разметки бланка в память БПУ (\"СПЕКТР-ДС\")"},
+		{SPRN_STATUS_GRID_TIMEOUT,	"Таймаут приема разметки бланка (\"СПЕКТР-ДС\")"},
 
 		{SPRN_STATUS_ICON_ILLEGAL_ID,	"Неверный идентификатор пиктограммы (\"СПЕКТР-ДС\")"},
 		{SPRN_STATUS_ICON_TOO_SHORT,	"Длина данных пиктограмм меньше допустимой (\"СПЕКТР-ДС\")"},

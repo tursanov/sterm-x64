@@ -135,8 +135,8 @@ extern "C" {
 #define MAX_ECHO_LEN		4000		/* максимальная длина данных */
 
 /* Работа с разметками бланков (внутренняя команда) */
-#define KKT_GRID_LOAD		0xa8		/* загрузка разметки */
-#define KKT_GRID_LST		0xa9		/* получение списка разметок */
+#define KKT_GRID_LOAD		0xa8		/* загрузка разметки бланка */
+#define KKT_GRID_LST		0xa9		/* получение списка разметок бланков */
 #define KKT_GRID_UPLOAD		0xaa		/* получение разметки бланка */
 #define KKT_GRID_ERASE		0xab		/* удаление разметки бланка */
 #define KKT_GRID_ERASE_ALL	0xac		/* удаление всех разметок бланков */
