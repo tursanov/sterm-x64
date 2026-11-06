@@ -243,8 +243,8 @@ static bool find_stored_grids_kkt(list<GridInfo> &stored_grids)
  * Создание списков разметок бланков для закачки/удаления на основании списка
  * из "Экспресс" и файлов на диске.
  */
-static void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove,
-	bool (*find_fn)(list<GridInfo> &))
+static void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &grids_to_create,
+	list<GridInfo> &grids_to_remove, bool (*find_fn)(list<GridInfo> &))
 {
 	clr_grid_lists(grids_to_create, grids_to_remove);
 /* Создаём список разметок бланков, хранящихся в терминале */
@@ -535,7 +535,8 @@ void on_response_grid(void)
 }
 
 /* Начало синхронизации разметок бланков с "Экспресс" */
-static bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove, list<GridInfo> &grids_failed)
+static bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove,
+	list<GridInfo> &grids_failed)
 {
 	if (!need_grids_update())
 		return true;
@@ -695,147 +696,105 @@ static bool write_grid_to_sprn(const GridInfo &gi)
 	return ret;
 }
 
-#if 0
 /* Удаление заданной разметки бланка из БПУ */
 static bool erase_grid_from_sprn(const GridInfo &gi)
 {
-	if (sprn == NULL)
+	int sprn_type = sprn_get_type();
+	if (sprn_type == SPRN_UNKNOWN)
 		return false;
 	bool ret = false;
-	if (sprn->beginGridErase(gi.nr(), sprnOpCallback)){
-		sprn_wait.wait();
-		ret = sprn->statusOK();
-		if (!ret)
-			log_err("Ошибка удаления разметки бланка %s из БПУ: %s.", gi.name().c_str(),
-				XPrn::status_str(sprn->status()));
+	if (sprn_type == SPRN_SPECTRUM){
+		if (erase_grid_sprn(gi.id()) == SPRN_RET_OK){
+			log_dbg("Разметка бланка 0x%.2hhx удалена из БПУ \"СПЕКТР-ДС\".", gi.id());
+			ret = true;
+		}else
+			log_err("Ошибка удаления разметки бланка 0x%.2hhx из БПУ \"СПЕКТР-ДС\".",
+				gi.id());
+	}else if (sprn_type == SPRN_VIDEOTON){
+		if (erase_pic_vtsv(gi.nr()) == SPRN_RET_OK){
+			log_dbg("Разметка бланка %hhu удалена из БПУ \"Видеотон\".", gi.nr());
+			ret = true;
+		}else
+			log_err("Ошибка удаления разметки бланка %hhu из БПУ \"Видеотон\".", gi.nr());
 	}else
-		log_err("Невозможно начать удаление разметки бланка %s из БПУ: %s.", gi.name().c_str(),
-			XPrn::status_str(sprn->status()));
+		log_err("Неизвестный тип БПУ: %d.", sprn_type);
 	return ret;
 }
 
 /* Обновление разметок бланков в БПУ "Видеотон" */
-static bool update_grids_vtsv(const list<GridInfo> &grids_to_load, const list<GridInfo> &grids_to_erase,
-	list<GridInfo> &grids_failed, InitializationNotify_t init_notify)
+static bool update_grids_vtsv(const list<GridInfo> &grids_to_erase,
+	const list<GridInfo> &grids_to_load)
 {
-//	bool ret = true;
 	static char txt[64];
 	size_t n = 1;
 /* Сначала удаляем ненужные разметки бланков из БПУ */
+	set_term_state(st_sprn_grids);
 	for (const auto &p : grids_to_erase){
-		snprintf(txt, ASIZE(txt), "Удаление из БПУ разметки бланка %s (%u из %u)",
-			p.name().c_str(), n++, grids_to_erase.size());
-		init_notify(false, txt);
+		snprintf(txt, sizeof(txt), "УДАЛЕНИЕ %s (%zu из %zu)", p.name().c_str(), n++,
+			grids_to_erase.size());
+		set_term_astate((intptr_t)txt);
 		erase_grid_from_sprn(p);
-/*		if (!erase_grid_from_sprn(p)){
-			ret = false;
-			break;
-		}*/
 	}
-/*	if (!ret)
-		return ret;*/
-/* Затем загружаем новые разметки бланков */
+/* Затем загружаем новые разметки бланков в БПУ */
 	n = 1;
 	for (const auto &p : grids_to_load){
-		snprintf(txt, ASIZE(txt), "Загрузка в БПУ разметки бланка %s (%u из %u)",
-			p.name().c_str(), n++, grids_to_load.size());
-		init_notify(false, txt);
-		if (!write_grid_to_sprn(p))
-			grids_failed.push_back(p);
-/*		{
-			ret = false;
-			break;
-		}*/
+		snprintf(txt, sizeof(txt), "%s (%zu из %zu)", p.name().c_str(), n++,
+			grids_to_load.size());
+		set_term_astate((intptr_t)txt);
+		write_grid_to_sprn(p);
 	}
-/* Проверяем, что разметки бланков успешно загрузились */
-	Sleep(3000);
-	list<GridInfo> sprn_grids;
-	if (!find_sprn_grids(sprn_grids))
-		return false;
-	bool ok = true;
-	for (const auto &p : grids_to_load){
-		auto p1 = find_if(grids_failed.cbegin(), grids_failed.cend(),
-			[p](const GridInfo &gi) {return gi.id() == p.id();});
-		if (p1 != grids_failed.end())
-			continue;
-		p1 = find_if(sprn_grids, [p](const GridInfo &gi) {return gi.id() == p.id();});
-		if (p1 == sprn_grids.end()){
-			grids_failed.push_back(p);
-			ok = false;
-		}else if (p.isNewer(*p1)){
-			grids_failed.push_back(p);
-			ok = false;
-		}
-	}
-	return true; /*ret;*/
+	return true;
 }
 
 /* Обновление разметок бланков в БПУ "СПЕКТР-ДС" */
-static bool update_grids_sprn(const list<GridInfo> &stored_grids, list<GridInfo> &grids_failed,
-	InitializationNotify_t init_notify)
+static bool update_grids_sprn(const list<GridInfo> &stored_grids)
 {
+	static char txt[MAX_TERM_ASTATE_LEN + 1];
 /* Сначала удаляем все разметки бланков из БПУ */
-	init_notify(false, "Удаление разметок бланков из БПУ");
-	if (!sprn->beginGridEraseAll(sprnOpCallback)){
-		log_err("Невозможно начать удаление разметок бланков из БПУ: %s.", XPrn::status_str(sprn->status()));
+	set_term_state(st_sprn_grids);
+	set_term_astate((intptr_t)"УДАЛЕНИЕ ВСЕХ РАЗМЕТОК");
+	if (erase_grid_all_sprn() != SPRN_RET_OK){
+		log_err("Ошибка удаления разметок бланков из БПУ \"СПЕКТР-ДС\".");
+		snprintf(txt, sizeof(txt), "ОШИБКА УДАЛЕНИЯ");
+		set_term_astate((intptr_t)txt);
 		return false;
 	}
-	sprn_wait.wait();
-	if (!sprn->statusOK()){
-		log_err("Ошибка удаления разметок бланков из БПУ: %s.", XPrn::status_str(sprn->status()));
-		return false;
-	}
-//	bool ret = true;
 /* Затем загружаем новые разметки бланков */
 	size_t n = 1;
 	for (const auto &p : stored_grids){
-		static char txt[64];
-		snprintf(txt, ASIZE(txt), "Загрузка в БПУ разметки бланка %s (%u из %u)",
-			p.name().c_str(), n++, stored_grids.size());
-		init_notify(false, txt);
-		if (!write_grid_to_sprn(p))
-			grids_failed.push_back(p);
-/*		{
-			ret = false;
-			break;
-		}*/
+		snprintf(txt, sizeof(txt), "%s (%zu из %zu)", p.name().c_str(), n++,
+			stored_grids.size());
+		set_term_astate((intptr_t)txt);
+		write_grid_to_sprn(p);
 	}
-	return true; /*ret;*/
+	return true;
 }
 
 /* Обновление разметок бланков в БПУ */
-bool update_sprn_grids(InitializationNotify_t init_notify)
+bool update_sprn_grids(void)
 {
-	if (sprn == NULL){
+	int sprn_type = sprn_get_type();
+	log_dbg("sprn_type = %d.", sprn_type);
+	if (sprn_type == SPRN_UNKNOWN){
 		log_err("БПУ отсутствует.");
 		return false;
 	}
 	bool ret = false;
-	init_notify(false, "Обновление разметок бланков в БПУ");
-	Sleep(100);
 	list<GridInfo> stored_grids, grids_to_load, grids_to_erase;
 	find_stored_grids_sprn(stored_grids);
 	check_sprn_grids(stored_grids, grids_to_load, grids_to_erase);
 	if (!grids_to_load.empty() || !grids_to_erase.empty()){
-		if (sprn->type() == XPrnType::Videoton)
-			ret = update_grids_vtsv(grids_to_load, grids_to_erase, grids_failed_sprn, init_notify); 
-		else if (sprn->type() == XPrnType::Spectrum)
-			ret = update_grids_sprn(stored_grids, grids_failed_sprn, init_notify);
+		if (sprn_type == SPRN_SPECTRUM)
+			ret = update_grids_sprn(stored_grids);
+		else if (sprn_type == SPRN_VIDEOTON)
+			ret = update_grids_vtsv(grids_to_erase, grids_to_load); 
+		else
+			log_err("Неизвестный тип БПУ: %d.", sprn_type);
 	}else
 		ret = true;
-	if (!ret && !isTermcoreState(TS_INIT)){
-		static char txt[256];
-		uint8_t status = sprn->status();
-		if (sprn->statusOK(status))
-			snprintf(txt, ASIZE(txt), "Ошибка обновления разметок бланков в БПУ.");
-		else
-			snprintf(txt, ASIZE(txt), "Ошибка обновления разметок бланков в БПУ: %s.",
-				sprn->status_str(status));
-		termcore_callbacks.callMessageBox("ОБНОВЛЕНИЕ РАЗМЕТОК", txt);
-	}
+	set_term_state(st_input);
 	return ret;
 }
-#endif
 
 /* Получение списка разметок бланков из ККТ */
 static bool find_kkt_grids(list<GridInfo> &kkt_grids)
@@ -924,11 +883,11 @@ static bool write_grid_to_kkt(const GridInfo &gi)
 /* Обновление разметок бланков в ККТ "СПЕКТР-Ф" */
 static bool update_grids_kkt(const list<GridInfo> &stored_grids, list<GridInfo> &grids_failed)
 {
+	static char txt[MAX_TERM_ASTATE_LEN + 1];
 /* Сначала удаляем все разметки бланков из ККТ */
 	set_term_state(st_kkt_grids);
 	set_term_astate((intptr_t)"УДАЛЕНИЕ ВСЕХ РАЗМЕТОК");
 	if (kkt_erase_all_grids() != KKT_STATUS_OK){
-		static char txt[MAX_TERM_ASTATE_LEN + 1];
 		log_err("Ошибка удаления разметок бланков из ККТ: 0x%.2hhx.", kkt_status);
 		snprintf(txt, sizeof(txt), "ОШИБКА УДАЛЕНИЯ %.2hhx", kkt_status);
 		set_term_astate((intptr_t)txt);
@@ -937,7 +896,6 @@ static bool update_grids_kkt(const list<GridInfo> &stored_grids, list<GridInfo> 
 /* Затем загружаем новые разметки бланков */
 	size_t n = 1;
 	kkt_begin_batch_mode();
-	static char txt[MAX_TERM_ASTATE_LEN + 1];
 	for (const auto &p : stored_grids){
 		snprintf(txt, sizeof(txt), "%s (%zu из %zu)",
 			p.name().c_str(), n++, stored_grids.size());

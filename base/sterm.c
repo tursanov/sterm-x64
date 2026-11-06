@@ -470,8 +470,8 @@ const char *find_term_state(int st)
 		{st_ppp_login,		"Авторизация"},
 		{st_ppp_ipcp,		"Конфигурация TCP/IP"},
 		{st_stop_iplir,		"Выгрузка ViPNet"},
-		{st_xprn_grids,		"Разметки БПУ"},
-		{st_xprn_icons,		"Пиктограммы БПУ"},
+		{st_sprn_grids,		"Разметки БПУ"},
+		{st_sprn_icons,		"Пиктограммы БПУ"},
 		{st_kkt_grids,		"Разметки ККТ"},
 		{st_kkt_icons,		"Пиктограммы ККТ"},
 	};
@@ -1037,10 +1037,6 @@ static void init_devices(void)
 				sprn->ttyS_name, serial_settings_str(&sprn->ss), sprn->name);
 			sprn_init(&cfg);
 			log_dbg("Заводской номер БПУ %.*s.", sizeof(sprn_number), sprn_number);
-			static uint8_t icon_lst[SPRN_MAX_ICONS * sizeof(struct pic_header)];
-			size_t len = sizeof(icon_lst);
-			int rc = sprn_get_icon_lst(icon_lst, &len);
-			log_dbg("rc = %d; len = %zu.", rc, len);
 		}
 		rfid = get_dev_info(devices, DEV_RFID);
 		if (rfid != NULL){
@@ -1115,6 +1111,7 @@ static void init_term(bool need_init)
 	rollback_keys(true);
 	apc = false;
 	init_devices();
+	update_sprn_grids();
 	update_kkt_grids();
 	update_kkt_icons();
 	if (cfg.use_iplir)
@@ -3711,6 +3708,8 @@ bool process_term(void)
 		if ((req_type != req_regular) && need_sync_dev_data){
 			resp_handling = false;
 			x3data_sync_report_dlg();
+			if (need_grids_update_sprn())
+				update_sprn_grids();
 			if (need_grids_update_kkt())
 				update_kkt_grids();
 			if (need_icons_update_kkt())

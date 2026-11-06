@@ -666,7 +666,7 @@ static uint8_t *check_bank_data(uint8_t *txt, int l, size_t id_len, int *ecode)
 					if (b != '(')
 						st = st_err;
 				}else if (n < (BANK_BLANK_NR_LEN + 1)){
-					if (!isdigit(b) && ((i < 2) || (b > 4)))
+					if (!isdigit(b) && ((n < 2) || (n > 4)))
 						st = st_err;
 				}else if (n == (BANK_BLANK_NR_LEN + 1)){
 					if (b != ')')

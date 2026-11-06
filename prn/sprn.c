@@ -1126,8 +1126,8 @@ static bool sprn_do_rcv(void)
 	}else if (len == 1){
 		if (sprn_rx_len < sizeof(sprn_rx))
 			sprn_rx[sprn_rx_len++] = b;
-		if ((b == 0x11) || (b == 0x13))
-			return ret;
+/*		if ((b == 0x11) || (b == 0x13))
+			return ret;*/
 		static const struct {
 			int st;
 			void (*handler)(uint8_t);

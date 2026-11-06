@@ -45,8 +45,8 @@ enum {
 /* Работа с VipNet */
 	st_stop_iplir,
 /* Изображения в БПУ/ККТ */
-	st_xprn_grids,
-	st_xprn_icons,
+	st_sprn_grids,
+	st_sprn_icons,
 	st_kkt_grids,
 	st_kkt_icons,
 };

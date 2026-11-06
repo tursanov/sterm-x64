@@ -218,7 +218,7 @@ bool log_data(const char *prefix, const char *title, const uint8_t *data, size_t
 		if (i < len){
 			uint8_t b = data[i];
 			fprintf(f, " %.2hhx", b);
-			txt[j++] = (b < 0x20) ? '.' : recode(b);
+			txt[j++] = ((b < 0x20) || (b == 0xff)) ? '.' : recode(b);
 		}else
 			fprintf(f, "   ");
 	}
