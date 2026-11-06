@@ -1552,6 +1552,62 @@ int load_grid_sprn(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t
 	return ret;
 }
 
+/* Стирание изображения из БПУ "Видеотон" */
+int erase_pic_vtsv(uint8_t nr)
+{
+	log_dbg("nr = %hhu.", nr);
+	int ret = SPRN_RET_ERR;
+	if (sprn_get_type() != SPRN_VIDEOTON)
+		return ret;
+	if (sprn_open_if_need()){
+		sprn_write_cmd(SPRN_PIC_ERASE);
+		if (nr > 10)
+			nr += 7;
+		sprn_tx[sprn_tx_len++] = nr;
+		ret = sprn_wait_op(true);
+		sprn_close();
+	}
+	return ret;
+}
+
+/* Стирание разметки бланка из БПУ "СПЕКТР-ДС" */
+int erase_grid_sprn(uint8_t id)
+{
+	log_dbg("id = 0x%.2hhu.", id);
+	int ret = SPRN_RET_ERR;
+	if (sprn_get_type() != SPRN_SPECTRUM)
+		return ret;
+	if (sprn_open_if_need()){
+		sprn_write_cmd(SPRN_GRID_ERASE);
+		sprn_tx[sprn_tx_len++] = id;
+		ret = sprn_wait_op(true);
+		sprn_close();
+	}
+	return ret;
+}
+
+/* Стирание всех разметок бланков из БПУ "СПЕКТР-ДС" */
+int erase_grid_all_sprn(void)
+{
+	int ret = SPRN_RET_ERR;
+	if (sprn_get_type() != SPRN_SPECTRUM)
+		return ret;
+	ret = sprn_do_cmd(SPRN_GRID_ERASE_ALL);
+	sprn_close();
+	return ret;
+}
+
+/* Стирание всех пиктограмм из БПУ "СПЕКТР-ДС" */
+int erase_icon_all_sprn(void)
+{
+	int ret = SPRN_RET_ERR;
+	if (sprn_get_type() != SPRN_SPECTRUM)
+		return ret;
+	ret = sprn_do_cmd(SPRN_ICON_ERASE_ALL);
+	sprn_close();
+	return ret;
+}
+
 /* Текстовое описание статуса */
 const char *sprn_status_str(uint8_t status)
 {
