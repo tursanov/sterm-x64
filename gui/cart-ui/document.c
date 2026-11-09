@@ -33,15 +33,15 @@ const char *ui_doc_get_op(ui_subcart_t *sc, ui_doc_t *d, S *s)
 	
 	if (k->u.s)
 	{
-		return "…‡€‚…˜. ……Ž”ŽŒ‹.";
+		return "…‡€‚…˜…Ž… ……Ž”ŽŒ‹…ˆ…";
 	}
 	else if (s->a == s->p)
 	{
-		return "…‡€‚…˜. ……Ž”ŽŒ‹.";
+		return "…‡€‚…˜…Ž… ……Ž”ŽŒ‹…ˆ…";
 	}
 	else if (t == 'A')
 	{
-	    return d->val->k->m == 2 ? "Ž’Œ. ‚Ž‡‚. € ‘—…’ ‹€’." : "Ž‹€’€ €‹ˆ—›…";
+	    return d->val->k->m == 2 ? "Ž’Œ…€ ‚Ž‡‚. € ‘—…’ ‹€’…‹œ˜ˆŠ€" : "Ž‹€’€ €‹ˆ—›…";
 	}
 	else if (t == 'D' || t == 'E')
 	{
@@ -69,11 +69,11 @@ const char *ui_doc_get_op(ui_subcart_t *sc, ui_doc_t *d, S *s)
 	    {
     	    if (doc->related.count > 1 && k->n.s && !k->a_flag)
     	    {
-    	        return "‚›‹€’€ € Š€’“ ‹€’.";
+    	        return "‚›‹€’€ € Š€’“ ‹€’…‹œ™ˆŠ€";
     	    }
     	    else
     	    {
-    	        return "‚Ž‡‚€’ € Š€’“ ‹€’.";
+    	        return "‚Ž‡‚€’ € Š€’“ ‹€’…‹œ™ˆŠ€";
     	    }
 	    }
 	    else
@@ -244,7 +244,9 @@ int ui_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width)
 	Color borderColor = sc->tab_selected_doc >= 0 && &sc->docs[sc->tab_selected_doc] == d
 	    ? CART_SELECTED_BORDER_COLOR
 	    : clSilver;
-    DrawBorder(cart_screen, x - CART_XGAP - 2, y - 2, DISCX - CART_XGAP * 3, cart_fnt->max_height + 3, 2, borderColor, borderColor);
+    DrawBorder(cart_screen, x - CART_XGAP - 2, y - 2,
+               DISCX - CART_XGAP * 3, cart_fnt->max_height + 3, 2,
+               borderColor, borderColor);
 	
 	if (d->selected)
     {	
@@ -252,21 +254,31 @@ int ui_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width)
         DrawBorder(cart_screen, x, y, 15, 15, 2, clBlack, clBlack);
         SetTextColor(cart_screen, clBlack);
     }
-	DrawText(cart_screen, x + 20, y, col_width, cart_fnt->max_height, d->val->k->d.s, DT_LEFT | DT_VCENTER);
+
+	DrawText(cart_screen, x + 20, y, (int)((float)col_width * fr[0]),
+	         cart_fnt->max_height, d->val->k->d.s, DT_LEFT | DT_VCENTER);
 	x += (float)col_width * fr[0];
+
 	strdatetime(buf, sizeof(buf) - 1, d->val->k->dt);
-	DrawText(cart_screen, x, y, col_width, cart_fnt->max_height, buf, DT_LEFT | DT_VCENTER);
+	DrawText(cart_screen, x, y, (int)((float)col_width * fr[1]),
+	         cart_fnt->max_height, buf, DT_LEFT | DT_VCENTER);
 	x += (float)col_width * fr[1];
 
 	SetFont(cart_screen, cart_sfnt);
-	DrawText(cart_screen, x, y, col_width, cart_fnt->max_height, ui_doc_get_op(sc, d, &s), DT_LEFT | DT_VCENTER);
+	DrawText(cart_screen, x, y, (int)((float)col_width * fr[2]),
+	         cart_fnt->max_height, ui_doc_get_op(sc, d, &s),
+	         DT_LEFT | DT_VCENTER);
 	x += (float)col_width * fr[2];
 
 	SetFont(cart_screen, cart_fnt);
-	DrawText(cart_screen, x, y, col_width, cart_fnt->max_height, ui_doc_get_n(sc, d, buf), DT_LEFT | DT_VCENTER);
+	DrawText(cart_screen, x, y, (int)((float)col_width * fr[3]),
+	         cart_fnt->max_height, ui_doc_get_n(sc, d, buf),
+	         DT_LEFT | DT_VCENTER);
 	x += (float)col_width * fr[3];
-	DrawText(cart_screen, x, y, col_width, cart_fnt->max_height, printsum(s.a, buf), DT_RIGHT | DT_VCENTER);
-	
+
+	DrawText(cart_screen, x, y, (int)((float)col_width * fr[4]),
+	         cart_fnt->max_height, printsum(s.a, buf),
+	         DT_RIGHT | DT_VCENTER);
 	
 	y += cart_fnt->max_height + CART_YGAP;
 	x = x_orig + 20;
@@ -283,25 +295,19 @@ int ui_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width)
     			char sign = K_lp(d->val->k) == K_lp(k) ? '+' : '-';
       			sprintf(buf, "(%c) %s", sign, k->d.s);
       			DrawText(cart_screen, x, y, DISCX, cart_fnt->max_height, buf, DT_LEFT | DT_VCENTER);
-  			
       			y += cart_sfnt->max_height;
   			}
 
-  			
     		for (list_item_t* li1 = k->llist.head; li1; li1 = li1->next)
 	    	{
     			L *l = LIST_ITEM(li1, L);
-    			
     			make_l_str(buf, l);
-    			
                 y += ui_draw_text_wrap(buf, x + CART_XGAP, y, false);
 			}
         }
         SetFont(cart_screen, cart_fnt);
-        
         y += CART_YGAP;
 	}
 	
 	return y;
 }
-
