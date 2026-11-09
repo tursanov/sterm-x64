@@ -1396,7 +1396,7 @@ static int get_pic_lst_vtsv(uint8_t *data, size_t *len)
 		return ret;
 	ret = sprn_do_cmd(SPRN_PIC_LST);
 	if (ret == SPRN_RET_OK){
-		if (sprn_ok(sprn_status) && sprn_grid_lst_valid){
+		if (sprn_ok(sprn_status) && vtsv_pic_lst_valid){
 			struct {
 				const char *name;
 				size_t len;
