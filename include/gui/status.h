@@ -57,7 +57,7 @@ enum {
 	ast_noxprn,
 	ast_noaprn,
 	ast_nosprn,
-	ast_sprn_err,
+	ast_sprn_error,
 	ast_sprn_ch_media,
 	ast_rejected,
 	ast_repeat,

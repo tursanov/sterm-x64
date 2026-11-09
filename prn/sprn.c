@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <sys/times.h>
 #include <sys/types.h>
+#include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -57,8 +58,6 @@ uint8_t sprn_number[SPRN_NUMBER_LEN] = {[0 ... SPRN_NUMBER_LEN - 1] = 0x30};
 uint8_t sprn_media = SPRN_MEDIA_UNKNOWN;
 /* Номер документа в БПУ */
 uint8_t sprn_blank_number[SPRN_BLANK_NUMBER_LEN] = {[0 ... SPRN_BLANK_NUMBER_LEN - 1] = 0x30};
-/* Из БПУ получен номер бланка */
-bool sprn_has_blank_number = false;
 
 /* Номер параметра конфигурации БПУ (0x1d Sx) */
 static uint8_t sprn_param_number;
@@ -360,7 +359,6 @@ static bool sprn_write_cmd(uint8_t cmd)
 	bool ret = false;
 	if (sizeof(sprn_tx) >= 3){
 		sprn_reset();
-		sprn_has_blank_number = false;
 		sprn_tx[0] = SPRN_NUL;
 		sprn_tx[1] = SPRN_DLE;
 		sprn_tx[2] = cmd;
@@ -381,11 +379,9 @@ static bool sprn_write_text(const uint8_t *txt, size_t len, bool log)
 	if ((txt == NULL) || (len == 0) || ((len + 1) > sizeof(sprn_tx)))
 		return false;
 	sprn_reset();
-	sprn_has_blank_number = false;
-	sprn_tx[0] = SPRN_NUL;
-	memcpy(sprn_tx + 1, txt, len);
-	sprn_tx_len = len + 1;
-	sprn_sent_len = 0;
+	sprn_tx[sprn_tx_len++] = SPRN_NUL;	/* sprn_tx_len sprn_sent_len обнуляются в sprn_reset */
+	memcpy(sprn_tx + sprn_tx_len, txt, len);
+	sprn_tx_len += len;
 	sprn_mark_operation();
 	if (log)
 		sprn_sent_cmd = SPRN_LOG;
@@ -412,7 +408,6 @@ static bool sprn_write_text_log1(const uint8_t *data, size_t len)
 	if (l > sizeof(sprn_tx))
 		return false;
 	sprn_reset();
-	sprn_has_blank_number = false;
 	memcpy(sprn_tx, prefix, sizeof(prefix));
 	memcpy(sprn_tx + sizeof(prefix), data, len);
 	sprn_tx_len = sizeof(prefix) + len;
@@ -599,6 +594,18 @@ bool write_icon_sprn(const uint8_t *data, size_t len, uint8_t id, size_t w, size
 	return true;
 }
 
+static bool sprn_log_partial_tx(void)
+{
+	bool ret = false;
+	if ((sprn_tx_len > 0) && (sprn_sent_len > 0)){
+		char title[128];
+		snprintf(title, sizeof(title), "ТМ --> БПУ (%zu из %zu)",
+			sprn_sent_len, sprn_tx_len);
+		ret = log_data_sprn(title, sprn_tx, sprn_sent_len);
+	}
+	return ret;
+}
+
 /* Передача данных в БПУ. В случае ошибки возвращает false */
 static bool sprn_do_snd(void)
 {
@@ -610,13 +617,16 @@ static bool sprn_do_snd(void)
 			sprn_tx_len - sprn_sent_len);
 		if (len < 0){
 			if (errno != EWOULDBLOCK){
+				sprn_log_partial_tx();
 				log_sys_err("Ошибка записи в %s:", sprn->ttyS_name);
 				ret = false;
 			}
 		}else if (len > 0){
 			sprn_sent_len += len;
-			if (sprn_sent_len >= sprn_tx_len)
+			if (sprn_sent_len >= sprn_tx_len){
 				log_data_sprn("ТМ --> БПУ", sprn_tx, sprn_tx_len);
+				sprn_tx_len = sprn_sent_len = 0;
+			}
 		}
 	}
 	return ret;
@@ -712,10 +722,8 @@ static void on_rcv_number(uint8_t b)
 {
 	if ((b >= 0x30) && (b <= 0x39)){
 		sprn_blank_number[rcv_idx++] = b;
-		if (rcv_idx >= sizeof(sprn_blank_number)){
-			sprn_has_blank_number = true;
+		if (rcv_idx >= sizeof(sprn_blank_number))
 			sprn_set_rcv_st(rcv_end);
-		}
 	}else{
 		log_err("Неверный символ номера бланка: 0x%.2hhx.", b);
 		sprn_set_rcv_st(rcv_idle);
@@ -1182,7 +1190,8 @@ static bool sprn_process(void)
 	sprn_timeout = (sprn_op_timeout != SPRN_INFINITE_TIMEOUT) &&
 		((u_times() - sprn_t0) > sprn_op_timeout);
 	if (sprn_timeout){
-		sprn_set_rcv_st(rcv_idle);
+		sprn_log_partial_tx();		/* на случай таймаута передечи */
+		sprn_set_rcv_st(rcv_idle);	/* частично принятые данные запишутся в журнал */
 		ret = false;
 	}else if (sprn_sent_len < sprn_tx_len){
 		if (!sprn_do_snd()){
@@ -1297,38 +1306,21 @@ int sprn_print_log1(const uint8_t *data, size_t len)
 }
 
 /* Печать текста на БСО */
-int sprn_print_ticket(const uint8_t *data, size_t len, bool *sent_to_prn)
+int sprn_print_vf(const uint8_t *data, size_t len)
 {
+	log_dbg("data = %p; len = %zu.", data, len);
+	assert(data != NULL);
+	assert(len > 0);
 	int ret = SPRN_RET_ERR;
-	*sent_to_prn = false;
-/* Ожидание готовности принтера */
-	if ((ret = sprn_get_status()) != SPRN_RET_OK)
-		;
-	else if (!sprn_ok(sprn_status))
-		;
-	else if ((ret = sprn_get_media_type()) != SPRN_RET_OK)
-		;
-	else if (!sprn_ok(sprn_status))
-		;
-	else if ((sprn_media != SPRN_MEDIA_BLANK) &&
-			(sprn_media != SPRN_MEDIA_BOTH))
-		;
-	else{
-/* Печать на БСО */
-		set_term_astate(ast_none);
-		if (sprn_write_text(data, len, false)){
-			*sent_to_prn = true;
+	set_term_astate(ast_none);
+	if (sprn_write_text(data, len, false)){
+		if (sprn_open_if_need()){
 			ret = sprn_wait_op(true);
-			if (ret == SPRN_RET_OK){
-				if (sprn_ok(sprn_status)){
-					bool has_number = sprn_has_blank_number;
-					if ((ret = sprn_get_status()) == SPRN_RET_OK)
-						sprn_has_blank_number = has_number;
-				}
-			}
+			sprn_close();
 		}
-	}
-	sprn_close();
+	}else
+		log_err("Ошибка записи текста для БСО.");
+	log_dbg("ret = %d.", ret);
 	return ret;
 }
 

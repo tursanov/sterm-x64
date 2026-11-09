@@ -2050,87 +2050,7 @@ static void preexecute_resp(void)
 		log_number = xlog_write_rec(hxlog, NULL, 0, XLRT_NOTIFY, 0);
 }
 
-#if defined INSERT_SPRN_CODE_HERE
-/* Формирование текста сообщения об ошибке БПУ */
-static const char *make_sprn_err_msg(int sprn_ret)
-{
-	const char *ret = NULL;
-	if (sprn_ret == SPRN_RET_OK){
-		if (!sprn_ok(sprn_status)){
-			ret = sprn_status_str(sprn_status);
-		if ((ret == NULL) && (sprn_media != SPRN_MEDIA_BLANK) &&
-				(sprn_media != SPRN_MEDIA_BOTH))
-			ret = "НЕВЕРН\x9bЙ НОСИТЕЛЬ";
-	}else if (sprn_ret == SPRN_RET_ERR){
-		if (sprn_timeout)
-			ret = "ТАЙМАУТ";
-		else
-			ret = "ОБЩАЯ ОШИБКА БПУ";
-	}
-	return ret;
-}
-
-/* Вывод окна с сообщением об ошибке БПУ в случае возможности отказа от заказа */
-static int show_sprn_error_rejectable(int sprn_ret)
-{
-	static struct custom_btn btns[] = {
-		{
-			.text	= "Повторная печать",
-			.cmd	= cmd_print
-		},
-		{
-			.text	= "Отказ от заказа",
-			.cmd	= cmd_reject
-		},
-		{
-			.text	= NULL,
-			.cmd	= cmd_none
-		}
-	};
-	static char msg[256];
-	snprintf(msg, sizeof(msg), "При попытке печати на БСО произошла ошибка:\n"
-		"%s\nВы можете повторить печать или отказаться от заказа, "
-		"выбрав соответствующую кнопку.\n"
-		"Для перемещения между кнопками используйте Tab.",
-		make_sprn_err_msg(sprn_ret));
-	return message_box("Ошибка БПУ", msg, (intptr_t)btns, 0, al_center);
-}
-
-/* Вывод окна с сообщением об ошибке БПУ в случае невозможности отказа от заказа */
-static int show_sprn_error_nonrejectable(int sprn_ret)
-{
-	static struct custom_btn btns[] = {
-		{
-			.text	= "Повторная печать",
-			.cmd	= cmd_print
-		},
-		{
-			.text	= NULL,
-			.cmd	= cmd_none
-		}
-	};
-	static char msg[256];
-	snprintf(msg, sizeof(msg), "При попытке печати на БСО произошла ошибка:\n"
-		"%s\nВы можете повторить печать.",
-		make_sprn_err_msg(sprn_ret));
-	return message_box("Ошибка БПУ", msg, (intptr_t)btns, 0, al_center);
-}
-
-/* Вывод окна с сообщением об ошибке БПУ при печати на БСО */
-static int show_sprn_error(int sprn_ret, bool rejectable)
-{
-	int ret;
-	online = false;
-	set_term_busy(true);
-	ret = rejectable ? show_sprn_error_rejectable(sprn_ret) :
-		show_sprn_error_nonrejectable(sprn_ret);
-	online = true;
-	redraw_term(true, main_title);
-	return ret;
-}
-#endif		/* INSERT_SPRN_CODE_HERE */
-
-/* Вывод окна с сообщением об ошибке ККБПУ при печати на ленте */
+/* Вывод окна с сообщением об ошибке ККПУ при печати на ленте */
 static int show_kprn_error(uint8_t status, bool rejectable)
 {
 	struct custom_btn btns[4];
@@ -2150,13 +2070,13 @@ static int show_kprn_error(uint8_t status, bool rejectable)
 	static char msg[256];
 	if (rejectable)
 		snprintf(msg, sizeof(msg), "При попытке печати на ККТ произошла ошибка:\n"
-			"%hhx (%s)\nВы можете повторить печать или отказаться от заказа, "
+			"%.2hhx (%s)\nВы можете повторить печать или отказаться от заказа, "
 			"выбрав соответствующую кнопку.\n"
 			"Для перемещения между кнопками используйте Tab.",
 			status, kkt_status_str(status));
 	else
 		snprintf(msg, sizeof(msg), "При попытке печати на ККТ произошла ошибка:\n"
-			"%hhx (%s)\nВы можете повторить печать.",
+			"%.2hhx (%s)\nВы можете повторить печать.",
 			status, kkt_status_str(status));
 	int ret;
 	online = false;
@@ -2167,6 +2087,7 @@ static int show_kprn_error(uint8_t status, bool rejectable)
 	return ret;
 }
 
+/* Печать проездного документа на ККТ */
 bool kprn_print(const uint8_t *data, size_t len)
 {
 	bool ret = false;
@@ -2193,6 +2114,73 @@ bool kprn_print(const uint8_t *data, size_t len)
 	return ret;
 }
 
+/* Вывод окна с сообщением об ошибке БПУ */
+static int show_sprn_error(uint8_t status, bool rejectable)
+{
+	struct custom_btn btns[4];
+	int n = 0;
+	btns[n].text = "Повторная печать";
+	btns[n++].cmd = cmd_print;
+	if (rejectable){
+		btns[n].text = "Отказ от заказа";
+		btns[n++].cmd = cmd_reject;
+	}
+	if (n_unhandled() > 0){
+		btns[n].text = "Завершение обработки";
+		btns[n++].cmd = cmd_reset;
+	}
+	btns[n].text = NULL;
+	btns[n].cmd = cmd_none;
+	static char msg[256];
+	if (rejectable)
+		snprintf(msg, sizeof(msg), "При попытке печати на БПУ произошла ошибка:\n"
+			"%.2hhx (%s)\nВы можете повторить печать или отказаться от заказа, "
+			"выбрав соответствующую кнопку.\n"
+			"Для перемещения между кнопками используйте Tab.",
+			status, sprn_status_str(status));
+	else
+		snprintf(msg, sizeof(msg), "При попытке печати на БПУ произошла ошибка:\n"
+			"%.2hhx (%s)\nВы можете повторить печать.",
+			status, sprn_status_str(status));
+	int ret;
+	online = false;
+	set_term_busy(true);
+	ret = message_box("Ошибка БПУ", msg, (intptr_t)btns, 0, al_center);
+	online = true;
+	redraw_term(true, main_title);
+	return ret;
+}
+
+/* Печать проездного документа на БПУ */
+static bool sprn_print(const uint8_t *data, size_t len)
+{
+	log_dbg("data = %p; len = %zu.", data, len);
+	bool ret = false;
+	while (true){
+		sprn_print_vf(text_buf, len);
+		uint8_t status = sprn_status;
+		log_dbg("sprn_status = 0x%.2hhx (%s).", status, sprn_status_str(status));
+		can_reject = false;
+		if (sprn_ok(sprn_status)){
+			set_term_astate(ast_none);
+			break;
+		}else{
+			set_term_astate(ast_sprn_error);
+			err_beep();
+			int cmd = show_sprn_error(status, can_reject);
+			log_dbg("cmd = %d.", cmd);
+			if (cmd == cmd_reject){
+				reject_req();
+				break;
+			}else if (cmd == cmd_reset){
+				reset_term(true);
+				break;
+			}
+		}
+	}
+	return ret;
+}
+
 /*
  * Обработка абзаца для печати. Возвращает false, если дальнейшая обработка
  * ответа невозможна.
@@ -2207,59 +2195,12 @@ static bool execute_prn(struct para_info *p, int l, int n_para)
 	}else if (p->dst == dst_aprn){
 		if (cfg.has_aprn)
 			ret = printed = aprn_print(text_buf, l);
+	}else if (p->dst == dst_sprn){
+		if (cfg.has_sprn)
+			ret = printed = sprn_print(text_buf, l);
 	}else if (p->dst == dst_kprn){
 		if (cfg.has_kkt && (kkt != NULL))
 			ret = printed = kprn_print(text_buf, l);
-	}else{		/* dst_sprn */
-#if defined INSERT_SPRN_CODE_HERE
-		while (true){
-			bool sent_to_prn = false;
-			int sprn_ret = sprn_print_ticket(text_buf, l, &sent_to_prn);
-			if (sent_to_prn)
-				can_reject = false;
-			if (sprn_ret == SPRN_RET_OK){
-				if ((sprn_status == 0) && (!cfg.has_sd_card ||
-						(sprn_sd_status <= 0x01))){
-					if ((sprn_media == SPRN_MEDIA_BLANK) ||
-							(sprn_media == SPRN_MEDIA_BOTH)){
-						set_term_astate(ast_none);
-						printed = true;
-						break;
-					}else
-						set_term_astate(ast_sprn_ch_media);
-				}else{
-					if (sent_to_prn){
-						if (cfg.has_sd_card && (sprn_sd_status > 0x01))
-							set_term_astate(ast_sprn_sd_err);
-						else
-							set_term_astate(ast_sprn_err);
-						err_beep();
-						break;
-					}
-				}
-			}else if (sprn_ret == SPRN_RET_ERR){
-				if (sent_to_prn){
-					set_term_astate(ast_nosprn);
-					err_beep();
-					break;
-				}
-			}
-			if (sprn_ret == SPRN_RET_RST){
-				ret = false;
-				break;
-			}else{
-				int cmd = show_sprn_error(sprn_ret, can_reject);
-				if (cmd == cmd_reject){
-					reject_req();
-					ret = false;
-					break;
-				}else if (cmd == cmd_reset){
-					ret = false;
-					break;
-				}
-			}
-		}
-#endif		/* INSERT_SPRN_CODE_HERE */
 	}
 	if (printed)	/* FIXME */
 		xlog_set_rec_flags(hxlog, log_number, n_para, XLOG_REC_PRINTED);
@@ -2273,7 +2214,7 @@ bool is_rstatus_error_msg(void)
 		ast_noxprn,
 		ast_noaprn,
 		ast_nosprn,
-		ast_sprn_err,
+		ast_sprn_error,
 		ast_sprn_ch_media,
 		ast_rejected,
 		ast_repeat,

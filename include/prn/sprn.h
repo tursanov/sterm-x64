@@ -39,8 +39,6 @@ extern uint8_t sprn_media;
 #define SPRN_BLANK_NUMBER_LEN	13
 /* Номер документа в БПУ */
 extern uint8_t sprn_blank_number[SPRN_BLANK_NUMBER_LEN];
-/* Из БПУ получен номер бланка */
-extern bool sprn_has_blank_number;
 /* Флаг превышения таймаута при выполнении операции */
 extern bool sprn_timeout;
 
@@ -276,7 +274,7 @@ extern int sprn_print_log(const uint8_t *data, size_t len);
 /* Печать абзаца контрольной ленты, пришедшего из "Экспресс" */
 extern int sprn_print_log1(const uint8_t *data, size_t len);
 /* Печать текста на БСО */
-extern int sprn_print_ticket(const uint8_t *data, size_t len, bool *sent_to_prn);
+extern int sprn_print_vf(const uint8_t *data, size_t len);
 /* Запрос параметров работы БПУ */
 extern int sprn_get_params(struct term_cfg *cfg);
 /* Запись параметров работы БПУ */

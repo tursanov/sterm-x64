@@ -1273,11 +1273,6 @@ uint8_t kkt_print_vf(const uint8_t *data, size_t len)
 				kkt_tx_len = 0;
 				if (write_data(data + offs, l) && write_byte(b) &&
 						kkt_open_dev_if_need()){
-/*					FILE *f = fopen("kkt.bin", "wb");
-					if (f != NULL){
-						fwrite(kkt_tx, kkt_tx_len, 1, f);
-						fclose(f);
-					}*/
 					do_transaction(KKT_NUL, KKT_VF, NULL);
 					log_dbg("end printing; kkt_status = 0x%.2hhx.", kkt_status);
 					if (kkt_status != KKT_STATUS_OK)

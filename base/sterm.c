@@ -515,7 +515,7 @@ const char *find_term_astate(intptr_t ast, bool *x3_err)
 		{ast_noxprn,		"Нет готовности ОПУ"},
 		{ast_noaprn,		"Нет готовности ДПУ"},
 		{ast_nosprn,		"Нет готовности БПУ"},
-		{ast_sprn_err,		"Ошибка БПУ"},
+		{ast_sprn_error,		"Ошибка БПУ"},
 		{ast_sprn_ch_media,	"Замените ленту в БПУ"},
 		{ast_rejected,		"Ответ не принят"},
 		{ast_repeat,		"Повторите заказ"},
@@ -551,8 +551,8 @@ const char *find_term_astate(intptr_t ast, bool *x3_err)
 			continue;
 		bool flag = false;
 		switch (ast){
-			case ast_sprn_err:
-				if (sprn_status != 0){
+			case ast_sprn_error:
+				if (!sprn_ok(sprn_status)){
 					snprintf(buf, sizeof(buf), "%s: %.2hhX",
 						p->descr, sprn_status);
 					flag = true;
@@ -3593,19 +3593,19 @@ static void do_ticket_number(void)
 	}else if (sprn_get_status() != SPRN_RET_OK)
 		;
 	else if (sprn_status != 0)
-		set_term_astate(ast_sprn_err);
+		set_term_astate(ast_sprn_error);
 	else{
 		if (sprn_get_media_type() != SPRN_RET_OK)
 			;
 		else if (sprn_status != 0)
-			set_term_astate(ast_sprn_err);
+			set_term_astate(ast_sprn_error);
 		else if ((sprn_media != SPRN_MEDIA_BLANK) &&
 				(sprn_media != SPRN_MEDIA_BOTH))
 			set_term_astate(ast_sprn_ch_media);
 		else if (sprn_get_blank_number() != SPRN_RET_OK)
 			;
 		else if (sprn_status != 0)
-			set_term_astate(ast_sprn_err);
+			set_term_astate(ast_sprn_error);
 		else
 			need_beep = !input_chars(
 				make_ticket_number(sprn_blank_number),

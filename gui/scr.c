@@ -2032,7 +2032,7 @@ bool quick_astate(int ast)
 	switch (ast){
 		case ast_noxprn:
 		case ast_nosprn:
-		case ast_sprn_err:
+		case ast_sprn_error:
 		case ast_sprn_ch_media:
 		case ast_repeat:
 		case ast_illegal:
