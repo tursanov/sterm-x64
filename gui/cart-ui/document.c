@@ -33,15 +33,15 @@ const char *ui_doc_get_op(ui_subcart_t *sc, ui_doc_t *d, S *s)
 	
 	if (k->u.s)
 	{
-		return "…‡€‚…˜…… ……”Œ‹…ˆ…";
+		return "…‡€‚…˜. ……”Œ‹.";
 	}
 	else if (s->a == s->p)
 	{
-		return "…‡€‚…˜…… ……”Œ‹…ˆ…";
+		return "…‡€‚…˜. ……”Œ‹.";
 	}
 	else if (t == 'A')
 	{
-	    return d->val->k->m == 2 ? "’Œ…€ ‚‡‚€’€ € ‘—…’ ‹€’…‹œ™ˆŠ€" : "‹€’€ €‹ˆ—›…";
+	    return d->val->k->m == 2 ? "’Œ. ‚‡‚. € ‘—…’ ‹€’." : "‹€’€ €‹ˆ—›…";
 	}
 	else if (t == 'D' || t == 'E')
 	{
@@ -69,11 +69,11 @@ const char *ui_doc_get_op(ui_subcart_t *sc, ui_doc_t *d, S *s)
 	    {
     	    if (doc->related.count > 1 && k->n.s && !k->a_flag)
     	    {
-    	        return "‚›‹€’€ € Š€’“ ‹€’…‹œ™ˆŠ€";
+    	        return "‚›‹€’€ € Š€’“ ‹€’.";
     	    }
     	    else
     	    {
-    	        return "‚‡‚€’ € Š€’“ ‹€’…‹œ™ˆŠ€";
+    	        return "‚‡‚€’ € Š€’“ ‹€’.";
     	    }
 	    }
 	    else

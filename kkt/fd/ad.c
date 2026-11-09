@@ -959,6 +959,43 @@ bool C_is_same_inn(C *c, int64_t user_inn, char* phone, bool *is_same_inn)
     return true;
 }
 
+bool Ks_is_same_inn(list_t *klist, int64_t user_inn, char* phone, bool *is_same_inn)
+{
+    if (!klist->head)
+        return false;
+        
+    K *first_k = NULL;
+    for (list_item_t *i = klist->head; i; i = i->next) {
+        K *kk = LIST_ITEM(i, K);
+        if (kk->llist.head) { first_k = kk; break; }
+    }
+
+    if (!first_k)
+        return false;
+        
+    L *first_l = LIST_ITEM(first_k->llist.head, L);        
+    int64_t first_inn = first_l->i;
+
+    *is_same_inn = true;
+    bool phone_set = false;
+
+    for (list_item_t *li1 = klist->head; li1; li1 = li1->next) {
+        K *k = LIST_ITEM(li1, K);
+        for (list_item_t *li2 = k->llist.head; li2; li2 = li2->next) {
+            L *l = LIST_ITEM(li2, L);
+            if (l->i == user_inn) return false;
+            if (l->i != first_inn) *is_same_inn = false;
+            if (!phone_set) {
+                strcpy(phone, l->h ? l->h : "+70000000000");
+                phone_set = true;
+            }
+        }
+    }
+    if (!phone_set) strcpy(phone, "+70000000000");
+    return true;
+}
+
+
 K *AD_find_k_by_doc_no(int64_t doc_no) {
     if (!_ad) return NULL;
     for (list_item_t *li = _ad->clist.head; li; li = li->next) {

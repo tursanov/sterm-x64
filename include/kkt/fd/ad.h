@@ -166,6 +166,9 @@ extern int K_save(intptr_t fd, K *k);
 extern K *K_load_v1(int fd);
 extern K *K_load_v2(int fd);
 
+// Опрределение того, что у документов тот же самый ИНН
+bool Ks_is_same_inn(list_t *klist, int64_t user_inn, char* phone, bool *is_same_inn);
+
 // чек
 typedef struct C {
     list_t klist;	// список тэгов K

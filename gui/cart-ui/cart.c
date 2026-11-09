@@ -2187,7 +2187,7 @@ bool print_cheque(SubCart *sc, list_t *klist)
 	char phone[19+1];
 	bool is_same_agent;
 	bool attr = kkt_has_param("COMP1057WO1171");
-	if (C_is_same_inn(cheque, user_inn, agent_phone, &is_same_agent)) {
+	if (Ks_is_same_inn(klist, user_inn, agent_phone, &is_same_agent)) {
 		ffd_tlv_add_uint8(1057, 1 << 6);
 
 		if (!attr || is_same_agent) {
