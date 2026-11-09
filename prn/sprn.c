@@ -309,8 +309,8 @@ static void sprn_set_rcv_st(int st)
 /* Сброс буферов и таймаутов */
 static void sprn_reset(void)
 {
-	sprn_status = SPRN_STATUS_OK;
-/*	memset(sprn_number, 0x30, sizeof(sprn_number));
+/*	sprn_status = SPRN_STATUS_OK;
+	memset(sprn_number, 0x30, sizeof(sprn_number));
 	sprn_media = SPRN_MEDIA_UNKNOWN;*/
 	sprn_tx_len = sprn_sent_len = 0;
 	sprn_sent_cmd = SPRN_NUL;
@@ -614,8 +614,9 @@ static bool sprn_do_snd(void)
 				ret = false;
 			}
 		}else if (len > 0){
-			log_data_sprn("ТМ --> БПУ", sprn_tx + sprn_sent_len, len);
 			sprn_sent_len += len;
+			if (sprn_sent_len >= sprn_tx_len)
+				log_data_sprn("ТМ --> БПУ", sprn_tx, sprn_tx_len);
 		}
 	}
 	return ret;
@@ -1563,20 +1564,27 @@ int load_icon_sprn(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t
 		return ret;
 	static size_t start = 0;
 	if (first){
-		if (sprn_write_cmd(SPRN_ICON_LOAD))
-			start = sprn_tx_len;
-	}
-	write_icon_sprn(data, len, id, w, h, name);
-	if (last){
+		if (sprn_open_if_need()){
+			if (sprn_write_cmd(SPRN_ICON_LOAD)){
+				sprn_tx_len += sizeof(uint32_t);
+				start = sprn_tx_len;
+				ret = SPRN_RET_OK;
+			}
+		}
+	}else
+		ret = SPRN_RET_OK;
+	if (!write_icon_sprn(data, len, id, w, h, name))
+		ret = SPRN_RET_ERR;
+	if ((ret == SPRN_RET_OK) && last){
 		*(uint32_t *)(sprn_tx + sprn_tx_len) =
 			pic_crc32(sprn_tx + start, sprn_tx_len - start);
 		*(uint32_t *)(sprn_tx + start - sizeof(uint32_t)) = sprn_tx_len - start;
 		sprn_tx_len += sizeof(uint32_t);
 		log_dbg("Начинаем загрузку пиктограмм в ККТ...");
-		if (sprn_open_if_need()){
-				ret = sprn_wait_op(true);
-			sprn_close();
-		}
+		log_dbg("sprn_tx_len = %zu; sprn_sent_len = %zu; rcv_st = %s.",
+			sprn_tx_len, sprn_sent_len, sprn_get_rcv_st_str(rcv_st));
+		ret = sprn_wait_op(true);
+		sprn_close();
 	}
 	return ret;
 }
