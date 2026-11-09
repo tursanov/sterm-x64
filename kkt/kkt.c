@@ -1176,7 +1176,7 @@ uint8_t kkt_load_icon(const uint8_t *data, size_t len, uint8_t id, size_t w, siz
 			*(uint32_t *)(kkt_tx + kkt_tx_len) =
 				pic_crc32(kkt_tx + start, kkt_tx_len - start);
 			*(uint32_t *)(kkt_tx + start - sizeof(uint32_t)) = kkt_tx_len - start;
-					kkt_tx_len += sizeof(uint32_t);
+			kkt_tx_len += sizeof(uint32_t);
 			log_dbg("Начинаем загрузку пиктограмм в ККТ...");
 			if (kkt_open_dev_if_need()){
 				do_transaction(KKT_NUL, KKT_ICON_LOAD, NULL);

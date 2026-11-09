@@ -20,6 +20,8 @@ extern bool sync_icons_sprn(void);
 extern bool sync_icons_kkt(void);
 extern void on_response_icon(void);
 
+/* Обновление пиктограмм в БПУ */
+extern bool update_sprn_icons(void);
 /* Обновление пиктограмм в ККТ */
 extern bool update_kkt_icons(void);
 

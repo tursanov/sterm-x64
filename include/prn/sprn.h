@@ -291,6 +291,9 @@ extern int load_pic_vtsv(const uint8_t *data, size_t len, uint8_t nr, const char
 /* Запись разметки бланка в БПУ "СПЕКТР-ДС" */
 extern int load_grid_sprn(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
 	const char *name);
+/* Запись пиктограммы в БПУ "СПЕКТР-ДС" */
+extern int load_icon_sprn(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
+	const char *name, bool first, bool last);
 /* Стирание изображения из БПУ "Видеотон" */
 extern int erase_pic_vtsv(uint8_t nr);
 /* Стирание разметки бланка из БПУ "СПЕКТР-ДС" */

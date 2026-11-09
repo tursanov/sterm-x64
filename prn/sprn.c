@@ -1552,6 +1552,35 @@ int load_grid_sprn(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t
 	return ret;
 }
 
+/* Запись пиктограммы в БПУ "СПЕКТР-ДС" */
+int load_icon_sprn(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
+	const char *name, bool first, bool last)
+{
+	log_dbg("data = %p; len = %zu; id = %hhu; w = %zu, h = %zu; name = %s; first = %d; last = %d.",
+		data, len, id, w, h, name, first, last);
+	int ret = SPRN_RET_ERR;
+	if ((data == NULL) || (len == 0) || (name == NULL) || (sprn_get_type() != SPRN_SPECTRUM))
+		return ret;
+	static size_t start = 0;
+	if (first){
+		if (sprn_write_cmd(SPRN_ICON_LOAD))
+			start = sprn_tx_len;
+	}
+	write_icon_sprn(data, len, id, w, h, name);
+	if (last){
+		*(uint32_t *)(sprn_tx + sprn_tx_len) =
+			pic_crc32(sprn_tx + start, sprn_tx_len - start);
+		*(uint32_t *)(sprn_tx + start - sizeof(uint32_t)) = sprn_tx_len - start;
+		sprn_tx_len += sizeof(uint32_t);
+		log_dbg("Начинаем загрузку пиктограмм в ККТ...");
+		if (sprn_open_if_need()){
+				ret = sprn_wait_op(true);
+			sprn_close();
+		}
+	}
+	return ret;
+}
+
 /* Стирание изображения из БПУ "Видеотон" */
 int erase_pic_vtsv(uint8_t nr)
 {

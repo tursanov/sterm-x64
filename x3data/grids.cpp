@@ -138,12 +138,10 @@ bool GridInfo::parse(const uint8_t *data, size_t len)
 static list<GridInfo> grids_to_create_sprn;
 static list<GridInfo>::const_iterator grids_to_create_sprn_ptr = grids_to_create_sprn.cbegin();
 static list<GridInfo> grids_to_remove_sprn;
-static list<GridInfo> grids_failed_sprn;
 
 static list<GridInfo> grids_to_create_kkt;
 static list<GridInfo>::const_iterator grids_to_create_kkt_ptr = grids_to_create_kkt.cbegin();
 static list<GridInfo> grids_to_remove_kkt;
-static list<GridInfo> grids_failed_kkt;
 
 static void clr_grid_lists(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove)
 {
@@ -535,13 +533,11 @@ void on_response_grid(void)
 }
 
 /* Начало синхронизации разметок бланков с "Экспресс" */
-static bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove,
-	list<GridInfo> &grids_failed)
+static bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove)
 {
 	if (!need_grids_update())
 		return true;
 	size_t n = 0;
-	grids_failed.clear();
 	list<GridInfo> _grids_to_create, _grids_to_remove;
 /* Сначала удаляем старые разметки бланков */
 	for (const auto &p : grids_to_remove){
@@ -563,7 +559,7 @@ bool sync_grids_sprn()
 	if (need_grids_update_sprn()){
 		req_type = req_grid_sprn;
 		grids_to_create_sprn_ptr = grids_to_create_sprn.cbegin();
-		ret = sync_grids(grids_to_create_sprn, grids_to_remove_sprn, grids_failed_sprn);
+		ret = sync_grids(grids_to_create_sprn, grids_to_remove_sprn);
 	}else
 		ret = sync_grids_kkt();
 	return ret;
@@ -575,7 +571,7 @@ bool sync_grids_kkt()
 	if (need_grids_update_kkt()){
 		req_type = req_grid_kkt;
 		grids_to_create_kkt_ptr = grids_to_create_kkt.cbegin();
-		ret = sync_grids(grids_to_create_kkt, grids_to_remove_kkt, grids_failed_kkt);
+		ret = sync_grids(grids_to_create_kkt, grids_to_remove_kkt);
 	}else
 		ret = sync_icons_sprn();
 	return ret;
@@ -725,7 +721,7 @@ static bool erase_grid_from_sprn(const GridInfo &gi)
 static bool update_grids_vtsv(const list<GridInfo> &grids_to_erase,
 	const list<GridInfo> &grids_to_load)
 {
-	static char txt[64];
+	static char txt[MAX_TERM_ASTATE_LEN + 1];
 	size_t n = 1;
 /* Сначала удаляем ненужные разметки бланков из БПУ */
 	set_term_state(st_sprn_grids);
@@ -881,7 +877,7 @@ static bool write_grid_to_kkt(const GridInfo &gi)
 }
 
 /* Обновление разметок бланков в ККТ "СПЕКТР-Ф" */
-static bool update_grids_kkt(const list<GridInfo> &stored_grids, list<GridInfo> &grids_failed)
+static bool update_grids_kkt(const list<GridInfo> &stored_grids)
 {
 	static char txt[MAX_TERM_ASTATE_LEN + 1];
 /* Сначала удаляем все разметки бланков из ККТ */
@@ -900,8 +896,7 @@ static bool update_grids_kkt(const list<GridInfo> &stored_grids, list<GridInfo> 
 		snprintf(txt, sizeof(txt), "%s (%zu из %zu)",
 			p.name().c_str(), n++, stored_grids.size());
 		set_term_astate((intptr_t)txt);
-		if (!write_grid_to_kkt(p))
-			grids_failed.push_back(p);
+		write_grid_to_kkt(p);
 	}
 	kkt_end_batch_mode();
 	return true;
@@ -920,7 +915,7 @@ bool update_kkt_grids()
 	find_stored_grids_kkt(stored_grids);
 	check_kkt_grids(stored_grids, grids_to_load, grids_to_erase);
 	if (!grids_to_load.empty() || !grids_to_erase.empty()){
-		ret = update_grids_kkt(stored_grids, grids_failed_kkt);
+		ret = update_grids_kkt(stored_grids);
 		set_term_state(st_input);
 	}else
 		ret = true;

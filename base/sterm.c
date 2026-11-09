@@ -1112,6 +1112,7 @@ static void init_term(bool need_init)
 	apc = false;
 	init_devices();
 	update_sprn_grids();
+	update_sprn_icons();
 	update_kkt_grids();
 	update_kkt_icons();
 	if (cfg.use_iplir)
@@ -3710,6 +3711,8 @@ bool process_term(void)
 			x3data_sync_report_dlg();
 			if (need_grids_update_sprn())
 				update_sprn_grids();
+			if (need_icons_update_sprn())
+				update_sprn_icons();
 			if (need_grids_update_kkt())
 				update_kkt_grids();
 			if (need_icons_update_kkt())
