@@ -653,6 +653,18 @@ static void check_sprn_grids(const list<GridInfo> &stored_grids, list<GridInfo> 
 				[p](const GridInfo &gi) {return gi.id() == p.id();}) == stored_grids.cend())
 			grids_to_erase.push_back(p);
 	}
+	log_dbg("Количество разметок для загрузки: %zu; для удаления: %zu.",
+		grids_to_load.size(), grids_to_erase.size());
+	if (!grids_to_load.empty()){
+		log_dbg("Разметки для загрузки:");
+		for (const auto &p : grids_to_load)
+			log_dbg("> %.2hhu (0x%.2hhx): %s.", p.nr(), p.id(), p.name().c_str());
+	}
+	if (!grids_to_erase.empty()){
+		log_dbg("Разметки для удаления:");
+		for (const auto &p : grids_to_erase)
+			log_dbg("X %.2hhu (0x%.2hhx): %s.", p.nr(), p.id(), p.name().c_str());
+	}
 }
 
 /* Запись заданной разметки бланка в БПУ */
@@ -677,15 +689,14 @@ static bool write_grid_to_sprn(const GridInfo &gi)
 						w, h, name) == SPRN_RET_OK)
 					ret = true;
 				else
-					log_err("Ошибка загрузки разметки бланка %s в ККТ.", path);
+					log_err("Ошибка загрузки разметки бланка %s в БПУ.", path);
 			}else
 				log_err("Ошибка сжатия разметки бланка %s.", path);
 		}else if (sprn_type == SPRN_VIDEOTON){
-			if (load_pic_vtsv(data, len, gi.nr(), name, GRID_MIN_WIDTH, GRID_MAX_WIDTH,
-					GRID_MIN_HEIGHT, GRID_MAX_HEIGHT))
+			if (load_pic_vtsv(data, len, gi.nr(), w, h, name) == SPRN_RET_OK)
 				ret = true;
 			else
-				log_err("Ошибка загрузки разметки бланка %s в ККТ.", path);
+				log_err("Ошибка загрузки разметки бланка %s в БПУ.", path);
 		}else
 			log_err("Неизвестный тип БПУ: %d.", sprn_type);
 	}

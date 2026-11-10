@@ -95,14 +95,6 @@ static size_t vtsv_cur_pic_name_len = 0;
 /* Список изображений в БПУ ("Видеотон") верен */
 static bool vtsv_pic_lst_valid = false;
 
-const char *vtsv_get_pic_name(int n)
-{
-	const char *ret = NULL;
-	if ((sprn_get_type() == SPRN_VIDEOTON) && vtsv_pic_lst_valid && (n < ASIZE(vtsv_pic_lst)))
-		ret = vtsv_pic_lst[n];
-	return ret;
-}
-
 static void vtsv_reset_pic_lst(void)
 {
 	memset(vtsv_pic_lst, 0, sizeof(vtsv_pic_lst));
@@ -426,68 +418,14 @@ static inline bool is_pic_nr_valid(uint8_t nr)
 	return (nr > 0) && (nr < 37);
 }
 
-/* Проверка изображения для БПУ "Видеотон" */
-static bool check_pic_vtsv(const uint8_t *data, size_t len, size_t min_w, size_t max_w,
-	size_t min_h, size_t max_h, bool *inverted)
-{
-	bool ret = false;
-	BITMAPFILEHEADER *hdr = (BITMAPFILEHEADER *)data;
-	BITMAPINFO *bmi = (BITMAPINFO *)(hdr + 1);
-	if ((data == NULL) || (len == 0) || (len > sizeof(sprn_tx)))
-		log_err("Неверный аргумент.");
-	else if (hdr->bfType != 0x4d42)
-		log_err("Неверный тип файла (0x%.4hx)", hdr->bfType);
-	else if (hdr->bfSize > sizeof(sprn_tx))
-		log_err("Размер данных (%u) превышает максимально допустимый (%zu).",
-			hdr->bfSize, sizeof(sprn_tx));
-	else if (hdr->bfSize != len)
-		log_err("Длина данных в заголовке (%u) не равна фактической (%zu).",
-			hdr->bfSize, len);
-	else if (bmi->bmiHeader.biWidth < (int32_t)min_w)
-		log_err("Ширина изображения (%d) меньше допустимой (%zu).",
-			bmi->bmiHeader.biWidth, min_w);
-	else if (bmi->bmiHeader.biWidth > (int32_t)max_w)
-		log_err("Ширина изображения (%d) превышает максимально допустимую (%zu).",
-			bmi->bmiHeader.biWidth, max_w);
-	else if ((bmi->bmiHeader.biWidth % 32) != 0)
-		log_err("Ширина изображения (%d) не кратна 32.", bmi->bmiHeader.biWidth);
-	else if (bmi->bmiHeader.biHeight < (int32_t)min_h)
-		log_err("Высота изображения (%d) меньше допустимой (%zu).",
-			bmi->bmiHeader.biHeight, min_h);
-	else if (abs(bmi->bmiHeader.biHeight) > (int32_t)max_h)
-		log_err("Высота изображения (%d) превышает максимально допустимую (%zu).",
-			bmi->bmiHeader.biHeight, max_h);
-	else if ((bmi->bmiHeader.biHeight % 8) != 0)
-		log_err("Высота изображения (%d) не кратна 8.", bmi->bmiHeader.biHeight);
-	else if (bmi->bmiHeader.biBitCount != 1)
-		log_err("Изображение не монохромное (%hu bpc).", bmi->bmiHeader.biBitCount);
-	else if (bmi->bmiHeader.biCompression != BI_RGB)
-		log_err("Ожидается несжатое изображение.");
-	else if ((bmi->bmiHeader.biSizeImage != 0) &&
-			(bmi->bmiHeader.biSizeImage != (len - hdr->bfOffBits)))
-		log_err("Неверный размер изображения в заголовке (%u).",
-			bmi->bmiHeader.biSizeImage);
-	else
-		ret = true;
-	if (ret){
-		*inverted = (bmi->bmiColors[0].rgbRed == 0) && (bmi->bmiColors[0].rgbGreen == 0) &&
-			(bmi->bmiColors[0].rgbBlue == 0);
-		log_dbg("inverted = %d.", *inverted);
-	}
-	return ret;
-}
-
 /* Запись в буфер передачи изображения для БПУ "Видеотон" */
-static bool write_pic_vtsv(const uint8_t *data, size_t len, uint8_t nr, const char *name,
-	size_t min_w, size_t max_w, size_t min_h, size_t max_h)
+static bool write_pic_vtsv(const uint8_t *data, size_t len, uint8_t nr, size_t w, size_t h,
+	const char *name)
 {
-	log_dbg("data = %p; len = %zu; nr = %hhu; name = %s; min_w = %zu, max_w = %zu; min_h = %zu; max_h = %zu.",
-		data, len, nr, name, min_w, max_w, min_h, max_h);
+	log_dbg("data = %p; len = %zu; nr = %hhu; w = %zu; h = %zu; name = %s.",
+		data, len, nr, w, h, name);
 	size_t name_len = strlen(name);
-	bool inverted = false;
-	if (!check_pic_vtsv(data, len, min_w, max_w, min_h, max_h, &inverted) || (name_len == 0))
-		return false;
-	else if ((nr <= SPRN_MAX_GRIDS) && !is_pic_nr_valid(nr)){
+	if ((nr <= SPRN_MAX_GRIDS) && !is_pic_nr_valid(nr)){
 		log_err("Неверный номер разметки бланка (%hhu).", nr);
 		return false;
 	}else if ((nr > SPRN_MAX_GRIDS) && !is_pic_nr_valid(nr - SPRN_MAX_GRIDS)){
@@ -500,27 +438,18 @@ static bool write_pic_vtsv(const uint8_t *data, size_t len, uint8_t nr, const ch
 	if (nr > 10)
 		nr += 7;
 	sprn_tx[sprn_tx_len++] = nr;
-	BITMAPFILEHEADER *hdr = (BITMAPFILEHEADER *)data;
-	BITMAPINFO *bmi = (BITMAPINFO *)(hdr + 1);
-	write_uint(sprn_tx + sprn_tx_len, bmi->bmiHeader.biWidth / 8, 3);
+	write_uint(sprn_tx + sprn_tx_len, w / 8, 3);
 	sprn_tx_len += 3;
-	write_uint(sprn_tx + sprn_tx_len, abs(bmi->bmiHeader.biHeight) / 8, 3);
+	write_uint(sprn_tx + sprn_tx_len, h / 8, 3);
 	sprn_tx_len += 3;
 	sprn_tx[sprn_tx_len++] = 0x22;	/* " */
 	memcpy(sprn_tx + sprn_tx_len, name, name_len);
 	sprn_tx_len += name_len;
 	sprn_tx[sprn_tx_len++] = 0x22;	/* " */
-	size_t ln_cb = bmi->bmiHeader.biWidth / 8;
-	if ((sprn_tx_len + abs(bmi->bmiHeader.biHeight) * ln_cb) > sizeof(sprn_tx))
+	if ((sprn_tx_len + len) > sizeof(sprn_tx))
 		return false;
-	uint32_t offs = hdr->bfOffBits + (abs(bmi->bmiHeader.biHeight) - 1) * ln_cb;
-	for (int i = 0; i < abs(bmi->bmiHeader.biHeight); i++, offs -= ln_cb, sprn_tx_len += ln_cb){
-		memcpy(sprn_tx + sprn_tx_len, data + offs, ln_cb);
-		if (inverted){
-			for (uint32_t j = 0; j < ln_cb; j++)
-				sprn_tx[sprn_tx_len + j] ^= 0xff;
-		}
-	}
+	memcpy(sprn_tx + sprn_tx_len, data, len);
+	sprn_tx_len += len;
 	log_dbg("Изображение записано в буфер передачи.");
 	return true;
 }
@@ -1512,16 +1441,16 @@ int sprn_get_icon_lst(uint8_t *data, size_t *len)
 }
 
 /* Запись изображения в БПУ "Видеотон" */
-int load_pic_vtsv(const uint8_t *data, size_t len, uint8_t nr, const char *name,
-	size_t min_w, size_t max_w, size_t min_h, size_t max_h)
+int load_pic_vtsv(const uint8_t *data, size_t len, uint8_t nr, size_t w, size_t h,
+	const char *name)
 {
-	log_dbg("data = %p; len = %zu; nr = %hhu; name = %s; min_w = %zu, max_w = %zu; min_h = %zu; max_h = %zu.",
-		data, len, nr, name, min_w, max_w, min_h, max_h);
+	log_dbg("data = %p; len = %zu; nr = %hhu; w = %zu; h = %zu, name = %s.",
+		data, len, nr, w, h, name);
 	int ret = SPRN_RET_ERR;
 	if ((data == NULL) || (len == 0) || (name == NULL) || (sprn_get_type() != SPRN_VIDEOTON))
 		return ret;
 	if (sprn_open_if_need()){
-		if (write_pic_vtsv(data, len, nr, name, min_w, max_w, min_h, max_h))
+		if (write_pic_vtsv(data, len, nr, w, h, name))
 			ret = sprn_wait_op(true);
 		sprn_close();
 	}

@@ -25,8 +25,6 @@ enum {
 extern int sprn_get_type(void);
 extern void sprn_clr_type(void);
 
-extern const char *vtsv_get_pic_name(int n);
-
 /* Статус БПУ */
 extern uint8_t sprn_status;
 /* Длина заводского номера БПУ */
@@ -284,8 +282,8 @@ extern int sprn_get_grid_lst(uint8_t *data, size_t *len);
 /* Получение списка пиктограмм из БПУ */
 extern int sprn_get_icon_lst(uint8_t *data, size_t *len);
 /* Запись изображения в БПУ "Видеотон" */
-extern int load_pic_vtsv(const uint8_t *data, size_t len, uint8_t nr, const char *name,
-	size_t min_w, size_t max_w, size_t min_h, size_t max_h);
+extern int load_pic_vtsv(const uint8_t *data, size_t len, uint8_t nr, size_t w, size_t h,
+	const char *name);
 /* Запись разметки бланка в БПУ "СПЕКТР-ДС" */
 extern int load_grid_sprn(const uint8_t *data, size_t len, uint8_t id, size_t w, size_t h,
 	const char *name);

@@ -617,6 +617,18 @@ static void check_sprn_icons(const list<IconInfo> &stored_icons, list<IconInfo> 
 				[p](const IconInfo &ii) {return ii.id() == p.id();}) == stored_icons.cend())
 			icons_to_erase.push_back(p);
 	}
+	log_dbg("Количество пиктограмм для загрузки: %zu; для удаления: %zu.",
+		icons_to_load.size(), icons_to_erase.size());
+	if (!icons_to_load.empty()){
+		log_dbg("Пиктограммы для загрузки:");
+		for (const auto &p : icons_to_load)
+			log_dbg("> %.2hhu (0x%.2hhx): %s.", p.nr(), p.id(), p.name().c_str());
+	}
+	if (!icons_to_erase.empty()){
+		log_dbg("Пиктограммы для удаления:");
+		for (const auto &p : icons_to_erase)
+			log_dbg("X %.2hhu (0x%.2hhx): %s.", p.nr(), p.id(), p.name().c_str());
+	}
 }
 
 /* Запись заданной пиктограммы в БПУ */
@@ -641,8 +653,7 @@ static bool write_icon_to_sprn(const IconInfo &ii, bool first, bool last)
 			else
 				log_err("Ошибка загрузки пиктограммы %s в БПУ.", path);
 		}else if (sprn_type == SPRN_VIDEOTON){
-			if (load_pic_vtsv(data, len, ii.nr(), name, ICON_MIN_WIDTH, ICON_MAX_WIDTH,
-					ICON_MIN_HEIGHT, ICON_MAX_HEIGHT))
+			if (load_pic_vtsv(data, len, ii.nr() + SPRN_MAX_GRIDS, w, h, name) == SPRN_RET_OK)
 				ret = true;
 			else
 				log_err("Ошибка загрузки пиктограммы %s в БПУ.", path);
@@ -660,7 +671,7 @@ static bool erase_icon_from_sprn(const IconInfo &ii)
 		return false;
 	bool ret = false;
 	if (sprn_type == SPRN_VIDEOTON){
-		if (erase_pic_vtsv(ii.nr()) == SPRN_RET_OK){
+		if (erase_pic_vtsv(ii.nr() + SPRN_MAX_GRIDS) == SPRN_RET_OK){
 			log_dbg("Пиктограмма %hhu удалена из БПУ \"Видеотон\".", ii.nr());
 			ret = true;
 		}else
