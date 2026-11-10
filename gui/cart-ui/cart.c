@@ -899,8 +899,8 @@ void ui_cart_process_space(bool ctrl)
     
     ui_doc_t *d = &sc->docs[sc->tab_selected_doc];
     
-    if (cart_toggle_document(sc, d, ctrl))
-        ui_cart_redraw_all();
+    cart_toggle_document(sc, d, ctrl);
+    ui_cart_redraw_all();
 }
 
 
@@ -1514,7 +1514,7 @@ static bool show_phone_or_email_dialog(char *value, size_t value_size,
 {
     const char *ok_text = "Далее";
 
-    static const char *apply_items[] = { "Применить к текущим выбранным документам", "Применить ко всем документам текущей корзины" };
+    static const char *apply_items[] = { "Применить к текущим выбранным документам", "Применить ко всем документам текущей подкорзины" };
     size_t apply_items_count = 2;
     char apply_value[64];
     
@@ -1604,16 +1604,34 @@ static bool show_phone_or_email_dialog(char *value, size_t value_size,
  * Возвращает false, если пользователь отказался от ввода ? тогда
  * вызывающий код должен прекратить обработку.
  */
-static bool cart_set_phone_or_email(SubCart *sc)
+static bool cart_set_phone_or_email(selected_docs_t *sd)
 {
-    if (sc == NULL || sc->c == NULL)
+    if (sd == NULL || sd->sc == NULL)
         return false;
 
-    /* Уже установлено ? не спрашиваем повторно. */
-    if (sc->c->pe != NULL && sc->c->pe[0] != 0)
+    if (sd->klist.count == 0)
+        return true;   /* нечего устанавливать */
+
+    SubCart *sc = sd->sc->val;
+
+    /*
+     * Если у ВСЕХ выбранных K уже есть одинаковый pe (в т.ч. пустая
+     * строка как маркер спрашивали, доставки нет), не показываем
+     * диалог повторно.
+     */
+    bool all_same = true;
+    bool first    = true;
+    const char *first_pe = NULL;
+    for (list_item_t *li = sd->klist.head; li; li = li->next) {
+        K *k = LIST_ITEM(li, K);
+        if (k->pe == NULL) { all_same = false; break; }
+        if (first) { first_pe = k->pe; first = false; }
+        else if (strcmp(first_pe, k->pe) != 0) { all_same = false; break; }
+    }
+    if (all_same)
         return true;
 
-    /* --- Собираем варианты --- */
+    /* --- Собираем варианты для autocomplete --- */
     int phone_count = (int)_ad->phones.count;
     int email_count = (int)_ad->emails.count;
     int total = phone_count + email_count;
@@ -1629,11 +1647,16 @@ static bool cart_set_phone_or_email(SubCart *sc)
         }
     }
 
+    /* Начальное значение  первый непустой pe из выбранных */
     char value[128];
     value[0] = 0;
-    if (sc->c->pe) {
-        strncpy(value, sc->c->pe, sizeof(value) - 1);
-        value[sizeof(value) - 1] = 0;
+    for (list_item_t *li = sd->klist.head; li; li = li->next) {
+        K *k = LIST_ITEM(li, K);
+        if (k->pe && k->pe[0]) {
+            strncpy(value, k->pe, sizeof(value) - 1);
+            value[sizeof(value) - 1] = 0;
+            break;
+        }
     }
 
     bool do_for_all = false;
@@ -1643,51 +1666,73 @@ static bool cart_set_phone_or_email(SubCart *sc)
 
     free(variants);
 
+    /* Отмена  прервать операцию, ничего не менять. */
     if (!ok)
         return false;
 
-    /* --- Применяем --- */
+    /* "" и "none"  отказ от электронной доставки (тег 1008 не пишем). */
+    bool no_delivery = (value[0] == 0 || strcmp(value, "none") == 0);
+    const char *stored = no_delivery ? "" : value;
+
     if (do_for_all) {
-        for (list_item_t *li = _ad->clist.head; li; li = li->next) {
-            C *c = LIST_ITEM(li, C);
-            if (c->pe) free(c->pe);
-            c->pe = strdup(value);
+        /* Все K текущей подкорзины: обходим документы подкорзины
+         * и в каждом  все связанные K. */
+        for (list_item_t *li = sc->documents.head; li; li = li->next) {
+            D *d = LIST_ITEM(li, D);
+            for (list_item_t *lj = d->related.head; lj; lj = lj->next) {
+                K *k = LIST_ITEM(lj, K);
+                if (k->pe) free(k->pe);
+                k->pe = strdup(stored);
+            }
         }
     } else {
-        if (sc->c->pe) free(sc->c->pe);
-        sc->c->pe = strdup(value);
-    }
-
-    /* --- Сохраняем в справочники для следующих вызовов --- */
-    if (value[0] != 0 && strcmp(value, "none") != 0) {
-        if (value[0] == '+') {
-            string_array_add(&_ad->phones, value, true, 0);
-        } else {
-            string_array_add(&_ad->emails, value, true, 1);
+        /* Только выбранные K (для печати или банковской операции). */
+        for (list_item_t *li = sd->klist.head; li; li = li->next) {
+            K *k = LIST_ITEM(li, K);
+            if (k->pe) free(k->pe);
+            k->pe = strdup(stored);
         }
     }
 
-    AD_save();
+    /* Пополняем справочник реальными адресами (для autocomplete). */
+    if (!no_delivery) {
+        if (value[0] == '+')
+            string_array_add(&_ad->phones, value, true, 0);
+        else
+            string_array_add(&_ad->emails, value, true, 1);
+        AD_save();
+    }
+
     return true;
 }
 
 void process_non_cash_items(selected_docs_t *sd)
 {
     printf("process_non_cash_items start\n");
+    
+    if (!can_show_pos())
+    {
+        message_box("Ошибка", "Для выполнения банковской операции необходимо отправить 2 запроса в АСУ Экспресс.", dlg_yes, 0, al_center);
+        ui_cart_redraw_all();
+        return;
+    }
+    
 
     if (get_unprocessed_non_cash_annulment_invoice())
     {
         message_box("Ошибка",
             "НЕ ВСЕ НОМЕРА ДОКУМЕНТОВ БЛИ ПОГАШЕН. ПОГАСИТЕ ДОКУМЕНТ И ПОВТОРИТЕ ОПЕРАЦИЮ",
             dlg_yes, 0, al_center);
+        ui_cart_redraw_all();
         return;
     }
     
     /* Как cart1.SetPhoneNumberOrEmail(subCart) в C# ? перед
      * банковской операцией для нон-кеш подкорзин. */
-    if (!cart_set_phone_or_email(sd->sc->val)) {
+    if (!cart_set_phone_or_email(sd)) {
         fprintf(stderr,
             "process_non_cash_items: пользователь отменил ввод email/phone\n");
+        ui_cart_redraw_all();
         return;
     }    
     
@@ -1751,7 +1796,7 @@ void process_non_cash_items(selected_docs_t *sd)
     
     if (resp == NULL)
     {
-        message_box("Ошибка", "ИПТ не подключен или не отвечает", dlg_yes, 0, al_center);
+        message_box("Ошибка", "Ошибка при работе с ИПТ. Проверьте подключение ИПТ.", dlg_yes, 0, al_center);
         ui_cart_redraw_all();
         return;
     }
@@ -1843,6 +1888,38 @@ void process_docs()
     {
         printf("process_docs: process_non_cash_items\n");
         process_non_cash_items(&sd);
+
+        /*
+         * После успешной оплаты по карте  сразу печатаем чек.
+         * Аналог autoProcess в Cart.SelectDocuments (C#).
+         *
+         * Проверяем, что после вызова POS все K выделенных
+         * D перешли в BANK_STATE_SUCCESS. Только тогда печатаем:
+         *   - POS_QUERY_CHECK_SBP  оставляет bank_state = NONE
+         *     (это проверка СБП, а не оплата);
+         *   - POS_QUERY_INCOMPLETED  оставляет исходный 0xa3/0xa4/0xa5;
+         *   - ошибка  bank_state сбрасывается в NONE.
+         * Во всех этих случаях all_success = false, печати не будет.
+         *
+         * sd.klist_by_p[0..1] уже собран в get_selected_docs();
+         * process_print_docs разделит по p и распечатает
+         * (если K-группа из разных p-значений).
+         */
+        if (sd.klist.count > 0 && !current_cheque_active()) {
+            bool all_success = true;
+            for (list_item_t *li = sd.klist.head; li; li = li->next) {
+                K *k = LIST_ITEM(li, K);
+                if (k->bank_state != BANK_STATE_SUCCESS) {
+                    all_success = false;
+                    break;
+                }
+            }
+            if (all_success) {
+                printf("process_docs: auto print after bank success\n");
+                process_print_docs(&sd);
+                ui_cart_redraw_all();
+            }
+        }
     }
     else
     {
@@ -2023,7 +2100,6 @@ void process_print_docs(selected_docs_t* sd)
         return;
     }
 
-    ui_subcart_t *sc = ui_sel_subcart;
 
     /* Как в C#  спрашиваем email/phone перед печатью, но только
      * если среди выделенных документов есть не прошедшие банк
@@ -2038,7 +2114,7 @@ void process_print_docs(selected_docs_t* sd)
     }
 
     if (any_bank_none) {
-        if (!cart_set_phone_or_email(sc->val)) {
+        if (!cart_set_phone_or_email(sd)) {
             fprintf(stderr,
                 "process_print_docs: пользователь отменил ввод email/phone\n");
             return;
@@ -2163,8 +2239,8 @@ bool print_cheque(SubCart *sc, list_t *klist)
     K_list_calc_sum(klist, &sum);
     
     C *cheque = sc->c;
-    
-    bool has_email_or_phone = (cheque->pe != NULL && cheque->pe[0] != 0);
+    const char *buyer_pe = klist_get_pe(klist);
+    bool has_email_or_phone = (buyer_pe != NULL && buyer_pe[0] != 0);
     
 	ffd_tlv_reset();
 
@@ -2175,8 +2251,9 @@ bool print_cheque(SubCart *sc, list_t *klist)
 		ffd_tlv_add_fixed_string(1203, cashier_inn, 12);
 	ffd_tlv_add_uint8(1054, cheque->t1054);
 	ffd_tlv_add_uint8(1055, cheque->t1055);
-	if (has_email_or_phone)
-		ffd_tlv_add_string(1008, cheque->pe);
+    if (has_email_or_phone) {
+        ffd_tlv_add_string(1008, buyer_pe);
+    }
 	ffd_tlv_add_vln(1031, (uint64_t)sum.n);
 	ffd_tlv_add_vln(1081, (uint64_t)sum.e);
 	ffd_tlv_add_vln(1215, (uint64_t)sum.p);

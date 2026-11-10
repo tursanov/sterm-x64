@@ -121,6 +121,7 @@ typedef struct K {
 	uint8_t v; 			// вид деятельности (1 - основной, 2 - прочие)
 	time_t dt;			// дата и время добавления документа
 	char *bank_dt;      // дата и время начала операции в ИПТ
+	char *pe;           // телефон или email
 } K;
 
 // проверка банковского абзаца на соответствие операции и возврата
@@ -168,6 +169,9 @@ extern K *K_load_v2(int fd);
 
 // Опрределение того, что у документов тот же самый ИНН
 bool Ks_is_same_inn(list_t *klist, int64_t user_inn, char* phone, bool *is_same_inn);
+
+// Получение email или телефона для klist
+const char *klist_get_pe(list_t *klist);
 
 // чек
 typedef struct C {

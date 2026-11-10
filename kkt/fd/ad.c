@@ -357,6 +357,11 @@ void K_destroy(K *k) {
     {
         free(k->bank_dt);
     }
+    
+    if (k->pe) {          /* NEW */
+        free(k->pe);
+        k->pe = NULL;
+    }
 
 	free(k);
 }
@@ -410,6 +415,7 @@ K *K_clone(K *k, bool clone_l)
 	k1->v = k->v;
 	k1->dt = k->dt;
 	k1->bank_dt = COPYSTR(k->bank_dt);
+    k1->pe      = COPYSTR(k->pe);   /* NEW */
 
 	if (clone_l)
 	{
@@ -713,6 +719,27 @@ K *K_load_v2(int fd) {
     K_after_add(k);
     return k;
 }
+
+/*
+ * Аналог SubCart.GetPhoneOrEMail(K[] ks) в C#:
+ * возвращает общий pe, если у всех K одинаковый, иначе NULL.
+ * NULL  печатать без тега 1008.
+ */
+const char *klist_get_pe(list_t *klist) {
+    const char *result = NULL;
+    bool first = true;
+    for (list_item_t *li = klist->head; li; li = li->next) {
+        K *k = LIST_ITEM(li, K);
+        if (first) {
+            result = k->pe;
+            first = false;
+        } else if (strcmp2(result, k->pe) != 0) {
+            return NULL;
+        }
+    }
+    return result;
+}
+
 
 void set_k_s(char s, K* k, K* k1, K* k2)
 {
