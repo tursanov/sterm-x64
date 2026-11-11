@@ -2451,6 +2451,27 @@ static int cart_group_count_in_sc(ui_subcart_t *sc, list_t *group)
 }
 
 /*
+ * true, если с D нельзя снимать выделение: хотя бы один связанный K
+ * уже обработан банком (bank_state == SUCCESS) и ждёт печати.
+ *
+ * Проверяем именно related (а не только d->k), потому что печать
+ * в process_print_docs/print_cheque идёт по d->related: если хоть
+ * один K из related оплачен, вся группа D подлежит печати.
+ */
+static bool doc_is_locked_for_deselect(D *d)
+{
+    if (d == NULL)
+        return false;
+
+    for (list_item_t *li = d->related.head; li; li = li->next) {
+        K *k = LIST_ITEM(li, K);
+        if (k->bank_state == BANK_STATE_SUCCESS)
+            return true;
+    }
+    return false;
+}
+
+/*
  * Установить selected = value для всех членов group, КОТОРЫЕ НАХОДЯТСЯ
  * в этой подкорзине sc. Члены группы из других подкорзин не трогаем.
  *
@@ -2468,6 +2489,11 @@ static void cart_set_group_selected(ui_subcart_t *sc, list_t *group, bool value)
         D *v = sc->docs[j].val;
         for (list_item_t *li = group->head; li; li = li->next) {
             if (li->obj == v) {
+                /* Обработанные и ждущие печати документы
+                 * нельзя снимать с выделения, иначе они выпадут
+                 * из sd->klist и не будут напечатаны. */
+                if (!value && doc_is_locked_for_deselect(v))
+                    break;
                 sc->docs[j].selected = value;
                 break;
             }
@@ -2479,29 +2505,30 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
 {
     if (sc == NULL || doc == NULL || ui_cart == NULL)
         return false;
-        
+
     /*
      * Пока есть чек с ошибкой формирования (_ad->current.active),
      * блокируем изменение выделения во всех подкорзинах.
-     * Документы этого чека уже помечены PRINTING и выделены
-     * в ui_cart_select_documents(); они обрабатываются только через
-     * пункт меню "Чек с ошибкой формирования".
      */
     if (current_cheque_active())
         return false;
-        
 
     char type = sc->val->type;
 
     /* ============================================================
-     * Ctrl+Space ? групповые операции по подкорзине.
+     * Ctrl+Space  групповые операции по подкорзине.
      * ============================================================ */
     if (ctrl) {
-        /* Если что-то уже выделено ? снять всё в подкорзине. */
+        /*
+         * Если кликнутый документ выделен  снять всё в подкорзине,
+         * КРОМЕ заблокированных (bank_state == SUCCESS).
+         * Заблокированные остаются выделенными, потому что ждут печати.
+         */
         if (doc->selected) {
             bool changed = false;
             for (int i = 0; i < sc->doc_count; i++) {
-                if (sc->docs[i].selected) {
+                if (sc->docs[i].selected
+                    && !doc_is_locked_for_deselect(sc->docs[i].val)) {
                     sc->docs[i].selected = false;
                     changed = true;
                 }
@@ -2510,7 +2537,7 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
         }
 
         /* C/G: только одна квитанция. Ctrl+Space = выделить всё по
-         * квитанции первого документа. */
+         * квитанции первого документа. Только установка, без снятия. */
         if (type == CANCEL_NON_CASH_ITEMS || type == CANCEL_REFUND_NON_CASH_ITEMS) {
             int inv = doc->val->k->c;
             if (inv == 0) {
@@ -2530,7 +2557,7 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
             return changed;
         }
 
-        /* F: только в пределах одного вида (ОСН/ПВД). */
+        /* F: только в пределах одного вида (ОСН/ПВД). Установка. */
         if (type == REFUND_NON_CASH_ITEMS) {
             int v = doc->val->k->v;
             bool changed = false;
@@ -2544,7 +2571,8 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
             return changed;
         }
 
-        /* D/E: до лимита MAX_DOCS, группу  в пределах подкорзины. */
+        /* D/E: до лимита MAX_DOCS, группу  целиком (в пределах sc).
+         * Установка, лимит считаем по числу членов группы в sc. */
         if (type == NON_CASH_ITEMS || type == FAST_PAYMENT_ITEMS) {
             int checked = 0;
             for (int i = 0; i < sc->doc_count; i++)
@@ -2566,7 +2594,7 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
                     break;
 
                 if (d->val->group && d->val->group->count > 0) {
-                    cart_set_group_selected(sc, d->val->group, true);   /*  sc */
+                    cart_set_group_selected(sc, d->val->group, true);
                     checked = 0;
                     for (int j = 0; j < sc->doc_count; j++)
                         if (sc->docs[j].selected) checked++;
@@ -2579,7 +2607,7 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
             return changed;
         }
 
-        /* A, B, H, I ? без ограничений. */
+        /* A, B, H, I  без ограничений. Установка. */
         bool changed = false;
         for (int i = 0; i < sc->doc_count; i++) {
             if (!sc->docs[i].selected) {
@@ -2603,7 +2631,9 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
                 dlg_yes, 0, al_center);
             return false;
         }
+
         if (!doc->selected) {
+            /* Выделение: проверка, что не смешиваем квитанции. */
             for (int i = 0; i < sc->doc_count; i++) {
                 ui_doc_t *d = &sc->docs[i];
                 if (d->selected && d->val->k->c != inv) {
@@ -2614,17 +2644,40 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
                     return false;
                 }
             }
+            /* Выделяем все в этой квитанции. */
+            for (int i = 0; i < sc->doc_count; i++) {
+                ui_doc_t *d = &sc->docs[i];
+                if (d->val->k->c == inv)
+                    d->selected = true;
+            }
+            return true;
         }
-        bool new_val = !doc->selected;
+
+        /*
+         * Снятие. Если КЛИКНУТЫЙ документ заблокирован  сообщаем
+         * и не трогаем ничего. Иначе снимаем только с незаблокированных
+         * в этой квитанции (заблокированные остаются выделенными).
+         */
+        if (doc_is_locked_for_deselect(doc->val)) {
+            message_box("Предупреждение",
+                "Документ уже обработан и подлежит печати.\n"
+                "Снять с него выделение нельзя, пока он не будет напечатан.",
+                dlg_yes, 0, al_center);
+            return false;
+        }
+        bool changed = false;
         for (int i = 0; i < sc->doc_count; i++) {
             ui_doc_t *d = &sc->docs[i];
-            if (d->val->k->c == inv)
-                d->selected = new_val;
+            if (d->val->k->c != inv) continue;
+            if (!d->selected) continue;
+            if (doc_is_locked_for_deselect(d->val)) continue;
+            d->selected = false;
+            changed = true;
         }
-        return true;
+        return changed;
     }
 
-    /* --- F: не смешивать ОСН и ПВД; группа  в пределах подкорзины. --- */
+    /* --- F: не смешивать ОСН и ПВД; группа  в пределах sc. --- */
     if (type == REFUND_NON_CASH_ITEMS) {
         if (!doc->selected) {
             int v = doc->val->k->v;
@@ -2651,16 +2704,30 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
                     }
                 }
             }
+
+            if (doc->val->group && doc->val->group->count > 0)
+                cart_set_group_selected(sc, doc->val->group, true);
+            else
+                doc->selected = true;
+            return true;
         }
-        bool new_val = !doc->selected;
+
+        /* Снятие: проверка блокировки. */
+        if (doc_is_locked_for_deselect(doc->val)) {
+            message_box("Предупреждение",
+                "Документ уже обработан и подлежит печати.\n"
+                "Снять с него выделение нельзя, пока он не будет напечатан.",
+                dlg_yes, 0, al_center);
+            return false;
+        }
         if (doc->val->group && doc->val->group->count > 0)
-            cart_set_group_selected(sc, doc->val->group, new_val);   /*  sc */
+            cart_set_group_selected(sc, doc->val->group, false);
         else
-            doc->selected = new_val;
+            doc->selected = false;
         return true;
     }
 
-    /* --- D, E: лимит 35, группа  в пределах подкорзины. --- */
+    /* --- D, E: лимит 35, группа  в пределах sc. --- */
     if (type == NON_CASH_ITEMS || type == FAST_PAYMENT_ITEMS) {
         if (!doc->selected) {
             int delta;
@@ -2682,19 +2749,36 @@ static bool cart_toggle_document(ui_subcart_t *sc, ui_doc_t *doc, bool ctrl)
                 return false;
             }
             if (doc->val->group && doc->val->group->count > 0)
-                cart_set_group_selected(sc, doc->val->group, true);   /*  sc */
+                cart_set_group_selected(sc, doc->val->group, true);
             else
                 doc->selected = true;
-        } else {
-            if (doc->val->group && doc->val->group->count > 0)
-                cart_set_group_selected(sc, doc->val->group, false);  /*  sc */
-            else
-                doc->selected = false;
+            return true;
         }
+
+        /* Снятие: проверка блокировки. */
+        if (doc_is_locked_for_deselect(doc->val)) {
+            message_box("Предупреждение",
+                "Документ уже обработан и подлежит печати.\n"
+                "Снять с него выделение нельзя, пока он не будет напечатан.",
+                dlg_yes, 0, al_center);
+            return false;
+        }
+        if (doc->val->group && doc->val->group->count > 0)
+            cart_set_group_selected(sc, doc->val->group, false);
+        else
+            doc->selected = false;
         return true;
     }
 
-    /* --- A, B, H, I ? без ограничений. --- */
+    /* --- A, B, H, I  без ограничений по выбору,
+     * но с запретом снимать выделение с обработанных. --- */
+    if (doc->selected && doc_is_locked_for_deselect(doc->val)) {
+        message_box("Предупреждение",
+            "Документ уже обработан и подлежит печати.\n"
+            "Снять с него выделение нельзя, пока он не будет напечатан.",
+            dlg_yes, 0, al_center);
+        return false;
+    }
     doc->selected = !doc->selected;
     return true;
 }

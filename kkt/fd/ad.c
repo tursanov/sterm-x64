@@ -1915,7 +1915,7 @@ int AD_load(uint8_t t1055, bool clear) {
 	
 	s_close(fd);
 
-//	AD_print(stdout);
+	//AD_print(stdout);
 
     return ret;
 }
@@ -2083,8 +2083,8 @@ C* AD_getCheque(K *k, uint8_t t1054, uint8_t t1055) {
 }
 
 int AD_makeCheque(K *k, doc_no_t *d, uint8_t t1054, uint8_t t1055, int64_t s) {
-	if (k->llist.count == 0)
-		return 0;
+	//if (k->llist.count == 0)
+	//	return 0;
 
 	doc_no_copy(&k->d, d);
 	k->a = s;
@@ -2673,6 +2673,27 @@ int AD_processO(K *k) {
 				{
 					set_k_s('E', k, NULL, NULL);
 				}
+                else if (check_k_y(k, '+', '0') || check_k_y(k, '+', '1'))
+                {
+                    /* C#: paymentType != Refund && reissue:
+                     *   prev_blank_nr == ""  CancelRefundNonCashItems ('G')
+                     *   иначе         ошибка  OtherItems ('H') */
+                    if (k->y->prev_blank_nr[0] == 0)
+                        set_k_s('G', k, NULL, NULL);
+                    else
+                        set_k_s('H', k, NULL, NULL);
+                }
+                else
+                {
+                    /* Продажа, но y не соответствует Payment/FastPayment
+                     * (op='-' и любой repayment, или op='+' с repayment!=0/'0'/'1').
+                     * По C#  OtherItems. Не оставляем s=0 (UB). */
+                    printf("K->d=%s: Y не соответствует продаже "
+                           "(op='%c', repayment=0x%02x)\n",
+                           k->d.s ? k->d.s : "",
+                           k->y->op, (uint8_t)k->y->repayment);
+                    set_k_s('H', k, NULL, NULL);
+                }
 			}
 		}
 
@@ -3664,10 +3685,26 @@ D *find_d_for_g(SubCart *sc, K* k)
 
 D *add_k_to_sub_cart(C* c, K* k)
 {
-	if (k->s == 0)
-	{
-		printf("ОШИБКА: у k не установлена подкорзина!!!!!!\n");
-	}
+    char subcart = k->s;
+
+    /*
+     * Страховка: если s не задана (баг в AD_processO или новый путь
+     * создания K), не лезем в cart.sc[-65] через SUB_CART_INDEX(0).
+     * Кладём в 'H' (OtherItems)  то же, что делает C# по умолчанию.
+     */
+    if (subcart < 'A' || subcart > 'I') {
+        printf("add_k_to_sub_cart: k=%p d=%s, s=0x%02x не задан "
+               " кладём в 'H'\n",
+               (void *)k, k->d.s ? k->d.s : "",
+               (unsigned char)subcart);
+        subcart = 'H';
+        k->s     = 'H';
+    }
+
+//	if (k->s == 0)
+//	{
+//		printf("ОШИБКА: у k не установлена подкорзина!!!!!!\n");
+//	}
 
 	int index = SUB_CART_INDEX(k->s);
 	SubCart *sc = &cart.sc[index];
