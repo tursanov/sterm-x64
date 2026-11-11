@@ -1,19 +1,15 @@
-#ifndef CHEQUE_DOCS_H
-#define CHEQUE_DOCS_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined GUI_CHEQUE_DOCS_H
+#define GUI_CHEQUE_DOCS_H
 
 #include "kkt/fd/ad.h"
 
-int cheque_docs_init(void);
-void cheque_docs_release(void);
-int cheque_docs_draw(void);
-void cheque_docs_execute(void);
+__BEGIN_DECLS
 
-#if defined __cplusplus
-}
-#endif
+extern int cheque_docs_init(void);
+extern void cheque_docs_release(void);
+extern int cheque_docs_draw(void);
+extern void cheque_docs_execute(void);
 
-#endif // CHEQUE_DOCS_H
+__END_DECLS
+
+#endif		/* GUI_CHEQUE_DOCS_H */

@@ -1,11 +1,9 @@
-#ifndef lLVFORM_H
-#define LVFORM_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined GUI_LVFORM_H
+#define GUI_LVFORM_H
 
 #include "list.h"
+
+__BEGIN_DECLS
 
 typedef struct lvform_column_t {
 	char *title;
@@ -34,12 +32,10 @@ lvform_t *lvform_create(const char *title,
 	size_t column_count,
 	data_source_t *data_source);
 
-void lvform_destroy(lvform_t *lvform);
-int lvform_execute(lvform_t *lvform);
-void lvform_draw(lvform_t *lvform);
+extern void lvform_destroy(lvform_t *lvform);
+extern int lvform_execute(lvform_t *lvform);
+extern void lvform_draw(lvform_t *lvform);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif // LVFORM_H
+#endif		/* GUI_LVFORM_H */

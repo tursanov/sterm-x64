@@ -3,13 +3,12 @@
 #if !defined POS_SCREEN_H
 #define POS_SCREEN_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "gui/gdi.h"
 #include "pos/pos.h"
 #include "kbd.h"
+
+
+__BEGIN_DECLS
 
 /* Создание экрана (x, y - координаты пикселов, cols, rows - в знакоместах,
  * x_off, y_off - отступ в пикселах для рамки, font - шрифт,
@@ -36,8 +35,6 @@ extern bool pos_write_scr(struct pos_data_buf *buf, const char *msg, uint8_t fg,
 /* Запись в поток для экрана сообщения об ошибке */
 extern bool pos_save_err_msg(struct pos_data_buf *buf, char *msg);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* POS_SCREEN_H */

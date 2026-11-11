@@ -3,11 +3,9 @@
 #if !defined KKT_CMD_H
 #define KKT_CMD_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /* Однобайтовые команды */
 #define KKT_NUL			0x00		/* пустая команда */
@@ -334,8 +332,6 @@ extern uint32_t kkt_base_timeout;
 #define KKT_ICON_UPLOAD_TIMEOUT		50  * kkt_base_timeout	// 500
 #define KKT_ICON_ERASE_ALL_TIMEOUT	200 * kkt_base_timeout	// 2000
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* KKT_CMD_H */

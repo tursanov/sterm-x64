@@ -1,11 +1,9 @@
-#ifndef CONTROL_H
-#define CONTROL_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined GUI_CONTROLS_CONTROL_H
+#define GUI_CONTROLS_CONTROL_H
 
 #include "gui/gdi.h"
+
+__BEGIN_DECLS
 
 #define BORDER_WIDTH	2
 
@@ -48,29 +46,27 @@ typedef struct control_t {
 	control_parent_t parent;
 } control_t;
 
-void control_init(control_t *control, int id, GCPtr gc, int x, int y, int width, int height,
+extern void control_init(control_t *control, int id, GCPtr gc, int x, int y, int width, int height,
 	control_api_t* api);
 
 #define CONTROL_EXTRA(c, type) ((type *)control_get_extra(c))
 
-void control_destroy(control_t *control);
-void control_draw(control_t *control);
-bool control_focus(control_t *control, bool focus);
-bool control_handle(struct control_t *control, const struct kbd_event *e);
-void* control_get_extra(struct control_t *control);
-void control_set_extra(struct control_t *control, void *extra);
-bool control_get_data(struct control_t *control, int what, data_t *data);
-bool control_set_data(struct control_t *control, int what, const void *data, size_t data_len);
-bool control_is_empty(struct control_t * control);
-void control_set_parent(struct control_t *control, control_parent_t *parent);
-void control_refresh_parent(struct control_t *control);
+extern void control_destroy(control_t *control);
+extern void control_draw(control_t *control);
+extern bool control_focus(control_t *control, bool focus);
+extern bool control_handle(struct control_t *control, const struct kbd_event *e);
+extern void* control_get_extra(struct control_t *control);
+extern void control_set_extra(struct control_t *control, void *extra);
+extern bool control_get_data(struct control_t *control, int what, data_t *data);
+extern bool control_set_data(struct control_t *control, int what, const void *data, size_t data_len);
+extern bool control_is_empty(struct control_t * control);
+extern void control_set_parent(struct control_t *control, control_parent_t *parent);
+extern void control_refresh_parent(struct control_t *control);
 bool control_set_enabled(struct control_t *control, bool enabled);
 
-void fill_rect(GCPtr screen, int x, int y, int width, int height, int border_width,
+extern void fill_rect(GCPtr screen, int x, int y, int width, int height, int border_width,
 		Color border_color, int bg_color);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif // CONTROL_H
+#endif		/* GUI_CONTROLS_CONTROL_H */

@@ -3,10 +3,6 @@
 #if !defined LOG_EXPRESS_H
 #define LOG_EXPRESS_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include <time.h>
 #include "log/generic.h"
 #include "blimits.h"
@@ -14,6 +10,8 @@ extern "C" {
 #include "ds1990a.h"
 #include "gd.h"
 #include "genfunc.h"
+
+__BEGIN_DECLS
 
 /* Заголовок циклической контрольной ленты */
 struct xlog_header {
@@ -108,8 +106,6 @@ extern bool  xlog_print_footer(void);
 extern bool  xlog_print_rec(void);
 extern bool  xlog_print_llrt_normal(void);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* LOG_EXPRESS_H */

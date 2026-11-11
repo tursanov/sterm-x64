@@ -3,11 +3,9 @@
 #if !defined KKT_XML_H
 #define KKT_XML_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /* Типы событий при разборе XML для ККТ */
 #define KKT_XML_BEGIN		0	/* начало XML */
@@ -23,8 +21,6 @@ extern int kkt_xml_callback(bool check, int evt, const char *name, const char *v
 
 extern bool parse_kkt_xml(const char *data, bool check, kkt_xml_callback_t cbk, int *ecode);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* KKT_XML_H */

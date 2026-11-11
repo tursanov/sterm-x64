@@ -1,16 +1,14 @@
 /* Работа с дополнительным принтером (ДПУ). (c) gsr 2004, 2009 */
 
-#ifndef PRN_AUX_H
+#if !defined PRN_AUX_H
 #define PRN_AUX_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
 
 #include "prn/generic.h"
 #include "sys/ioctls.h"
 #include "sys/xprn.h"
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /* Команды ДПУ */
 
@@ -51,8 +49,6 @@ extern void aprn_release(void);
 extern void aprn_flush(void);
 extern bool aprn_print(const uint8_t *txt, int l);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif		/* APRN_H */
+#endif		/* PRN_AUX_H */

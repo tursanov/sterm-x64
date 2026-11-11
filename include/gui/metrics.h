@@ -1,14 +1,13 @@
 /* Параметры графических элементов. (c) gsr, А.Попов 2001 */
 
-#ifndef GUI_METRICS_H
+#if !defined GUI_METRICS_H
 #define GUI_METRICS_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
+#include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /* screen metrics */
-
 #define DISCX			800	/* screen width in pixels */
 #define DISCY			600	/* screen height in pixels */
 #define BYTESPERPIXEL		2	/* color depth */
@@ -136,8 +135,6 @@ extern "C" {
 #define HINTS_WIDTH		DISCX
 #define HINTS_HEIGHT		(DISCY-HINTS_TOP)
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif		/* METRICS_H */
+#endif		/* GUI_METRICS_H */

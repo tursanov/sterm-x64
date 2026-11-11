@@ -1,11 +1,9 @@
 /* Константы для IOCTL. (c) gsr 2001-2003, 2020 */
 
-#ifndef SYS_IOCTLS_H
+#if !defined SYS_IOCTLS_H
 #define SYS_IOCTLS_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 #define STERM_MAJOR_BASE	200
 #define XPRN_MAJOR		STERM_MAJOR_BASE + 2 
@@ -21,8 +19,6 @@ extern "C" {
 /* Вывод символа на принтер */
 #define XPRN_IO_OUTCHAR		_IOW(XPRN_IOCTL_CODE, XPRN_IO_SEQ_BASE + 1, char)
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* SYS_IOCTLS_H */

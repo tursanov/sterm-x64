@@ -1,13 +1,11 @@
 /* Основной модуль для работы с POS-эмулятором. (c) A.Popov, gsr 2004, 2024-2026 */
 
-#if !defined POS_H
-#define POS_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined POS_POS_H
+#define POS_POS_H
 
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /* Возможности ИПТ */
 #define POS_CAPS_UNK	0x80000000	/* неизвестно */
@@ -218,8 +216,6 @@ extern void pos_clr_info(void);
 
 extern bool pos_test(const uint8_t *buf, size_t len);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif		/* POS_H */
+#endif		/* POS_POS_H */

@@ -3,11 +3,9 @@
 #if !defined POS_COMMAND_H
 #define POS_COMMAND_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "pos/pos.h"
+
+__BEGIN_DECLS
 
 /* Коды команд */
 #define POS_COMMAND_INIT			0x01
@@ -150,8 +148,6 @@ extern bool pos_prepare_request_params(void);
 /* Подготовка списка параметров для запроса информации об ИПТ */
 extern bool pos_prepare_request_info(void);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* POS_COMMAND_H */

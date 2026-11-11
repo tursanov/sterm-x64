@@ -3,13 +3,11 @@
 #if !defined TERMLOG_H
 #define TERMLOG_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include <errno.h>
 #include "paths.h"
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 enum {
 	Error = 0,
@@ -69,8 +67,6 @@ static inline bool log_data_xchg(const char *title, const uint8_t *data, size_t 
 
 extern bool arch_sterm_data(const char **msg);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* TERMLOG_H */

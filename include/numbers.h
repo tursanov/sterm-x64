@@ -1,13 +1,11 @@
 /* Чтение/запись десятичных и шестнадцатеричных чисел. (c) gsr 2004, 2024 */
 
-#if !defined HEX_H
-#define HEX_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined NUMBERS_H
+#define NUMBERS_H
 
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 extern bool number_error;
 
@@ -27,8 +25,6 @@ extern bool read_var_int(const uint8_t *data, size_t *len, size_t max_len, int32
 extern bool read_int(const uint8_t *data, size_t len, int32_t *val);
 extern bool write_int(uint8_t *data, int32_t val, size_t len);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif		/* HEX_H */
+#endif		/* NUMBERS_H */

@@ -10,13 +10,11 @@
 #if !defined GUI_PING_H
 #define GUI_PING_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "gd.h"
 #include "kbd.h"
 #include "gui/scr.h"
+
+__BEGIN_DECLS
 
 #define ICMP_PROTO_NAME		"icmp"
 #define MAX_IP_LEN		60
@@ -46,8 +44,6 @@ extern void	release_ping(void);
 extern bool	draw_ping(void);
 extern bool	process_ping(struct kbd_event *e);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* GUI_PING_H */

@@ -3,10 +3,6 @@
 #if !defined STERM_H
 #define STERM_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include <stdio.h>
 #include <time.h>
 #include "blimits.h"
@@ -17,6 +13,8 @@ extern "C" {
 #include "hash.h"
 #include "kbd.h"
 #include "gui/gdi.h"
+
+__BEGIN_DECLS
 
 extern char *term_string;	/* название терминала */
 
@@ -216,8 +214,6 @@ extern void	show_pos(void);
 #define RET_SIGTERM		40
 #define RET_ERROR		99
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* STERM_H */

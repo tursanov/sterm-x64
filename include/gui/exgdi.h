@@ -1,11 +1,9 @@
-#ifndef EXGDI_H
-#define EXGDI_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined GUI_EXGDI_H
+#define GUI_EXGDI_H
 
 #include "gdi.h"
+
+__BEGIN_DECLS
 
 extern Color clBtnFace;
 extern Color clBtnHighlight;
@@ -25,29 +23,26 @@ typedef struct {
 	Color fg;			/* Цвет символов */
 } PIXMAPFONT, *PixmapFontPtr;
 
-PixmapFontPtr CreatePixmapFont(const char *sFileName, Color fg, Color bg);
-void DeletePixmapFont(PixmapFontPtr pFont);
-void PixmapTextOut(GCPtr pGC, PixmapFontPtr pFont, int x, int y,
+extern PixmapFontPtr CreatePixmapFont(const char *sFileName, Color fg, Color bg);
+extern void DeletePixmapFont(PixmapFontPtr pFont);
+extern void PixmapTextOut(GCPtr pGC, PixmapFontPtr pFont, int x, int y,
 	const char *sText);
 	
 
 
-/*  */
-void InitExGDI();
+extern void InitExGDI(void);
 
 
 /*   Рисует окно на экране, при этом графический контекст принимает */
 /*   размеры клиентской области */
-void DrawWindow(GCPtr pGC, int x, int y, int w, int h, const char *sTitle,
+extern void DrawWindow(GCPtr pGC, int x, int y, int w, int h, const char *sTitle,
 	GCPtr pClientGC);
 extern int titleCY;
 extern int borderCX;
 
-void DrawButton(GCPtr pGC, int x, int y, int cx, int cy,
-    const char *text, bool down);
+extern void DrawButton(GCPtr pGC, int x, int y, int cx, int cy,
+	const char *text, bool down);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif		/* EXGDI_H */
+#endif		/* GUI_EXGDI_H */

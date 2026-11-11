@@ -1,9 +1,7 @@
 #if !defined SYS_XPRN_H
 #define SYS_XPRN_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 enum {
 	prn_ready = 0,
@@ -11,8 +9,6 @@ enum {
 	prn_dead
 };
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* SYS_XPRN_H */

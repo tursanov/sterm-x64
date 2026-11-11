@@ -6,13 +6,11 @@
 #if !defined GENFUNC_H
 #define GENFUNC_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include <stdio.h>
 #include <time.h>
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /*
  * Дата и время хранятся в специальном формате, чтобы
@@ -53,8 +51,6 @@ extern bool	fill_file(int fd, uint32_t len);
 extern uint8_t *memfind(uint8_t *mem, size_t mem_len, const uint8_t *tmpl,
 	size_t tmpl_len);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* GENFUNC_H */

@@ -1,13 +1,10 @@
-#ifndef ARTICLE_H
-#define ARTICLE_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
-
+#if !defined GUI_REFERENCES_ARTICLE_H
+#define GUI_REFERENCES_ARTICLE_H
 
 #include "list.h"
 #include "agent.h"
+
+__BEGIN_DECLS
 
 typedef struct {
 	int n;
@@ -20,10 +17,8 @@ typedef struct {
 
 extern list_t articles;
 
-extern int articles_destroy();
+extern int articles_destroy(void);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif // ARTICLE_H
+#endif		/* GUI_REFERENCES_ARTICLE_H */

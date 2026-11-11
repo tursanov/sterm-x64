@@ -1,11 +1,9 @@
-#ifndef BUTTON_H
-#define BUTTON_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined GUI_CONTROLS_BUTTON_H
+#define GUI_CONTROLS_BUTTON_H
 
 #include "gui/controls/control.h"
+
+__BEGIN_DECLS
 
 typedef void (*action_t)(control_t *, int cmd);
 
@@ -17,8 +15,6 @@ extern void draw_button(GCPtr screen, int x, int y, int width, int height,
 extern void draw_button_ex(GCPtr gc, int x, int y, int width, int height, 
 		const char *text, bool focused, bool enabled);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif

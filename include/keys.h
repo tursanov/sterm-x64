@@ -3,12 +3,10 @@
 #if !defined KEYS_H
 #define KEYS_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "sysdefs.h"
 #include "sterm.h"
+
+__BEGIN_DECLS
 
 struct key_set{
 	int key_arg_len;
@@ -40,8 +38,6 @@ extern bool		is_key(uint8_t c);
 extern bool		is_key_delim(int c);
 extern bool		is_key_id(int c);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* KEYS_H */

@@ -3,11 +3,9 @@
 #if !defined X3DATA_BMP_H
 #define X3DATA_BMP_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 typedef struct tagBITMAPINFOHEADER{
 	uint32_t	biSize;
@@ -49,8 +47,6 @@ typedef struct tagBITMAPFILEHEADER {
 	uint32_t	bfOffBits;
 } __attribute__((__packed__)) BITMAPFILEHEADER;
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* X3DATA_BMP_H */

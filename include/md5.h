@@ -3,11 +3,9 @@
 #if !defined MD5_H
 #define MD5_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 struct md5_hash {
 	uint32_t a;
@@ -72,8 +70,6 @@ extern bool cmp_md5(const struct md5_hash *v1, const struct md5_hash *v2);
 
 #define ZERO_MD5_HASH {.a = 0, .b = 0, .c = 0, .d = 0}
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* MD5_H */

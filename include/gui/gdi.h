@@ -1,15 +1,12 @@
-#ifndef GDI_H
-#define GDI_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined GUI_GDI_H
+#define GUI_GDI_H
 
 #include "sysdefs.h"
 #include "gui/metrics.h"
 
-/* Basic colors */
+__BEGIN_DECLS
 
+/* Basic colors */
 enum {
 	BLACK,          /* dark colors */
 	BLUE,
@@ -97,8 +94,8 @@ typedef struct
 } FONT, FontRec, *FontPtr; 
 
 /* Функции создания и удаления шрифта */
-FontPtr CreateFont(const char *file_name, bool var_size);
-void DeleteFont(FontPtr pFont);
+extern FontPtr CreateFont(const char *file_name, bool var_size);
+extern void DeleteFont(FontPtr pFont);
 
 /* /////////////////////////////////////////////////////////////////////////// */
 /* Растровое изображение (24 бита) */
@@ -111,8 +108,8 @@ typedef struct
 	uint8_t *data;	/* Данные */
 } BITMAP, *BitmapPtr; 
 
-BitmapPtr CreateBitmap(const char *file_name);
-void DeleteBitmap(BitmapPtr pBitmap);
+extern BitmapPtr CreateBitmap(const char *file_name);
+extern void DeleteBitmap(BitmapPtr pBitmap);
 
 /* ///////////////////////////////////////////////////////////////////////////// */
 /* Graphic Context struct */
@@ -136,24 +133,24 @@ typedef struct {
 } GC, *GCPtr;
 
 /* Функции инициализации и завершения работы с графикой */
-bool InitVGA();
-void ReleaseVGA();
+extern bool InitVGA(void);
+extern void ReleaseVGA(void);
 
-GCPtr CreateGC(int x, int y, int w, int h);
-GCPtr CreateMemGC(int w, int h);
-void DeleteGC(GCPtr pGC);
+extern GCPtr CreateGC(int x, int y, int w, int h);
+extern GCPtr CreateMemGC(int w, int h);
+extern void DeleteGC(GCPtr pGC);
 
 /* Функции изменения параметров контекста */
-int SetBrushColor(GCPtr pGC, Color c);
-int SetPenColor(GCPtr pGC, Color c);
-int SetTextColor(GCPtr pGC, Color c);
-int SetRop2Mode(GCPtr pGC, int r2);
-FontPtr SetFont(GCPtr pGC, FontPtr pFont);
+extern int SetBrushColor(GCPtr pGC, Color c);
+extern int SetPenColor(GCPtr pGC, Color c);
+extern int SetTextColor(GCPtr pGC, Color c);
+extern int SetRop2Mode(GCPtr pGC, int r2);
+extern FontPtr SetFont(GCPtr pGC, FontPtr pFont);
 /* RegionPtr SetRegion(GCPtr pGC, RegionPtr pRgn); */
 
-void MoveGC(GCPtr pGC, int x, int y);
-void ChangeGCSize(GCPtr pGC, int w, int h);
-void SetGCBounds(GCPtr pGC, int x, int y, int w, int h);
+extern void MoveGC(GCPtr pGC, int x, int y);
+extern void ChangeGCSize(GCPtr pGC, int w, int h);
+extern void SetGCBounds(GCPtr pGC, int x, int y, int w, int h);
 
 static inline int GetCX(GCPtr pGC)
 {
@@ -176,21 +173,21 @@ static inline int GetMaxY(GCPtr pGC)
 }
 
 /* Функции рисования */
-void ClearGC(GCPtr pGC, Color c);
-void FillBox(GCPtr pGC, int x, int y, int w, int h);
-void Line(GCPtr pGC, int x1, int y1, int x2, int y2);
+extern void ClearGC(GCPtr pGC, Color c);
+extern void FillBox(GCPtr pGC, int x, int y, int w, int h);
+extern void Line(GCPtr pGC, int x1, int y1, int x2, int y2);
 
 /* FIXME: w и h обрабатываются неправильно (см. gui/gdi.c) */
-void DrawRect(GCPtr pGC, int x, int y, int w, int h);
-void DrawBorder(GCPtr pGC, int x, int y, int w, int h, int bw,
+extern void DrawRect(GCPtr pGC, int x, int y, int w, int h);
+extern void DrawBorder(GCPtr pGC, int x, int y, int w, int h, int bw,
 	Color topColor, Color bottomColor);
-void DrawHorzGrad(GCPtr pGC, int x, int y, int w, int h,
+extern void DrawHorzGrad(GCPtr pGC, int x, int y, int w, int h,
 	Color fromColor, Color toColor);
-void DrawVertGrad(GCPtr pGC, int x, int y, int w, int h,
+extern void DrawVertGrad(GCPtr pGC, int x, int y, int w, int h,
 	Color fromColor, Color toColor);
 
 /* Функции копирования контекста */
-void CopyGC(GCPtr pDest, int x, int y, 
+extern void CopyGC(GCPtr pDest, int x, int y, 
 	GCPtr pSrc, int sx, int sy, int sw, int sh);
 	
 /* Функции отрисовки текста */
@@ -202,17 +199,17 @@ void CopyGC(GCPtr pDest, int x, int y,
 #define DT_CENTER 0x10
 #define DT_VCENTER 0x20
 
-int TextWidth(FontPtr pFont, const char *sText);
-int TextHeight(FontPtr pFont);
+extern int TextWidth(FontPtr pFont, const char *sText);
+extern int TextHeight(FontPtr pFont);
 
-int GetTextWidth(GCPtr pGC, const char *text);
-int GetMaxCharWidth(GCPtr pGC);
-int GetTextHeight(GCPtr pGC);
-void TextOut(GCPtr pGC, int x, int y, const char *sText);
-void TextOutN(GCPtr pGC, int x, int y, const char *sText, int count);
-void DrawText(GCPtr pGC, int x, int y, int w, int h, const char *sText, 
+extern int GetTextWidth(GCPtr pGC, const char *text);
+extern int GetMaxCharWidth(GCPtr pGC);
+extern int GetTextHeight(GCPtr pGC);
+extern void TextOut(GCPtr pGC, int x, int y, const char *sText);
+extern void TextOutN(GCPtr pGC, int x, int y, const char *sText, int count);
+extern void DrawText(GCPtr pGC, int x, int y, int w, int h, const char *sText, 
 	int flags);
-void RichTextOut(GCPtr pGC, int x, int y, const uint16_t *sText, int l);
+extern void RichTextOut(GCPtr pGC, int x, int y, const uint16_t *sText, int l);
 
 /* Функции отрисовки растровых изображений */
 /* 	x, y - точка отсчета, откуда будет идти рисование
@@ -226,7 +223,7 @@ void RichTextOut(GCPtr pGC, int x, int y, const uint16_t *sText, int l);
 #define FROM_BMP	((unsigned)-1)
 #define BMP_CX		-1
 #define BMP_CY		-1
-void DrawBitmap(GCPtr pGC, BitmapPtr pBitmap, int x, int y, int w, int h,
+extern void DrawBitmap(GCPtr pGC, BitmapPtr pBitmap, int x, int y, int w, int h,
 	bool trans, unsigned transColor);
 
 /* Рисование строки символов с определенными атрибутами */
@@ -266,10 +263,8 @@ typedef struct
 
 extern Color* symbol_palette;
 /* Рисование строки с атрибутами */
-void draw_rich_text(GCPtr pGC, int x, int y, rich_text_t *text);
+extern void draw_rich_text(GCPtr pGC, int x, int y, rich_text_t *text);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif	/* GDI_H */
+#endif		/* GUI_GDI_H */

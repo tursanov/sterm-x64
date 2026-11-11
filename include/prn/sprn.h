@@ -3,14 +3,12 @@
 #if !defined PRN_SPRN_H
 #define PRN_SPRN_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "prn/express.h"
 #include "cfg.h"
 #include "devinfo.h"
 #include "gd.h"
+
+__BEGIN_DECLS
 
 extern const struct dev_info *sprn;
 extern const struct dev_info *rfid;
@@ -304,8 +302,6 @@ extern const char *sprn_status_str(uint8_t status);
 /* Текстовое описание статуса считывателя RFID */
 extern const char *rfid_status_str(uint8_t status);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* PRN_SPRN_H */

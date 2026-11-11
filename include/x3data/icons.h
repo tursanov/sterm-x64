@@ -5,9 +5,7 @@
 
 #include "x3data/common.h"
 
-#if defined __cplusplus
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 extern bool check_x3_icons(const uint8_t *data, size_t len);
 extern bool need_icons_update_sprn(void);
@@ -25,8 +23,6 @@ extern bool update_sprn_icons(void);
 /* Обновление пиктограмм в ККТ */
 extern bool update_kkt_icons(void);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* X3DATA_ICONS_H */

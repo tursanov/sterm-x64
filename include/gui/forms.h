@@ -1,11 +1,9 @@
 #if !defined GUI_FORMS_H
 #define GUI_FORMS_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "gui/controls/control.h"
+
+__BEGIN_DECLS
 
 typedef struct form_t form_t;
 
@@ -86,17 +84,17 @@ typedef struct form_item_info_t {
 #define END_FORM() }; *__f = form_create(__n, __items, ASIZE(__items)); } \
 	else form_draw(*__f); }
 
-form_t* form_create(const char *name, form_item_info_t items[], size_t item_count);
-void form_destroy(form_t *form);
-int form_execute(form_t *form);
-void form_draw(form_t *form);
-bool form_focus(form_t *form, int id);
+extern form_t* form_create(const char *name, form_item_info_t items[], size_t item_count);
+extern void form_destroy(form_t *form);
+extern int form_execute(form_t *form);
+extern void form_draw(form_t *form);
+extern bool form_focus(form_t *form, int id);
 
-void draw_title(GCPtr sreeen, FontPtr fnt, const char *title);
+extern void draw_title(GCPtr sreeen, FontPtr fnt, const char *title);
 
 
 typedef struct data_t form_data_t;
-bool form_get_data(form_t *form, int id, int what, form_data_t *data);
+extern bool form_get_data(form_t *form, int id, int what, form_data_t *data);
 
 static inline int form_get_int_data(form_t *form, int id, int what, int default_value) {
 	form_data_t data;
@@ -104,7 +102,7 @@ static inline int form_get_int_data(form_t *form, int id, int what, int default_
 		return (int)(intptr_t)data.data;
 	return default_value;
 }
-bool form_set_data(form_t *form, int id, int what, const void *data, size_t data_size);
+extern bool form_set_data(form_t *form, int id, int what, const void *data, size_t data_size);
 
 #define FORM_EDIT_TEXT_SET_TEXT(form, id, text, text_size) \
 	form_set_data(form, id, 0, text, text_size)
@@ -113,13 +111,11 @@ bool form_set_data(form_t *form, int id, int what, const void *data, size_t data
 #define FORM_COMBOBOX_SET_SELECTED_INDEX(form, id, selected_index) \
 	form_set_data(form, id, 0, (void *)(intptr_t)selected_index, 0)
 	
-void draw_button(GCPtr screen, int x, int y, int width, int height, const char *text, bool focused);
-void fill_rect(GCPtr screen, int x, int y, int width, int height, int border_width,
-		Color border_color, int bg_color);
+extern void draw_button(GCPtr screen, int x, int y, int width, int height, const char *text,
+	bool focused);
+extern void fill_rect(GCPtr screen, int x, int y, int width, int height, int border_width,
+	Color border_color, int bg_color);
 	
-
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* GUI_FORMS_H */

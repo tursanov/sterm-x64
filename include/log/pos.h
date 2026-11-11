@@ -6,10 +6,6 @@
 #if !defined LOG_POS_H
 #define LOG_POS_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include <time.h>
 #include "log/generic.h"
 #include "prn/sprn.h"
@@ -18,6 +14,8 @@ extern "C" {
 #include "ds1990a.h"
 #include "gd.h"
 #include "genfunc.h"
+
+__BEGIN_DECLS
 
 /* Заголовок БКЛ */
 struct plog_header {
@@ -80,8 +78,6 @@ extern bool  plog_print_header(void);
 extern bool  plog_print_footer(void);
 extern bool  plog_print_rec(void);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* LOG_POS_H */

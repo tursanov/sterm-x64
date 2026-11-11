@@ -1,14 +1,12 @@
-#ifndef ARCHIVEFN_H
-#define ARCHIVEFN_H
+#if !defined GUI_ARCHIVEFN_H
+#define GUI_ARCHIVEFN_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
+#include "sysdefs.h"
 
-int archivefn_execute();
+__BEGIN_DECLS
 
-#if defined __cplusplus
-}
-#endif
+extern int archivefn_execute(void);
 
-#endif // ARCHIVEFN_H
+__END_DECLS
+
+#endif		/* GUI_ARCHIVEFN_H */

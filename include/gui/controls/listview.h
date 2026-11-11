@@ -1,12 +1,10 @@
-#ifndef LISTVIEW_H
-#define LISTVIEW_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined GUI_CONTROLS_LISTVIEW_H
+#define GUI_CONTROLS_LISTVIEW_H
 
 #include "gui/controls/control.h"
 #include "list.h"
+
+__BEGIN_DECLS
 
 typedef struct listview_column_t {
 	char *title;
@@ -22,8 +20,6 @@ control_t* listview_create(int id, GCPtr gc, int x, int y, int width, int height
 		listview_selected_changed_t selected_changed_func,
         int selected_index);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif // LISTVIEW
+#endif		/* GUI_CONTROLS_LISTVIEW_H */

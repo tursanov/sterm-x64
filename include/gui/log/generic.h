@@ -3,15 +3,13 @@
 #if !defined GUI_LOG_GENERIC_H
 #define GUI_LOG_GENERIC_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "gui/gdi.h"
 #include "log/generic.h"
 #include "blimits.h"
 #include "genfunc.h"
 #include "kbd.h"
+
+__BEGIN_DECLS
 
 /* Структура для отображения КЛ на экране */
 struct log_gui_context {
@@ -91,8 +89,6 @@ extern bool log_init_view(struct log_gui_context *ctx);
 /* Освобождение интерфейса пользователя */
 extern void log_release_view(struct log_gui_context *ctx);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* GUI_LOG_GENERIC_H */

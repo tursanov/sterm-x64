@@ -5,9 +5,7 @@
 
 #include "blimits.h"
 
-#if defined __cplusplus
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 /* Преобразованные данные XML */
 struct xml_data {
@@ -25,8 +23,6 @@ extern void shr_xml_data(void);
 
 extern uint8_t *check_xml(uint8_t *p, size_t l, int dst, int *ecode, struct xml_data *xml_data);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* XML2DATA_H */

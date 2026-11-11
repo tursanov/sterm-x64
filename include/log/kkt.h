@@ -3,10 +3,6 @@
 #if !defined LOG_KKT_H
 #define LOG_KKT_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include <sys/time.h>
 #include <pthread.h>
 #include <time.h>
@@ -16,6 +12,8 @@ extern "C" {
 #include "cfg.h"
 #include "ds1990a.h"
 #include "genfunc.h"
+
+__BEGIN_DECLS
 
 /* Заголовок ККЛ */
 struct klog_header {
@@ -99,8 +97,6 @@ extern bool  klog_print_header(void);
 extern bool  klog_print_footer(void);
 extern bool  klog_print_rec(void);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* LOG_KKT_H */

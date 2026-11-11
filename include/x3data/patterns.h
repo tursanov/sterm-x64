@@ -5,9 +5,7 @@
 
 #include "x3data/common.h"
 
-#if defined __cplusplus
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 extern const char *get_local_patterns_ver(void);
 extern time_t jul_date_to_unix_date(const char *jul_date);
@@ -16,8 +14,6 @@ extern bool need_patterns_update(void);
 extern bool sync_patterns(void);
 extern void on_response_patterns(void);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* X3DATA_PATTERNS_H */

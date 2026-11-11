@@ -1,16 +1,14 @@
 /* Работа с принтером "Экспресс". (c) gsr 2000, 2004, 2009 */
 
-#ifndef PRN_EXPRESS_H
+#if !defined PRN_EXPRESS_H
 #define PRN_EXPRESS_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
 
 #include "prn/generic.h"
 #include "sys/ioctls.h"
 #include "sys/xprn.h"
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /* Команды принтера "Экспресс" */
 
@@ -59,8 +57,6 @@ extern void xprn_release(void);
 extern void xprn_flush(void);
 extern bool xprn_print(const uint8_t *txt, int l);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* PRN_EXPRESS_H */

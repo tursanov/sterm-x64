@@ -3,15 +3,12 @@
 #if !defined KBD_H
 #define KBD_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include <time.h>
 #include "sysdefs.h"
 
-/* Коды клавиатуры в режиме MEDIUMRAW */
+__BEGIN_DECLS
 
+/* Коды клавиатуры в режиме MEDIUMRAW */
 #define KEY_NONE	0xff
 #define KEY_ESCAPE	0x01
 #define KEY_F1		0x3b
@@ -174,8 +171,6 @@ extern void beep_sync(uint32_t freq, uint32_t ms);
 
 #define delay(ms) usleep((ms)*1000)
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* KBD_H */
