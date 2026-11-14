@@ -1572,6 +1572,26 @@ static void process_pos_check_last_operation()
 	redraw_menu(fa_menu);
 }
 
+static bool check_show_pos()
+{
+    if (!can_show_pos())
+    {
+        message_box("Ошибка", "Для выполнения банковской операции необходимо отправить 2 запроса в АСУ Экспресс.", dlg_yes, 0, al_center);
+        return false;
+    }
+    
+    return true;
+}
+
+static void make_pos_op(bool (*pos_op)())
+{
+    if (check_show_pos()) {
+        if (!pos_op()) {
+            message_box("Ошибка", "Проверьте подключение ИПТ.", dlg_yes, 0, al_center);
+        }
+    }
+}
+
 static bool process_fa_cmd(int cmd) {
 	bool ret = true;
 
@@ -1624,15 +1644,15 @@ static bool process_fa_cmd(int cmd) {
 		    process_pos_check_last_operation();
 			break;
 		case cmd_pos_day_open:
-			pos_day_open();
+		    make_pos_op(pos_day_open);
 			redraw_menu(fa_menu);
 			break;
 		case cmd_pos_day_close:
-			pos_day_close();
+		    make_pos_op(pos_day_close);
 			redraw_menu(fa_menu);
 			break;
 		case cmd_pos_service_operations:
-			pos_service_operations();
+		    make_pos_op(pos_service_operations);
 			redraw_menu(fa_menu);
 			break;
 		default:

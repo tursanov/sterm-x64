@@ -104,9 +104,9 @@ extern int kbd_lang_ex;
 extern int kbd_get_char_ex(int key);
 
 bool pos_check_last_operation();
-void pos_day_open();
-void pos_day_close();
-void pos_service_operations();
+bool pos_day_open();
+bool pos_day_close();
+bool pos_service_operations();
 
 extern const char *printsum(int64_t sum, char *buf);
 

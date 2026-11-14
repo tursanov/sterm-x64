@@ -1204,7 +1204,7 @@ void get_selected_docs(selected_docs_t* sd)
     }
 }
 
-void process_print_docs(selected_docs_t* sd);
+void process_print_docs(selected_docs_t* sd, bool phone_prompted);
 
 
 typedef struct 
@@ -1615,21 +1615,39 @@ static bool cart_set_phone_or_email(selected_docs_t *sd)
     SubCart *sc = sd->sc->val;
 
     /*
-     * Если у ВСЕХ выбранных K уже есть одинаковый pe (в т.ч. пустая
-     * строка как маркер спрашивали, доставки нет), не показываем
-     * диалог повторно.
+     * Диалог показываем КАЖДЫЙ РАЗ, независимо от того, что уже
+     * установлено у K. Пользователь может подтвердить прежний выбор
+     * (ОК с тем же значением) или изменить его (ОК с новым).
+     *
+     * Начальное значение для формы  первый непустой pe среди
+     * выбранных K; если пустых нет, то первый непустой pe среди
+     * всех K текущей подкорзины; иначе  пусто.
      */
-    bool all_same = true;
-    bool first    = true;
-    const char *first_pe = NULL;
+    char value[128];
+    value[0] = 0;
+
     for (list_item_t *li = sd->klist.head; li; li = li->next) {
         K *k = LIST_ITEM(li, K);
-        if (k->pe == NULL) { all_same = false; break; }
-        if (first) { first_pe = k->pe; first = false; }
-        else if (strcmp(first_pe, k->pe) != 0) { all_same = false; break; }
+        if (k->pe && k->pe[0]) {
+            strncpy(value, k->pe, sizeof(value) - 1);
+            value[sizeof(value) - 1] = 0;
+            break;
+        }
     }
-    if (all_same)
-        return true;
+    if (value[0] == 0) {
+        for (list_item_t *li = sc->documents.head; li; li = li->next) {
+            D *d = LIST_ITEM(li, D);
+            for (list_item_t *lj = d->related.head; lj; lj = lj->next) {
+                K *k = LIST_ITEM(lj, K);
+                if (k->pe && k->pe[0]) {
+                    strncpy(value, k->pe, sizeof(value) - 1);
+                    value[sizeof(value) - 1] = 0;
+                    break;
+                }
+            }
+            if (value[0] != 0) break;
+        }
+    }
 
     /* --- Собираем варианты для autocomplete --- */
     int phone_count = (int)_ad->phones.count;
@@ -1647,18 +1665,6 @@ static bool cart_set_phone_or_email(selected_docs_t *sd)
         }
     }
 
-    /* Начальное значение  первый непустой pe из выбранных */
-    char value[128];
-    value[0] = 0;
-    for (list_item_t *li = sd->klist.head; li; li = li->next) {
-        K *k = LIST_ITEM(li, K);
-        if (k->pe && k->pe[0]) {
-            strncpy(value, k->pe, sizeof(value) - 1);
-            value[sizeof(value) - 1] = 0;
-            break;
-        }
-    }
-
     bool do_for_all = false;
     bool ok = show_phone_or_email_dialog(
         value, sizeof(value), &do_for_all,
@@ -1666,7 +1672,7 @@ static bool cart_set_phone_or_email(selected_docs_t *sd)
 
     free(variants);
 
-    /* Отмена  прервать операцию, ничего не менять. */
+    /* Отмена  операция прерывается, ничего не меняем. */
     if (!ok)
         return false;
 
@@ -1675,8 +1681,7 @@ static bool cart_set_phone_or_email(selected_docs_t *sd)
     const char *stored = no_delivery ? "" : value;
 
     if (do_for_all) {
-        /* Все K текущей подкорзины: обходим документы подкорзины
-         * и в каждом  все связанные K. */
+        /* Все K текущей подкорзины (все документы sc->documents). */
         for (list_item_t *li = sc->documents.head; li; li = li->next) {
             D *d = LIST_ITEM(li, D);
             for (list_item_t *lj = d->related.head; lj; lj = lj->next) {
@@ -1705,7 +1710,6 @@ static bool cart_set_phone_or_email(selected_docs_t *sd)
 
     return true;
 }
-
 void process_non_cash_items(selected_docs_t *sd)
 {
     printf("process_non_cash_items start\n");
@@ -1716,7 +1720,6 @@ void process_non_cash_items(selected_docs_t *sd)
         ui_cart_redraw_all();
         return;
     }
-    
 
     if (get_unprocessed_non_cash_annulment_invoice())
     {
@@ -1916,7 +1919,7 @@ void process_docs()
             }
             if (all_success) {
                 printf("process_docs: auto print after bank success\n");
-                process_print_docs(&sd);
+                process_print_docs(&sd, true);
                 ui_cart_redraw_all();
             }
         }
@@ -1924,7 +1927,7 @@ void process_docs()
     else
     {
         printf("process_docs: process_print_docs\n");
-        process_print_docs(&sd);
+        process_print_docs(&sd, false);
         ui_cart_redraw_all();
     }
 
@@ -2078,19 +2081,15 @@ int check_last_cheque(void)
     return 3;
 }
 
-void process_print_docs(selected_docs_t* sd)
+void process_print_docs(selected_docs_t* sd, bool phone_prompted)
 {
     if (current_cheque_active()) {
         if (current_cheque_state == CURRENT_CHEQUE_MATCH) {
-            /* Чек уже зарегистрирован в ФН, повторно печатать через корзину
-             * нельзя  нужно напечатать именно последний документ. */
             message_box("Ошибка",
                 "В корзине есть чек, зарегистрированный в ККТ, но не отпечатанный.\n"
                 "Отпечатайте его командой \"Печать последнего сформированного документа\".",
                 dlg_yes, 0, al_center);
         } else {
-            /* Снимок либо не проверялся (сразу после сбоя печати),
-             * либо проверка показала несовпадение  только админ-меню. */
             message_box("Ошибка",
                 "В корзине есть незавершённый чек.\n"
                 "Обработайте его через пункт меню \"Чек с ошибкой формирования\" "
@@ -2100,69 +2099,50 @@ void process_print_docs(selected_docs_t* sd)
         return;
     }
 
+    ui_subcart_t *sc = ui_sel_subcart;
+    if (sc == NULL)
+        return;
 
-    /* Как в C#  спрашиваем email/phone перед печатью, но только
-     * если среди выделенных документов есть не прошедшие банк
-     * (bank_state == NONE). Иначе реквизит уже не нужен. */
-    bool any_bank_none = false;
-    for (list_item_t *li = sd->klist.head; li; li = li->next) {
-        K *k = LIST_ITEM(li, K);
-        if (k->bank_state == BANK_STATE_NONE) {
-            any_bank_none = true;
-            break;
-        }
-    }
-
-    if (any_bank_none) {
+    /*
+     * Всегда спрашиваем email/телефон, кроме случая автопечати после
+     * успешной оплаты по карте (phone_prompted = true): там диалог
+     * уже был в process_non_cash_items.
+     */
+    if (!phone_prompted) {
         if (!cart_set_phone_or_email(sd)) {
             fprintf(stderr,
-                "process_print_docs: пользователь отменил ввод email/phone\n");
+                "process_print_docs: отмена ввода email/phone\n");
             return;
         }
     }
-    
-    for (int i = 0; i < 2; i++)
-    {
+
+    for (int i = 0; i < 2; i++) {
         list_t *list = &sd->klist_by_p[i];
-        if (list->count == 0)
-        {
-            continue;
-        }
-        
-        ui_subcart_t *sc = ui_sel_subcart;
+        if (list->count == 0) continue;
 
         set_printing_state(list, PRINT_STATE_PRINTING);
-       
+
         bool ret = print_cheque(sc->val, list);
-        
-        printf("process_print_docs: last_cheque_process_started: %d\n", last_cheque_process_started);
-        
+
+        printf("process_print_docs: last_cheque_process_started: %d\n",
+               last_cheque_process_started);
+
         if (ret) {
-            /* Успех: K зарегистрированы в ФН и (если повезло) напечатаны.
-               Удаляем из корзины и чистим снимок. */
             AD_remove_K_list(list);
             current_cheque_end();
         } else if (last_cheque_process_started) {
-            /* Процесс начался, но не завершился успешно.
-               K ОСТАЮТСЯ в корзине с PrintState = PRINTING,
-               снимок ОСТАЁТСЯ active. Пользователь разрулит через
-               Чек с ошибкой формирования: Оставить или Удалить. */
+            /* K остаются с PRINTING, снимок active */
         } else {
-            /* Процесс не начинался: сбрасываем PRINTING, чистим снимок
-               (он был установлен в print_cheque до fa_create_doc1()). */
             set_printing_state(list, PRINT_STATE_NONE);
             if (current_cheque_active())
                 current_cheque_end();
         }
-        
+
         cart_build();
         ui_cart_create();
-        ui_cart_redraw_all();        
-        
-        if (!ret)
-        {
-            break;
-        }
+        ui_cart_redraw_all();
+
+        if (!ret) break;
     }
 }
 

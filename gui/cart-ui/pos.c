@@ -28,17 +28,21 @@ bool pos_check_last_operation()
     return (resp != NULL && resp->res_code == POS_QUERY_INCOMPLETED);
 }
 
-void pos_day_open()
+bool pos_day_open()
 {
-    /*struct pos_response* resp = */run_pos_operation(0xa1);
+    struct pos_response* resp = run_pos_operation(0xa1);
+    
+    return (resp != NULL && resp->res_code != POS_QUERY_ERROR);
 }
 
-void pos_day_close()
+bool pos_day_close()
 {
-    /*struct pos_response* resp = */run_pos_operation(0xa2);
+    struct pos_response* resp = run_pos_operation(0xa2);
+    return (resp != NULL && resp->res_code != POS_QUERY_ERROR);
 }
 
-void pos_service_operations()
+bool pos_service_operations()
 {
-    /*struct pos_response* resp = */run_pos_operation(0xa6);
+    struct pos_response* resp = run_pos_operation(0xa6);
+    return (resp != NULL && resp->res_code != POS_QUERY_ERROR);
 }
