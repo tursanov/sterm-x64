@@ -3,12 +3,10 @@
 #if !defined LICSIG_H
 #define LICSIG_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include <stdlib.h>
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /* Размер сектора жесткого диска */
 #define SECTOR_SIZE			512
@@ -30,8 +28,6 @@ extern bool write_lic_signature(off_t offs, uint16_t sig);
 /* Очистка признака удаления лицензии */
 extern bool clear_lic_signature(off_t offs, uint16_t sig);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* LICSIG_H */

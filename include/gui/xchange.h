@@ -1,11 +1,11 @@
 /* Просмотр обмена с "Экспресс" по TCP/IP. (c) gsr 2004 */
 
-#ifndef GUI_XCHANGE_H
+#if !defined GUI_XCHANGE_H
 #define GUI_XCHANGE_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
+#include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /* Число строк на экране */
 #define SCR_LINES		20
@@ -32,8 +32,6 @@ extern bool draw_xchange(void);
 extern void on_new_xchg_item(void);
 extern int process_xchange(struct kbd_event *e);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* GUI_XCHANGE_H */

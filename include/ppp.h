@@ -1,16 +1,12 @@
-/*
- * Работа с PPP. (c) gsr 2003.
- */
+/* Работа с PPP. (c) gsr 2003 */
 
 #ifndef PPP_H
 #define PPP_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "gui/options.h"
 #include "transport.h"
+
+__BEGIN_DECLS
 
 extern char *make_pppd_string(void);
 
@@ -77,8 +73,6 @@ extern bool ppp_connect(void);
 extern bool ppp_hangup(void);
 extern void ppp_process(void);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* PPP_H */

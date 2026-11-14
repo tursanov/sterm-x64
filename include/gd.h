@@ -3,14 +3,12 @@
  *	(c) gsr & А.Б.Коников 2000-2001, 2004
  */
 
-#ifndef GD_H
+#if !defined GD_H
 #define GD_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /* Максимальное число попыток инициализации при ошибках сеансового уровня */
 #define MAX_INIT_TRIES_SESSION	1
@@ -159,8 +157,6 @@ extern bool check_crc(void);
 extern bool check_gd_rules(void);
 extern void set_text_len(void);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* GD_H */

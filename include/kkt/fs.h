@@ -3,12 +3,10 @@
 #if !defined KKT_FS_H
 #define KKT_FS_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include <stdint.h>
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /* Дата/время, используемые в ФН */
 struct kkt_fs_date {
@@ -253,8 +251,6 @@ struct kkt_fs_doc_stlv_info {
 	size_t len;			/* длина документа */
 };
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* KKT_FS_H */

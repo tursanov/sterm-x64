@@ -1,16 +1,14 @@
-#ifndef list_h
-#define list_h
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined LIST_H
+#define LIST_H
 
 #include "sysdefs.h"
 
+__BEGIN_DECLS
+
 typedef struct list_item_t {
-    struct list_item_t *next;
-    struct list_item_t *prev;
-    void *obj;
+	struct list_item_t *next;
+	struct list_item_t *prev;
+	void *obj;
 } list_item_t;
 
 typedef void (*list_item_delete_func_t)(void *obj);
@@ -18,16 +16,16 @@ typedef int (*list_item_func_t)(intptr_t arg, void *obj);
 typedef int (*list_item_compare_func_t)(void *arg, void *x, void *y);
 
 typedef struct list_t {
-    struct list_item_t *head;
-    struct list_item_t *tail;
-    size_t count;
-    list_item_delete_func_t delete_func;
+	struct list_item_t *head;
+	struct list_item_t *tail;
+	size_t count;
+	list_item_delete_func_t delete_func;
 } list_t;
 
 #define LIST_INIT(name, delete_func) \
 	list_t name = { NULL, NULL, 0, (list_item_delete_func_t)(delete_func) }
 	
-extern list_t *list_create();	
+extern list_t *list_create(list_item_delete_func_t delete_func);
 extern int list_add(list_t *list, void *obj);
 extern int list_add_if_not_exist(list_t *list, void *obj);
 extern int list_add_head(list_t *list, void *obj);
@@ -62,9 +60,6 @@ extern list_item_t *list_item_at(list_t *list, int index);
 //void list_it_next(list_it_t *it);
 //void list_it_remove(list_it_t *it);
 
+__END_DECLS
 
-#if defined __cplusplus
-}
-#endif
-
-#endif /* list_h */
+#endif		/* LIST_H */

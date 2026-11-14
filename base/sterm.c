@@ -476,7 +476,7 @@ const char *find_term_state(int st)
 		{st_kkt_icons,		"Пиктограммы ККТ"},
 	};
 	int i;
-	static char buf[MAX_TERM_STATE_LEN+1];
+	static char buf[MAX_TERM_STATE_LEN + 1];
 	for (i = 0; i < ASIZE(states); i++){
 		if (st == states[i].st){
 			if (st == st_input)
@@ -515,7 +515,7 @@ const char *find_term_astate(intptr_t ast, bool *x3_err)
 		{ast_noxprn,		"Нет готовности ОПУ"},
 		{ast_noaprn,		"Нет готовности ДПУ"},
 		{ast_nosprn,		"Нет готовности БПУ"},
-		{ast_sprn_error,		"Ошибка БПУ"},
+		{ast_sprn_error,	"Ошибка БПУ"},
 		{ast_sprn_ch_media,	"Замените ленту в БПУ"},
 		{ast_rejected,		"Ответ не принят"},
 		{ast_repeat,		"Повторите заказ"},

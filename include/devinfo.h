@@ -3,11 +3,9 @@
 #if !defined DEVINFO_H
 #define DEVINFO_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "serial.h"
+
+__BEGIN_DECLS
 
 /* Тиы устройств */
 enum {
@@ -97,8 +95,6 @@ extern const char *get_dev_param_str(const struct dev_info *dev, const char *nam
 extern uint32_t get_dev_param_uint(const struct dev_info *dev, const char *name);
 extern uint32_t get_dev_param_ip(const struct dev_info *dev, const char *name);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* DEVINFO_H */

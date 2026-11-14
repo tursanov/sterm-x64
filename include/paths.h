@@ -3,11 +3,9 @@
 #if !defined PATHS_H
 #define PATHS_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "config.h"
+
+__BEGIN_DECLS
 
 /* Для удобства указания пути */
 #define _(s)			STERM_HOME "/" s
@@ -65,8 +63,6 @@ extern "C" {
 /* Файл с номером терминала */
 #define STERM_NR_FILE		"term-number.txt"
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* PATHS_H */

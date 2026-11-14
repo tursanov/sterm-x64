@@ -3,12 +3,10 @@
 #if !defined IPLIR_H
 #define IPLIR_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include <netinet/in.h>
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 #define IPLIR_CTL	"/usr/bin/vipnetclient"
 
@@ -24,8 +22,6 @@ extern bool iplir_disabled;
 
 extern bool iplir_test(void);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* IPLIR_H */

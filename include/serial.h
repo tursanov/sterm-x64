@@ -3,13 +3,11 @@
 #if !defined SERIAL_H
 #define SERIAL_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include <sys/types.h>
 #include <termios.h>
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /* Тип управление потоком */
 enum {
@@ -83,8 +81,6 @@ extern bool serial_ch_lines(int dev, uint32_t lines, bool set);
 /* Определение имени файла по его дескриптору */
 extern const char *fd2name(int fd);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* SERIAL_H */

@@ -3,12 +3,10 @@
 #if !defined HASH_H
 #define HASH_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "sysdefs.h"
 #include "sterm.h"
+
+__BEGIN_DECLS
 
 #define HASH_ID_MIN		0x30
 #define HASH_ID_MAX		0x7e
@@ -38,8 +36,6 @@ extern int		hash_get(struct hash *h, uint8_t id, uint8_t *buf);
 extern bool		hash_set(struct hash *h, uint8_t id, uint8_t *txt);
 extern int		hash_set_all(struct hash *h, uint8_t *str);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* HASH_H */

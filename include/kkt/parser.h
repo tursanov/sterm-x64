@@ -3,11 +3,9 @@
 #if !defined KKT_PARSER_H
 #define KKT_PARSER_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "kkt/kkt.h"
+
+__BEGIN_DECLS
 
 extern uint8_t tx_prefix;
 extern uint8_t tx_cmd;
@@ -45,8 +43,6 @@ typedef bool (*parser_t)();
 
 extern parser_t get_parser(uint8_t prefix, uint8_t cmd);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* KKT_PARSER_H */

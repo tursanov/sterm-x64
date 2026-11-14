@@ -1,19 +1,15 @@
-#ifndef SSAVER_H
-#define SSAVER_H
+#if !defined GUI_SSAVER_H
+#define GUI_SSAVER_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
+#include "sysdefs.h"
 
+__BEGIN_DECLS
 
 extern void 	init_ssaver(void);
-extern void		release_ssaver(void);
+extern void	release_ssaver(void);
 extern bool 	draw_ssaver(void);
 extern bool 	process_ssaver(struct kbd_event *e);
 
+__END_DECLS
 
-#if defined __cplusplus
-}
-#endif
-
-#endif /* SSAVER_H */
+#endif		/* GUI_SSAVER_H */

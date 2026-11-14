@@ -1,14 +1,10 @@
-/* KKT (c) gsr & alex 2000-2004, 2018 */
-
 #if !defined GUI_FA_H
 #define GUI_FA_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "cfg.h"
 #include "kbd.h"
+
+__BEGIN_DECLS
 
 extern bool	init_fa(int arg);
 extern void	release_fa(void);
@@ -50,8 +46,6 @@ extern int articles_save();
 extern int agents_destroy();
 extern int articles_destroy();
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* GUI_KKT_H */

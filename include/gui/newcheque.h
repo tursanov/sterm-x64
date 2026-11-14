@@ -1,18 +1,14 @@
-#ifndef NEWCHEQUE_H
-#define NEWCHEQUE_H
+#if !defined GUI_NEWCHEQUE_H
+#define GUI_NEWCHEQUE_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
+__BEGIN_DECLS
 
-int newcheque_execute();
-void newcheque_draw();
-bool newcheque_load();
+extern int newcheque_execute(void);
+extern void newcheque_draw(void);
+extern bool newcheque_load(void);
 
-int newcheque_destroy();
+extern int newcheque_destroy(void);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif // NEWCHEQUE_H
+#endif		/* GUI_NEWCHEQUE_H */

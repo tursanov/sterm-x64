@@ -1,13 +1,11 @@
 /* Диалоговые окна. (c) gsr, Alex Popov 2000-2004 */
 
-#ifndef GUI_DIALOG_H
+#if !defined GUI_DIALOG_H
 #define GUI_DIALOG_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /* Кнопки в окне диалога */
 enum {
@@ -60,8 +58,6 @@ extern int find_log_date_dlg(int *hour, int *day, int *mon, int *year);
 extern int find_log_number_dlg(uint32_t *number, uint32_t min_number,
 		uint32_t max_number);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* GUI_DIALOG_H */

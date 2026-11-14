@@ -1,23 +1,18 @@
-#ifndef CHEQUE_H
-#define CHEQUE_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined GUI_CHEQUE_H
+#define GUI_CHEQUE_H
 
 #include "kkt/fd/ad.h"
 
-int cheque_init(void);
-void cheque_release(void);
-int cheque_draw(void);
-bool cheque_execute(void);
-void cheque_sync_first(void);
-void cheque_begin_op(const char *title);
-void cheque_end_op();
+__BEGIN_DECLS
 
+extern int cheque_init(void);
+extern void cheque_release(void);
+extern int cheque_draw(void);
+extern bool cheque_execute(void);
+extern void cheque_sync_first(void);
+extern void cheque_begin_op(const char *title);
+extern void cheque_end_op();
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif // CHEQUE_H
+#endif		/* GUI_CHEQUE_H */

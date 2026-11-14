@@ -3,11 +3,9 @@
 #if !defined GUI_CALC_H
 #define GUI_CALC_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "kbd.h"
+
+__BEGIN_DECLS
 
 #define MAX_DIGITS	14
 
@@ -26,8 +24,6 @@ extern void release_calc(void);
 extern bool draw_calc(void);
 extern bool process_calc(struct kbd_event *e);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* GUI_CALC_H */

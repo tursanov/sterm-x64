@@ -5,10 +5,6 @@
 #if !defined SYSDES_H
 #define SYSDES_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #if defined __KERNEL__
 #include <linux/types.h>
 #else
@@ -18,6 +14,8 @@ extern "C" {
 #endif
 #include <stddef.h>	/* offsetof */
 #include "config.h"
+
+__BEGIN_DECLS
 
 /* Вариант sizeof, возвращающий int вместо size_t (используется в printf) */
 #define isizeof(v) (int)sizeof(v)
@@ -73,8 +71,6 @@ static inline uint32_t u_times(void)
 #define __fallthrough__	((void)0)
 #endif
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* SYSDEFS_H */

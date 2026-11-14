@@ -1,11 +1,7 @@
 /* Работа терминала по TCP/IP. (c) gsr 2000, 2004 */
 
-#ifndef TCPIP_H
+#if !defined TCPIP_H
 #define TCPIP_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
 
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -14,6 +10,8 @@ extern "C" {
 #include <sys/types.h>
 #include <errno.h>
 #include "sterm.h"
+
+__BEGIN_DECLS
 
 #define EXPRESS_SERVER_PORT	1001
 
@@ -41,8 +39,6 @@ extern void	release_tcpip(void);
 extern void	process_tcpip(void);
 extern bool	release_term_socket(void);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* TCPIP_H */

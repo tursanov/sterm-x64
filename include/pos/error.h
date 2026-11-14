@@ -3,11 +3,9 @@
 #if !defined POS_ERROR_H
 #define POS_ERROR_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "pos/pos.h"
+
+__BEGIN_DECLS
 
 /* Классы ошибок */
 #define POS_ERROR_CLASS_SYSTEM		0x00
@@ -70,8 +68,6 @@ extern void pos_set_error(int class, int code, intptr_t param);
 /* Сброс ошибки */
 extern void pos_error_clear(void);
 		
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* POS_ERROR_H */

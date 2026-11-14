@@ -1,16 +1,11 @@
-/*
-	sterm status line routines
-	(c) 2001 gsr & alex
-*/
+/* sterm status line routines. (c) 2001 gsr & alex */
 
-#ifndef STATUS_H
-#define STATUS_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined GUI_STATUS_H
+#define GUI_STATUS_H
 
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /* Левая часть строки статуса */
 enum {
@@ -90,8 +85,6 @@ extern bool		scr_draw_rollers(void);
 extern bool		scr_set_lstatus(const char *s);
 extern bool		scr_set_rstatus(const char *s);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif		/* STATUS_H */
+#endif		/* GUI_STATUS_H */

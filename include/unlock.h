@@ -3,13 +3,11 @@
 #if !defined UNLOCK_H
 #define UNLOCK_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "colortty.h"
 #include "licsig.h"
 #include "md5.h"
+
+__BEGIN_DECLS
 
 /* Структура для хранения хеша заводского номера терминала */
 struct fuzzy_md5 {
@@ -31,8 +29,6 @@ extern bool check_term_number(const struct md5_hash *number,
 /* Вывод на экран сообщения об успешной разблокировке терминала */
 extern void print_unlock_msg(const char *name);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* UNLOCK_H */

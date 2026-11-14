@@ -1,9 +1,5 @@
-#ifndef CONTROLS_H
-#define CONTROLS_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined GUI_CONTROLS_CONTROLS_H
+#define GUI_CONTROLS_CONTROLS_H
 
 #include "control.h"
 #include "edit.h"
@@ -13,8 +9,7 @@ extern "C" {
 #include "listbox.h"
 #include "listview.h"
 
-#if defined __cplusplus
-}
-#endif
+__BEGIN_DECLS
+__END_DECLS
 
-#endif // CONTROLS_H
+#endif		/* GUI_CONTROLS_CONTROLS_H */

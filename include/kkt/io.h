@@ -3,11 +3,9 @@
 #if !defined KKT_IO_H
 #define KKT_IO_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "devinfo.h"
+
+__BEGIN_DECLS
 
 #define KKT_RX_BUF_LEN	4096
 #define KKT_TX_BUF_LEN	262144
@@ -38,8 +36,6 @@ extern void kkt_reset_rx(void);
 extern ssize_t kkt_io_write(uint32_t *timeout);
 extern ssize_t kkt_io_read(size_t len, uint32_t *timeout);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* KKT_IO_H */

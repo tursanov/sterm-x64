@@ -1,14 +1,12 @@
 /* Работа с ключами DS1990A. (c) gsr 2000-2004. */
 
-#ifndef DS1990A_H
+#if !defined DS1990A_H
 #define DS1990A_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
 
 #include "md5.h"
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /* Число ключей различного типа */
 #define NR_SRV_KEYS		2
@@ -34,8 +32,6 @@ extern char ds_key_char(int kt);
 /* Управление динамиком через COM-порт */
 #define SPEAKER_DEV	"/dev/speaker"
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* DS1990A_H */

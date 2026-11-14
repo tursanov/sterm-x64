@@ -3,12 +3,12 @@
  *	(c) gsr 2001, 2004
  */
 
-#ifndef COLORTTY_H
+#if !defined COLORTTY_H
 #define COLORTTY_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
+#include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /* Атрибуты текста */
 #define ANSI_PREFIX	"\033["
@@ -96,8 +96,6 @@ extern "C" {
 #define CLR_EOL		ANSI_PREFIX "0K"
 #define CLR_SOL		ANSI_PREFIX "1K"
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* COLORTTY_H */

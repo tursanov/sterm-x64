@@ -1,13 +1,11 @@
-#ifndef TAGS_H
-#define TAGS_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined KKT_FD_TAGS_H
+#define KKT_FD_TAGS_H
 
 #include <stdint.h>
 #include "sysdefs.h"
 #include "kkt/fd/tlv.h"
+
+__BEGIN_DECLS
 
 typedef enum {
 	tag_type_byte,
@@ -19,7 +17,7 @@ typedef enum {
 	tag_type_fvln,
 	tag_type_bits,
 	tag_type_bytes,
-	tag_type_stlv
+	tag_type_stlv,
 } tag_type_t;
 
 typedef struct kkt_tag_t {
@@ -28,11 +26,9 @@ typedef struct kkt_tag_t {
 	tag_type_t type;
 } kkt_tag_t;
 
-const char *tags_get_text(uint16_t tag);
-tag_type_t tags_get_tlv_text(ffd_tlv_t *tlv, char *text, size_t text_size);
+extern const char *tags_get_text(uint16_t tag);
+extern tag_type_t tags_get_tlv_text(ffd_tlv_t *tlv, char *text, size_t text_size);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif // TAGS_H
+#endif		/* KKT_FD_TAGS_H */

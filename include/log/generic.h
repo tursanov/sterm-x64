@@ -3,13 +3,11 @@
 #if !defined LOG_GENERIC_H
 #define LOG_GENERIC_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "blimits.h"
 #include "genfunc.h"
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /* Общая часть заголовка контрольных лент */
 struct log_header {
@@ -155,8 +153,6 @@ extern bool log_reset_prn_buf(void);
 extern bool log_print_bcode(const uint8_t *log_data, uint32_t log_data_len,
 	uint32_t *log_data_index);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* LOG_GENERIC_H */

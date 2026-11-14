@@ -1,12 +1,10 @@
-#ifndef __TLV_H__
-#define __TLV_H__
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined KKT_FD_TLV_H
+#define KKT_FD_TLV_H
 
 #include <stdint.h>
 #include <time.h>
+
+__BEGIN_DECLS
 
 #pragma pack(push, 1)
 typedef struct ffd_tlv_t {
@@ -34,33 +32,31 @@ typedef struct {
 #define FFD_TLV_DATA_AS_UNIXTIME(tlv) (*((time_t *)FFD_TLV_DATA(tlv)))
 #define FFD_TLV_DATA_AS_BITS(tlv)  ((tlv)->length == 1 ? (uint32_t)*((uint8_t *)FFD_TLV_DATA(tlv)) : *((uint32_t *)FFD_TLV_DATA(tlv)))
 #define FFD_TLV_DATA_AS_STRING(tlv) ((char *)FFD_TLV_DATA(tlv))
-uint64_t ffd_tlv_data_as_vln(const ffd_tlv_t *tlv);
-int ffd_tlv_data_as_fvln(const ffd_tlv_t *tlv, ffd_fvln_t *value);
+extern uint64_t ffd_tlv_data_as_vln(const ffd_tlv_t *tlv);
+extern int ffd_tlv_data_as_fvln(const ffd_tlv_t *tlv, ffd_fvln_t *value);
 
-double ffd_fvln_to_double(const ffd_fvln_t *value);
-bool ffd_string_to_fvln(const char *s, size_t size, ffd_fvln_t *value);
-bool ffd_string_to_vln(const char *s, size_t size, uint64_t *value);
+extern double ffd_fvln_to_double(const ffd_fvln_t *value);
+extern bool ffd_string_to_fvln(const char *s, size_t size, ffd_fvln_t *value);
+extern bool ffd_string_to_vln(const char *s, size_t size, uint64_t *value);
 
-int ffd_tlv_vln_length(uint64_t value);
+extern int ffd_tlv_vln_length(uint64_t value);
 
-uint8_t *ffd_tlv_data();
-size_t ffd_tlv_size();
-void ffd_tlv_reset();
-int ffd_tlv_add(ffd_tlv_t *tlv);
-int ffd_tlv_add_uint8(uint16_t tag, uint8_t value);
-int ffd_tlv_add_uint16(uint16_t tag, uint16_t value);
-int ffd_tlv_add_uint32(uint16_t tag, uint32_t value);
-int ffd_tlv_add_vln(uint16_t tag, uint64_t value);
-int ffd_tlv_add_fvln(uint16_t tag, uint64_t value, uint8_t dot_pos);
-int ffd_tlv_add_unix_time(uint16_t tag, time_t value);
-int ffd_tlv_add_byte_array(uint16_t tag, uint8_t* value, size_t size);
-int ffd_tlv_add_string(uint16_t tag, const char* value);
-int ffd_tlv_add_fixed_string(uint16_t tag, const char* value, size_t fixed_length);
-int ffd_tlv_stlv_begin(uint16_t tag, uint16_t max_length);
-int ffd_tlv_stlv_end();
+extern uint8_t *ffd_tlv_data();
+extern size_t ffd_tlv_size();
+extern void ffd_tlv_reset();
+extern int ffd_tlv_add(ffd_tlv_t *tlv);
+extern int ffd_tlv_add_uint8(uint16_t tag, uint8_t value);
+extern int ffd_tlv_add_uint16(uint16_t tag, uint16_t value);
+extern int ffd_tlv_add_uint32(uint16_t tag, uint32_t value);
+extern int ffd_tlv_add_vln(uint16_t tag, uint64_t value);
+extern int ffd_tlv_add_fvln(uint16_t tag, uint64_t value, uint8_t dot_pos);
+extern int ffd_tlv_add_unix_time(uint16_t tag, time_t value);
+extern int ffd_tlv_add_byte_array(uint16_t tag, uint8_t* value, size_t size);
+extern int ffd_tlv_add_string(uint16_t tag, const char* value);
+extern int ffd_tlv_add_fixed_string(uint16_t tag, const char* value, size_t fixed_length);
+extern int ffd_tlv_stlv_begin(uint16_t tag, uint16_t max_length);
+extern int ffd_tlv_stlv_end();
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif // __TLV_H__
+#endif		/* KKT_FD_TLV_H */

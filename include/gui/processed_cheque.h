@@ -1,14 +1,10 @@
-#ifndef PROCESSED_CHEQUE_H
-#define PROCESSED_CHEQUE_H
+#if !defined GUI_PROCESSED_CHEQUE_H
+#define GUI_PROCESSED_CHEQUE_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
+__BEGIN_DECLS
 
-void processed_cheque_execute(void);
+extern void processed_cheque_execute(void);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif /* PROCESSED_CHEQUE_H */
+#endif		/* GUI_PROCESSED_CHEQUE_H */

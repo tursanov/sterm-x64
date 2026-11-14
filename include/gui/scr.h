@@ -1,17 +1,15 @@
 /* Основные функции для работы с экраном. (c) gsr, Alex Popov 2000-2004 */
 
-#ifndef SCR_H
-#define SCR_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined GUI_SCR_H
+#define GUI_SCR_H
 
 #include "blimits.h"
 #include "kbd.h"
 #include "sterm.h"
 #include "gui/exgdi.h"
 #include "gui/status.h"
+
+__BEGIN_DECLS
 
 #define MAIN_TITLE	"Экспресс-2А-К  АО НПЦ \"Спектр\""
 #define MAIN_TITLE_LEN	100
@@ -113,8 +111,6 @@ extern bool		quick_astate(int ast);
  */
 extern bool		input_chars(const uint8_t *chars, int len);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif		/* SCR_H */
+#endif		/* GUI_SCR_H */

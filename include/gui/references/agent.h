@@ -1,11 +1,9 @@
-#ifndef REF_AGENT_H
-#define REF_AGENT_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined GUI_REFERENCES_AGENT_H
+#define GUI_REFERENCES_AGENT_H
 
 #include "list.h"
+
+__BEGIN_DECLS
 
 typedef struct {
 	int n;
@@ -25,13 +23,11 @@ typedef struct {
 
 extern list_t agents;
 
-extern int agents_destroy();
+extern int agents_destroy(void);
 
 extern agent_t* get_agent_by_id(int id);
 extern int get_agent_id_by_index(int index);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
-#endif // REF_AGENT_H
+#endif		/* GUI_REFERENCES_AGENT_H */

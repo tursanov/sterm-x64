@@ -3,12 +3,10 @@
 #if !defined LICENSE_H
 #define LICENSE_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "md5.h"
 #include "paths.h"
+
+__BEGIN_DECLS
 
 /* Информация о лицензии ИПТ */
 struct bank_license_info {
@@ -22,8 +20,6 @@ struct bank_license_info {
 /* Имя файла хеша заводского номера терминала (для проверки лицензии) */
 #define TERM_NUMBER_FILE		SDATA_DIR "/disk.dat"
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* LICENSE_H */

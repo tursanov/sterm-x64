@@ -3,11 +3,9 @@
 #if !defined EXPRESS_H
 #define EXPRESS_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "genfunc.h"
+
+__BEGIN_DECLS
 
 /* Признак работы терминала через интегратор */
 extern bool use_integrator;
@@ -278,8 +276,6 @@ extern uint32_t need_x3_sync(void);
 /* Обработка текста ответа. Возвращает false, если надо перейти к ОЗУ заказа */
 extern bool execute_resp(void);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* EXPRESS_H */

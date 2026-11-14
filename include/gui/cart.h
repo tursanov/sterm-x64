@@ -1,16 +1,13 @@
-#ifndef UI_CART_H
-#define UI_CART_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
+#if !defined GUI_CART_H
+#define GUI_CART_H
 
 #include "gui/gdi.h"
 #include "kkt/fd/ad.h"
 #include "kbd.h"
 
-extern bool _support_1222_1224_1225;
+__BEGIN_DECLS
 
+extern bool _support_1222_1224_1225;
 
 #define MAX_DOCS    35
 
@@ -74,10 +71,10 @@ typedef struct ui_doc_t
 	int height;
 } ui_doc_t;
 
-extern bool is_admin_mode();
+extern bool is_admin_mode(void);
 
-extern void ui_cart_create();
-extern void ui_cart_destroy();
+extern void ui_cart_create(void);
+extern void ui_cart_destroy(void);
 extern void ui_cart_draw(GCPtr s, FontPtr f, FontPtr sf);
 extern bool cart_process(const struct kbd_event *_e);
 
@@ -87,32 +84,29 @@ extern FontPtr cart_sfnt;
 extern ui_cart_t *ui_cart;
 extern float cart_tab_fr[CART_MAX_TAB_COL];
 
-void ui_subcart_init(ui_subcart_t *sc, SubCart *val, bool tab_selected);
-void ui_subcart_free(ui_subcart_t *sc);
-void ui_subcart_calc_bounds(ui_subcart_t *sc);
-void ui_subcart_draw(ui_subcart_t *sc, int y);
-bool ui_subcart_items_disabled(ui_subcart_t *sc);
-size_t ui_subcart_get_all_k(ui_subcart_t *sc, list_t *list);
+extern void ui_subcart_init(ui_subcart_t *sc, SubCart *val, bool tab_selected);
+extern void ui_subcart_free(ui_subcart_t *sc);
+extern void ui_subcart_calc_bounds(ui_subcart_t *sc);
+extern void ui_subcart_draw(ui_subcart_t *sc, int y);
+extern bool ui_subcart_items_disabled(ui_subcart_t *sc);
+extern size_t ui_subcart_get_all_k(ui_subcart_t *sc, list_t *list);
 
 
 void ui_doc_init(ui_doc_t *d, D *val, bool selected);
 void ui_doc_calc_bounds(ui_doc_t *d);
-int ui_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width);
+extern int ui_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width);
 
 
 extern int kbd_lang_ex;
 extern int kbd_get_char_ex(int key);
 
-bool pos_check_last_operation();
-bool pos_day_open();
-bool pos_day_close();
-bool pos_service_operations();
+extern bool pos_check_last_operation(void);
+extern bool pos_day_open(void);
+extern bool pos_day_close(void);
+extern bool pos_service_operations(void);
 
 extern const char *printsum(int64_t sum, char *buf);
 
+__END_DECLS
 
-#if defined __cplusplus
-}
-#endif
-
-#endif // UI_CART_H
+#endif		/* GUI_CART_H */

@@ -1,14 +1,11 @@
-/*
- * Управляющие символы BSC.
- * (c) gsr 2000
- */
+/* Управляющие символы BSC. (c) gsr 2000 */
 
-#ifndef BSCSYM_H
+#if !defined BSCSYM_H
 #define BSCSYM_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
+#include "sysdefs.h"
+
+__BEGIN_DECLS
 
 #define BSC_STX		0x02
 #define BSC_ETX		0x03
@@ -25,8 +22,6 @@ extern "C" {
 #define BSC_ACK1	0x31
 #define BSC_PAD		0x7f
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* BSCSYM_H */

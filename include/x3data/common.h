@@ -7,9 +7,7 @@
 #include "prn/sprn.h"
 #include "express.h"
 
-#if defined __cplusplus
-extern "C" {
-#endif
+__BEGIN_DECLS
 
 extern uint32_t x3data_to_sync;
 extern uint32_t x3data_sync_ok;
@@ -35,8 +33,6 @@ extern uint32_t pic_crc32(const uint8_t *data, size_t len);
 /* Проверка существования каталога и создание его при необходимости */
 extern bool create_folder_if_need(const char *path);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* X3DATA_COMMON_H */

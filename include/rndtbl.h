@@ -7,11 +7,9 @@
 #if !defined RNDTBL_H
 #define RNDTBL_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "sysdefs.h"
+
+__BEGIN_DECLS
 
 /* Запись в таблице случайных чисел */
 struct rnd_rec {
@@ -26,8 +24,6 @@ struct rnd_rec {
 /* Таблица случайных чисел для формирования кода удаления лицензии ИПТ */
 extern struct rnd_rec rnd_tbl_bnk[NR_RND_REC];
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* RNDTBL_H */

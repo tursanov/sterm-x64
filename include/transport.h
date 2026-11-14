@@ -1,11 +1,7 @@
 /* Работа терминала по TCP/IP. (c) gsr 2000, 2004 */
 
-#ifndef TRANSPORT_H
+#if !defined TRANSPORT_H
 #define TRANSPORT_H
-
-#if defined __cplusplus
-extern "C" {
-#endif
 
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -14,6 +10,8 @@ extern "C" {
 #include <sys/types.h>
 #include <errno.h>
 #include "sterm.h"
+
+__BEGIN_DECLS
 
 /* TCP-порт "Экспресс" */
 #define EXPRESS_SERVER_PORT	1001
@@ -90,8 +88,6 @@ extern bool process_transport(void);
 extern bool can_send_request(void);
 extern bool prepare_raw_resp(void);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* TRANSPORT_H */

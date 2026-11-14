@@ -7,12 +7,10 @@
 #if !defined CFG_H
 #define CFG_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "sterm.h"
 #include "gui/gdi.h"		/* для определения Color */
+
+__BEGIN_DECLS
 
 /* Адрес терминала */
 struct term_addr{
@@ -141,8 +139,6 @@ extern void translate_color_scheme(int scheme,
 /* Определение ip хост-ЭВМ */
 extern uint32_t get_x3_ip(void);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* CFG_H */

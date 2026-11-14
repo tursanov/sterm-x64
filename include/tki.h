@@ -3,14 +3,12 @@
 #if !defined TKI_H
 #define TKI_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "ds1990a.h"
 #include "gd.h"
 #include "md5.h"
 #include "paths.h"
+
+__BEGIN_DECLS
 
 /* Имя файла заводского номера терминала */
 #define TERM_NR_FILE		SDATA_DIR "/" STERM_NR_FILE
@@ -68,8 +66,6 @@ extern void check_usb_bind(void);
 extern void check_iplir_bind(void);
 extern void check_bank_license(void);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* TKI_H */

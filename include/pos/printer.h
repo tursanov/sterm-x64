@@ -3,13 +3,11 @@
 #if !defined POS_PRINTER_H
 #define POS_PRINTER_H
 
-#if defined __cplusplus
-extern "C" {
-#endif
-
 #include "kkt/cmd.h"
 #include "pos/pos.h"
 #include "cfg.h"
+
+__BEGIN_DECLS
 
 #define POS_PRINTER_PRINT	0x05
 
@@ -34,8 +32,6 @@ static inline bool is_pos_prn_stream_complete(void)
 
 extern bool pos_parse_printer_stream(struct pos_data_buf *buf, bool check_only);
 
-#if defined __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif		/* POS_PRINTER_H */
