@@ -1915,7 +1915,9 @@ int AD_load(uint8_t t1055, bool clear) {
 	
 	s_close(fd);
 
-	//AD_print(stdout);
+#ifdef TEST_PRINT
+	AD_print(stdout);
+#endif	
 
     return ret;
 }
@@ -2090,9 +2092,8 @@ int AD_makeCheque(K *k, doc_no_t *d, uint8_t t1054, uint8_t t1055, int64_t s) {
 	k->a = s;
 	C* c = AD_getCheque(k, t1054, t1055);
 
-	if (s == 0)
+	if (s == 0 && doc_no_is_empty(&k->g))
 	{
-		doc_no_clear(&k->g);
 		k->i = false;
 	}
 
@@ -2565,7 +2566,7 @@ int AD_makeReissue(K *k, K *k1, uint8_t t1055, int64_t tB1, int64_t tB2, int64_t
 									}
 								}
 								else if (k->y == NULL ||
-										 (k->y != NULL && !(k->y->op == '-' && k->y->repayment == '1')))
+										 (k->y != NULL && !(k->y->op == '+' && k->y->repayment == '1')))
 								{
 									set_k_s_mv('I', false, k, k1, g_x);
 								}
@@ -2574,7 +2575,7 @@ int AD_makeReissue(K *k, K *k1, uint8_t t1055, int64_t tB1, int64_t tB2, int64_t
 								{
 									set_k_s_mv('I', false, k, k1, g_x);
 								}
-								else if (k->y != NULL && k->y->op == '-' && k->y->repayment == '1' && g_x->y != NULL)
+								else if (k->y != NULL && k->y->op == '+' && k->y->repayment == '1' && g_x->y != NULL)
 								{
 									if (g_x->y->op == '+' && g_x->y->repayment == 0)
 									{
@@ -2617,6 +2618,7 @@ int AD_makeReissue(K *k, K *k1, uint8_t t1055, int64_t tB1, int64_t tB2, int64_t
 						}
 						g_x->a = sB;
 					}
+					printf("CLEAR GX_U g_x->d: %s\n", g_x->d.s);
 					doc_no_clear(&g_x->u);
 				}
 			}
@@ -2703,8 +2705,9 @@ int AD_processO(K *k) {
 		if (doc_no_is_not_empty(&k->d))
 		{
 			doc_no_copy(&k->i2, &k->d);
-			doc_no_copy(&k->i21, &k->r);
 		}
+
+		doc_no_copy(&k->i21, &k->r);
 
 		k1 = K_divide(k, 1, &tB1);
 		
@@ -2772,6 +2775,10 @@ int AD_processO(K *k) {
 					{
 						set_k_s('E', k, k1, NULL);
 					}
+					else
+					{
+    					set_k_s('I', k, k1, NULL);
+					}
 				}
 				else if (tB1 < tB2)
 				{
@@ -2788,10 +2795,10 @@ int AD_processO(K *k) {
 				{
 					// TODO Потенциальная ошибка (tB1 == tB2)
 					printf("ошибка: tB1 == tB2");
+					set_k_s('I', k, k1, NULL);
 				}
 			}
 		}
-
 
 		if (doc_no_is_not_empty(&k->n)) {
 			tB2 = K_calc_total_sum(k);

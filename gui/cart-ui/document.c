@@ -25,17 +25,13 @@ static char *strdatetime(char *buf, size_t max, time_t t)
 	return buf;
 }
 
-const char *ui_doc_get_op(ui_subcart_t *sc, ui_doc_t *d, S *s)
+const char *ui_doc_get_op(ui_subcart_t *sc, ui_doc_t *d)
 {
     D* doc = d->val;
     K *k = d->val->k;
     char t = sc->val->type;
 	
 	if (k->u.s)
-	{
-		return "…‡€‚…˜…Ž… ……Ž”ŽŒ‹…ˆ…";
-	}
-	else if (s->a == s->p)
 	{
 		return "…‡€‚…˜…Ž… ……Ž”ŽŒ‹…ˆ…";
 	}
@@ -232,6 +228,14 @@ const char *ui_doc_get_n(ui_subcart_t *sc, ui_doc_t *d, char *buf)
     return buf;
 }
 
+static uint8_t effective_lp(const K *k)
+{
+    uint8_t lp = K_lp((K *)k);
+    if (lp != 0)
+        return lp;                                /* ¥áâì L  ª ª ¡ë«® */
+    return (k->o == 1 || k->o == 4) ? 1 : 2;      /* O=1,4  ¯à¨å®¤; O=2,3  ¢®§¢à â */
+}
+
 int ui_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width)
 {
 	float *fr = cart_tab_fr;
@@ -266,7 +270,7 @@ int ui_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width)
 
 	SetFont(cart_screen, cart_sfnt);
 	DrawText(cart_screen, x, y, (int)((float)col_width * fr[2]),
-	         cart_fnt->max_height, ui_doc_get_op(sc, d, &s),
+	         cart_fnt->max_height, ui_doc_get_op(sc, d),
 	         DT_LEFT | DT_VCENTER);
 	x += (float)col_width * fr[2];
 
@@ -292,7 +296,7 @@ int ui_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width)
 			
 			if (k != d->val->k)
 			{
-    			char sign = K_lp(d->val->k) == K_lp(k) ? '+' : '-';
+    			char sign = effective_lp(d->val->k) == effective_lp(k) ? '+' : '-';
       			sprintf(buf, "(%c) %s", sign, k->d.s);
       			DrawText(cart_screen, x, y, DISCX, cart_fnt->max_height, buf, DT_LEFT | DT_VCENTER);
       			y += cart_sfnt->max_height;
