@@ -2249,7 +2249,7 @@ static void show_ping(void)
 
 bool can_show_pos(void)
 {
-	return cfg.bank_system && cfg.tickets_on_kkt &&
+	return cfg.bank_system && pos_caps_known() && cfg.tickets_on_kkt &&
 		(TST_FLAG(ZBp, GDF_REQ_INIT | GDF_REQ_FIRST) == 0);
 }
 
