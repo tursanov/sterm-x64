@@ -36,7 +36,7 @@ extern bool cashier_set_name(const char *name);
 #define strdup _strdup
 #endif
 
-#define TEST_PRINT
+//#define TEST_PRINT
 
 extern void cart_init();
 extern void AD_print(FILE *fd);
