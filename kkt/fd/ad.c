@@ -36,7 +36,7 @@ extern bool cashier_set_name(const char *name);
 #define strdup _strdup
 #endif
 
-//#define TEST_PRINT
+#define TEST_PRINT
 
 extern void cart_init();
 extern void AD_print(FILE *fd);
@@ -378,6 +378,14 @@ uint8_t K_lp(K *k)
 	return k->llist.head != NULL
 		? LIST_ITEM(k->llist.head, L)->p
 		: 0;
+}
+
+uint8_t K_effective_lp(const K *k)
+{
+    uint8_t lp = K_lp((K *)k);
+    if (lp != 0)
+        return lp;                                /* есть L  как было */
+    return (k->o == 1 || k->o == 4) ? 1 : 2;      /* O=1,4  приход; O=2,3  возврат */
 }
 
 K *K_clone(K *k, bool clone_l)
@@ -3829,8 +3837,18 @@ void cart_foreach_document(void *obj, doc_func_t action)
 
 bool pair_predicate(D *item, __attribute__((unused)) SubCart *sc, D* v)
 {
-	if (v->k->y == NULL || item->k->y == NULL)
+    if (item == NULL || item->k == NULL) {
+        return false;
+    }
+
+	if (v == NULL || v->k == NULL) {
 		return false;
+    }
+        
+	if (v->k->y == NULL || item->k->y == NULL) {
+		return false;
+    }
+		
     return v->k->y->op == '-'
         && v->k->y->repayment != '\x0'
         && str_no_special_compare(v->k->y->prev_blank_nr, item->k->y->blank_nr) == 0;

@@ -146,9 +146,7 @@ static int ui_subcart_header_with_box_draw(ui_subcart_t *sc, int x, int y, int w
 		if (!d->selected)
 			continue;
 		sel_count++;
-		S s;
-		K_calc_sum(d->val->k, &s);
-		sel_sum += s.a;
+		sel_sum += D_total_sum_eff(d->val);
 	}
 
 	char sumbuf[64];

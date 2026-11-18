@@ -1135,6 +1135,7 @@ typedef struct
     S sum;    
     bool has_unprocessed_bank_op;
     bool has_y;
+    K *main_k;
 } selected_docs_t;
 
 void free_selected_docs(selected_docs_t *sd)
@@ -1149,63 +1150,54 @@ void get_selected_docs(selected_docs_t* sd)
 {
     ui_subcart_t *sc = ui_sel_subcart;
     if (sc == NULL)
-    {
         return;
-    }
-    
-    sd->sc = sc;
-    ui_doc_t *d = sc->docs;
-    uint8_t kp = 255;
-    
-    for (size_t i = 0; i < sc->doc_count; i++, d++)
-    {
-        if (d->selected)
-        {
-            D* doc = d->val;
-            
-            list_add(&sd->dlist, doc);
-            
-            for (list_item_t* li = doc->related.head; li; li = li->next)
-            {
-                K *k = LIST_ITEM(li, K);
-                uint8_t p = K_lp(k);
-                int index;
-                
-                if (kp == 255)
-                {
-                    kp = p;
-                    index = 0;
-                    sd->p = p;
-                }
-                else if (kp == p)
-                {
-                    index = 0;
-                }
-                else
-                {
-                    index = 1;
-                }
-                
-                list_add(&sd->klist_by_p[index], k);
-                list_add(&sd->klist, k);
-                K_add_sum(kp, k, &sd->sum);
 
-                if (k->bank_state != BANK_STATE_SUCCESS)
-                {
-                    sd->has_unprocessed_bank_op = true;
-                }
-                
-                if (k->y != NULL)
-                {
-                    sd->has_y = true;
-                }
-            }
+    sd->sc = sc;
+    sd->main_k = NULL;
+    sd->p = 0;
+
+    /* --- 1. Найти главный K первого выделенного D --- */
+    for (size_t i = 0; i < sc->doc_count; i++) {
+        ui_doc_t *d = &sc->docs[i];
+        if (!d->selected || d->val == NULL || d->val->k == NULL)
+            continue;
+        sd->main_k = d->val->k;
+        sd->p = K_lp(sd->main_k);
+        break;
+    }
+
+    uint8_t main_eff = sd->main_k ? K_effective_lp(sd->main_k) : 1;
+
+    /* --- 2. Разложить related по бакетам:
+     *     [0] = минусы (противоположный главному знак),
+     *     [1] = плюсы (главный + подчинённые с тем же знаком) */
+    for (size_t i = 0; i < sc->doc_count; i++) {
+        ui_doc_t *d = &sc->docs[i];
+        if (!d->selected)
+            continue;
+
+        D *doc = d->val;
+        list_add(&sd->dlist, doc);
+
+        for (list_item_t *li = doc->related.head; li; li = li->next) {
+            K *k = LIST_ITEM(li, K);
+            uint8_t eff = K_effective_lp(k);
+            int index = (eff == main_eff) ? 1 : 0;
+
+            list_add(&sd->klist_by_p[index], k);
+            list_add(&sd->klist, k);
+            K_add_sum(sd->p, k, &sd->sum);
+
+            if (k->bank_state != BANK_STATE_SUCCESS)
+                sd->has_unprocessed_bank_op = true;
+
+            if (k->y != NULL)
+                sd->has_y = true;
         }
     }
 }
 
 void process_print_docs(selected_docs_t* sd, bool phone_prompted);
-
 
 typedef struct 
 {
@@ -2116,6 +2108,10 @@ void process_print_docs(selected_docs_t* sd, bool phone_prompted)
         }
     }
 
+    /* Всегда: сначала i=0 (минусы/подчинённые с противоположным знаком),
+     * затем i=1 (плюсы/главный и подчинённые с его знаком).
+     * Главный документ всегда в бакете 1  удаляется последним,
+     * промежуточных сирот не возникает. */
     for (int i = 0; i < 2; i++) {
         list_t *list = &sd->klist_by_p[i];
         if (list->count == 0) continue;
@@ -2138,12 +2134,15 @@ void process_print_docs(selected_docs_t* sd, bool phone_prompted)
                 current_cheque_end();
         }
 
-        cart_build();
-        ui_cart_create();
-        ui_cart_redraw_all();
-
         if (!ret) break;
     }
+    
+    /* cart_build()  ОДИН раз после обработки всей выборки.
+     * Это гарантирует, что между i=0 и i=1 промежуточное состояние
+     * не отображается в UI и не попадает в cart_set_groups. */
+    cart_build();
+    ui_cart_create();
+    ui_cart_redraw_all();
 }
 
 typedef void (*update_screen_func_t)(void *arg);
@@ -2263,78 +2262,79 @@ bool print_cheque(SubCart *sc, list_t *klist)
 	for (list_item_t *i1 = klist->head; i1; i1 = i1->next) {
 		K *k = LIST_ITEM(i1, K);
 		if (doc_no_is_not_empty(&k->u)) {
-//					have_u = true;
-//			have_unformed_docs = true;
-		} else {
-			for (list_item_t *i2 = k->llist.head; i2; i2 = i2->next) {
-				L *l = LIST_ITEM(i2, L);
-				ffd_tlv_stlv_begin(1059, 1024);
-				ffd_tlv_add_uint8(1214, l->r);
-				char s1030[256];
-				sprintf(s1030, "%s\n\rдокумент \xfc%s",
-				    l->s ? l->s : "",
-				    k->b.s ? k->b.s : "");
-				ffd_tlv_add_string(1030, s1030);
-				ffd_tlv_add_vln(1079, l->t);
-				ffd_tlv_add_fvln(1023, 1, 0);
-				if (l->n > 0)
-					ffd_tlv_add_uint8(1199, l->n);
-					
-				if ((l->n >= 1 && l->n <= 4) || l->n >= 7) {
-					printf("ADD 1198, %lld\n", (long long)l->c);
-					ffd_tlv_add_vln(1198, l->c);
-					printf("ADD 1200, %lld\n", (long long)l->c);
-					ffd_tlv_add_vln(1200, l->c);
-				}
-				else {
-				
-					printf("NON NDS: %d\n", l->n);
-				
-				}
-				
-				if (l->i == 0) {
-					// если ИНН == 0, но есть l->z, значит перевозчик не российский.
-					if (l->z && l->z[0] != 0) {
-						ffd_tlv_add_fixed_string(1226, "000000000000", 12);
+		    continue;
+        }
+        if (k->llist.count == 0) {
+            continue;
+        }
+		for (list_item_t *i2 = k->llist.head; i2; i2 = i2->next) {
+			L *l = LIST_ITEM(i2, L);
+			ffd_tlv_stlv_begin(1059, 1024);
+			ffd_tlv_add_uint8(1214, l->r);
+			char s1030[256];
+			sprintf(s1030, "%s\n\rдокумент \xfc%s",
+			    l->s ? l->s : "",
+			    k->b.s ? k->b.s : "");
+			ffd_tlv_add_string(1030, s1030);
+			ffd_tlv_add_vln(1079, l->t);
+			ffd_tlv_add_fvln(1023, 1, 0);
+			if (l->n > 0)
+				ffd_tlv_add_uint8(1199, l->n);
+			
+			if ((l->n >= 1 && l->n <= 4) || l->n >= 7) {
+				printf("ADD 1198, %lld\n", (long long)l->c);
+				ffd_tlv_add_vln(1198, l->c);
+				printf("ADD 1200, %lld\n", (long long)l->c);
+				ffd_tlv_add_vln(1200, l->c);
+			}
+			else {
+		
+				printf("NON NDS: %d\n", l->n);
+		
+			}
+		
+			if (l->i == 0) {
+				// если ИНН == 0, но есть l->z, значит перевозчик не российский.
+				if (l->z && l->z[0] != 0) {
+					ffd_tlv_add_fixed_string(1226, "000000000000", 12);
 
-						if (_support_1222_1224_1225)
-						{
-						    ffd_tlv_add_uint8(1222, 64);
-					    	ffd_tlv_stlv_begin(1224, 512);
-					        	ffd_tlv_add_string(1225, l->z);
-					      	    if (l->h && strcmp(l->h, agent_phone) != 0) {
-					        	    ffd_tlv_add_string(1171, l->h);
-					        	}
-					   	 	ffd_tlv_stlv_end();
-						}
-
-					}
-					
-					
-				} else if (l->i != user_inn) {
-					char inn[12+1];
-					if (cheque->p > 9999999999ll)
-						sprintf(inn, "%.12ld", l->i);
-					else
-						sprintf(inn, "%.10ld", l->i);
-					ffd_tlv_add_fixed_string(1226, inn, 12);
-					
 					if (_support_1222_1224_1225)
 					{
 					    ffd_tlv_add_uint8(1222, 64);
-					    ffd_tlv_stlv_begin(1224, 512);
-					        ffd_tlv_add_string(1225, l->z);
-					        if (l->h && strcmp(l->h, agent_phone) != 0) {
-					            ffd_tlv_add_string(1171, l->h);
-					        }
-					    ffd_tlv_stlv_end();
+				    	ffd_tlv_stlv_begin(1224, 512);
+				        	ffd_tlv_add_string(1225, l->z);
+				      	    if (l->h && strcmp(l->h, agent_phone) != 0) {
+				        	    ffd_tlv_add_string(1171, l->h);
+				        	}
+				   	 	ffd_tlv_stlv_end();
 					}
+
 				}
-				
-				ffd_tlv_stlv_end();
+			
+			
+			} else if (l->i != user_inn) {
+				char inn[12+1];
+				if (cheque->p > 9999999999ll)
+					sprintf(inn, "%.12ld", l->i);
+				else
+					sprintf(inn, "%.10ld", l->i);
+				ffd_tlv_add_fixed_string(1226, inn, 12);
+			
+				if (_support_1222_1224_1225)
+				{
+				    ffd_tlv_add_uint8(1222, 64);
+				    ffd_tlv_stlv_begin(1224, 512);
+				        ffd_tlv_add_string(1225, l->z);
+				        if (l->h && strcmp(l->h, agent_phone) != 0) {
+				            ffd_tlv_add_string(1171, l->h);
+				        }
+				    ffd_tlv_stlv_end();
+				}
 			}
-			doc_count++;
+		
+			ffd_tlv_stlv_end();
 		}
+		doc_count++;
 	}
 	
     if (doc_count == 0)

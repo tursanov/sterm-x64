@@ -126,6 +126,7 @@ typedef struct K {
 #define check_k_y(k, o, r) ((k)->y->op == (o) && (k)->y->repayment == (r))
 
 extern uint8_t K_lp(K *k);
+extern uint8_t K_effective_lp(const K *k);
 
 // создание информации о документе
 extern K *K_create(void);

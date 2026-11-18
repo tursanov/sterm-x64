@@ -228,12 +228,27 @@ const char *ui_doc_get_n(ui_subcart_t *sc, ui_doc_t *d, char *buf)
     return buf;
 }
 
-static uint8_t effective_lp(const K *k)
+/* Сумма документа с учётом всех related K и направления каждого K.
+ * Для каждого участника берётся K_calc_total_sum(k) - k->a;
+ * если effective_lp(k) не совпадает с effective_lp главного 
+ * значение инвертируется. */
+int64_t D_total_sum_eff(D *d)
 {
-    uint8_t lp = K_lp((K *)k);
-    if (lp != 0)
-        return lp;                                /* есть L  как было */
-    return (k->o == 1 || k->o == 4) ? 1 : 2;      /* O=1,4  приход; O=2,3  возврат */
+    if (d == NULL || d->k == NULL)
+        return 0;
+
+    uint8_t base_lp = K_effective_lp(d->k);
+    int64_t sum = 0;
+
+    for (list_item_t *li = d->related.head; li; li = li->next) {
+        K *k = LIST_ITEM(li, K);
+        int64_t v = K_calc_total_sum(k) - k->a;
+        if (K_effective_lp(k) != base_lp)
+            v = -v;
+        sum += v;
+    }
+
+    return sum;
 }
 
 int ui_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width)
@@ -281,7 +296,7 @@ int ui_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width)
 	x += (float)col_width * fr[3];
 
 	DrawText(cart_screen, x, y, (int)((float)col_width * fr[4]),
-	         cart_fnt->max_height, printsum(s.a, buf),
+	         cart_fnt->max_height, printsum(D_total_sum_eff(d->val), buf),
 	         DT_RIGHT | DT_VCENTER);
 	
 	y += cart_fnt->max_height + CART_YGAP;
@@ -296,7 +311,7 @@ int ui_doc_draw(ui_subcart_t *sc, ui_doc_t *d, int x, int y, int col_width)
 			
 			if (k != d->val->k)
 			{
-    			char sign = effective_lp(d->val->k) == effective_lp(k) ? '+' : '-';
+    			char sign = K_effective_lp(d->val->k) == K_effective_lp(k) ? '+' : '-';
       			sprintf(buf, "(%c) %s", sign, k->d.s);
       			DrawText(cart_screen, x, y, DISCX, cart_fnt->max_height, buf, DT_LEFT | DT_VCENTER);
       			y += cart_sfnt->max_height;

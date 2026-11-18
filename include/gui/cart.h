@@ -71,6 +71,8 @@ typedef struct ui_doc_t
 	int height;
 } ui_doc_t;
 
+extern int64_t D_total_sum_eff(D *d);
+
 extern bool is_admin_mode(void);
 
 extern void ui_cart_create(void);
