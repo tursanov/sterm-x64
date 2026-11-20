@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
+#include <setjmp.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -150,7 +151,9 @@ static int prev_s_state;		/* используется при работе с окном настроек */
 bool into_on_response;			/* используется в show_error */
 
 /* Устанавливается после получения SIGTERM */
-static bool sigterm_caught = false;
+//static bool sigterm_caught = false;
+/* Используется при обработке сигнала */
+static jmp_buf jmp;
 
 /* Восстановление обработчика SIGTERM по умолчанию */
 static void restore_sigterm_handler(void)
@@ -162,10 +165,12 @@ static void restore_sigterm_handler(void)
 }
 
 /* Обработчик сигнала SIGTERM */
-static void sigterm_handler(int n __attribute__((unused)))
+static void sigterm_handler(int n)
 {
+	log_info("Получен SIGTERM (n = %d).", n);
 	restore_sigterm_handler();
-	sigterm_caught = true;
+	longjmp(jmp, RET_SIGTERM);
+//	sigterm_caught = true;
 }
 
 /* Установка обработчика сигнала SIGTERM */
@@ -1865,10 +1870,10 @@ int get_cmd(bool check_scr, bool busy)
 		{&pos_active,		handle_pos},
 		{&fa_active,		handle_fa},
 	};
-	if (sigterm_caught){
+/*	if (sigterm_caught){
 		ret_val = RET_SIGTERM;
 		return cmd_exit;
-	}
+	}*/
 	process_scr();
 	if (!process_dallas())
 		return cmd_none;
@@ -2293,7 +2298,8 @@ static inline void show_no_kkt(void){
 }
 
 /* Показать окно фискального приложения */
-static void show_fa_with_arg(int arg) {
+static void show_fa_with_arg(int arg)
+{
 	if (!cfg.has_kkt || (kkt == NULL))
 		show_no_kkt();
 	else if (!fa_active){
@@ -3638,9 +3644,9 @@ bool process_term(void)
 		int cm;
 		void (*fn)(void);
 		bool ret_val;
-	} handlers[]={
-		{cmd_help,		show_help,		true},
+	} handlers[] = {
 		{cmd_exit,		NULL,			false},
+		{cmd_help,		show_help,		true},
 		{cmd_reset,		__reset_term,		true},
 		{cmd_switch_res,	switch_term_mode,	true},
 		{cmd_enter,		send_request,		true},
@@ -3738,7 +3744,11 @@ int main(int argc, char **argv)
 	else if (ret_val == RET_VERSION)
 		ret_val = RET_NORMAL;
 	else if (create_term()){
-		while(process_term());
+		ret_val = setjmp(jmp);
+		if (ret_val == RET_NORMAL)
+			while(process_term());
+		else
+			log_info("Вызван longjmp(%d).", ret_val);
 		release_term();
 	}else
 		ret_val = RET_ERROR;
