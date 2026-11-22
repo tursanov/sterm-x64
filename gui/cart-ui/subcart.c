@@ -261,7 +261,7 @@ void doc_get_params(doc_params_t *p, __attribute__((unused)) ui_subcart_t *sc, u
     
     if (p->p == 0xff)
     {
-        p->p = K_lp(d->val->k);
+        p->p = K_effective_lp(d->val->k);
     }
     
     for (list_item_t *li = d->val->related.head; li != NULL; li = li->next)

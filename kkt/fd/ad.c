@@ -36,7 +36,7 @@ extern bool cashier_set_name(const char *name);
 #define strdup _strdup
 #endif
 
-//#define TEST_PRINT
+#define TEST_PRINT
 
 extern void cart_init();
 extern void AD_print(FILE *fd);
@@ -513,7 +513,7 @@ void K_add_sum(uint8_t p, K *k, S *s)
         }
     }
     
-    if (K_lp(k) == p)
+    if (K_effective_lp(k) == p)
     {
         S_add(s, &sk);
     }

@@ -1243,12 +1243,12 @@ bank_items_t *get_bank_items(list_t *sel)
         r->is_fast_payment = d->k->y->op == '*';
 
         int64_t sum = 0;
-        uint8_t d_lp = K_lp(d->k);
+        uint8_t d_lp = K_effective_lp(d->k);
         for (list_item_t *li1 = d->related.head; li1; li1 = li1->next)
         {
             K *k = LIST_ITEM(li1, K);
             int64_t s = K_calc_total_sum(k);
-            if (d_lp != K_lp(k))
+            if (d_lp != K_effective_lp(k))
                 s = -s;
 
             sum += s;
