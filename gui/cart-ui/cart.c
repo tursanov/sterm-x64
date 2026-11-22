@@ -1162,7 +1162,7 @@ void get_selected_docs(selected_docs_t* sd)
         if (!d->selected || d->val == NULL || d->val->k == NULL)
             continue;
         sd->main_k = d->val->k;
-        sd->p = K_lp(sd->main_k);
+        sd->p = K_effective_lp(sd->main_k);
         break;
     }
 
@@ -1872,7 +1872,11 @@ void process_docs()
     
     char type = ui_sel_subcart->val->type;
     
-    printf("process_docs start\n");
+    printf("process_docs start: type: %d, sd.has_unprocessed_bank_op: %d, sd.has_y: %d, sd.sum.e: %ld\n",
+        type,
+        sd.has_unprocessed_bank_op,
+        sd.has_y,
+        sd.sum.e);
 
     if ((type == NON_CASH_ITEMS
             || type == CANCEL_REFUND_NON_CASH_ITEMS
