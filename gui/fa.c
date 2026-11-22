@@ -187,6 +187,67 @@ const char *cashier_get_cashier() {
 	return cashier_cashier;
 }
 
+/* Приводит символ к нижнему регистру в CP866. */
+static unsigned char cp866_tolower(unsigned char c)
+{
+    if (c >= 0x80 && c <= 0x8F) return (unsigned char)(c + 0x20); /* А-П  а-п */
+    if (c >= 0x90 && c <= 0x9F) return (unsigned char)(c + 0x50); /* Р-Я  р-я */
+    if (c == 0xF0)              return 0xF1;                     /* Ё  ё */
+    if (c >= 'A' && c <= 'Z')   return (unsigned char)(c + 0x20);
+    return c;
+}
+
+/* Приводит символ к нижнему регистру в КОИ-7. */
+static unsigned char koi7_tolower(unsigned char c)
+{
+    if (c >= 0x60 && c <= 0x7F) return (unsigned char)(c - 0x20); /* А-Я  а-я */
+    if (c >= 'A' && c <= 'Z')   return (unsigned char)(c + 0x20);
+    return c;
+}
+
+/* Поиск подстроки без учёта регистра с заданной функцией tolower. */
+static bool contains_ci(const char *haystack, const char *needle,
+                        unsigned char (*tolower_fn)(unsigned char))
+{
+    if (haystack == NULL || needle == NULL)
+        return false;
+
+    size_t nlen = strlen(needle);
+    if (nlen == 0)
+        return false;
+
+    for (const char *p = haystack; *p; p++) {
+        size_t i = 0;
+        while (i < nlen) {
+            if (p[i] == 0)
+                return false;
+            unsigned char a = tolower_fn((unsigned char)p[i]);
+            unsigned char b = tolower_fn((unsigned char)needle[i]);
+            if (a != b)
+                break;
+            i++;
+        }
+        if (i == nlen)
+            return true;
+    }
+    return false;
+}
+
+/* Возвращает true, если строка содержит слово кассир (без учёта регистра)
+ * в CP866 или КОИ-7. */
+bool cashier_has_cashier_word_in_post()
+{
+    if (cashier_cashier[0] == 0)
+        return false;
+
+    /* кассир в нижнем регистре */
+    static const char cashier_cp866[] = "\xAA\xA0\xE1\xE1\xA8\xE0";
+    static const char cashier_koi7[]  = "\x4B\x41\x53\x53\x49\x52";
+
+    return contains_ci(cashier_cashier, cashier_cp866, cp866_tolower)
+        || contains_ci(cashier_cashier, cashier_koi7,  koi7_tolower);
+}
+
 /* Группы параметров настройки */
 enum {
 	FAPP_GROUP_MENU = -1,

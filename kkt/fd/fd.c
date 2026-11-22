@@ -15,6 +15,9 @@
 static char last_error[1024] = { 0 };
 bool last_cheque_process_started = false;
 
+extern bool cashier_has_cashier_word_in_post();
+extern const char *cashier_get_cashier();
+
 const char *get_doc_name(uint32_t type) {
 	switch (type) {
 		case REGISTRATION:
@@ -122,14 +125,21 @@ static uint8_t *find_pattern(
     
     if (silent)
         *silent = false;
+        
+    bool has_cashier_word_in_post = cashier_has_cashier_word_in_post();
     
-
+    printf("cashier: %s\n, has_cashier_word_in_post: %d\n",
+        cashier_get_cashier(),
+        has_cashier_word_in_post);
+    
     if (pattern_index == -1)
     {
         if (doc_type == CALC_REPORT)
             pattern_index = 0;
         else
-            pattern_index = 1;
+            pattern_index = has_cashier_word_in_post
+            ? 2
+            : 1;
     }
 
     if (doc_type == CHEQUE || doc_type == BSO
