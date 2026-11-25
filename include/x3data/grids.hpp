@@ -53,6 +53,7 @@ public:
 	time_t date() const {return _date;}
 
 	bool isNewer(const GridInfo &gi) const {return _date > gi._date;}
+	bool isSameDate(const GridInfo &gi) const {return _date == gi._date;}
 
 	bool parse(const char * name);
 	bool parse(const uint8_t * data, size_t len);

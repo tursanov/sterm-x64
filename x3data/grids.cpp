@@ -254,34 +254,28 @@ static void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &g
 		for (const auto &p1 : stored_grids){
 			if (p1.id() != p.id())
 				continue;
-			else if (p.isNewer(p1))
-				grids_to_remove.push_back(p1);
-			else if (p1.isNewer(p))
-				grids_to_remove.push_back(p1);
-			else
+			else if (p.isSameDate(p1))
 				found = true;
+			else
+				grids_to_remove.push_back(p1);
 		}
 		if (!found)
 			grids_to_create.push_back(p);
 	}
-/* Ищем разметки бланков для удаления */
-/*	for (const auto &p : stored_grids){
-		if (find_if(x3_grids.cbegin(), x3_grids.cend(),
-				[p](const GridInfo &gi) {return gi.id() == p.id();}) == x3_grids.cend())
-			grids_to_remove.push_back(p);
-	}*/
 }
 
 /* Создание списка разметок бланков для БПУ */
 static inline void check_stored_grids_sprn(const list<GridInfo> &x3_grids)
 {
-	check_stored_grids(x3_grids, grids_to_create_sprn, grids_to_remove_sprn, find_stored_grids_sprn);
+	check_stored_grids(x3_grids, grids_to_create_sprn, grids_to_remove_sprn,
+		find_stored_grids_sprn);
 }
 
 /* Создание списка разметок бланков для ККТ */
 static inline void check_stored_grids_kkt(const list<GridInfo> &x3_grids)
 {
-	check_stored_grids(x3_grids, grids_to_create_kkt, grids_to_remove_kkt, find_stored_grids_kkt);
+	check_stored_grids(x3_grids, grids_to_create_kkt, grids_to_remove_kkt,
+		find_stored_grids_kkt);
 }
 
 /* Поиск в абзаце ответа идентификаторов разметок бланков для БПУ/ККТ */
@@ -452,17 +446,6 @@ static bool store_grid(const GridInfo &gi)
 	return ret;
 }
 
-/* Удаление разметки бланка с диска */
-static bool remove_grid(const GridInfo &gi)
-{
-	static char path[PATH_MAX];
-	snprintf(path, ASIZE(path), GRIDS_FOLDER "/%s.BMP", gi.name().c_str());
-	bool ret = unlink(path) == 0;
-	if (!ret)
-		log_sys_err("Ошибка удаления разметки бланка %s:", path);
-	return ret;
-}
-
 /* Вызывается после получения ответа на запрос разметки бланка БПУ/ККТ */
 void on_response_grid(void)
 {
@@ -532,23 +515,32 @@ void on_response_grid(void)
 	}
 }
 
-/* Начало синхронизации разметок бланков с "Экспресс" */
-static bool sync_grids(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove)
+/* Удаление разметки бланка с диска */
+static bool remove_grid(const GridInfo &gi)
 {
-	if (!need_grids_update())
-		return true;
-	size_t n = 0;
-	list<GridInfo> _grids_to_create, _grids_to_remove;
-/* Сначала удаляем старые разметки бланков */
+	static char path[PATH_MAX];
+	snprintf(path, ASIZE(path), GRIDS_FOLDER "/%s.BMP", gi.name().c_str());
+	bool ret = unlink(path) == 0;
+	if (!ret)
+		log_sys_err("Ошибка удаления разметки бланка %s:", path);
+	return ret;
+}
+
+/* Удаление разметок бланков с диска */
+static int remove_grids(const list<GridInfo> &grids_to_remove)
+{
+	int ret = 0;
 	for (const auto &p : grids_to_remove){
 		if (remove_grid(p))
-			n++;
-		else
-			_grids_to_remove.push_back(p);
+			ret++;
 	}
-	grids_to_remove.assign(_grids_to_remove.cbegin(), _grids_to_remove.cend());
-/* Затем закачиваем новые */
-	if (!grids_to_create.empty())
+	return ret;
+}
+
+/* Начало синхронизации разметок бланков с "Экспресс" */
+static bool sync_grids(list<GridInfo> &grids_to_create)
+{
+	if (need_grids_update() && !grids_to_create.empty())
 		send_grid_request(grids_to_create.front());
 	return true;
 }
@@ -559,7 +551,7 @@ bool sync_grids_sprn()
 	if (need_grids_update_sprn()){
 		req_type = req_grid_sprn;
 		grids_to_create_sprn_ptr = grids_to_create_sprn.cbegin();
-		ret = sync_grids(grids_to_create_sprn, grids_to_remove_sprn);
+		ret = sync_grids(grids_to_create_sprn);
 	}else
 		ret = sync_grids_kkt();
 	return ret;
@@ -571,7 +563,7 @@ bool sync_grids_kkt()
 	if (need_grids_update_kkt()){
 		req_type = req_grid_kkt;
 		grids_to_create_kkt_ptr = grids_to_create_kkt.cbegin();
-		ret = sync_grids(grids_to_create_kkt, grids_to_remove_kkt);
+		ret = sync_grids(grids_to_create_kkt);
 	}else
 		ret = sync_icons_sprn();
 	return ret;

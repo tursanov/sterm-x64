@@ -17,7 +17,7 @@ uint32_t x3data_sync_fail = X3_SYNC_NONE;
 
 void reset_x3data_flags(void)
 {
-	x3data_sync_ok = x3data_sync_fail = 0;
+	x3data_sync_ok = x3data_sync_fail = X3_SYNC_NONE;
 }
 
 const char *get_x3data_sync_name(uint32_t what)
