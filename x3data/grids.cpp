@@ -253,7 +253,7 @@ static void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &g
 		bool found = false;
 		for (const auto &p1 : stored_grids){
 			if (p1.id() != p.id())
-				continue;
+				;
 			else if (p.isSameDate(p1))
 				found = true;
 			else
@@ -566,6 +566,48 @@ bool sync_grids_kkt()
 		ret = sync_grids(grids_to_create_kkt);
 	}else
 		ret = sync_icons_sprn();
+	return ret;
+}
+
+/* Удаление ненужных разметок */
+static int adjust_stored_grids(const list<GridInfo> &stored_grids, const list<GridInfo> &x3_grids)
+{
+	int ret = 0;
+	std::map<uint8_t, vector<GridInfo>> grids;
+/* Создаём список разметок на диске с учётом повторяющихся идентификаторов */
+	for (const auto &p : stored_grids){
+		uint8_t id = p.id();
+		auto pp = grids.find(id);
+		if (pp == grids.end())
+			grids[id].push_back(p);
+		else
+			pp->second.push_back(p);
+	}
+/* Сортируем списки разметок для каждого идентификатора по убыванию даты */
+	for (auto &p : grids){
+		if (p.second.size() > 1)
+			sort(p.second.begin(), p.second.end(), [](const auto &a, const auto &b){
+				return a.isNewer(b);
+				});
+	}
+/* Удаляем ненужные элементы */
+	for (auto &p : grids){
+		auto px3 = find_if(x3_grids.begin(), x3_grids.end(), [p](const auto &gi){
+			return gi.id() == p.first;});
+		if (px3 == x3_grids.end())
+			ret += remove_grids({p.second.begin() + 1, p.second.end()});
+		else{
+			auto &v = p.second;
+			auto pp = find_if(v.begin(), v.end(), [px3](const auto &gi){
+				return gi.isSameDate(*px3);});
+			if (pp == v.end())
+				ret += remove_grids({v.begin() + 1, v.end()});
+			else{
+				v.erase(pp);
+				ret += remove_grids({v.begin(), v.end()});
+			}
+		}
+	}
 	return ret;
 }
 

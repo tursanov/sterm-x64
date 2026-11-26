@@ -5,11 +5,13 @@
 typedef void (*InitializationNotify_t)(bool done, const char *message);
 
 #include <algorithm>
-using std::equal;
 using std::find_if;
+using std::sort;
 #include <list>
 using std::list;
 using std::pair;
+#include <map>
+//using std::map;
 #include <memory>
 using std::make_unique;
 using std::unique_ptr;
