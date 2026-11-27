@@ -1116,10 +1116,10 @@ static void init_term(bool need_init)
 	rollback_keys(true);
 	apc = false;
 	init_devices();
-	update_sprn_grids();
+/*	update_sprn_grids();
 	update_sprn_icons();
 	update_kkt_grids();
-	update_kkt_icons();
+	update_kkt_icons();*/
 	if (cfg.use_iplir)
 		iplir_start();
 }
@@ -3380,6 +3380,7 @@ static void x3data_nosync_dlg(void)
 	message_box("ВНИМАНИЕ", "Вы отказались от синхронизации данных с \"Экспресс\". "
 		"Повторная попытка синхронизации произойдёт при следующей инициализации терминала.",
 		dlg_yes, DLG_BTN_YES, al_center);
+	adjust_stored_grids();
 	redraw_term(true, main_title);
 }
 
@@ -3443,6 +3444,7 @@ void x3data_sync_report_dlg(void)
 	if (err_ptr != NULL)
 		show_error();
 	rc = message_box("СИНХРОНИЗАЦИЯ ДАНН\x9bХ", msg, dlg_yes, DLG_BTN_YES, al_center);
+	adjust_stored_grids();
 	redraw_term(true, main_title);
 }
 

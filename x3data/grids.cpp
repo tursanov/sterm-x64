@@ -135,46 +135,42 @@ bool GridInfo::parse(const uint8_t *data, size_t len)
 	return ret;
 }
 
+/* Список разметок, полученный из "Экспресс" */
+static list<GridInfo> x3_grids_sprn;
+static list<GridInfo> x3_grids_kkt;
+
 static list<GridInfo> grids_to_create_sprn;
 static list<GridInfo>::const_iterator grids_to_create_sprn_ptr = grids_to_create_sprn.cbegin();
-static list<GridInfo> grids_to_remove_sprn;
 
 static list<GridInfo> grids_to_create_kkt;
 static list<GridInfo>::const_iterator grids_to_create_kkt_ptr = grids_to_create_kkt.cbegin();
-static list<GridInfo> grids_to_remove_kkt;
 
-static void clr_grid_lists(list<GridInfo> &grids_to_create, list<GridInfo> &grids_to_remove)
+static inline void clr_grid_lst_sprn()
 {
-	grids_to_create.clear();
-	grids_to_remove.clear();
-}
-
-static inline void clr_grid_lists_sprn()
-{
-	clr_grid_lists(grids_to_create_sprn, grids_to_remove_sprn);
+	grids_to_create_sprn.clear();
 	grids_to_create_sprn_ptr = grids_to_create_sprn.cbegin();
 }
 
-static inline void clr_grid_lists_kkt()
+static inline void clr_grid_lst_kkt()
 {
-	clr_grid_lists(grids_to_create_kkt, grids_to_remove_kkt);
+	grids_to_create_kkt.clear();
 	grids_to_create_kkt_ptr = grids_to_create_kkt.cbegin();
 }
 
 static inline void clr_grid_lists()
 {
-	clr_grid_lists_sprn();
-	clr_grid_lists_kkt();
+	clr_grid_lst_sprn();
+	clr_grid_lst_kkt();
 }
 
 bool need_grids_update_sprn()
 {
-	return !grids_to_create_sprn.empty() || !grids_to_remove_sprn.empty();
+	return !grids_to_create_sprn.empty();
 }
 
 bool need_grids_update_kkt()
 {
-	return !grids_to_create_kkt.empty() || !grids_to_remove_kkt.empty();
+	return !grids_to_create_kkt.empty();
 }
 
 static regex_t reg;
@@ -242,9 +238,9 @@ static bool find_stored_grids_kkt(list<GridInfo> &stored_grids)
  * из "Экспресс" и файлов на диске.
  */
 static void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &grids_to_create,
-	list<GridInfo> &grids_to_remove, bool (*find_fn)(list<GridInfo> &))
+	bool (*find_fn)(list<GridInfo> &))
 {
-	clr_grid_lists(grids_to_create, grids_to_remove);
+	grids_to_create.clear();
 /* Создаём список разметок бланков, хранящихся в терминале */
 	list<GridInfo> stored_grids;
 	find_fn(stored_grids);
@@ -256,8 +252,6 @@ static void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &g
 				;
 			else if (p.isSameDate(p1))
 				found = true;
-			else
-				grids_to_remove.push_back(p1);
 		}
 		if (!found)
 			grids_to_create.push_back(p);
@@ -267,19 +261,18 @@ static void check_stored_grids(const list<GridInfo> &x3_grids, list<GridInfo> &g
 /* Создание списка разметок бланков для БПУ */
 static inline void check_stored_grids_sprn(const list<GridInfo> &x3_grids)
 {
-	check_stored_grids(x3_grids, grids_to_create_sprn, grids_to_remove_sprn,
-		find_stored_grids_sprn);
+	check_stored_grids(x3_grids, grids_to_create_sprn, find_stored_grids_sprn);
 }
 
 /* Создание списка разметок бланков для ККТ */
 static inline void check_stored_grids_kkt(const list<GridInfo> &x3_grids)
 {
-	check_stored_grids(x3_grids, grids_to_create_kkt, grids_to_remove_kkt,
-		find_stored_grids_kkt);
+	check_stored_grids(x3_grids, grids_to_create_kkt, find_stored_grids_kkt);
 }
 
 /* Поиск в абзаце ответа идентификаторов разметок бланков для БПУ/ККТ */
-static bool check_x3_grids(const uint8_t *data, size_t len, list<GridInfo> &x3_grids_sprn, list<GridInfo> &x3_grids_kkt)
+static bool check_x3_grids(const uint8_t *data, size_t len, list<GridInfo> &x3_grids_sprn,
+	list<GridInfo> &x3_grids_kkt)
 {
 	if ((data == NULL) || (len == 0))
 		return false;
@@ -303,7 +296,6 @@ static bool check_x3_grids(const uint8_t *data, size_t len, list<GridInfo> &x3_g
 
 bool check_x3_grids(const uint8_t *data, size_t len)
 {
-	list<GridInfo> x3_grids_sprn, x3_grids_kkt;
 	bool ret = check_x3_grids(data, len, x3_grids_sprn, x3_grids_kkt);
 	if (ret){
 		check_stored_grids_sprn(x3_grids_sprn);
@@ -521,13 +513,16 @@ static bool remove_grid(const GridInfo &gi)
 	static char path[PATH_MAX];
 	snprintf(path, ASIZE(path), GRIDS_FOLDER "/%s.BMP", gi.name().c_str());
 	bool ret = unlink(path) == 0;
-	if (!ret)
+	if (ret)
+		log_dbg("Разметка бланка %s удалена.", path);
+	else
 		log_sys_err("Ошибка удаления разметки бланка %s:", path);
 	return ret;
 }
 
 /* Удаление разметок бланков с диска */
-static int remove_grids(const list<GridInfo> &grids_to_remove)
+template <typename container>
+static int remove_grids(const container &grids_to_remove)
 {
 	int ret = 0;
 	for (const auto &p : grids_to_remove){
@@ -570,9 +565,12 @@ bool sync_grids_kkt()
 }
 
 /* Удаление ненужных разметок */
-static int adjust_stored_grids(const list<GridInfo> &stored_grids, const list<GridInfo> &x3_grids)
+static int adjust_stored_grids(const list<GridInfo> &x3_grids, bool (*find_fn)(list<GridInfo> &))
 {
+	log_dbg("%d x3_grids.", x3_grids.size());
 	int ret = 0;
+	list<GridInfo> stored_grids;
+	find_fn(stored_grids);
 	std::map<uint8_t, vector<GridInfo>> grids;
 /* Создаём список разметок на диске с учётом повторяющихся идентификаторов */
 	for (const auto &p : stored_grids){
@@ -592,22 +590,40 @@ static int adjust_stored_grids(const list<GridInfo> &stored_grids, const list<Gr
 	}
 /* Удаляем ненужные элементы */
 	for (auto &p : grids){
+		auto &v = p.second;
 		auto px3 = find_if(x3_grids.begin(), x3_grids.end(), [p](const auto &gi){
 			return gi.id() == p.first;});
 		if (px3 == x3_grids.end())
-			ret += remove_grids({p.second.begin() + 1, p.second.end()});
+			v.erase(v.begin());
 		else{
-			auto &v = p.second;
 			auto pp = find_if(v.begin(), v.end(), [px3](const auto &gi){
 				return gi.isSameDate(*px3);});
 			if (pp == v.end())
-				ret += remove_grids({v.begin() + 1, v.end()});
-			else{
+				v.erase(v.begin());
+			else
 				v.erase(pp);
-				ret += remove_grids({v.begin(), v.end()});
-			}
 		}
+		if (!v.empty())
+			ret += remove_grids(v);
 	}
+	return ret;
+}
+
+static inline int adjust_stored_grids_sprn()
+{
+	return adjust_stored_grids(x3_grids_sprn, find_stored_grids_sprn);
+}
+
+static inline int adjust_stored_grids_kkt()
+{
+	return adjust_stored_grids(x3_grids_kkt, find_stored_grids_kkt);
+}
+
+int adjust_stored_grids()
+{
+	int ret = 0;
+	ret += adjust_stored_grids_sprn();
+	ret += adjust_stored_grids_kkt();
 	return ret;
 }
 

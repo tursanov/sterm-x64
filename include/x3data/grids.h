@@ -18,6 +18,9 @@ extern bool sync_grids_sprn(void);
 extern bool sync_grids_kkt(void);
 extern void on_response_grid(void);
 
+/* Удаление ненужных разметок бланков с диска */
+extern int adjust_stored_grids(void);
+
 /* Обновление разметок бланков в БПУ */
 extern bool update_sprn_grids(void);
 /* Обновление разметок бланков в ККТ */
